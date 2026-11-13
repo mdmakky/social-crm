@@ -32,3 +32,6 @@ Open before Phase 1 can close: Android emulator login and SecureStore verificati
 
 ## Update 2026-11-13: decisions D34-D36 executed; Phase 1 remains OPEN
 Done: shared typed API client with drift guards (item 5 met at code level); second independent design review and its fixes (open redirect, 768 regression, error and touch coverage, security headers); password reset slice of Phase 2. Phase 1 stays open: Android emulator login (item 2) and SecureStore runtime (item 4) are unverified; item 6 has listed coverage gaps; no third design review. Mobile readiness is not claimed. Phase 2 has started web-first: the next slice is contacts, tags, notes and the activity timeline.
+
+## Update 2026-11-13: Contacts slice built; acceptance pending review
+Data model, API, web UI, import and export, and settings are done and tested (see roadmap and testing report). The independent review failed on a usage limit and must be rerun before Contacts acceptance can be called passed. Leads and Pipeline are not started. Phase 1 remains OPEN. Next: run the review (resume or relaunch after the limit resets at 12:20pm Asia/Dhaka), fix findings, then close Contacts acceptance.

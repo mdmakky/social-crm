@@ -49,3 +49,14 @@ Updated: 2026-11-13 (Phase 0).
 - Password reset emails are plain text only.
 - No account lockout or breached-password check on sign-in.
 - Web CSP only restricts framing, base URI, form targets and plugins; no `script-src` yet.
+
+## Contacts slice (2026-11-13)
+- Independent review of the Contacts slice is outstanding.
+- Related conversations and pipeline records are placeholders; tasks are per contact only.
+- No duplicate merge; no per-field permissions; no fuzzy search; no restore of deleted contacts.
+- `import_jobs.csv` holds raw uploaded text (admin-only) without a retention job.
+- A deleted contact keeps its notes, tasks and activity rows (hidden from every read path); erasure workflow is a later item.
+- The contact table scrolls sideways inside its own region below about 1280 px; phones use cards.
+- Lifecycle stage names are matched case-insensitively on import; unknown stages are row errors, not auto-created.
+- Phone matching compares normalized digits as written; numbers without a country prefix match only identical numbers.
+- Test data accumulates in the shared development database; the perf test removes its own rows.

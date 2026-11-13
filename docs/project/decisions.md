@@ -60,3 +60,12 @@ D1, D2, D4, D6, D7 (stack): verified by the spike on the server side; see `spike
 | D37 | Redirect targets for auth flows must be same-site paths or one of our origins; checked before Better Auth sees them | Implemented | Found by test: Better Auth followed any `redirectTo`, leaking reset tokens. |
 | D38 | Throttled and unknown-address reset requests return the normal success response | Implemented | Prevents account enumeration through rate-limit behavior. |
 | D39 | `FileMailer` is the only mail adapter until hosting is decided; production start fails closed without a provider | Implemented | D36 and D22 together. |
+
+## Contacts decisions (2026-11-13)
+| # | Decision | Status | Reason |
+|---|---|---|---|
+| D40 | Lifecycle stage is a configurable list on the contact, independent of pipeline stages; stages are archived, never deleted | Implemented | User requirement and D20; archiving keeps history and counts. |
+| D41 | Contacts are soft-deleted; duplicates are detected by normalized email or phone and warned about, never blocked | Implemented | Recoverable, privacy work comes later; duplicates may be legitimate. |
+| D42 | Edits use `expectedVersion` (optimistic concurrency) in the body, with the current record returned on conflict | Implemented | Works for web and mobile and for offline replays without silently overwriting. |
+| D43 | CSV import is upload, mapping, preview, then one atomic commit; exports neutralise spreadsheet formulas and the importer reverses that guard | Implemented | Safety plus lossless round trip. |
+| D44 | Export and import are owner and admin actions; agents and viewers cannot download or import customer data | Implemented | Data-loss prevention; matches the permission matrix. |
