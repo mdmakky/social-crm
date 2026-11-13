@@ -69,5 +69,11 @@ describe(`${ROWS.toLocaleString("en-US")} contacts`, { timeout: 120_000 }, () =>
   it("search by name substring p95 < 500 ms", async () => { expect(await measure("search name", () => call({ search: "okafor", limit: 25 }))).toBeLessThan(500); });
   it("search by email fragment p95 < 500 ms", async () => { expect(await measure("search email", () => call({ search: "person4242@", limit: 25 }))).toBeLessThan(500); });
   it("search by phone digits p95 < 500 ms", async () => { expect(await measure("search phone", () => call({ search: "5550004242", limit: 25 }))).toBeLessThan(500); });
+  // Global search (GET /search): budget p95 < 300 ms. Lives here so the two 10k-row suites never compete for the database.
+  for (const [label, q] of [["name substring", "okafor"], ["name prefix", "person42"], ["email exact", "person4242@perf.example"], ["phone digits", "5550004242"], ["company", "umbrella"], ["two chars", "pe"]] as const) {
+    it(`global search ${label} p95 < 300 ms`, async () => {
+      expect(await measure(`gsearch ${label}`, () => h.clientFor(owner).call(endpoints.search, { params: { workspaceId: W }, query: { q } }), 40)).toBeLessThan(300);
+    });
+  }
   it("search by company p95 < 500 ms", async () => { expect(await measure("search company", () => call({ search: "umbrella", limit: 25 }))).toBeLessThan(500); });
 });
