@@ -20,6 +20,7 @@ import { browserApi, errorMessage } from "@/lib/client-api";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { CURRENCIES, formatMoney, fromMinor, noun, OUTCOME_LABEL, OUTCOME_TONE, PRIORITY_LABEL, toMinor } from "@/lib/leads";
 import { cn } from "@/lib/cn";
+import { LeadTasks } from "./lead-tasks";
 
 type Activity = { id: string; kind: string; actor: { id: string; name: string } | null; data: Record<string, unknown>; occurredAt: string };
 type Transition = { id: string; fromStageId: string | null; toStageId: string; toOutcome: "open" | "won" | "lost"; actor: { id: string; name: string } | null; lostReasonId: string | null; occurredAt: string };
@@ -177,10 +178,13 @@ function Inner({ workspaceId, timeZone, role, myUserId, initial, pipelines, lost
               <Row label="Owner">{lead.owner ? <span className="inline-flex items-center gap-2"><Avatar name={lead.owner.name} />{lead.owner.name}</span> : <span className="text-fg-subtle">Unassigned</span>}</Row>
               <Row label="Source"><span className="capitalize">{lead.source}</span></Row>
               <Row label="Stage">{stage?.name ?? "—"}</Row>
+              <Row label="Next activity">{lead.nextActivityAt ? <time dateTime={lead.nextActivityAt}>{formatDateTime(lead.nextActivityAt, timeZone)}</time> : <span className="text-fg-subtle">None scheduled</span>}</Row>
               <Row label="Closed">{lead.closedAt ? <>{formatDateTime(lead.closedAt, timeZone)}{lead.outcome === "lost" && reasonName(lead.lostReasonId) ? ` · ${reasonName(lead.lostReasonId)}` : ""}</> : <span className="text-fg-subtle">Open</span>}</Row>
             </dl>
             {lead.description && <div className="border-t border-line p-4"><h3 className="mb-1 text-xs font-medium uppercase tracking-wide text-fg-subtle">Description</h3><p className="whitespace-pre-wrap break-words text-base text-fg">{lead.description}</p></div>}
           </Panel>
+
+          <LeadTasks workspaceId={workspaceId} lead={lead} members={members} myUserId={myUserId} timeZone={timeZone} canEdit={!readOnly} onChanged={refresh} />
 
           <Panel>
             <PanelHeader title="Timeline" description="Everything that happened to this record." />

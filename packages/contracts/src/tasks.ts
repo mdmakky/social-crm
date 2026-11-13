@@ -96,4 +96,9 @@ export const tasksEndpoints = {
   createTask: endpoint({ method: "POST", path: `${W}/contacts/:contactId/tasks`, body: CreateTaskBody, response: Task }),
   updateTask: endpoint({ method: "PATCH", path: `${W}/tasks/:taskId`, body: UpdateTaskBody, response: Task }),
   deleteTask: endpoint({ method: "DELETE", path: `${W}/tasks/:taskId`, response: z.undefined() }),
+  // Lead-scoped: a task may be linked to a lead (and independently to its contact via contactId).
+  listLeadTasks: endpoint({ method: "GET", path: `${W}/leads/:leadId/tasks`, response: z.array(Task) }),
+  createLeadTask: endpoint({ method: "POST", path: `${W}/leads/:leadId/tasks`, body: CreateWorkspaceTaskBody, response: Task }),
+  linkLeadTask: endpoint({ method: "PUT", path: `${W}/leads/:leadId/tasks/:taskId`, response: z.undefined() }),
+  unlinkLeadTask: endpoint({ method: "DELETE", path: `${W}/leads/:leadId/tasks/:taskId`, response: z.undefined() }),
 } as const;

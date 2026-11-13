@@ -60,6 +60,10 @@ const joined = (tx: Tx, k: SQL) =>
     .leftJoin(cr, eq(cr.id, schema.tasks.createdBy))
     .leftJoin(schema.contacts, and(eq(schema.contacts.workspaceId, schema.tasks.workspaceId), eq(schema.contacts.id, schema.tasks.contactId)));
 
+const loadLead = async (tx: Tx, workspaceId: string, id: string) => (await tx.select({ id: schema.leads.id }).from(schema.leads).where(and(eq(schema.leads.workspaceId, workspaceId), eq(schema.leads.id, id), isNull(schema.leads.deletedAt))))[0] ?? null;
+// leads.next_activity_at is kept in step by DB triggers on task_links and tasks (migration 0016).
+const linkLead = (tx: Tx, workspaceId: string, taskId: string, leadId: string) => tx.execute(sql`INSERT INTO task_links (workspace_id, task_id, entity_type, entity_id) VALUES (${workspaceId}, ${taskId}, 'lead', ${leadId}) ON CONFLICT DO NOTHING`);
+
 async function loadJoined(tx: Tx, workspaceId: string, id: string): Promise<Joined | null> {
   const [r] = await joined(tx, sql`''`).where(and(eq(schema.tasks.workspaceId, workspaceId), eq(schema.tasks.id, id), isNull(schema.tasks.deletedAt)));
   return r ?? null;
@@ -189,15 +193,17 @@ export function taskRoutes(db: Db) {
   });
 
   // ----- create -----
-  async function create(c: SC, input: { title: string; description?: string | null; dueAt?: string | null; assigneeUserId?: string | null; priority?: "low" | "normal" | "high" | "urgent"; contactId?: string | null }, scopedContact: boolean) {
+  async function create(c: SC, input: { title: string; description?: string | null; dueAt?: string | null; assigneeUserId?: string | null; priority?: "low" | "normal" | "high" | "urgent"; contactId?: string | null }, scopedContact: boolean, leadId?: string) {
     const { workspaceId, userId } = wctx(c);
     return withContext(db, wctx(c), async (tx) => {
+      if (leadId && !(await loadLead(tx, workspaceId, leadId))) return fail(c, 404, "not_found");
       if (input.contactId && !(await loadContact(tx, workspaceId, input.contactId))) return scopedContact ? fail(c, 404, "not_found") : fail(c, 400, "invalid_contact", "That contact could not be found.");
       const assignee = input.assigneeUserId === undefined ? userId : input.assigneeUserId;
       if (assignee && !(await activeMember(tx, workspaceId, assignee))) return fail(c, 400, "invalid_assignee", "The assignee must be a member of this workspace.");
       const [t] = await tx.insert(schema.tasks).values({ workspaceId, contactId: input.contactId ?? null, title: input.title, description: input.description ?? null, dueAt: input.dueAt ? new Date(input.dueAt) : null, assigneeUserId: assignee, priority: input.priority ?? "normal", createdBy: userId }).returning();
       if (assignee) await emitEvent(tx, { workspaceId, type: "task.assigned", entityType: "task", entityId: t!.id, actorUserId: userId, payload: { assigneeUserId: assignee, title: t!.title, contactId: t!.contactId ?? null } });
       await addEvent(tx, workspaceId, t!.id, userId, "created", { title: t!.title, priority: t!.priority, dueAt: t!.dueAt?.toISOString() ?? null, assignee: await person(tx, assignee), contact: input.contactId ?? null });
+      if (leadId) await linkLead(tx, workspaceId, t!.id, leadId);
       if (input.contactId) await recordActivity(tx, { workspaceId, contactId: input.contactId, kind: "task.created", actorUserId: userId, data: { taskId: t!.id, title: t!.title } });
       return c.json(taskDto((await loadJoined(tx, workspaceId, t!.id))!), 201);
     });
@@ -229,6 +235,47 @@ export function taskRoutes(db: Db) {
     const b = await body(c, CreateTaskBody);
     return b.ok ? create(c, { ...b.data, contactId: id }, true) : b.res;
   });
+
+  // ----- lead links -----
+  r.get("/leads/:leadId/tasks", async (c) => {
+    const id = c.req.param("leadId");
+    if (!isUuid(id)) return fail(c, 404, "not_found");
+    const { workspaceId } = wctx(c);
+    return withContext(db, wctx(c), async (tx) => {
+      if (!(await loadLead(tx, workspaceId, id))) return fail(c, 404, "not_found");
+      const rows = await joined(tx, sql`''`)
+        .where(and(eq(schema.tasks.workspaceId, workspaceId), isNull(schema.tasks.deletedAt), sql`EXISTS (SELECT 1 FROM task_links tl WHERE tl.workspace_id = tasks.workspace_id AND tl.task_id = tasks.id AND tl.entity_type = 'lead' AND tl.entity_id = ${id})`))
+        .orderBy(sql`CASE WHEN ${schema.tasks.status} IN ('open', 'in_progress') THEN 0 ELSE 1 END`, sql`${schema.tasks.dueAt} ASC NULLS LAST`, asc(schema.tasks.id));
+      return c.json(rows.map(taskDto));
+    });
+  });
+
+  r.post("/leads/:leadId/tasks", async (c) => {
+    if (!can(c.get("role"), "lead.edit", {}) || !can(c.get("role"), "task.edit", { isOwn: true })) return forbidden(c);
+    const id = c.req.param("leadId");
+    if (!isUuid(id)) return fail(c, 404, "not_found");
+    const b = await body(c, CreateWorkspaceTaskBody);
+    return b.ok ? create(c, b.data, false, id) : b.res;
+  });
+
+  // Link/unlink needs lead.edit and edit rights on the task itself (agents: only tasks they own or created).
+  const leadLink = (link: boolean) => async (c: SC) => {
+    if (!can(c.get("role"), "lead.edit", {})) return forbidden(c);
+    const leadId = c.req.param("leadId") ?? "";
+    const taskId = c.req.param("taskId") ?? "";
+    if (!isUuid(leadId) || !isUuid(taskId)) return fail(c, 404, "not_found");
+    const { workspaceId } = wctx(c);
+    return withContext(db, wctx(c), async (tx) => {
+      const cur = await loadJoined(tx, workspaceId, taskId);
+      if (!cur || !(await loadLead(tx, workspaceId, leadId))) return fail(c, 404, "not_found");
+      if (!mayEdit(c, cur.t)) return forbidden(c);
+      if (link) await linkLead(tx, workspaceId, taskId, leadId);
+      else await tx.execute(sql`DELETE FROM task_links WHERE workspace_id = ${workspaceId} AND task_id = ${taskId} AND entity_type = 'lead' AND entity_id = ${leadId}`);
+      return c.body(null, 204);
+    });
+  };
+  r.put("/leads/:leadId/tasks/:taskId", leadLink(true));
+  r.delete("/leads/:leadId/tasks/:taskId", leadLink(false));
 
   // ----- update, delete -----
   const dayEq = (a: Date | null, b: Date | null) => (a?.getTime() ?? null) === (b?.getTime() ?? null);
