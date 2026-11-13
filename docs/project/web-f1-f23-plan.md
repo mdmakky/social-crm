@@ -251,3 +251,11 @@ Branch `worktree-agent-aa07138a330ae2f05`. Fixed: F1, F2, F6, F10, F11, F12, F14
 - F12: Update, Rename and confirmed Delete act on the last applied or saved view (`baseView`), so Update works after the filters changed. F14: applying a view overlays columns without touching the saved personal layout.
 - Tests: `e2e/contacts-wpa-states.spec.ts` (F1, F2, F6, F11, F19, F23b), `e2e/contacts-wpa-layout.spec.ts` (F10, F15, F18, axe at 375/768/1440), extended `e2e/contacts.spec.ts` (F11, F12, F14; Export is now a button; view menu items use `.first()` because manage items repeat the view name). Full apps/web Playwright: 63 passed.
 - Not done: extra sort keys (P3, needs API); Retry for a failed Load more (error alert only).
+
+## WP-C result
+
+Fixed: F5 (preview sequence guard, controls disabled while a preview runs, Import disabled until the shown preview equals the plan, skip-invalid toggle re-runs the preview, plan reset when columns are re-checked, "Refresh preview" after a failed refresh), F8 (tag delete dialog), F13 (focus on the problem summary, "Download problem rows" CSV), F17 (archive dialog when the stage has contacts). Import API errors: 413 too_large, 429 rate_limited, 409 import_expired (with "Upload a new file"), already_committed, import_busy have specific messages; preview `warnings` are listed under "N rows will be skipped".
+
+Proof: `contacts-wpc-import.spec.ts`, `contacts-wpc-settings.spec.ts`, updated `contacts-import-settings.spec.ts` (step-3 focus now on the problem summary; tag delete via dialog). Full apps/web Playwright: 65 passed.
+
+Notes: the API preview does not change counts with `skipInvalid` (invalid rows are never in the plan), so the toggle test asserts the re-sent preview request and identical commit body, not a changed label. Problem-rows CSV lists only the first 100 (API limit). The 429 message cannot quote Retry-After (client does not expose headers). Warnings are also capped at 100 by the API.
