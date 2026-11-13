@@ -60,3 +60,9 @@ Updated: 2026-11-13 (Phase 0).
 - Lifecycle stage names are matched case-insensitively on import; unknown stages are row errors, not auto-created.
 - Phone matching compares normalized digits as written; numbers without a country prefix match only identical numbers.
 - Test data accumulates in the shared development database; the perf test removes its own rows.
+
+## Leads and pipelines (added 2026-11-13)
+- **SECURITY-READINESS BLOCKER for external users: deal value is protected by the API only.** `leads.value_minor` and `currency` are ordinary columns; row-level security cannot hide a column, so any client holding the `crm_app` database role can read them for every lead in the workspace. The API masks the value (null plus `valueHidden`) unless the caller is owner/admin or holds a per-lead grant, and tests assert this at the API and in the rendered page. There is no database-level protection. Do not claim it. Fix options: move value to a separate table with its own policy, or expose leads to the app role through a view that nulls the column. Required before any non-owner or external user.
+- No board yet (slice 4), no lead tags or custom fields, no task links on leads, no lead search provider or owner notification (slices 5 and 6).
+- Android emulator crashes on start on this machine, so no mobile behavior is runtime verified; see `android-verification.md`. The mobile app does not handle a 401 (no `onUnauthorized`).
+- Default pipelines are created at workspace creation and on the first admin visit to existing workspaces; before that, non-admins see an empty pipeline list.

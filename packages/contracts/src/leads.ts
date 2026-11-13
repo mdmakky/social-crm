@@ -19,6 +19,7 @@ export const LostReasonDto = z.object({ id: Uuid, name: z.string(), position: z.
 export type LostReasonDto = z.infer<typeof LostReasonDto>;
 
 export const PipelineList = z.object({ pipelines: z.array(PipelineDto), lostReasons: z.array(LostReasonDto) });
+export type PipelineList = z.infer<typeof PipelineList>;
 export const CreatePipelineBody = z.object({ name: z.string().trim().min(1).max(80), kind: PipelineKind, defaultCurrency: Currency.optional(), isDefault: z.boolean().optional() });
 export const UpdatePipelineBody = z.object({ name: z.string().trim().min(1).max(80).optional(), defaultCurrency: Currency.optional(), isDefault: z.literal(true).optional(), expectedVersion: z.number().int() }).refine((b) => b.name !== undefined || b.defaultCurrency !== undefined || b.isDefault !== undefined, "Nothing to update");
 export const ArchivePipelineBody = z.object({ expectedVersion: z.number().int() });
@@ -71,6 +72,7 @@ export const LeadListQuery = z.object({
 });
 export type LeadListQuery = z.input<typeof LeadListQuery>;
 export const LeadPage = z.object({ items: z.array(LeadDto), nextCursor: z.string().nullable() });
+export type LeadPage = z.infer<typeof LeadPage>;
 
 export const CreateLeadBody = z.object({
   title: z.string().trim().min(1).max(160), description: z.string().max(5000).nullable().optional(),

@@ -23,7 +23,7 @@ export const NAV: NavGroup[] = [
       { key: "contacts", label: "Contacts", icon: Contact, path: "contacts" },
       // --- track:tasks ---
       { key: "tasks", label: "Tasks", icon: CheckSquare, path: "tasks" },
-      { key: "leads", label: "Leads", icon: BarChart3, soon: true },
+      { key: "leads", label: "Leads", icon: BarChart3, path: "leads", requires: "lead.view" },
       { key: "pipeline", label: "Pipeline", icon: Kanban, soon: true },
     ],
   },
