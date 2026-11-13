@@ -39,6 +39,8 @@ jobs:
     timeout-minutes: 5
     steps:
       - name: Trigger the Render deploy hook
-        run: curl -fsS -X POST "$RENDER_DEPLOY_HOOK_URL" > /dev/null # output hidden: the URL contains a key
+        run: |
+          if [ -z "$RENDER_DEPLOY_HOOK_URL" ]; then echo "RENDER_DEPLOY_HOOK_URL is not set: nothing to deploy yet"; exit 0; fi
+          curl -fsS -X POST "$RENDER_DEPLOY_HOOK_URL" > /dev/null # output hidden: the URL contains a key
         env:
           RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
