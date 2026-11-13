@@ -46,3 +46,10 @@ D1, D2, D4, D6, D7 (stack): verified by the spike on the server side; see `spike
 | D31 | Design tokens are authored in TypeScript (`packages/design-tokens/src/tokens.ts`) and generated to CSS; no Style Dictionary | Implemented | Smallest thing that works for one platform; a React Native output can be added later from the same source. |
 | D32 | RLS pattern: `app_user_id()` and `app_workspace_id()` session settings per transaction; membership writes restricted to owners/admins in the database; audit log append-only for every role | Implemented | Defense in depth with the application permission matrix. |
 | D33 | TypeScript is 5.9.x in packages and ~6.0.3 in the mobile app (Expo template); TS 7 not adopted | Open | Align deliberately when tooling support is confirmed. |
+
+## Approvals 2026-11-13 (user)
+| # | Decision | Status | Conditions |
+|---|---|---|---|
+| D34 | Shared thin typed fetch client instead of a generated OpenAPI client | **Approved** | Shared Zod contracts; type-safe endpoint definitions; centralized auth, errors, timeouts; cookie and bearer support; one package for web and mobile; drift prevention. OpenAPI generation stays a future milestone. Roadmap item 5 renamed "Shared Typed API Client". |
+| D35 | Begin Phase 2 web-first while Phase 1 stays formally open | **Approved with conditions** | Phase 1 not marked passed; Android emulator login and SecureStore runtime verification remain mandatory; mobile compatibility preserved in all shared contracts and API changes; no mobile-readiness claim until mobile auth tests pass; second independent Phase 1 review first; blockers resolved; loading/empty/error test coverage updated in the roadmap. |
+| D36 | Complete password-reset flow in Phase 2 using the Mailer interface | **Approved** | Local development mail adapter for tests; production provider deferred with hosting (D22). Secure single-use tokens, expiry, invalidation, rate limiting, account-enumeration protection. |
