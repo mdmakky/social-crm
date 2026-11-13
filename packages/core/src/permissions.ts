@@ -1,7 +1,7 @@
 export const ROLES = ["owner", "admin", "agent", "viewer"] as const;
 export type Role = (typeof ROLES)[number];
 
-type Rule = true | false | "self" | "own" | "named";
+type Rule = true | false | "self" | "own" | "named" | "granted";
 const A = (owner: Rule, admin: Rule, agent: Rule, viewer: Rule): Record<Role, Rule> => ({ owner, admin, agent, viewer });
 
 /** Source of truth for docs/architecture/permissions.md. A string rule means "allowed when the qualifier holds". */
@@ -14,6 +14,13 @@ const MATRIX = {
   "view.share": A(true, true, false, false),
   "conversation.reply": A(true, true, true, false),
   "conversation.assign": A(true, true, "self", false),
+  "lead.view": A(true, true, true, true),
+  "lead.edit": A(true, true, true, false),
+  "lead.delete": A(true, true, false, false),
+  "lead.reopen": A(true, true, false, false),
+  /** Deal value: owner/admin always; an agent only with an explicit per-lead grant (isGranted); viewers never. */
+  "lead.value.view": A(true, true, "granted", false),
+  "lead.value.edit": A(true, true, "granted", false),
   "task.edit": A(true, true, "own", false),
   "data.import": A(true, true, false, false),
   "data.export": A(true, true, false, false),
@@ -38,12 +45,12 @@ const MATRIX = {
 
 export type Action = keyof typeof MATRIX;
 export const ACTIONS = Object.keys(MATRIX) as Action[];
-export type Qualifiers = { isSelf?: boolean; isOwn?: boolean; isNamedApprover?: boolean };
+export type Qualifiers = { isSelf?: boolean; isOwn?: boolean; isNamedApprover?: boolean; isGranted?: boolean };
 
 export function can(role: Role, action: Action, q: Qualifiers): boolean {
   const rule: Rule = MATRIX[action][role];
   if (typeof rule === "boolean") return rule;
-  return rule === "self" ? !!q.isSelf : rule === "own" ? !!q.isOwn : !!q.isNamedApprover;
+  return rule === "self" ? !!q.isSelf : rule === "own" ? !!q.isOwn : rule === "granted" ? !!q.isGranted : !!q.isNamedApprover;
 }
 
 export type MemberChange = { role: Role } | { remove: true };

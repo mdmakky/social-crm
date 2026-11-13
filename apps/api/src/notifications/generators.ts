@@ -10,6 +10,12 @@ registerGenerator("contact.owner_assigned", (e, raw) => {
   return [{ userId: p.ownerUserId, kind: "contact.owner_assigned", title: `${p.contactName} was assigned to you`, entityType: "contact", entityId: e.entityId, data: { contactName: p.contactName } }];
 });
 
+registerGenerator("lead.owner_assigned", (e, raw) => {
+  const p = raw as P<"lead.owner_assigned">;
+  if (p.ownerUserId === p.previousOwnerUserId) return [];
+  return [{ userId: p.ownerUserId, kind: "lead.owner_assigned", title: `${p.leadTitle} was assigned to you`, entityType: "lead", entityId: e.entityId, data: { leadTitle: p.leadTitle } }];
+});
+
 registerGenerator("task.assigned", (e, raw) => {
   const p = raw as P<"task.assigned">;
   return [{ userId: p.assigneeUserId, kind: "task.assigned", title: `New task: ${p.title}`, entityType: "task", entityId: e.entityId, data: { title: p.title, contactId: p.contactId ?? null } }];

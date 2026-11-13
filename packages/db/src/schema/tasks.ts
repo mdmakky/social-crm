@@ -12,7 +12,7 @@ export const taskStatus = pgEnum("task_status", ["open", "done", "in_progress", 
 /** Declaration order is the sort order (low < normal < high < urgent), so ORDER BY priority works and is indexable. */
 export const taskPriority = pgEnum("task_priority", ["low", "normal", "high", "urgent"]);
 /** Allow-list of link targets. Adding an entity is one new value here plus one CHECK/validation trigger; see docs/architecture/tasks.md. */
-export const TASK_LINK_ENTITY_TYPES = ["contact"] as const;
+export const TASK_LINK_ENTITY_TYPES = ["contact", "lead"] as const;
 
 export const tasks = pgTable(
   "tasks",

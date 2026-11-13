@@ -4,12 +4,15 @@ import { CreateWorkspaceBody, UpdateMemberBody, UpdateWorkspaceBody } from "@crm
 import { can, memberChangeAllowed, type Role } from "@crm/core";
 import { schema, user, withContext, type Db, type Tx } from "@crm/db";
 import { writeAudit } from "../audit.ts";
-import { ensureDefaultStages } from "../crm-service.ts";
+import { ensureDefaultPipeline, ensureDefaultStages } from "../crm-service.ts";
 import { contactRoutes } from "./contacts.ts";
 import { crmConfigRoutes } from "./crm-config.ts";
 import { searchRoutes } from "../search/routes.ts"; // track:search
 import type { SearchProvider } from "../search/types.ts"; // track:search
 // --- track:tasks ---
+import { leadReportRoutes } from "./lead-reports.ts";
+import { leadRoutes } from "./leads.ts";
+import { pipelineRoutes } from "./pipelines.ts";
 import { taskRoutes } from "./tasks.ts";
 import { importRoutes, type ImportHooks } from "./imports.ts";
 import { notificationRoutes } from "./notifications.ts"; // track:notifications
@@ -61,7 +64,7 @@ export function workspaceRoutes(db: Db, hooks: { import?: ImportHooks; extraSear
       return w!;
     });
     await withContext(db, { userId, workspaceId: created.id }, (tx) =>
-      Promise.all([ensureDefaultStages(tx, created.id), writeAudit(tx, { ...audit(c), workspaceId: created.id, action: "workspace.created", entityType: "workspace", entityId: created.id, summary: { name: created.name } })]).then(() => undefined),
+      Promise.all([ensureDefaultStages(tx, created.id), ensureDefaultPipeline(tx, created.id), writeAudit(tx, { ...audit(c), workspaceId: created.id, action: "workspace.created", entityType: "workspace", entityId: created.id, summary: { name: created.name } })]).then(() => undefined),
     );
     return c.json({ id: created.id, name: created.name, slug: created.slug, role: "owner" as const }, 201);
   });
@@ -174,6 +177,9 @@ export function workspaceRoutes(db: Db, hooks: { import?: ImportHooks; extraSear
   scoped.route("/", importRoutes(db, hooks.import));
   scoped.route("/", searchRoutes(db, hooks.extraSearchProviders)); // track:search
   // --- track:tasks ---
+  scoped.route("/", pipelineRoutes(db));
+  scoped.route("/", leadRoutes(db));
+  scoped.route("/", leadReportRoutes(db));
   scoped.route("/", taskRoutes(db));
   scoped.route("/", notificationRoutes(db)); // track:notifications
   r.route("/:id", scoped as unknown as Hono<{ Variables: Vars }>);

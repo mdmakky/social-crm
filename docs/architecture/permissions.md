@@ -11,6 +11,10 @@ Roles: **owner** (one or more, billing and deletion), **admin**, **agent**, **vi
 | Delete or merge contacts | yes | yes | no | no |
 | Reply, change status, add internal notes | yes | yes | yes (all conversations in workspace for MVP; per-inbox restriction R2) | no |
 | Assign conversations | yes | yes | self only | no |
+| Leads: view | all | all | all | all |
+| Leads: create/edit/move | all | all | all | no |
+| Leads: delete (soft), reopen closed | all | all | no | no |
+| Leads: deal value view/edit | all | all | only with an explicit per-lead grant | no |
 | Tasks: edit | all | all | own | no |
 | Import / export data | yes | yes | no | no |
 | Manage custom fields, tags, pipelines | yes | yes | no | no |

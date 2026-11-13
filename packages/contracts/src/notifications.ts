@@ -4,6 +4,7 @@ import { endpoint } from "./endpoint.ts";
 /** Notification kinds shipped now. A new kind = add it here + register a generator in apps/api/src/notifications/generators.ts. */
 export const NOTIFICATION_KINDS = {
   "contact.owner_assigned": { label: "Contact assigned to you", description: "Someone makes you the owner of a contact." },
+  "lead.owner_assigned": { label: "Lead assigned to you", description: "Someone makes you the owner of a lead." },
   "task.assigned": { label: "Task assigned to you", description: "Someone assigns a task to you." },
   "import.completed": { label: "Import finished", description: "A contact import you started has completed." },
 } as const;
@@ -16,6 +17,7 @@ export const NotificationKindSchema = z.enum(Object.keys(NOTIFICATION_KINDS) as 
  */
 export const EventPayloads = {
   "contact.owner_assigned": z.object({ ownerUserId: z.string(), previousOwnerUserId: z.string().nullable().optional(), contactName: z.string() }),
+  "lead.owner_assigned": z.object({ ownerUserId: z.string(), previousOwnerUserId: z.string().nullable().optional(), leadTitle: z.string() }),
   "task.assigned": z.object({ assigneeUserId: z.string(), title: z.string(), contactId: z.string().uuid().nullable().optional() }),
   "import.completed": z.object({ importedByUserId: z.string(), created: z.number().int(), updated: z.number().int(), skipped: z.number().int(), failed: z.number().int().optional() }),
 } as const satisfies Record<NotificationKind, z.ZodType>;

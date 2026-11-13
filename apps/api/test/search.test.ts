@@ -82,12 +82,12 @@ describe("global search", () => {
   it("filters by types; unknown types never appear", async () => {
     expect(ok(await search(owner, W, { q: "zed", types: "contacts" })).groups.map((g) => g.type)).toEqual(["contacts"]);
     expect(ok(await search(owner, W, { q: "zed", types: "tasks,conversations" })).groups).toEqual([]);
-    expect(ok(await search(owner, W, { q: "zed" })).groups.map((g) => g.type).sort()).toEqual(["contacts", "fakes"]);
+    expect(ok(await search(owner, W, { q: "zed" })).groups.map((g) => g.type).sort()).toEqual(["contacts", "fakes", "leads"]);
   });
   it("registers an extra provider with its own permission rule", async () => {
     const types = async (u: TestUser) => ok(await search(u, W, { q: "zed" })).groups.map((g) => g.type);
     expect(await types(agent)).toContain("fakes");
-    expect(await types(viewer)).toEqual(["contacts"]);
+    expect(await types(viewer)).toEqual(["contacts", "leads"]);
   });
   it("never leaks across workspaces and returns 404 to non-members", async () => {
     expect((await hits(owner, W, { q: "foreign" }))).toEqual([]);

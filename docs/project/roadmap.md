@@ -134,3 +134,12 @@ Core CRM per the PRD (FR-5 to FR-9, FR-30 to FR-35, FR-44) plus password reset (
 - Search is substring with trigram indexes; ranking and fuzzy matching are not implemented.
 - Not measured at 100,000 rows or over a real network; the earlier workspace, membership and audit policies still call the helper functions per row and have not been rewritten (small tables).
 - Phase 1 remains OPEN (Android emulator login and SecureStore runtime unverified).
+
+## Phase 2, slice 4: Leads and Pipeline (2026-11-13). Status: built and tested on branch `feat/leads-pipeline`; NOT merged to `main`; acceptance is the user's decision
+Code HEAD at checkpoint: `ef574f8` (branch `feat/leads-pipeline`, base `main` `ba27c75`). Full report: `docs/project/leads-pipeline-acceptance-report.md`.
+- **VERIFIED (commands ran green):** schema, forced RLS, composite FKs, append-only history, stage immutability (db tests); pipeline configuration, lead CRUD, move, close, reopen, delete, restore, list, history, deal-value grants, reporting, search provider, `lead.owner_assigned` notification, tasks link and `next_activity_at` trigger (api tests); web pipeline settings, lead list, lead detail, board with drag and drop, reports, closed Won/Lost columns (Playwright in Chromium, axe WCAG 2.2 AA, 375/768/1024/1440, reduced motion).
+- **UNVERIFIED:** touch drag on a real device, screen reader output, Firefox and Safari, dark mode, performance with 10,000 leads or 500 board cards, lead search at scale, upgrade of a database that already holds lead data.
+- **DEFERRED (by user decision):** Android runtime, login, SecureStore, session restore, logout, expired session and 401 handling; mobile Leads (slice 8). Phase 1 stays formally OPEN.
+- **BLOCKED / security-readiness blockers for external users:** deal value is protected by the API only, with no database-level protection (documented in `known-limitations.md`); Meta App Review and Business Verification; the open `cso` findings (email verification before invites, trusted client IP and authenticated rate limits, separate role for the system path); no production hosting decision.
+- **Not built in this slice:** lead tags and custom fields, UI to link an existing task to a lead, task events or audit rows for link and unlink, forecasting, AI scoring, commissions (out of scope by decision).
+Next phase: Meta Inbox. The plan and the decisions needing the user are in `docs/architecture/meta-inbox-plan.md`; no inbox code exists.

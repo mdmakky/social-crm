@@ -3,7 +3,7 @@
 Premium multi-platform Social CRM: Next.js web, Expo (React Native) Android and iOS app, shared Hono API and worker, PostgreSQL with row level security. Meta first (Messenger, Instagram, Lead Ads, Conversions API); TikTok, WhatsApp, LinkedIn later through adapters. AI and automation are foundations, human approval by default.
 
 ## Status
-Phase 1 in progress: stack spike and web shell done; Android emulator verification (deferred by the user), generated API client and forgot-password still open. Phase 2 not started. See `docs/project/progress.md` and the Phase 1 status table in `docs/project/roadmap.md`.
+Phase 1 formally OPEN (Android emulator login and SecureStore verification DEFERRED, unverified). Phase 2: Contacts, Search, Tasks, Notifications on `main`; Leads/Pipeline built on branch `feat/leads-pipeline` (not merged). Next: Meta Inbox (plan in `docs/architecture/meta-inbox-plan.md`, no code yet). See `docs/project/progress.md` and `docs/project/roadmap.md`.
 
 ## Architecture (proposed, pending approval)
 Monorepo: apps/web, apps/mobile, apps/api, apps/worker; packages/contracts, db, core, integrations, capi, ai, design-tokens. Details: `docs/architecture/architecture.md`.

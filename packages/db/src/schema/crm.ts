@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import { foreignKey, index, integer, jsonb, pgEnum, pgTable, primaryKey, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
 import { user } from "../auth-schema.ts";
 import { workspaces } from "./tenancy.ts";
+import { leads } from "./leads.ts";
 
 const id = () => uuid("id").primaryKey().default(sql`uuidv7()`);
 const workspaceId = () => uuid("workspace_id").notNull().references(() => workspaces.id);
@@ -133,6 +134,8 @@ export const activities = pgTable(
     id: id(),
     workspaceId: workspaceId(),
     contactId: uuid("contact_id").notNull(),
+    /** Set for lead timeline entries; contactId is then the lead's primary contact (activities.contact_id is NOT NULL). */
+    leadId: uuid("lead_id"),
     kind: text("kind").notNull(),
     actorType: text("actor_type").notNull().default("user"),
     actorUserId: text("actor_user_id"),
@@ -142,6 +145,8 @@ export const activities = pgTable(
   (t) => [
     foreignKey({ columns: [t.workspaceId, t.contactId], foreignColumns: [contacts.workspaceId, contacts.id] }),
     index("activities_contact_idx").on(t.workspaceId, t.contactId, t.id),
+    foreignKey({ columns: [t.workspaceId, t.leadId], foreignColumns: [leads.workspaceId, leads.id] }),
+    index("activities_lead_idx").on(t.workspaceId, t.leadId, t.id).where(sql`${t.leadId} IS NOT NULL`),
   ],
 );
 

@@ -21,6 +21,8 @@ type Props = {
   task?: Task | null;
   /** Pre-select a contact when creating. */
   defaultContact?: PickedContact | null;
+  /** When creating, also link the new task to this lead. */
+  leadId?: string;
   onSaved: (t: Task) => void;
 };
 
@@ -45,7 +47,7 @@ const initial = (t: Task | null | undefined, myUserId: string, dc: PickedContact
   contact: t ? (t.contact ? { id: t.contact.id, name: t.contact.name } : null) : dc ?? null,
 });
 
-function TaskForm({ workspaceId, members, myUserId, task, defaultContact, onSaved, close }: Omit<Props, "open" | "onOpenChange"> & { close: () => void }) {
+function TaskForm({ workspaceId, members, myUserId, task, defaultContact, leadId, onSaved, close }: Omit<Props, "open" | "onOpenChange"> & { close: () => void }) {
   const [f, setF] = React.useState<Form>(() => initial(task, myUserId, defaultContact));
   const [version, setVersion] = React.useState(task?.version ?? 1);
   const [busy, setBusy] = React.useState(false);
@@ -62,7 +64,9 @@ function TaskForm({ workspaceId, members, myUserId, task, defaultContact, onSave
     const common = { title: f.title.trim(), description: f.description.trim() || null, dueAt: fromLocalInput(f.due), priority: f.priority, assigneeUserId: f.assignee || null, contactId: f.contact?.id ?? null };
     const res = task
       ? await browserApi.call(endpoints.updateTask, { params: { workspaceId, taskId: task.id }, body: { ...common, status: f.status, expectedVersion: version } })
-      : await browserApi.call(endpoints.createWorkspaceTask, { params: { workspaceId }, body: common });
+      : leadId
+        ? await browserApi.call(endpoints.createLeadTask, { params: { workspaceId, leadId }, body: common })
+        : await browserApi.call(endpoints.createWorkspaceTask, { params: { workspaceId }, body: common });
     setBusy(false);
     if (res.ok) { onSaved(res.data); close(); return; }
     if (res.error.code === "version_conflict") { setConflict((res.error.details as { current: Task }).current); return; }
