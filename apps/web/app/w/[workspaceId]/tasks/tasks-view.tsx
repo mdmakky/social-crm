@@ -175,10 +175,10 @@ export function TasksView({ workspaceId, timeZone, role, myUserId, initial, init
 
       {notice && (
         <Alert tone="success" className="mb-3">
-          <span role="status" className="flex flex-wrap items-center gap-2">
+          <span className="flex flex-wrap items-center gap-2">
             {notice.text}
             {notice.undo && <Button size="sm" variant="secondary" onClick={() => void notice.undo!()}>Undo</Button>}
-            <Button size="sm" variant="ghost" icon aria-label="Dismiss message" className="ml-auto" onClick={() => setNotice(null)}><X /></Button>
+            <Button size="sm" variant="ghost" icon aria-label="Dismiss message" onClick={() => setNotice(null)}><X /></Button>
           </span>
         </Alert>
       )}
