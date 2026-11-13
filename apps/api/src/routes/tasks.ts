@@ -1,3 +1,4 @@
+import { emitEvent } from "../events.ts";
 import { Hono } from "hono";
 import { and, asc, desc, eq, isNull, lt, sql, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
@@ -195,6 +196,7 @@ export function taskRoutes(db: Db) {
       const assignee = input.assigneeUserId === undefined ? userId : input.assigneeUserId;
       if (assignee && !(await activeMember(tx, workspaceId, assignee))) return fail(c, 400, "invalid_assignee", "The assignee must be a member of this workspace.");
       const [t] = await tx.insert(schema.tasks).values({ workspaceId, contactId: input.contactId ?? null, title: input.title, description: input.description ?? null, dueAt: input.dueAt ? new Date(input.dueAt) : null, assigneeUserId: assignee, priority: input.priority ?? "normal", createdBy: userId }).returning();
+      if (assignee) await emitEvent(tx, { workspaceId, type: "task.assigned", entityType: "task", entityId: t!.id, actorUserId: userId, payload: { assigneeUserId: assignee, title: t!.title, contactId: t!.contactId ?? null } });
       await addEvent(tx, workspaceId, t!.id, userId, "created", { title: t!.title, priority: t!.priority, dueAt: t!.dueAt?.toISOString() ?? null, assignee: await person(tx, assignee), contact: input.contactId ?? null });
       if (input.contactId) await recordActivity(tx, { workspaceId, contactId: input.contactId, kind: "task.created", actorUserId: userId, data: { taskId: t!.id, title: t!.title } });
       return c.json(taskDto((await loadJoined(tx, workspaceId, t!.id))!), 201);
@@ -288,6 +290,7 @@ export function taskRoutes(db: Db) {
       // Keep the contact timeline and last_activity_at in step (task.created/completed/reopened existed before this feature).
       const title = patch.title ?? t.title;
       const newContact = patch.contactId !== undefined ? patch.contactId : t.contactId;
+      if (patch.assigneeUserId) await emitEvent(tx, { workspaceId, type: "task.assigned", entityType: "task", entityId: taskId, actorUserId: userId, payload: { assigneeUserId: patch.assigneeUserId, title, contactId: newContact ?? null } });
       if (patch.contactId !== undefined) {
         if (t.contactId) await recordActivity(tx, { workspaceId, contactId: t.contactId, kind: "task.unlinked", actorUserId: userId, data: { taskId, title } });
         if (patch.contactId) await recordActivity(tx, { workspaceId, contactId: patch.contactId, kind: "task.linked", actorUserId: userId, data: { taskId, title } });

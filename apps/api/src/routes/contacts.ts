@@ -5,6 +5,7 @@ import { normalizeEmail, normalizePhone, toCsv, validateCustomValues } from "@cr
 import { can } from "@crm/core/permissions";
 import { schema, user, withContext, type Db, type Tx } from "@crm/db";
 import { writeAudit } from "../audit.ts";
+import { emitEvent } from "../events.ts";
 import { activeMember, activeStages, customDefs, findDuplicates, loadContact, lockContactWrites, recordActivity, toDetail, toFieldDef, toSummaries } from "../crm-service.ts";
 import { filters, type Q } from "../contact-query.ts";
 import { actor, body, fail, forbidden, isUuid, query, wctx, type SC, type ScopedEnv } from "./scope.ts";
@@ -127,6 +128,7 @@ export function contactRoutes(db: Db) {
       const [row] = await tx.insert(schema.contacts).values({ workspaceId, name: d.name, email, emailNormalized: email, phone: d.phone ?? null, phoneNormalized: phone, company: d.company ?? null, ownerUserId: d.ownerUserId ?? null, lifecycleStageId: stageId, source: d.source ?? "manual", custom: custom.values, createdBy: userId, lastActivityAt: now }).returning();
       if (tagIds.length) await tx.insert(schema.contactTags).values(tagIds.map((tagId) => ({ workspaceId, contactId: row!.id, tagId })));
       await recordActivity(tx, { workspaceId, contactId: row!.id, kind: "contact.created", actorUserId: userId, data: { source: row!.source } });
+      if (row!.ownerUserId) await emitEvent(tx, { workspaceId, type: "contact.owner_assigned", entityType: "contact", entityId: row!.id, actorUserId: userId, payload: { ownerUserId: row!.ownerUserId, previousOwnerUserId: null, contactName: row!.name } });
       return c.json(await toDetail(tx, workspaceId, (await loadContact(tx, workspaceId, row!.id))!), 201);
     });
   });
@@ -218,6 +220,7 @@ export function contactRoutes(db: Db) {
       const names = async (ids: (string | null)[]) => { const real = ids.filter((x): x is string => !!x); const rows = real.length ? await tx.select({ id: user.id, name: user.name }).from(user).where(inArray(user.id, real)) : []; return new Map(rows.map((x) => [x.id, x.name])); };
       if (changed.length) await recordActivity(tx, { workspaceId, contactId: id, kind: "contact.updated", actorUserId: userId, data: { fields: changed } });
       if (ownerChange) { const n = await names([ownerChange.from, ownerChange.to]); await recordActivity(tx, { workspaceId, contactId: id, kind: "contact.owner_changed", actorUserId: userId, data: { from: ownerChange.from ? n.get(ownerChange.from) ?? null : null, to: ownerChange.to ? n.get(ownerChange.to) ?? null : null } }); }
+      if (ownerChange?.to) await emitEvent(tx, { workspaceId, type: "contact.owner_assigned", entityType: "contact", entityId: id, actorUserId: userId, payload: { ownerUserId: ownerChange.to, previousOwnerUserId: ownerChange.from, contactName: upd[0]!.name } });
       if (stageChange) await recordActivity(tx, { workspaceId, contactId: id, kind: "contact.lifecycle_changed", actorUserId: userId, data: stageChange });
       return c.json(await toDetail(tx, workspaceId, (await loadContact(tx, workspaceId, id))!));
     });

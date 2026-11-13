@@ -6,6 +6,7 @@ import { buildContactFromRow, contactKeys, ImportError, normalizeEmail, normaliz
 import { can } from "@crm/core/permissions";
 import { schema, user, withContext, type Db, type Tx } from "@crm/db";
 import { writeAudit } from "../audit.ts";
+import { emitEvent } from "../events.ts";
 import { activeStages, customDefs, toFieldDef } from "../crm-service.ts";
 import { WindowCounter } from "../throttle.ts";
 import { actor, body, fail, forbidden, isUuid, wctx, type SC, type ScopedEnv } from "./scope.ts";
@@ -291,6 +292,8 @@ export function importRoutes(db: Db, hooks: ImportHooks = {}) {
         // The raw file holds every contact's details; once committed it is no longer needed.
         await tx.update(schema.importJobs).set({ status: "committed", committedAt: now, csv: "", summary: { created, updated, skipped, invalid: plan.invalid.length, warnings: plan.warnings.length } }).where(and(eq(schema.importJobs.workspaceId, workspaceId), eq(schema.importJobs.id, job.id)));
         await writeAudit(tx, { ...actor(c), workspaceId, action: "data.imported", entityType: "import", entityId: job.id, summary: { filename: job.filename, created, updated, skipped } });
+        // actorUserId stays null: the importer is the intended recipient (a self-action would be filtered out).
+        await emitEvent(tx, { workspaceId, type: "import.completed", entityType: "import", entityId: job.id, actorUserId: null, payload: { importedByUserId: userId, created, updated, skipped } });
         return c.json({ importId: job.id, created, updated, skipped });
       });
     } catch (e) {
