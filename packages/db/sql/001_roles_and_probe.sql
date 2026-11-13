@@ -9,6 +9,7 @@ DO $$ BEGIN
 END $$;
 
 GRANT CONNECT ON DATABASE crm TO crm_migrator, crm_app;
+GRANT CREATE ON DATABASE crm TO crm_migrator;
 CREATE SCHEMA IF NOT EXISTS probe AUTHORIZATION crm_migrator;
 GRANT USAGE ON SCHEMA probe TO crm_app;
 
@@ -26,3 +27,9 @@ CREATE POLICY tenant_isolation ON probe.items
   WITH CHECK (workspace_id = nullif(current_setting('app.workspace_id', true), '')::uuid);
 GRANT SELECT, INSERT, UPDATE, DELETE ON probe.items TO crm_app;
 RESET ROLE;
+
+-- Migrations run as crm_migrator in schema public; crm_app gets DML only on what the migrator creates.
+GRANT USAGE, CREATE ON SCHEMA public TO crm_migrator;
+GRANT USAGE ON SCHEMA public TO crm_app;
+ALTER DEFAULT PRIVILEGES FOR ROLE crm_migrator IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO crm_app;
+ALTER DEFAULT PRIVILEGES FOR ROLE crm_migrator IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO crm_app;
