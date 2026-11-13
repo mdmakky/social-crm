@@ -35,7 +35,7 @@ const ALERTS = {
 export function Alert({ tone = "info", children, className }: { tone?: keyof typeof ALERTS; children: React.ReactNode; className?: string }) {
   const { icon: Icon, cls } = ALERTS[tone];
   return (
-    <div role={tone === "error" ? "alert" : "status"} className={cn("flex items-start gap-2 rounded-md px-3 py-2 text-sm", cls, className)}>
+    <div role={tone === "error" ? "alert" : "status"} className={cn("flex items-start gap-2 rounded-control px-3 py-2 text-sm", cls, className)}>
       <Icon className="mt-0.5 size-4 shrink-0" aria-hidden />
       <div>{children}</div>
     </div>

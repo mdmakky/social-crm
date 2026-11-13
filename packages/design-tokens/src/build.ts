@@ -1,6 +1,6 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { layout, radius, semantic, shadow, space, type } from "./tokens.ts";
+import { layout, radius, role, semantic, shadow, space, type } from "./tokens.ts";
 
 const block = (sel: string, m: Record<string, string>) => `${sel} {\n${Object.entries(m).map(([k, v]) => `  --${k}: ${v};`).join("\n")}\n}\n`;
 const css = [
@@ -11,6 +11,7 @@ const css = [
     ...Object.fromEntries(space.map((v) => [`sp-${v}`, `${v}px`])),
     ...Object.fromEntries(Object.entries(radius).map(([k, v]) => [`r-${k}`, `${v}px`])),
     "sidebar-w": `${layout.sidebar}px`, "sidebar-rail-w": `${layout.sidebarRail}px`, "topbar-h": `${layout.topbar}px`, "content-max": `${layout.contentMax}px`,
+    ...Object.fromEntries(Object.entries(role).map(([k, v]) => [k, `${v}px`])),
     "shadow-popover": shadow.popover,
   }),
   block('[data-theme="dark"]', { ...semantic.dark }),

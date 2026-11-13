@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import { tabClass, tabListClass } from "@/components/ui/tabs";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Bell, CheckCheck } from "lucide-react";
@@ -103,10 +104,10 @@ export function NotificationList({ workspaceId, timeZone, initial }: { workspace
 
   return (
     <div>
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <div role="group" aria-label="Filter notifications" className="flex gap-1">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-x-2">
+        <div role="group" aria-label="Filter notifications" data-scroll="allowed" className={`${tabListClass} mb-0 flex-1`}>
           {(["all", "unread"] as const).map((f) => (
-            <Button key={f} size="sm" variant={filter === f ? "primary" : "secondary"} aria-pressed={filter === f} onClick={() => pick(f)}>{f === "all" ? "All" : "Unread"}</Button>
+            <button key={f} type="button" className={tabClass(filter === f)} aria-pressed={filter === f} onClick={() => pick(f)}>{f === "all" ? "All" : "Unread"}</button>
           ))}
         </div>
         <Button size="sm" onClick={markAll} disabled={!hasUnread}><CheckCheck aria-hidden />Mark all as read</Button>
@@ -141,7 +142,7 @@ export function NotificationList({ workspaceId, timeZone, initial }: { workspace
                   </span>
                 </>
               );
-              const rowCls = cn("flex min-h-11 min-w-0 flex-1 items-start gap-3 rounded-md px-1 py-1 hover:bg-hover pointer-coarse:min-h-11", unread && "bg-accent-subtle/40");
+              const rowCls = cn("flex min-h-11 min-w-0 flex-1 items-start gap-3 rounded-control px-1 py-1 hover:bg-hover pointer-coarse:min-h-11", unread && "bg-accent-subtle/40");
               return (
                 <li key={n.id} data-unread={unread} className="flex items-start gap-2 px-3 py-2">
                   {href ? (

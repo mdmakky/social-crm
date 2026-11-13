@@ -12,7 +12,7 @@ import { builtNav, href } from "@/lib/nav";
 import { Kbd } from "@/components/ui/kbd";
 import type { ShellWorkspace } from "./types";
 
-const itemCls = "flex cursor-default items-center gap-2 rounded-md px-2 py-2 text-base text-fg data-[selected=true]:bg-selected data-[selected=true]:ring-1 data-[selected=true]:ring-inset data-[selected=true]:ring-accent [&_svg]:size-4 [&_svg]:text-fg-subtle";
+const itemCls = "flex cursor-default items-center gap-2 rounded-control px-2 py-2 text-base text-fg data-[selected=true]:bg-selected data-[selected=true]:ring-1 data-[selected=true]:ring-inset data-[selected=true]:ring-accent [&_svg]:size-4 [&_svg]:text-fg-subtle";
 const groupCls = "[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-fg-subtle";
 
 const MIN_CHARS = 2;
@@ -49,7 +49,7 @@ export function CommandMenu(props: Props) {
     <DialogPrimitive.Root open={props.open} onOpenChange={props.onOpenChange}>
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className="fixed inset-0 z-40 bg-fg/30" />
-        <DialogPrimitive.Content aria-label="Command menu" onOpenAutoFocus={() => { opener.current = document.activeElement as HTMLElement | null; }} onCloseAutoFocus={(e) => { e.preventDefault(); opener.current?.focus(); }} className="pop fixed left-1/2 top-[12vh] z-50 w-[calc(100vw-32px)] max-w-lg -translate-x-1/2 overflow-hidden rounded-xl border border-line bg-surface shadow-popover">
+        <DialogPrimitive.Content aria-label="Command menu" onOpenAutoFocus={() => { opener.current = document.activeElement as HTMLElement | null; }} onCloseAutoFocus={(e) => { e.preventDefault(); opener.current?.focus(); }} className="pop fixed left-1/2 top-[12vh] z-50 w-[calc(100vw-32px)] max-w-lg -translate-x-1/2 overflow-hidden rounded-card border border-line bg-surface shadow-popover">
           <DialogPrimitive.Title className="sr-only">Command menu</DialogPrimitive.Title>
           <DialogPrimitive.Description className="sr-only">Search pages and actions, then press Enter.</DialogPrimitive.Description>
           <Palette {...props} />

@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import { tabClass, tabListClass } from "@/components/ui/tabs";
 import Link from "next/link";
 import { ArrowDown, ArrowUp, ArrowUpDown, Check, CheckCircle2, FilterX, ListChecks, Plus, Search, SlidersHorizontal, X } from "lucide-react";
 import { endpoints, type Member, type Task, type TaskPage, type TaskSummary } from "@crm/contracts";
@@ -122,12 +123,12 @@ export function TasksView({ workspaceId, timeZone, role, myUserId, initial, init
         actions={canCreate ? <Button variant="primary" onClick={() => setNewOpen(true)}><Plus />New task</Button> : undefined}
       />
 
-      <div role="group" aria-label="Task views" className="mb-3 flex gap-1 overflow-x-auto pb-1" data-scroll="allowed">
+      <div role="group" aria-label="Task views" className={tabListClass} data-scroll="allowed">
         {VIEWS.map((v) => {
           const n = summary?.[COUNT_KEY[v.key]];
           const on = f.view === v.key;
           return (
-            <button key={v.key} type="button" aria-pressed={on} onClick={() => setView(v.key)} className={`inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-md border px-3 text-sm font-medium pointer-coarse:min-h-11 ${on ? "border-accent bg-accent-subtle text-accent-fg" : "border-line bg-surface text-fg-muted hover:bg-hover hover:text-fg"}`}>
+            <button key={v.key} type="button" aria-pressed={on} onClick={() => setView(v.key)} className={tabClass(on)}>
               {v.label}
               {n !== undefined && <span className={`tnum rounded-full px-1.5 text-xs ${v.key === "overdue" && n > 0 ? "bg-danger-bg text-danger-fg" : "bg-hover text-fg-muted"}`}>{n.toLocaleString("en-US")}</span>}
             </button>
@@ -136,13 +137,13 @@ export function TasksView({ workspaceId, timeZone, role, myUserId, initial, init
       </div>
 
       <div className="mb-3 flex flex-wrap items-center gap-2">
-        <div className="relative min-w-0 flex-1 basis-56 sm:max-w-sm">
+        <div className="relative min-w-0 flex-1 basis-48 sm:max-w-52">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-fg-subtle" aria-hidden />
           <Input aria-label="Search tasks" type="search" placeholder="Search title or description" className="pl-8" value={f.search ?? ""} onChange={(e) => set({ search: e.target.value || undefined })} />
         </div>
         <Button variant="secondary" className="md:hidden" aria-expanded={showFilters} onClick={() => setShowFilters((s) => !s)}><SlidersHorizontal />Filters{filtered ? " (on)" : ""}</Button>
         <div className={`${showFilters ? "flex" : "hidden"} w-full flex-wrap items-center gap-2 md:flex md:w-auto`}>
-          <Select aria-label="Assignee" className="w-auto min-w-32" value={f.assignee ?? ""} onChange={(e) => set({ assignee: e.target.value || undefined })}>
+          <Select aria-label="Assignee" className="w-auto" value={f.assignee ?? ""} onChange={(e) => set({ assignee: e.target.value || undefined })}>
             <option value="">Anyone</option>
             <option value="me">Assigned to me</option>
             <option value="unassigned">Unassigned</option>
@@ -158,12 +159,12 @@ export function TasksView({ workspaceId, timeZone, role, myUserId, initial, init
             <option value="urgent,high">Urgent and high</option>
             {(["urgent", "high", "normal", "low"] as const).map((p) => <option key={p} value={p}>{PRIORITY_LABEL[p]}</option>)}
           </Select>
-          <div className="w-60 max-w-full">
+          <div className="w-48 max-w-full">
             {!f.contactId && <label htmlFor="task-filter-contact" className="sr-only">Filter by contact</label>}
             <ContactPicker id="task-filter-contact" workspaceId={workspaceId} value={f.contactId ? { id: f.contactId, name: f.contactName ?? "Contact" } : null} onChange={(c) => set({ contactId: c?.id, contactName: c?.name })} />
           </div>
-          <label className="flex items-center gap-1.5 text-sm text-fg-muted">Due from<Input aria-label="Due from" type="date" className="w-auto" value={f.dueFrom ?? ""} onChange={(e) => set({ dueFrom: e.target.value || undefined })} /></label>
-          <label className="flex items-center gap-1.5 text-sm text-fg-muted">to<Input aria-label="Due to" type="date" className="w-auto" value={f.dueTo ?? ""} onChange={(e) => set({ dueTo: e.target.value || undefined })} /></label>
+          <label className="flex items-center gap-1.5 text-sm text-fg-muted">Due from<Input aria-label="Due from" type="date" className="w-36" value={f.dueFrom ?? ""} onChange={(e) => set({ dueFrom: e.target.value || undefined })} /></label>
+          <label className="flex items-center gap-1.5 text-sm text-fg-muted">to<Input aria-label="Due to" type="date" className="w-36" value={f.dueTo ?? ""} onChange={(e) => set({ dueTo: e.target.value || undefined })} /></label>
           {filtered && <Button variant="ghost" onClick={clear}><FilterX />Clear</Button>}
         </div>
         <div className="ml-auto">
@@ -287,7 +288,7 @@ function CheckBox({ t, allowed, onToggle }: { t: Task; allowed: boolean; onToggl
       onClick={() => { if (allowed) onToggle(t); }}
       className={`flex size-8 shrink-0 items-center justify-center rounded pointer-coarse:size-11 ${allowed ? "" : "cursor-not-allowed opacity-50"}`}
     >
-      <span className={`flex size-5 items-center justify-center rounded border ${done ? "border-accent bg-accent text-on-accent" : "border-line-strong bg-surface"}`}>{done && <Check className="size-3.5" aria-hidden />}</span>
+      <span className={`flex size-5 items-center justify-center rounded border ${done ? "border-accent bg-accent text-on-accent" : "border-line-control bg-surface"}`}>{done && <Check className="size-3.5" aria-hidden />}</span>
     </button>
   );
 }

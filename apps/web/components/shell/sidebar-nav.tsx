@@ -27,7 +27,7 @@ export function SidebarNav({ workspaceId, role, compact, onNavigate }: { workspa
                 onClick={onNavigate}
                 aria-current={active ? "page" : undefined}
                 aria-label={compact ? item.label : undefined}
-                className={cn("group flex h-8 items-center gap-2.5 rounded-md px-2 text-base font-medium pointer-coarse:h-11", compact && "justify-center", active ? "bg-selected text-accent-fg" : "text-fg-muted hover:bg-hover hover:text-fg")}
+                className={cn("group flex h-8 items-center gap-2.5 rounded-control px-2 text-base font-medium pointer-coarse:h-11", compact && "justify-center", active ? "bg-selected text-accent-fg" : "text-fg-muted hover:bg-hover hover:text-fg")}
               >
                 <Icon className={cn("size-4 shrink-0", active ? "text-accent-fg" : "text-fg-subtle group-hover:text-fg-muted")} />
                 {!compact && <span className="truncate">{item.label}</span>}
@@ -39,7 +39,7 @@ export function SidebarNav({ workspaceId, role, compact, onNavigate }: { workspa
       ))}
       {!compact && planned.length > 0 && (
         <details className="group">
-          <summary className="flex h-8 cursor-pointer list-none items-center gap-1 rounded-md px-2 text-xs font-medium text-fg-subtle hover:bg-hover pointer-coarse:h-11 [&::-webkit-details-marker]:hidden">
+          <summary className="flex h-8 cursor-pointer list-none items-center gap-1 rounded-control px-2 text-xs font-medium text-fg-subtle hover:bg-hover pointer-coarse:h-11 [&::-webkit-details-marker]:hidden">
             <ChevronRight className="size-3.5 transition-transform group-open:rotate-90" aria-hidden />
             Coming soon
           </summary>

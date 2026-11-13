@@ -3,7 +3,7 @@ import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Check, ChevronDown, Clock, MessageSquare, MoreHorizontal, Pencil, Plus, Trash2, Workflow, X } from "lucide-react";
-import { endpoints, type ActivityItem, type ContactDetail, type CustomField, type DuplicateCandidate, type LifecycleStage, type Member, type Note, type Role, type Tag, type Task } from "@crm/contracts";
+import { endpoints, type ActivityItem, type ContactDetail, type CustomField, type DuplicateCandidate, type LifecycleStage, type Member, type Note, type Role, type LeadDto, type PipelineDto, type Tag, type Task } from "@crm/contracts";
 import { can } from "@crm/core/permissions";
 import { CustomFieldInput } from "@/components/contacts/custom-field-input";
 import { Avatar } from "@/components/ui/avatar";
@@ -18,10 +18,11 @@ import { Alert, EmptyState } from "@/components/ui/states";
 import { browserApi, errorMessage } from "@/lib/client-api";
 import { activityText, relativeTime, sourceLabel, SOURCE_LABEL, TAG_TONE } from "@/lib/contacts";
 import { formatDateTime } from "@/lib/format";
+import { formatMoney, OUTCOME_LABEL, OUTCOME_TONE } from "@/lib/leads";
 
 type Props = {
   workspaceId: string; role: Role; timeZone: string; myUserId: string;
-  contact: ContactDetail; notes: Note[]; activity: { items: ActivityItem[]; nextCursor: string | null }; tasks: Task[];
+  contact: ContactDetail; deals: { items: LeadDto[]; pipelines: PipelineDto[] } | null; notes: Note[]; activity: { items: ActivityItem[]; nextCursor: string | null }; tasks: Task[];
   allTags: Tag[]; stages: LifecycleStage[]; members: Member[]; fields: CustomField[];
   perms: { edit: boolean; delete: boolean };
 };
@@ -102,8 +103,24 @@ export function ContactDetailView(props: Props) {
             <EmptyState icon={MessageSquare} title="Conversations are not available yet" description="The unified inbox is planned for Phase 4. Nothing is stored for this contact until then." className="py-8" />
           </Panel>
           <Panel>
-            <PanelHeader title="Pipeline records" />
-            <EmptyState icon={Workflow} title="Pipeline records are not available yet" description="Leads and pipelines are not built yet (planned for Phase 2). The lifecycle stage above is separate from any pipeline." className="py-8" />
+            <PanelHeader title="Deals" description={props.deals?.items.length ? `${props.deals.items.length} linked` : undefined} />
+            {!props.deals ? (
+              <EmptyState icon={Workflow} title="Deals are not shown for your role" description="Ask an owner or admin for access to leads and pipelines." className="py-8" />
+            ) : props.deals.items.length === 0 ? (
+              <EmptyState icon={Workflow} title="No deals yet" description="Deals created for this contact show here. The lifecycle stage above is separate from any pipeline." className="py-8" action={<Link href={`/w/${workspaceId}/pipeline`} className="text-sm font-medium text-accent-fg hover:underline">Open pipeline</Link>} />
+            ) : (
+              <ul>
+                {props.deals.items.map((l) => (
+                  <li key={l.id} className="flex items-center gap-3 border-b border-line-card px-4 py-2.5 last:border-b-0">
+                    <div className="min-w-0 flex-1">
+                      <Link href={`/w/${workspaceId}/leads/${l.id}`} className="block truncate text-base font-medium text-fg hover:underline">{l.title}</Link>
+                      <p className="truncate text-xs text-fg-subtle">{props.deals!.pipelines.find((x) => x.id === l.pipelineId)?.stages.find((x) => x.id === l.stageId)?.name ?? "Stage"}{l.valueMinor !== null && l.currency ? ` · ${formatMoney(l.valueMinor, l.currency)}` : ""}</p>
+                    </div>
+                    <Badge tone={OUTCOME_TONE[l.outcome]}>{OUTCOME_LABEL[l.outcome]}</Badge>
+                  </li>
+                ))}
+              </ul>
+            )}
           </Panel>
         </div>
       </div>
@@ -324,7 +341,7 @@ function NotesPanel({ notes, setNotes, p, role, myUserId, canEdit, timeZone, onC
             {notes.map((n) => {
               const mine = can(role, "note.edit", { isOwn: n.author.id === myUserId });
               return (
-                <li key={n.id} className="rounded-lg bg-subtle p-3">
+                <li key={n.id} className="rounded-card bg-subtle p-3">
                   <div className="mb-1 flex items-center gap-2 text-sm">
                     <Avatar name={n.author.name} size="xs" />
                     <span className="font-medium text-fg">{n.author.name}</span>
@@ -431,7 +448,7 @@ function TasksPanel({ tasks, setTasks, p, canEdit, role, myUserId, members, time
               const mine = can(role, "task.edit", { isOwn: t.assignee?.id === myUserId || t.createdBy?.id === myUserId });
               return (
                 <li key={t.id} className="flex items-start gap-2">
-                  <button type="button" role="checkbox" aria-checked={t.status === "done"} aria-label={`${t.status === "done" ? "Reopen" : "Complete"}: ${t.title}`} disabled={!mine} onClick={() => void toggle(t)} className={`mt-0.5 flex size-5 shrink-0 items-center justify-center rounded border pointer-coarse:size-7 ${t.status === "done" ? "border-accent bg-accent text-on-accent" : "border-line-strong bg-surface"} disabled:opacity-50`}>
+                  <button type="button" role="checkbox" aria-checked={t.status === "done"} aria-label={`${t.status === "done" ? "Reopen" : "Complete"}: ${t.title}`} disabled={!mine} onClick={() => void toggle(t)} className={`mt-0.5 flex size-5 shrink-0 items-center justify-center rounded border pointer-coarse:size-7 ${t.status === "done" ? "border-accent bg-accent text-on-accent" : "border-line-control bg-surface"} disabled:opacity-50`}>
                     {t.status === "done" && <Check className="size-3.5" aria-hidden />}
                   </button>
                   <div className="min-w-0 flex-1">

@@ -12,9 +12,9 @@ export function WorkspaceSwitcher({ current, all, compact }: { current: ShellWor
     <DropdownMenu>
       <DropdownMenuTrigger
         aria-label={compact ? `Switch workspace, current: ${current.name}` : undefined}
-        className={cn("flex w-full items-center gap-2 rounded-md p-1.5 text-left hover:bg-hover data-[state=open]:bg-hover", compact && "justify-center")}
+        className={cn("flex w-full items-center gap-2 rounded-control p-1.5 text-left hover:bg-hover data-[state=open]:bg-hover", compact && "justify-center")}
       >
-        <Avatar name={current.name} size="md" className="rounded-md" />
+        <Avatar name={current.name} size="md" className="rounded-control" />
         {!compact && (
           <>
             <span className="min-w-0 flex-1">

@@ -19,6 +19,10 @@ export const semantic = {
     "bg-selected": p.accent[50],
     "line": p.neutral[200],
     "line-strong": p.neutral[300],
+    /** Role tokens: one value per UI role, so a single edit restyles every screen. */
+    "line-control": p.neutral[300],
+    "line-card": p.neutral[200],
+    "bg-row-hover": p.neutral[25],
     "fg": p.neutral[900],
     "fg-muted": p.neutral[600],
     "fg-subtle": p.neutral[500],
@@ -45,6 +49,9 @@ export const semantic = {
     "bg-selected": p.dark.accentBg,
     "line": p.dark.line,
     "line-strong": "#3A404C",
+    "line-control": "#3A404C",
+    "line-card": p.dark.line,
+    "bg-row-hover": p.dark.raised,
     "fg": p.dark.text,
     "fg-muted": p.dark.muted,
     "fg-subtle": "#8E96A5",
@@ -73,3 +80,6 @@ export const space = [0, 4, 8, 12, 16, 20, 24, 32, 40, 48, 64] as const;
 export const radius = { sm: 4, md: 6, lg: 8, xl: 12 } as const;
 export const layout = { sidebar: 248, sidebarRail: 56, topbar: 52, contentMax: 1120 } as const;
 export const shadow = { popover: "0 8px 24px rgb(22 24 29 / 0.10), 0 1px 3px rgb(22 24 29 / 0.06)" } as const;
+
+/** Role dimensions (px). Components read these via CSS variables; never hardcode a radius or control height. */
+export const role = { "radius-control": radius.md, "radius-card": radius.lg, "control-h": 32, "control-h-touch": 44, "row-h": 44, "page-gutter": 32, "page-gap": 24 } as const;

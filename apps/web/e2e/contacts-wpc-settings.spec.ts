@@ -2,7 +2,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 import { seedContacts, signUpAndCreate } from "./helpers";
 
-const stagesPanel = (page: Page) => page.getByRole("heading", { name: "Lifecycle stages" }).locator("xpath=ancestor::div[contains(@class,'rounded-xl')][1]");
+const stagesPanel = (page: Page) => page.getByRole("heading", { name: "Lifecycle stages" }).locator("xpath=ancestor::div[contains(@class,'rounded-card')][1]");
 const err500 = { status: 500, contentType: "application/json", body: "{}" };
 
 test.describe("contact settings confirmations", () => {

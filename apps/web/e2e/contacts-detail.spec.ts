@@ -68,7 +68,7 @@ test.describe("contact detail", () => {
     const [id] = await seedContacts(page, workspaceId, [{ name: "Ivan Petrov" }]);
     await page.goto(`/w/${workspaceId}/contacts/${id}`);
     await expect(page.getByRole("heading", { name: "Conversations are not available yet" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Pipeline records are not available yet" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "No deals yet" })).toBeVisible();
     await expect(page.getByText(/will appear here/)).toHaveCount(0);
     await expect(page.getByText(/separate from any pipeline/)).toBeVisible();
   });

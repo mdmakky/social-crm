@@ -172,7 +172,7 @@ function Inner({ workspaceId, pipelines, lostReasons, current, initialLeads, won
 function Column({ stage, count, total, currency, dragging, children }: { stage: StageDto; count: number; total: number; currency: string; dragging: boolean; children: React.ReactNode }) {
   const { setNodeRef, isOver } = useDroppable({ id: stage.id });
   return (
-    <section ref={setNodeRef} data-column={stage.id} aria-label={`${stage.name}, ${count} cards`} className={cn("flex w-72 shrink-0 flex-col rounded-xl border bg-subtle transition-colors duration-150", isOver ? "border-accent bg-accent-subtle/40" : "border-line", dragging && !isOver && "border-dashed")}>
+    <section ref={setNodeRef} data-column={stage.id} aria-label={`${stage.name}, ${count} cards`} className={cn("flex shrink-0 flex-col rounded-card border bg-subtle transition-[width,colors] duration-150", count === 0 && !dragging ? "w-56" : "w-72", isOver ? "border-accent bg-accent-subtle/40" : "border-line-card", dragging && !isOver && "border-dashed")}>
       <header className="flex items-baseline justify-between gap-2 px-3 pb-1 pt-2.5">
         <h2 className="truncate text-sm font-semibold text-fg">{stage.name}</h2>
         <span className="shrink-0 text-xs tabular-nums text-fg-subtle">{count}</span>
@@ -188,11 +188,11 @@ function Terminal({ stage, workspaceId, outcome, closed, icon, dragging }: { sta
   const { setNodeRef, isOver } = useDroppable({ id: stage.id });
   const shown = closed.slice(0, 5);
   return (
-    <section ref={setNodeRef} aria-label={`${stage.name}: drop to mark as ${stage.name.toLowerCase()}`} className={cn("flex min-h-24 flex-1 flex-col gap-1.5 rounded-xl border-2 border-dashed p-2.5 text-sm transition-colors duration-150", isOver ? "border-accent bg-accent-subtle text-accent-fg" : dragging ? "border-line-strong text-fg-muted" : "border-line text-fg-muted")}>
+    <section ref={setNodeRef} aria-label={`${stage.name}: drop to mark as ${stage.name.toLowerCase()}`} className={cn("flex min-h-24 flex-1 flex-col gap-1.5 rounded-card border-2 border-dashed p-2.5 text-sm transition-colors duration-150", isOver ? "border-accent bg-accent-subtle text-accent-fg" : dragging ? "border-line-control text-fg-muted" : "border-line text-fg-muted")}>
       <h2 className="flex items-center justify-between gap-1.5 font-semibold text-fg"><span className="inline-flex items-center gap-1.5">{icon}{stage.name}</span><span className="text-xs font-normal tabular-nums text-fg-subtle" title="Closed in the last 30 days">{closed.length}</span></h2>
       {dragging ? <p className="py-2 text-center text-xs">Drop to close</p> : shown.length === 0 ? <p className="py-1 text-xs text-fg-subtle">None in the last 30 days. Drag a card here to close it.</p> : (
         <ul className="flex flex-col gap-1">
-          {shown.map((l) => <li key={l.id}><Link href={`/w/${workspaceId}/leads/${l.id}`} className="block truncate rounded-md bg-surface px-2 py-1.5 text-xs text-fg hover:bg-hover">{l.title}</Link></li>)}
+          {shown.map((l) => <li key={l.id}><Link href={`/w/${workspaceId}/leads/${l.id}`} className="block truncate rounded-control bg-surface px-2 py-1.5 text-xs text-fg hover:bg-hover">{l.title}</Link></li>)}
         </ul>
       )}
       {!dragging && <Link href={`/w/${workspaceId}/leads?status=${outcome}`} className="mt-auto pt-1 text-xs text-accent-fg underline underline-offset-2">View all {stage.name.toLowerCase()}{closed.length > shown.length ? ` (${closed.length} recent)` : ""}</Link>}
@@ -202,7 +202,7 @@ function Terminal({ stage, workspaceId, outcome, closed, icon, dragging }: { sta
 
 function CardBody({ lead, workspaceId, overlay, handle }: { lead: LeadDto; workspaceId: string; overlay?: boolean; handle?: React.ReactNode }) {
   return (
-    <div className={cn("rounded-lg border border-line bg-surface p-2.5 text-sm", overlay && "w-72 rotate-1 shadow-popover")}>
+    <div className={cn("rounded-card border border-line bg-surface p-2.5 text-sm", overlay && "w-72 rotate-1 shadow-popover")}>
       <div className="flex items-start gap-1">
         {handle}
         <Link href={`/w/${workspaceId}/leads/${lead.id}`} className="min-w-0 flex-1 break-words font-medium text-fg hover:text-accent-fg" tabIndex={overlay ? -1 : 0}>{lead.title}</Link>

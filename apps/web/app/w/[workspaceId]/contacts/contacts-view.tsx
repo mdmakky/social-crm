@@ -290,10 +290,11 @@ function cell(col: ContactColumn, c: ContactSummary, workspaceId: string, timeZo
         </div>
       );
     case "lifecycle": return <Stage name={c.lifecycleStage.name} />;
-    case "owner": return c.owner ? <span className="inline-flex items-center gap-2"><Avatar name={c.owner.name} size="xs" /><span>{c.owner.name}</span></span> : <span className="text-fg-subtle">Unassigned</span>;
-    case "tags": return c.tags.length ? <span className="inline-flex items-center gap-1">{c.tags.slice(0, 2).map((t) => <Badge key={t.id} tone={TAG_TONE[t.color]}>{t.name}</Badge>)}{c.tags.length > 2 && <span className="text-xs text-fg-subtle" title={c.tags.slice(2).map((t) => t.name).join(", ")}>+{c.tags.length - 2}</span>}</span> : <span className="text-fg-subtle">None</span>;
-    case "source": return <span className="text-fg-muted">{sourceLabel(c.source)}</span>;
-    case "lastActivity": return <time dateTime={c.lastActivityAt ?? undefined} suppressHydrationWarning className="tnum text-fg-muted">{c.lastActivityAt ? relativeTime(c.lastActivityAt, timeZone) : "None"}</time>;
+    case "owner": return c.owner ? <span className="inline-flex items-center gap-2"><Avatar name={c.owner.name} size="xs" /><span>{c.owner.name}</span></span> : <span className="text-sm text-fg-subtle">Unassigned</span>;
+    case "tags": return c.tags.length ? <span className="inline-flex items-center gap-1">{c.tags.slice(0, 2).map((t) => <Badge key={t.id} tone={TAG_TONE[t.color]}>{t.name}</Badge>)}{c.tags.length > 2 && <span className="text-xs text-fg-subtle" title={c.tags.slice(2).map((t) => t.name).join(", ")}>+{c.tags.length - 2}</span>}</span> : <span className="text-sm text-fg-subtle">None</span>;
+    // The default source is low-signal, so it recedes; any other source reads at normal strength.
+    case "source": return <span className={c.source === "manual" ? "text-sm text-fg-subtle" : "text-sm text-fg"}>{sourceLabel(c.source)}</span>;
+    case "lastActivity": return <time dateTime={c.lastActivityAt ?? undefined} suppressHydrationWarning className="tnum text-sm text-fg-muted">{c.lastActivityAt ? relativeTime(c.lastActivityAt, timeZone) : "None"}</time>;
     case "created": return <time dateTime={c.createdAt} className="tnum text-fg-muted">{formatDate(c.createdAt, timeZone)}</time>;
   }
 }
@@ -380,7 +381,7 @@ function ColumnsDialog({ open, onOpenChange, columns, onChange }: { open: boolea
         <p role="status" className="sr-only">{note}</p>
         <ul ref={list} className="flex flex-col gap-1">
           {columns.map((c, i) => (
-            <li key={c} className="flex items-center gap-2 rounded-md px-1 py-0.5">
+            <li key={c} className="flex items-center gap-2 rounded-control px-1 py-0.5">
               <span className="flex-1 text-base text-fg">{COLUMN_LABEL[c]}</span>
               <Button variant="ghost" icon size="sm" data-col={c} data-act="up" aria-label={`Move ${COLUMN_LABEL[c]} up`} disabled={i === 0} onClick={() => move(i, -1)}><ArrowUp /></Button>
               <Button variant="ghost" icon size="sm" data-col={c} data-act="down" aria-label={`Move ${COLUMN_LABEL[c]} down`} disabled={i === columns.length - 1} onClick={() => move(i, 1)}><ArrowDown /></Button>
@@ -388,7 +389,7 @@ function ColumnsDialog({ open, onOpenChange, columns, onChange }: { open: boolea
             </li>
           ))}
           {hidden.map((c) => (
-            <li key={c} className="flex items-center gap-2 rounded-md px-1 py-0.5">
+            <li key={c} className="flex items-center gap-2 rounded-control px-1 py-0.5">
               <span className="flex-1 text-base text-fg-muted">{COLUMN_LABEL[c]}</span>
               <Button variant="secondary" size="sm" className="w-20" data-col={c} data-act="show" onClick={() => apply([...columns, c], `${c}:hide`, `${COLUMN_LABEL[c]} shown`)}>Show</Button>
             </li>

@@ -34,6 +34,7 @@ test("pipeline settings: add, rename, reorder with buttons, archive a stage with
 
   await page.getByRole("button", { name: "Move Demo up" }).click();
   await expect(stages.getByRole("listitem").nth(4)).toContainText("Demo");
+  await expect(page.getByRole("status").filter({ hasText: "Stage order saved." }).first()).toBeVisible(); // the move is optimistic; reload only after the save finished
   await page.reload();
   await expect(page.getByRole("list", { name: "Sales stages" }).getByRole("listitem").nth(4)).toContainText("Demo"); // persisted
 

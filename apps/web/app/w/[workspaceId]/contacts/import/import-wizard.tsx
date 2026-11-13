@@ -121,7 +121,7 @@ export function ImportWizard({ workspaceId }: { workspaceId: string }) {
           <h2 ref={headingRef} tabIndex={-1} className="text-md font-semibold text-fg outline-none">Choose a CSV file</h2>
           <p className="mt-1 text-sm text-fg-muted">Up to 5,000 rows and 5 MB. The first row must be column names. Commas, semicolons and tabs all work.</p>
           <div className="mt-4 flex flex-wrap items-center gap-3">
-            <label className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md bg-accent px-3 text-base font-medium text-on-accent hover:bg-accent-hover pointer-coarse:h-11 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-focus">
+            <label className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-control bg-accent px-3 text-base font-medium text-on-accent hover:bg-accent-hover pointer-coarse:h-11 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-focus">
               <FileUp className="size-4" aria-hidden />
               {busy ? "Reading file…" : "Choose file"}
               <input type="file" accept=".csv,text/csv,text/plain" className="sr-only" disabled={busy} onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; void onFile(f); }} aria-label="CSV file" />
@@ -174,7 +174,7 @@ export function ImportWizard({ workspaceId }: { workspaceId: string }) {
           </Panel>
 
           {preview.invalid > 0 && (
-            <div ref={summaryRef} role="alert" tabIndex={-1} className="rounded-xl border border-line bg-danger-bg p-4 text-danger-fg">
+            <div ref={summaryRef} role="alert" tabIndex={-1} className="rounded-card border border-line bg-danger-bg p-4 text-danger-fg">
               <h3 className="flex items-center gap-2 text-base font-semibold"><AlertCircle className="size-4" aria-hidden />{preview.invalid} {preview.invalid === 1 ? "row has" : "rows have"} problems</h3>
               <ul className="mt-2 max-h-56 overflow-y-auto text-sm">
                 {preview.errors.map((e) => <li key={e.row}><span className="font-medium">Row {e.row + 1}:</span> {e.messages.join("; ")}</li>)}

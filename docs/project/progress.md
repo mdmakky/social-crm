@@ -41,3 +41,6 @@ Branch `feat/leads-pipeline`, code HEAD `ef574f8`. Slices 0 to 7 of the approved
 
 ## Update 2026-11-13: Leads and Pipeline merged to main
 Merge commit `50bf5b6` (feature branch `feat/leads-pipeline`, code HEAD `ef574f8`). Fresh-database and upgrade-from-0013 migration checks passed (details in `leads-pipeline-acceptance-report.md`). Android remains DEFERRED / UNVERIFIED. Meta Inbox is planned only (`docs/architecture/meta-inbox-plan.md`), no implementation.
+
+## Update 2026-11-13: UX track (Quiet Precision) applied to the web app
+Role tokens, Home dashboard, settings sub-nav, shared tabs, contacts value hierarchy, contact Deals panel and notifications restyled. Details and evidence: `docs/design/ux-track.md`. Phase status unchanged. Meta Inbox Slice 3 not started.

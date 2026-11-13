@@ -143,7 +143,7 @@ function Inner({ initialOutcome, workspaceId, myUserId, pipelines, initial, memb
           <ul className="flex flex-col gap-2 md:hidden" aria-label="Leads">
             {page.items.map((l) => (
               <li key={l.id}>
-                <Link href={href(l)} className="block rounded-xl border border-line bg-surface p-3 active:bg-hover">
+                <Link href={href(l)} className="block rounded-card border border-line bg-surface p-3 active:bg-hover">
                   <div className="flex items-start justify-between gap-2"><span className="min-w-0 break-words font-medium text-fg">{l.title}</span>{stageBadge(l)}</div>
                   <div className="mt-1 text-sm text-fg-muted">{l.primaryContact.name}</div>
                   <div className="mt-2 flex items-center justify-between text-sm"><span>{value(l)}</span><span className="text-fg-subtle">{l.owner?.name ?? "Unassigned"}</span></div>

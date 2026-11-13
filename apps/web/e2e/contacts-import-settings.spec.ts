@@ -87,7 +87,7 @@ test.describe("contact settings", () => {
     const { workspaceId } = await signUpAndCreate(page, "Stage Owner", "Stages Co");
     await page.goto(`/w/${workspaceId}/settings/contacts`);
     await expect(page.getByRole("link", { name: "Contacts", exact: true }).filter({ visible: true }).first()).toBeVisible();
-    const stages = page.getByRole("heading", { name: "Lifecycle stages" }).locator("xpath=ancestor::div[contains(@class,'rounded-xl')][1]");
+    const stages = page.getByRole("heading", { name: "Lifecycle stages" }).locator("xpath=ancestor::div[contains(@class,'rounded-card')][1]");
     await expect(stages.getByRole("listitem")).toHaveCount(5);
     await stages.getByRole("listitem").filter({ hasText: "New" }).getByRole("button", { name: "Rename" }).click();
     await page.getByLabel("Rename New").fill("Fresh");

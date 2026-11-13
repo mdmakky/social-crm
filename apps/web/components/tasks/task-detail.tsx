@@ -98,7 +98,7 @@ function Body({ task: initial, workspaceId, timeZone, canEdit, onClose, onEdit, 
         <dd className="text-fg">{formatDateTime(task.createdAt, timeZone)}{task.createdBy?.name ? ` by ${task.createdBy.name}` : ""}</dd>
         {task.completedAt && <><dt className="text-fg-muted">Completed</dt><dd className="text-fg">{formatDateTime(task.completedAt, timeZone)}</dd></>}
       </dl>
-      {task.description && <p className="whitespace-pre-wrap break-words rounded-md bg-canvas p-3 text-base text-fg">{task.description}</p>}
+      {task.description && <p className="whitespace-pre-wrap break-words rounded-control bg-canvas p-3 text-base text-fg">{task.description}</p>}
 
       {canEdit ? (
         <div className="flex flex-wrap items-center gap-2">

@@ -114,7 +114,7 @@ function Inner({ workspaceId, timeZone, role, myUserId, initial, pipelines, lost
       <header className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <h1 className="break-words text-xl font-semibold text-fg">{lead.title}</h1>
+            <h1 className="break-words text-xl font-semibold tracking-title text-fg">{lead.title}</h1>
             <Badge tone={OUTCOME_TONE[lead.outcome]}>{OUTCOME_LABEL[lead.outcome]}</Badge>
             {deleted && <Badge tone="danger">Deleted</Badge>}
           </div>
@@ -144,7 +144,7 @@ function Inner({ workspaceId, timeZone, role, myUserId, initial, pipelines, lost
             const locked = readOnly || (closed && !canReopen);
             return (
               <button key={s.id} type="button" disabled={locked || pending !== null} aria-current={here ? "step" : undefined} onClick={() => void moveTo(s.id)}
-                className={cn("rounded-md border px-3 py-1.5 text-sm font-medium transition-colors duration-150 pointer-coarse:min-h-11", here ? "border-accent bg-accent-subtle text-accent-fg" : "border-line bg-surface text-fg-muted hover:bg-hover hover:text-fg", pending === s.id && "animate-pulse", "disabled:cursor-not-allowed disabled:opacity-60")}>
+                className={cn("rounded-control border px-3 py-1.5 text-sm font-medium transition-colors duration-150 pointer-coarse:min-h-11", here ? "border-accent bg-accent-subtle text-accent-fg" : "border-line bg-surface text-fg-muted hover:bg-hover hover:text-fg", pending === s.id && "animate-pulse", "disabled:cursor-not-allowed disabled:opacity-60")}>
                 {s.name}<span className="ml-1.5 text-xs text-fg-subtle tabular-nums">{s.defaultProbability}%</span>
               </button>
             );
