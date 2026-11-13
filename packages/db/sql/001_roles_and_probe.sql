@@ -1,4 +1,5 @@
 -- Run once as a superuser. Idempotent. Local development / test only; real migrations replace the probe.
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
 DO $$ BEGIN
   IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'crm_migrator') THEN
     CREATE ROLE crm_migrator LOGIN PASSWORD 'migrator_dev' NOSUPERUSER NOBYPASSRLS;
