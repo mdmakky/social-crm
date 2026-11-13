@@ -234,3 +234,11 @@ Wall clock with 3 parallel agents: about 10-12 h plus gate; serial single agent 
 - Axe clean at 375/768/1440 on list, detail, import, settings.
 - Docs in sync (roadmap, progress, known-limitations, testing-report, skill matrix) and the CLAUDE.md Status line updated; no doc says "outstanding" for the independent review, none claims the perf gate without the qualifier.
 - Deferred and recorded: D20 unified record and related-records (P1), four extra sort keys (P3), per-stage colours (P4), HTTP-level and load perf evidence (F4 optional).
+
+## WP-B result
+
+Fixed in `contact-detail.tsx`: F3 (panels relabelled "not available yet", Phase 4 inbox and Phase 2 leads named, no fake data), F7 (visible `Field` labels: Add a tag, Add a note, New task, Due, Assign to), F9 (edits kept on conflict; alert lists fields the other person changed; "Apply my changes on top" re-applies only the fields I changed over the latest version; "Discard mine, load latest"), F15 (tag remove 24x24), F16 (mailto/tel in header plus "Send email"/"Call" beside the fields, detail page only), F21 (refresh prepends unseen items, keeps older pages and cursor), F22 (note Edit/Delete/Confirm names include author, time and first 30 characters of the note), F23a (`beforeunload` while the form is dirty).
+
+Not changed: note Save/Cancel keep their names (one editor open at a time; an existing test uses exact "Save"). In-app navigation is not guarded (P8).
+
+Tests: `e2e/contacts-wpb-detail.spec.ts` (new); `e2e/contacts-detail.spec.ts` edited minimally (related-panel headings, "Due" label).

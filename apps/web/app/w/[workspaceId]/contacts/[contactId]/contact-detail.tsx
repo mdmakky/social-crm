@@ -26,6 +26,26 @@ type Props = {
   perms: { edit: boolean; delete: boolean };
 };
 
+const mailtoHref = (e: string) => `mailto:${encodeURI(e)}`;
+const telHref = (p: string) => `tel:${p.replace(/[^\d+*#,;]/g, "")}`;
+
+type Form = { name: string; email: string; phone: string; company: string; stage: string; owner: string; source: string; custom: Record<string, unknown> };
+const toForm = (c: ContactDetail): Form => ({ name: c.name, email: c.email ?? "", phone: c.phone ?? "", company: c.company ?? "", stage: c.lifecycleStage.id, owner: c.owner?.id ?? "", source: c.source, custom: c.custom });
+const FORM_LABEL: Record<string, string> = { name: "Name", email: "Email", phone: "Phone", company: "Company", stage: "Lifecycle stage", owner: "Owner", source: "Source" };
+const differs = (a: unknown, b: unknown) => JSON.stringify(a ?? null) !== JSON.stringify(b ?? null);
+/** Labels of the fields where `b` differs from `a` (custom fields by key). */
+const changedLabels = (a: Form, b: Form, fields: CustomField[]) => [
+  ...Object.keys(FORM_LABEL).filter((k) => differs(a[k as keyof Form], b[k as keyof Form])).map((k) => FORM_LABEL[k]),
+  ...fields.filter((f) => differs(a.custom[f.key], b.custom[f.key])).map((f) => f.label),
+];
+/** Latest server values, with only the fields I changed (vs `base`) laid on top. */
+function mergeMine(base: Form, mine: Form, latest: Form, fields: CustomField[]): Form {
+  const out: Form = { ...latest, custom: { ...latest.custom } };
+  for (const k of Object.keys(FORM_LABEL) as (keyof typeof FORM_LABEL & keyof Form)[]) if (differs(base[k], mine[k])) (out as Record<string, unknown>)[k] = mine[k];
+  for (const f of fields) if (differs(base.custom[f.key], mine.custom[f.key])) out.custom[f.key] = mine.custom[f.key];
+  return out;
+}
+
 export function ContactDetailView(props: Props) {
   const { workspaceId, role, timeZone, myUserId, stages, members, fields, perms } = props;
   const router = useRouter();
@@ -35,11 +55,13 @@ export function ContactDetailView(props: Props) {
   const [tasks, setTasks] = React.useState(props.tasks);
   const [allTags, setAllTags] = React.useState(props.allTags);
   const [savedVersion, setSavedVersion] = React.useState<number | null>(null); // the form remounts on each version, so the confirmation lives here
+  const [carry, setCarry] = React.useState<Form | null>(null); // my unsaved edits, re-applied on top after a conflict reload
   const p = { workspaceId, contactId: c.id };
 
   const refreshActivity = React.useCallback(async () => {
     const r = await browserApi.call(endpoints.listActivity, { params: { workspaceId, contactId: props.contact.id }, query: { limit: 20 } });
-    if (r.ok) setActivity(r.data);
+    // keep older pages the user already loaded: prepend only unseen items, keep the existing cursor
+    if (r.ok) setActivity((prev) => (prev.items.length === 0 ? r.data : { items: [...r.data.items.filter((i) => !prev.items.some((x) => x.id === i.id)), ...prev.items], nextCursor: prev.nextCursor }));
   }, [workspaceId, props.contact.id]);
 
   return (
@@ -50,7 +72,14 @@ export function ContactDetailView(props: Props) {
           <Avatar name={c.name} size="lg" />
           <div className="min-w-0">
             <h1 className="truncate text-xl font-semibold tracking-title text-fg">{c.name}</h1>
-            <p className="truncate text-sm text-fg-muted">{[c.email, c.phone, c.company].filter(Boolean).join(" · ") || "No contact details yet"}</p>
+            <p className="break-words text-sm text-fg-muted">
+              {!c.email && !c.phone && !c.company && "No contact details yet"}
+              {[
+                c.email && <a key="e" className="underline underline-offset-2 hover:text-fg" href={mailtoHref(c.email)}>{c.email}</a>,
+                c.phone && <a key="p" className="underline underline-offset-2 hover:text-fg" href={telHref(c.phone)}>{c.phone}</a>,
+                c.company && <span key="c">{c.company}</span>,
+              ].filter(Boolean).flatMap((x, i) => (i ? [" · ", x] : [x]))}
+            </p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -61,7 +90,7 @@ export function ContactDetailView(props: Props) {
 
       <div className="grid items-start gap-4 lg:grid-cols-3">
         <div className="grid gap-4 lg:col-span-2">
-          <DetailsPanel key={c.version} c={c} saved={savedVersion === c.version} onSaved={(d, viaSave) => { setC(d); if (viaSave) setSavedVersion(d.version); void refreshActivity(); }} stages={stages} members={members} fields={fields} canEdit={perms.edit} workspaceId={workspaceId} myUserId={myUserId} />
+          <DetailsPanel key={c.version} c={c} carry={carry} onCarryUsed={() => setCarry(null)} onCarry={setCarry} saved={savedVersion === c.version} onSaved={(d, viaSave) => { setC(d); if (viaSave) setSavedVersion(d.version); void refreshActivity(); }} stages={stages} members={members} fields={fields} canEdit={perms.edit} workspaceId={workspaceId} myUserId={myUserId} />
           <TagsPanel c={c} allTags={allTags} canEdit={perms.edit} workspaceId={workspaceId} onChanged={(d, t) => { setC(d); if (t) setAllTags(t); void refreshActivity(); }} />
           <NotesPanel notes={notes} setNotes={setNotes} p={p} role={role} myUserId={myUserId} canEdit={perms.edit} timeZone={timeZone} onChanged={refreshActivity} />
           <ActivityPanel activity={activity} setActivity={setActivity} p={p} timeZone={timeZone} />
@@ -70,11 +99,11 @@ export function ContactDetailView(props: Props) {
           <TasksPanel tasks={tasks} setTasks={setTasks} p={p} canEdit={perms.edit} role={role} myUserId={myUserId} members={members} timeZone={timeZone} onChanged={async () => { void refreshActivity(); const d = await browserApi.call(endpoints.getContact, { params: p }); if (d.ok) setC(d.data); }} />
           <Panel>
             <PanelHeader title="Conversations" />
-            <EmptyState icon={MessageSquare} title="No conversations yet" description="Messages from connected channels will appear here once a channel is connected." className="py-8" />
+            <EmptyState icon={MessageSquare} title="Conversations are not available yet" description="The unified inbox is planned for Phase 4. Nothing is stored for this contact until then." className="py-8" />
           </Panel>
           <Panel>
             <PanelHeader title="Pipeline records" />
-            <EmptyState icon={Workflow} title="No pipeline records yet" description="Leads and opportunities for this contact will appear here. The lifecycle stage above is separate from any pipeline." className="py-8" />
+            <EmptyState icon={Workflow} title="Pipeline records are not available yet" description="Leads and pipelines are not built yet (planned for Phase 2). The lifecycle stage above is separate from any pipeline." className="py-8" />
           </Panel>
         </div>
       </div>
@@ -105,9 +134,10 @@ function DeleteMenu({ workspaceId, contact, onDeleted }: { workspaceId: string; 
   );
 }
 
-function DetailsPanel({ c, saved, onSaved, stages, members, fields, canEdit, workspaceId, myUserId }: { c: ContactDetail; saved: boolean; onSaved: (d: ContactDetail, viaSave?: boolean) => void; stages: LifecycleStage[]; members: Member[]; fields: CustomField[]; canEdit: boolean; workspaceId: string; myUserId: string }) {
-  const initial = React.useMemo(() => ({ name: c.name, email: c.email ?? "", phone: c.phone ?? "", company: c.company ?? "", stage: c.lifecycleStage.id, owner: c.owner?.id ?? "", source: c.source, custom: c.custom }), [c]);
-  const [form, setForm] = React.useState(initial);
+function DetailsPanel({ c, carry, onCarry, onCarryUsed, saved, onSaved, stages, members, fields, canEdit, workspaceId, myUserId }: { c: ContactDetail; carry: Form | null; onCarry: (f: Form) => void; onCarryUsed: () => void; saved: boolean; onSaved: (d: ContactDetail, viaSave?: boolean) => void; stages: LifecycleStage[]; members: Member[]; fields: CustomField[]; canEdit: boolean; workspaceId: string; myUserId: string }) {
+  const initial = React.useMemo(() => toForm(c), [c]);
+  const [form, setForm] = React.useState<Form>(carry ?? initial);
+  React.useEffect(() => { if (carry) onCarryUsed(); }, []); // eslint-disable-line react-hooks/exhaustive-deps -- consume the carried edits once, on mount
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = React.useState<Record<string, string>>({});
@@ -115,6 +145,13 @@ function DetailsPanel({ c, saved, onSaved, stages, members, fields, canEdit, wor
   const [dupes, setDupes] = React.useState<DuplicateCandidate[] | null>(null);
   const dirty = JSON.stringify(form) !== JSON.stringify(initial);
   const set = (patch: Partial<typeof form>) => setForm((f) => ({ ...f, ...patch }));
+  // unsaved edits: the browser asks before a reload or tab close (in-app navigation cannot be guarded reliably)
+  React.useEffect(() => {
+    if (!dirty || !canEdit) return;
+    const h = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ""; };
+    window.addEventListener("beforeunload", h);
+    return () => window.removeEventListener("beforeunload", h);
+  }, [dirty, canEdit]);
   const stageOptions = stages.filter((s) => !s.archived || s.id === c.lifecycleStage.id);
 
   async function save(allowDuplicate = false) {
@@ -149,8 +186,12 @@ function DetailsPanel({ c, saved, onSaved, stages, members, fields, canEdit, wor
         {conflict && (
           <Alert tone="warning">
             <p className="font-medium">Someone else changed this contact.</p>
-            <p>Your edits weren&rsquo;t saved. Load the latest version, then re-apply what you need.</p>
-            <Button className="mt-2" size="sm" onClick={() => { onSaved(conflict); setConflict(null); }}>Load latest</Button>
+            <p>Your edits weren&rsquo;t saved, and they are still in the form.</p>
+            {(() => { const theirs = changedLabels(initial, toForm(conflict), fields); return theirs.length > 0 && <p>They changed: {theirs.join(", ")}.</p>; })()}
+            <div className="mt-2 flex flex-wrap gap-2">
+              <Button size="sm" variant="primary" onClick={() => { onCarry(mergeMine(initial, form, toForm(conflict), fields)); onSaved(conflict); setConflict(null); }}>Apply my changes on top</Button>
+              <Button size="sm" onClick={() => { onSaved(conflict); setConflict(null); }}>Discard mine, load latest</Button>
+            </div>
           </Alert>
         )}
         {dupes && (
@@ -163,8 +204,8 @@ function DetailsPanel({ c, saved, onSaved, stages, members, fields, canEdit, wor
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Name" error={fieldErrors.name}>{(x) => <Input {...x} value={form.name} onChange={(e) => set({ name: e.target.value })} disabled={!canEdit} maxLength={120} />}</Field>
           <Field label="Company">{(x) => <Input {...x} value={form.company} onChange={(e) => set({ company: e.target.value })} disabled={!canEdit} maxLength={120} />}</Field>
-          <Field label="Email">{(x) => <Input {...x} type="email" inputMode="email" value={form.email} onChange={(e) => set({ email: e.target.value })} disabled={!canEdit} />}</Field>
-          <Field label="Phone">{(x) => <Input {...x} type="tel" inputMode="tel" value={form.phone} onChange={(e) => set({ phone: e.target.value })} disabled={!canEdit} />}</Field>
+          <Field label="Email" action={c.email ? <a className="text-sm text-fg-muted underline underline-offset-2 hover:text-fg" href={mailtoHref(c.email)}>Send email</a> : undefined}>{(x) => <Input {...x} type="email" inputMode="email" value={form.email} onChange={(e) => set({ email: e.target.value })} disabled={!canEdit} />}</Field>
+          <Field label="Phone" action={c.phone ? <a className="text-sm text-fg-muted underline underline-offset-2 hover:text-fg" href={telHref(c.phone)}>Call</a> : undefined}>{(x) => <Input {...x} type="tel" inputMode="tel" value={form.phone} onChange={(e) => set({ phone: e.target.value })} disabled={!canEdit} />}</Field>
           <Field label="Lifecycle stage">{(x) => <Select {...x} value={form.stage} onChange={(e) => set({ stage: e.target.value })} disabled={!canEdit}>{stageOptions.map((s) => <option key={s.id} value={s.id}>{s.name}{s.archived ? " (archived)" : ""}</option>)}</Select>}</Field>
           <Field label="Owner">{(x) => <Select {...x} value={form.owner} onChange={(e) => set({ owner: e.target.value })} disabled={!canEdit}><option value="">Unassigned</option>{members.map((m) => <option key={m.userId} value={m.userId}>{m.name}{m.userId === myUserId ? " (you)" : ""}</option>)}</Select>}</Field>
           <Field label="Source">{(x) => <Select {...x} value={form.source} onChange={(e) => set({ source: e.target.value })} disabled={!canEdit}>{Object.keys(SOURCE_LABEL).map((s) => <option key={s} value={s}>{sourceLabel(s)}</option>)}</Select>}</Field>
@@ -222,15 +263,15 @@ function TagsPanel({ c, allTags, canEdit, workspaceId, onChanged }: { c: Contact
               <li key={t.id}>
                 <Badge tone={TAG_TONE[t.color]} className="gap-1 pr-1">
                   {t.name}
-                  {canEdit && <button type="button" aria-label={`Remove tag ${t.name}`} onClick={() => void remove(t.id)} className="rounded-full p-0.5 hover:bg-line"><X className="size-3" /></button>}
+                  {canEdit && <button type="button" aria-label={`Remove tag ${t.name}`} onClick={() => void remove(t.id)} className="inline-flex min-h-6 min-w-6 items-center justify-center rounded-full hover:bg-line"><X className="size-3.5" aria-hidden /></button>}
                 </Badge>
               </li>
             ))}
           </ul>
         )}
         {canEdit && (
-          <form onSubmit={add} className="flex gap-2">
-            <Input aria-label="Add a tag" list={listId} placeholder="Add a tag" value={name} onChange={(e) => setName(e.target.value)} maxLength={40} className="max-w-56" />
+          <form onSubmit={add} className="flex items-end gap-2">
+            <Field label="Add a tag" className="max-w-56 flex-1">{(x) => <Input {...x} list={listId} placeholder="For example wholesale" value={name} onChange={(e) => setName(e.target.value)} maxLength={40} />}</Field>
             <datalist id={listId}>{allTags.filter((t) => !c.tags.some((x) => x.id === t.id)).map((t) => <option key={t.id} value={t.name} />)}</datalist>
             <Button type="submit" loading={busy}><Plus />Add</Button>
           </form>
@@ -274,7 +315,7 @@ function NotesPanel({ notes, setNotes, p, role, myUserId, canEdit, timeZone, onC
         {error && <Alert tone="error">{error}</Alert>}
         {canEdit && (
           <form onSubmit={add} className="flex flex-col gap-2">
-            <Textarea aria-label="Add a note" placeholder="Write a note about this contact" value={text} onChange={(e) => setText(e.target.value)} maxLength={5000} />
+            <Field label="Add a note">{(x) => <Textarea {...x} placeholder="Write a note about this contact" value={text} onChange={(e) => setText(e.target.value)} maxLength={5000} />}</Field>
             <div><Button type="submit" variant="primary" loading={busy}>Add note</Button></div>
           </form>
         )}
@@ -290,8 +331,8 @@ function NotesPanel({ notes, setNotes, p, role, myUserId, canEdit, timeZone, onC
                     <time dateTime={n.createdAt} className="tnum text-fg-subtle">{formatDateTime(n.createdAt, timeZone)}</time>
                     {mine && editing?.id !== n.id && (
                       <span className="ml-auto flex gap-1">
-                        <Button variant="ghost" icon size="sm" aria-label="Edit note" onClick={() => setEditing({ id: n.id, body: n.body })}><Pencil /></Button>
-                        {confirmDelete === n.id ? <Button variant="danger" size="sm" onClick={() => void remove(n.id)}>Confirm delete</Button> : <Button variant="ghost" icon size="sm" aria-label="Delete note" onClick={() => setConfirmDelete(n.id)}><Trash2 /></Button>}
+                        <Button variant="ghost" icon size="sm" aria-label={`Edit note by ${n.author.name} on ${formatDateTime(n.createdAt, timeZone)}: ${n.body.slice(0, 30)}`} onClick={() => setEditing({ id: n.id, body: n.body })}><Pencil /></Button>
+                        {confirmDelete === n.id ? <Button variant="danger" size="sm" aria-label={`Confirm delete note by ${n.author.name} on ${formatDateTime(n.createdAt, timeZone)}: ${n.body.slice(0, 30)}`} onClick={() => void remove(n.id)}>Confirm delete</Button> : <Button variant="ghost" icon size="sm" aria-label={`Delete note by ${n.author.name} on ${formatDateTime(n.createdAt, timeZone)}: ${n.body.slice(0, 30)}`} onClick={() => setConfirmDelete(n.id)}><Trash2 /></Button>}
                       </span>
                     )}
                   </div>
@@ -408,10 +449,10 @@ function TasksPanel({ tasks, setTasks, p, canEdit, role, myUserId, members, time
         )}
         {canEdit && (
           <form onSubmit={add} className="flex flex-col gap-2 border-t border-line pt-3">
-            <Input aria-label="New task" placeholder="Follow-up, for example Send the quote" value={title} onChange={(e) => setTitle(e.target.value)} maxLength={200} />
+            <Field label="New task">{(x) => <Input {...x} placeholder="Follow-up, for example Send the quote" value={title} onChange={(e) => setTitle(e.target.value)} maxLength={200} />}</Field>
             <div className="flex flex-wrap gap-2">
-              <Input aria-label="Due date and time" type="datetime-local" value={due} onChange={(e) => setDue(e.target.value)} className="w-auto flex-1" />
-              <Select aria-label="Assignee" value={assignee} onChange={(e) => setAssignee(e.target.value)} className="w-auto flex-1"><option value="">Unassigned</option>{members.map((m) => <option key={m.userId} value={m.userId}>{m.name}{m.userId === myUserId ? " (you)" : ""}</option>)}</Select>
+              <Field label="Due" className="min-w-40 flex-1">{(x) => <Input {...x} type="datetime-local" value={due} onChange={(e) => setDue(e.target.value)} />}</Field>
+              <Field label="Assign to" className="min-w-40 flex-1">{(x) => <Select {...x} value={assignee} onChange={(e) => setAssignee(e.target.value)}><option value="">Unassigned</option>{members.map((m) => <option key={m.userId} value={m.userId}>{m.name}{m.userId === myUserId ? " (you)" : ""}</option>)}</Select>}</Field>
             </div>
             <div><Button type="submit" loading={busy}><Plus />Add task</Button></div>
           </form>
