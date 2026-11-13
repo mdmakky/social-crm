@@ -160,6 +160,8 @@ export const ImportPreview = z.object({
   willSkip: z.number().int(),
   errors: z.array(z.object({ row: z.number().int(), messages: z.array(z.string()) })),
   duplicates: z.array(z.object({ row: z.number().int(), matchedOn: z.string(), existing: z.object({ id: uuid, name: z.string() }).nullable(), duplicateOfRow: z.number().int().nullable(), action: z.enum(DUPLICATE_ACTIONS) })),
+  /** rows that will be skipped for a reason the user did not choose (for example an update with nothing to update) */
+  warnings: z.array(z.object({ row: z.number().int(), message: z.string() })).optional(),
   truncated: z.boolean(),
 });
 export type ImportPreview = z.infer<typeof ImportPreview>;

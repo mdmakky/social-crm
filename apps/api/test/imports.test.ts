@@ -17,7 +17,7 @@ const count = async () => ok(await o().call(endpoints.listContacts, { params: p(
 const plan = (over: Partial<ImportPlanBody> = {}): ImportPlanBody => ({ mapping: MAP, onDuplicate: "skip", ...over });
 
 beforeAll(async () => {
-  h = await bootstrap({ import: { afterRow: (row) => { if (failAtRow && row === failAtRow) throw new Error("simulated failure"); } } });
+  h = await bootstrap({ import: { limits: { uploadsPerUser: 10_000, previewsPerUser: 10_000, commitsPerWorkspace: 10_000, maxOpenJobs: 10_000 }, afterRow: (row) => { if (failAtRow && row === failAtRow) throw new Error("simulated failure"); } } });
   owner = await h.newUser("iowner");
   agent = await h.newUser("iagent");
   member = await h.newUser("imember");
