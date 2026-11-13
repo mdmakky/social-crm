@@ -26,7 +26,7 @@ export function PreferencesForm({ workspaceId, initial }: { workspaceId: string;
   }
 
   return (
-    <Panel className="max-w-2xl">
+    <Panel>
       <fieldset className="divide-y divide-line">
         <legend className="sr-only">In-app notifications</legend>
         {prefs.map((p) => (

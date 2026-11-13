@@ -24,7 +24,8 @@ test.describe("permission-aware navigation and pages", () => {
     const t = await team(browser, page, workspaceId);
     const nav = (p: Page) => p.getByRole("navigation", { name: "Main" }).first();
 
-    for (const p of [page, t.admin.page, t.agent.page, t.viewer.page]) await nav(p).getByText("Coming soon").click();
+    // Roles with no planned (not yet built) feature have no "Coming soon" disclosure at all.
+    for (const p of [page, t.admin.page, t.agent.page, t.viewer.page]) { const soon = nav(p).getByText("Coming soon"); if (await soon.count()) await soon.click(); }
     await expect(nav(page).getByRole("link", { name: "Audit log" })).toBeVisible();
     await expect(nav(page).getByText("Automation")).toBeVisible();
     await expect(nav(t.admin.page).getByRole("link", { name: "Audit log" })).toBeVisible();
@@ -33,8 +34,9 @@ test.describe("permission-aware navigation and pages", () => {
       await expect(nav(p).getByRole("link", { name: "Audit log" })).toHaveCount(0);
       await expect(nav(p).getByText("Automation")).toHaveCount(0);
     }
-    await expect(nav(t.agent.page).getByText("Integrations")).toBeVisible();
-    await expect(nav(t.viewer.page).getByText("Integrations")).toHaveCount(0);
+    await expect(nav(t.agent.page).getByRole("link", { name: "Integrations" })).toBeVisible(); // built: a link for roles with integration.view
+    await expect(nav(t.viewer.page).getByRole("link", { name: "Integrations" })).toHaveCount(0);
+    await expect(nav(t.viewer.page).getByRole("link", { name: "Inbox" })).toBeVisible(); // conversation.view: every role
     await expect(nav(t.viewer.page).getByText("AI assistant")).toHaveCount(0);
     await expect(nav(t.agent.page).getByText("AI assistant")).toBeVisible();
   });

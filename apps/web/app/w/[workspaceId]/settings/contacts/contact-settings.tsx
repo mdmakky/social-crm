@@ -96,7 +96,7 @@ export function ContactSettings({ workspaceId, canManage, stages: s0, tags: t0, 
   }
 
   return (
-    <div className="grid max-w-3xl gap-4">
+    <div className="grid gap-4">
       {error && <Alert tone="error">{error}</Alert>}
       {!canManage && <Alert tone="info">Only owners and admins can change these settings.</Alert>}
 

@@ -78,7 +78,8 @@ export function AppShell({ workspace, workspaces, user, children }: { workspace:
         </DialogPrimitive.Root>
 
         <div className="flex min-w-0 flex-1 flex-col">
-          <header className="flex h-[var(--topbar-h)] shrink-0 items-center gap-2 border-b border-line bg-surface/90 px-3 md:px-6">
+          <header className="h-[var(--topbar-h)] shrink-0 border-b border-line bg-surface/90">
+          <div className="mx-auto flex h-full w-full max-w-[var(--content-max)] items-center gap-2 px-3 md:px-[var(--page-gutter)]">
             <Button variant="ghost" icon aria-label="Open navigation" className="md:hidden" onClick={() => setDrawer(true)}><Menu /></Button>
             <Logo className="min-w-0 flex-1 md:hidden" />
             <button type="button" onClick={() => setPalette(true)} className="press hidden h-8 w-full max-w-sm items-center gap-2 rounded-lg border border-transparent bg-canvas px-3 text-base text-fg-subtle hover:border-line-strong hover:bg-surface sm:flex md:w-96">
@@ -88,6 +89,7 @@ export function AppShell({ workspace, workspaces, user, children }: { workspace:
             <div className="hidden flex-1 md:block" />
             <NotificationBell workspaceId={workspace.id} />
             <UserMenu user={user} workspaceId={workspace.id} />
+          </div>
           </header>
           <main id="main" tabIndex={-1} className="min-h-0 flex-1 overflow-y-auto outline-none">
             <div className="page-in mx-auto w-full max-w-[var(--content-max)] px-4 py-6 md:px-[var(--page-gutter)] md:py-7">{children}</div>

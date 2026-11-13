@@ -137,7 +137,7 @@ function Inner({ workspaceId, pipelines, lostReasons, current, initialLeads, won
       {!canEdit && <p className="mb-2 text-sm text-fg-muted">You can view the pipeline but not move cards.</p>}
 
       <DndContext sensors={sensors} collisionDetection={collide} accessibility={{ announcements }} onDragStart={(e: DragStartEvent) => setDragId(String(e.active.id))} onDragEnd={onDragEnd} onDragCancel={() => setDragId(null)}>
-        <div className="-mx-4 overflow-x-auto px-4 pb-3 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8" role="region" aria-label="Pipeline board" tabIndex={0}>
+        <div className="overflow-x-auto pb-3" role="region" aria-label="Pipeline board" tabIndex={0}>
           <div className="flex min-h-[60vh] gap-3">
             {open.map((s) => {
               const col = cols.get(s.id) ?? [];

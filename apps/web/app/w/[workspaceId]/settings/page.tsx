@@ -17,7 +17,7 @@ export default async function SettingsPage({ params }: { params: Promise<{ works
   return (
     <>
       <PageHeader title="Settings" description="Workspace and account preferences." />
-      <div className="grid max-w-2xl gap-4">
+      <div className="grid items-start gap-4 lg:grid-cols-2">
         <Panel>
           <PanelHeader title="Workspace" description={can(w.role, "workspace.settings", {}) ? "Visible to everyone who works here." : "Only owners and admins can change these."} />
           <WorkspaceForm workspaceId={workspaceId} name={w.name} timezone={w.timezone} readOnly={!can(w.role, "workspace.settings", {})} />
