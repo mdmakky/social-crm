@@ -56,7 +56,7 @@ No fuzzy matching, typo tolerance, highlighting or weighting beyond this. Accent
 
 ## Performance budget
 
-p95 < 300 ms at 10,000 contacts, measured by `apps/api/test/search-perf.test.ts` (in-process, local Postgres, 40 runs per query after warm-up, includes auth, membership lookup and RLS). Measured on the dev machine: name substring 30 ms, name prefix 33, email exact 26, phone 23, company 24, two-character query 25. Policy helper calls stay scalar subqueries (decision D45); a regression in that shows up here first. Network and browser time are not included.
+p95 < 300 ms at 10,000 contacts, measured by `the `global search` cases in `apps/api/test/perf.test.ts`` (in-process, local Postgres, 40 runs per query, same 10,000-row dataset as the list gates after warm-up, includes auth, membership lookup and RLS). Measured on the dev machine: name substring 30 ms, name prefix 33, email exact 26, phone 23, company 24, two-character query 25. Policy helper calls stay scalar subqueries (decision D45); a regression in that shows up here first. Network and browser time are not included.
 
 ## Scaling path (do only when measurements demand it)
 

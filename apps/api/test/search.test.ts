@@ -18,7 +18,11 @@ let W: string, W2: string;
 
 beforeAll(async () => {
   h = await bootstrap({ extraSearchProviders: [fake] });
-  [owner, agent, viewer, outsider, other] = await Promise.all(["so", "sa", "sv", "sx", "sy"].map((l) => h.newUser(l)));
+  owner = await h.newUser("so");
+  agent = await h.newUser("sa");
+  viewer = await h.newUser("sv");
+  outsider = await h.newUser("sx");
+  other = await h.newUser("sy");
   W = await h.workspace(owner, "Search Co", { agent, viewer });
   W2 = await h.workspace(other, "Other Search Co");
   const c = h.clientFor(owner);
