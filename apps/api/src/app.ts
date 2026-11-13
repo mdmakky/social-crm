@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
+import { metaConnect, type MetaConnectDeps } from "./inbox/meta-connect.ts";
 import { HTTPException } from "hono/http-exception";
 import type { Db } from "@crm/db";
 import type { Auth } from "./auth.ts";
@@ -13,7 +14,7 @@ import { WindowCounter } from "./throttle.ts";
 const GENERIC_RESET_RESPONSE = { status: true, message: "If this email exists in our system, check your email for the reset link" };
 const sha = async (s: string) => Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s.trim().toLowerCase()))), (b) => b.toString(16).padStart(2, "0")).join("");
 
-export function createApp(auth: Auth, opts: { allowedOrigins: string[]; db: Db; resetThrottle?: { perEmail: number; perIp: number; windowMs: number; tokenAttemptsPerIp?: number }; testHooks?: { import?: ImportHooks; extraSearchProviders?: SearchProvider[] } }) {
+export function createApp(auth: Auth, opts: { allowedOrigins: string[]; db: Db; resetThrottle?: { perEmail: number; perIp: number; windowMs: number; tokenAttemptsPerIp?: number }; testHooks?: { import?: ImportHooks; extraSearchProviders?: SearchProvider[] }; meta?: MetaConnectDeps }) {
   const app = new Hono<{ Variables: Vars }>();
   // Mutating requests that carry an Origin header must come from an allowed origin (native apps send none).
   app.use("*", async (c, next) => {
@@ -87,7 +88,9 @@ export function createApp(auth: Auth, opts: { allowedOrigins: string[]; db: Db; 
     const u = c.get("me" as never) as { id: string; email: string; name: string };
     return c.json({ id: u.id, email: u.email, name: u.name });
   });
-  v1.route("/workspaces", workspaceRoutes(opts.db, opts.testHooks));
+  const meta = metaConnect(opts.db, opts.meta); // track:inbox
+  v1.route("/", meta.callback);
+  v1.route("/workspaces", workspaceRoutes(opts.db, { ...opts.testHooks, metaScoped: meta.scoped }));
   app.route("/v1", v1);
   return app;
 }

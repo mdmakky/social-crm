@@ -170,9 +170,10 @@ export async function purgeRawBodies(db: Db): Promise<number> {
 export type InboxWorker = { stop(): Promise<void>; tick(): Promise<void> };
 
 /** In-process loop (same pattern as the event dispatcher, decision D7). Purge runs at start and then every purgeEveryMs. */
-export function startInboxWorker(db: Db, opts: { intervalMs: number; purgeEveryMs?: number; onError?: (e: unknown) => void }): InboxWorker {
+export function startInboxWorker(db: Db, opts: { intervalMs: number; purgeEveryMs?: number; onError?: (e: unknown) => void; periodic?: { everyMs: number; run: () => Promise<unknown> } }): InboxWorker {
   const purgeEvery = opts.purgeEveryMs ?? 6 * 3_600_000;
   let lastPurge = 0;
+  let lastPeriodic = 0;
   let running: Promise<void> | null = null;
   let stopped = false;
   const tick = async () => {
@@ -182,6 +183,10 @@ export function startInboxWorker(db: Db, opts: { intervalMs: number; purgeEveryM
         if (Date.now() - lastPurge >= purgeEvery) {
           await purgeRawBodies(db);
           lastPurge = Date.now();
+        }
+        if (opts.periodic && Date.now() - lastPeriodic >= opts.periodic.everyMs) {
+          lastPeriodic = Date.now();
+          await opts.periodic.run();
         }
         await processPending(db);
       } catch (e) {

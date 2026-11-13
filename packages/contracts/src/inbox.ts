@@ -1,0 +1,54 @@
+import { z } from "zod";
+import { endpoint } from "./endpoint.ts";
+
+const W = "/v1/workspaces/:workspaceId";
+const Uuid = z.string().uuid();
+
+export const InboxPlatform = z.enum(["messenger", "instagram"]);
+export const IntegrationStatus = z.enum(["connected", "reauth_required", "disabled"]);
+export const SubscriptionState = z.enum(["subscribed", "failed", "dashboard_required"]);
+
+export const IntegrationAccountDto = z.object({
+  id: Uuid,
+  platform: InboxPlatform,
+  externalAccountId: z.string(),
+  displayName: z.string().nullable(),
+  status: IntegrationStatus,
+  tokenExpiresAt: z.string().nullable(),
+  lastTokenCheckAt: z.string().nullable(),
+  connectedAt: z.string(),
+});
+export type IntegrationAccountDto = z.infer<typeof IntegrationAccountDto>;
+
+/** `configured` is false until the Meta app settings and the encryption key are present on the server; connect endpoints then answer 503. */
+export const MetaIntegrationState = z.object({ configured: z.boolean(), mock: z.boolean(), accounts: z.array(IntegrationAccountDto) });
+export type MetaIntegrationState = z.infer<typeof MetaIntegrationState>;
+
+export const MetaConnectStart = z.object({ authUrl: z.string().url() });
+export type MetaConnectStart = z.infer<typeof MetaConnectStart>;
+
+export const MetaPendingPage = z.object({ pageId: z.string(), name: z.string(), instagramAccountId: z.string().nullable(), connected: z.boolean() });
+export const MetaPendingList = z.object({ pages: z.array(MetaPendingPage), expiresAt: z.string() });
+export type MetaPendingList = z.infer<typeof MetaPendingList>;
+
+export const ConnectMetaBody = z.object({ pageId: z.string().regex(/^[1-9][0-9]{0,99}$/), connectInstagram: z.boolean().default(false) });
+export type ConnectMetaBody = z.infer<typeof ConnectMetaBody>;
+
+export const ConnectedAccount = z.object({ account: IntegrationAccountDto, subscription: SubscriptionState, reconnected: z.boolean() });
+export const ConnectMetaResult = z.object({ accounts: z.array(ConnectedAccount) });
+export type ConnectMetaResult = z.infer<typeof ConnectMetaResult>;
+
+export const SubscribeResult = z.object({ subscription: SubscriptionState });
+export const MetaCallbackQuery = z.object({ code: z.string().max(2000).optional(), state: z.string().max(2000).optional(), error: z.string().max(100).optional(), error_reason: z.string().max(100).optional() });
+
+export const inboxEndpoints = {
+  getMetaIntegration: endpoint({ method: "GET", path: `${W}/integrations/meta`, response: MetaIntegrationState }),
+  startMetaConnect: endpoint({ method: "POST", path: `${W}/integrations/meta/connect/start`, response: MetaConnectStart }),
+  listMetaPending: endpoint({ method: "GET", path: `${W}/integrations/meta/pending`, response: MetaPendingList }),
+  connectMetaPage: endpoint({ method: "POST", path: `${W}/integrations/meta/connect`, body: ConnectMetaBody, response: ConnectMetaResult }),
+  disconnectMetaAccount: endpoint({ method: "POST", path: `${W}/integrations/meta/accounts/:accountId/disconnect`, response: z.object({ ok: z.literal(true) }) }),
+  checkMetaAccountToken: endpoint({ method: "POST", path: `${W}/integrations/meta/accounts/:accountId/check-token`, response: IntegrationAccountDto }),
+  resubscribeMetaAccount: endpoint({ method: "POST", path: `${W}/integrations/meta/accounts/:accountId/resubscribe`, response: SubscribeResult }),
+  /** Browser redirect target after the Meta dialog; answers with a 302 to the web app, never JSON. Declared so the drift guard knows the route. */
+  metaOAuthCallback: endpoint({ method: "GET", path: "/v1/integrations/meta/callback", query: MetaCallbackQuery, response: z.undefined() }),
+} as const;
