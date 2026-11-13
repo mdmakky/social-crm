@@ -8,6 +8,7 @@ import { ensureDefaultStages } from "../crm-service.ts";
 import { contactRoutes } from "./contacts.ts";
 import { crmConfigRoutes } from "./crm-config.ts";
 import { importRoutes, type ImportHooks } from "./imports.ts";
+import { notificationRoutes } from "./notifications.ts"; // track:notifications
 
 export type Vars = { userId: string; requestId: string };
 type Ctx = Context<{ Variables: Vars }>;
@@ -166,6 +167,7 @@ export function workspaceRoutes(db: Db, hooks: { import?: ImportHooks } = {}) {
   scoped.route("/", crmConfigRoutes(db));
   scoped.route("/", contactRoutes(db));
   scoped.route("/", importRoutes(db, hooks.import));
+  scoped.route("/", notificationRoutes(db)); // track:notifications
   r.route("/:id", scoped as unknown as Hono<{ Variables: Vars }>);
   return r;
 }

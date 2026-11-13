@@ -57,6 +57,20 @@
       "when": 1794552373709,
       "tag": "0007_rls_initplan",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1794553591426,
+      "tag": "0008_notif_tables",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1794553595394,
+      "tag": "0009_notif_rls",
+      "breakpoints": true
     }
   ]
 }
