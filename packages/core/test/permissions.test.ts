@@ -25,6 +25,14 @@ describe("permission matrix (docs/architecture/permissions.md)", () => {
     expect(can("agent", "approval.decide", { isNamedApprover: true })).toBe(true);
     expect(can("admin", "task.edit", {})).toBe(true);
   });
+  it("notes: agents edit their own, admins any; viewers none; shared views need an admin", () => {
+    expect(can("agent", "note.edit", {})).toBe(false);
+    expect(can("agent", "note.edit", { isOwn: true })).toBe(true);
+    expect(can("admin", "note.edit", {})).toBe(true);
+    expect(can("viewer", "note.edit", { isOwn: true })).toBe(false);
+    expect(can("agent", "view.share", {})).toBe(false);
+    expect(can("admin", "view.share", {})).toBe(true);
+  });
   it("only owners transfer ownership or delete the workspace", () => {
     expect(can("owner", "workspace.delete", {})).toBe(true);
     expect(can("admin", "workspace.delete", {})).toBe(false);
