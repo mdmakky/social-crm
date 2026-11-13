@@ -9,7 +9,7 @@ let owner: TestUser;
 let agent: TestUser;
 let ws: string;
 let n = 0;
-const uniq = () => `t${Date.now().toString(36)}${n++}`;
+const uniq = () => `t${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}${n++}`;
 const emit = (type = "test.event", extra: Partial<Parameters<typeof emitEvent>[1]> = {}) =>
   withContext(h.db, { userId: owner.id, workspaceId: ws }, (tx) => emitEvent(tx, { workspaceId: ws, type, entityType: "thing", entityId: "1", actorUserId: owner.id, ...extra }));
 const seqs = (workspaceId = ws) => withSystem(h.db, workspaceId, (tx) => tx.select({ seq: schema.domainEvents.seq }).from(schema.domainEvents).orderBy(schema.domainEvents.seq)).then((r) => r.map((x) => x.seq));

@@ -13,7 +13,7 @@ const ADMIN_URL = "postgres://postgres:postgres@127.0.0.1:5436/" + (process.env.
 const ORIGIN = "http://localhost:3000";
 const OLD = "correct-horse-battery";
 const NEW = "a-brand-new-passphrase";
-const run = Date.now().toString(36);
+const run = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
 let n = 0;
 
 let db: Db;

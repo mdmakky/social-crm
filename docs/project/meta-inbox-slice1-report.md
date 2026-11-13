@@ -50,3 +50,9 @@ Not touched. Read-only checks show the roles `crm_ingest` and `crm_worker` alrea
 
 ## Status
 Slice 1 implementation complete and tested; review findings integrated. **C8 (Instagram webhook publication requirement) remains UNVERIFIED** until tested with the real Meta app. Slice 2 (webhook ingress against the mock adapter) and Slice 3 (OAuth) are not started; Slice 3 additionally waits for the confirmed tunnel domain.
+
+## Integration (2026-11-13)
+- Merged `feat/meta-inbox-slice1` into `main` as merge commit `65cf409` (no history rewrite; tree clean before merge).
+- `pnpm --filter @crm/db migrate` run on the main dev database `crm` as `crm_migrator`; roles setup script NOT run. 0017 and 0018 applied: 19 migrations recorded, 9 inbox tables with forced RLS, 122 policies and 128 app/ingest/worker table grants in `crm`, identical to the earlier upgrade-path database.
+- Focused tests on `crm`: `@crm/db` inbox-schema and tenancy 55/55; API full run 346 passed, 14 skipped (3 consecutive runs).
+- Intermittent API test-collection failure: ROOT CAUSE FOUND (not connection exhaustion). `test/harness.ts` built unique e-mails from `Date.now().toString(36)`; two vitest workers loading the harness in the same millisecond produced the same address, `user_email_unique` (23505) failed in `beforeAll`, `afterAll` then closed the pool and the other concurrent sign-ups reported "Cannot use a pool after calling end". Reproduced on a fresh database (1 failure in 3 runs, contacts + tasks suites), fixed by adding a random suffix (harness, password-reset, events tests); 1 further full run green on the same database. Test-only change; no product code affected.

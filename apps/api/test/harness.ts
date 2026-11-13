@@ -10,7 +10,8 @@ import { createApp } from "../src/app.ts";
 export const ORIGIN = "http://localhost:3000";
 const APP_URL = process.env.DATABASE_URL_APP ?? "postgres://crm_app:app_dev@127.0.0.1:5436/" + (process.env.CRM_DB_NAME ?? "crm") + "";
 const ADMIN_URL = "postgres://postgres:postgres@127.0.0.1:5436/" + (process.env.CRM_DB_NAME ?? "crm") + "";
-const run = Date.now().toString(36);
+// Date.now() alone collided when two vitest workers loaded this module in the same millisecond (duplicate user_email_unique in beforeAll).
+const run = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
 let n = 0;
 
 export type TestUser = { id: string; email: string; name: string; cookie: string; token: string };
