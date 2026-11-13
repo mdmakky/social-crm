@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { Checkbox } from "@/components/ui/form-controls";
 import { Input, Select } from "@/components/ui/input";
+import { Dialog, DialogClose, DialogContent } from "@/components/ui/overlays";
 import { Panel, PanelHeader } from "@/components/ui/panel";
 import { Alert } from "@/components/ui/states";
 import { browserApi, errorMessage } from "@/lib/client-api";
@@ -39,10 +40,17 @@ export function ContactSettings({ workspaceId, canManage, stages: s0, tags: t0, 
     if (!r.ok) return fail(r.error);
     setStages(stages.map((s) => (s.id === r.data.id ? r.data : s))); setEditing(null); setError(null);
   }
+  const [confirmStage, setConfirmStage] = React.useState<LifecycleStage | null>(null);
+  const [confirmTag, setConfirmTag] = React.useState<Tag | null>(null);
+  const [busy, setBusy] = React.useState(false);
+  const [dialogError, setDialogError] = React.useState<string | null>(null);
+  const askArchive = (s: LifecycleStage) => { setDialogError(null); if (s.contactCount > 0) setConfirmStage(s); else void archiveStage(s, true); };
   async function archiveStage(s: LifecycleStage, archived: boolean) {
+    setBusy(true);
     const r = await browserApi.call(endpoints.updateLifecycleStage, { params: { ...p, stageId: s.id }, body: { archived } });
-    if (!r.ok) return fail(r.error);
-    setStages(stages.map((x) => (x.id === s.id ? r.data : x))); setError(null);
+    setBusy(false);
+    if (!r.ok) return confirmStage ? setDialogError(errorMessage(r.error)) : fail(r.error);
+    setStages(stages.map((x) => (x.id === s.id ? r.data : x))); setError(null); setConfirmStage(null);
   }
   async function move(i: number, d: -1 | 1) {
     const next = [...stages]; const j = i + d;
@@ -62,10 +70,11 @@ export function ContactSettings({ workspaceId, canManage, stages: s0, tags: t0, 
     setTags(tags.map((t) => (t.id === r.data.id ? r.data : t))); setEditTag(null); setError(null);
   }
   async function deleteTag(t: Tag) {
-    if (!window.confirm(`Delete the tag "${t.name}"? It will be removed from ${t.contactCount} ${t.contactCount === 1 ? "contact" : "contacts"}.`)) return;
+    setBusy(true);
     const r = await browserApi.call(endpoints.deleteTag, { params: { ...p, tagId: t.id } });
-    if (!r.ok) return fail(r.error);
-    setTags(tags.filter((x) => x.id !== t.id)); setError(null);
+    setBusy(false);
+    if (!r.ok) return setDialogError(errorMessage(r.error));
+    setTags(tags.filter((x) => x.id !== t.id)); setError(null); setConfirmTag(null);
   }
 
   // ----- custom fields -----
@@ -112,7 +121,7 @@ export function ContactSettings({ workspaceId, canManage, stages: s0, tags: t0, 
                       <Button variant="ghost" icon size="sm" aria-label={`Move ${s.name} up`} disabled={i === 0} onClick={() => void move(i, -1)}><ArrowUp /></Button>
                       <Button variant="ghost" icon size="sm" aria-label={`Move ${s.name} down`} disabled={i === stages.length - 1} onClick={() => void move(i, 1)}><ArrowDown /></Button>
                       <Button variant="secondary" size="sm" onClick={() => setEditing({ id: s.id, name: s.name })}>Rename</Button>
-                      {s.archived ? <Button variant="secondary" size="sm" onClick={() => void archiveStage(s, false)}><RotateCcw />Restore</Button> : <Button variant="secondary" size="sm" onClick={() => void archiveStage(s, true)}><Archive />Archive</Button>}
+                      {s.archived ? <Button variant="secondary" size="sm" onClick={() => void archiveStage(s, false)}><RotateCcw />Restore</Button> : <Button variant="secondary" size="sm" onClick={() => askArchive(s)}><Archive />Archive</Button>}
                     </span>
                   )}
                 </>
@@ -173,7 +182,7 @@ export function ContactSettings({ workspaceId, canManage, stages: s0, tags: t0, 
                   <>
                     <Badge tone={TAG_TONE[t.color]}>{t.name}</Badge>
                     <span className="flex-1 tnum text-sm text-fg-subtle">{t.contactCount} {t.contactCount === 1 ? "contact" : "contacts"}</span>
-                    {canManage && <span className="flex gap-1"><Button variant="secondary" size="sm" onClick={() => setEditTag({ id: t.id, name: t.name, color: t.color })}>Edit</Button><Button variant="ghost" icon size="sm" aria-label={`Delete tag ${t.name}`} onClick={() => void deleteTag(t)}><Trash2 /></Button></span>}
+                    {canManage && <span className="flex gap-1"><Button variant="secondary" size="sm" onClick={() => setEditTag({ id: t.id, name: t.name, color: t.color })}>Edit</Button><Button variant="ghost" icon size="sm" aria-label={`Delete tag ${t.name}`} onClick={() => { setDialogError(null); setConfirmTag(t); }}><Trash2 /></Button></span>}
                   </>
                 )}
               </li>
@@ -181,6 +190,26 @@ export function ContactSettings({ workspaceId, canManage, stages: s0, tags: t0, 
           </ul>
         )}
       </Panel>
+
+      <Dialog open={!!confirmStage} onOpenChange={(o) => { if (!o && !busy) setConfirmStage(null); }}>
+        <DialogContent title={`Archive "${confirmStage?.name ?? ""}"?`} description={`${confirmStage?.contactCount ?? 0} ${confirmStage?.contactCount === 1 ? "contact is" : "contacts are"} in this stage. Archived stages stay on the contacts that already have them but cannot be newly assigned. You can restore the stage later.`}>
+          {dialogError && <Alert tone="error" className="mb-3">{dialogError}</Alert>}
+          <div className="flex justify-end gap-2">
+            <DialogClose asChild><Button variant="ghost">Cancel</Button></DialogClose>
+            <Button variant="danger" loading={busy} onClick={() => confirmStage && void archiveStage(confirmStage, true)}>Archive stage</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!confirmTag} onOpenChange={(o) => { if (!o && !busy) setConfirmTag(null); }}>
+        <DialogContent title={`Delete tag "${confirmTag?.name ?? ""}"?`} description={`It will be removed from ${confirmTag?.contactCount ?? 0} ${confirmTag?.contactCount === 1 ? "contact" : "contacts"}. This cannot be undone.`}>
+          {dialogError && <Alert tone="error" className="mb-3">{dialogError}</Alert>}
+          <div className="flex justify-end gap-2">
+            <DialogClose asChild><Button variant="ghost">Cancel</Button></DialogClose>
+            <Button variant="danger" loading={busy} onClick={() => confirmTag && void deleteTag(confirmTag)}>Delete tag</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
