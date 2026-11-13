@@ -52,3 +52,20 @@ Updates are applied one UPDATE statement per contact (a loop in imports.ts, not 
 - Noisy shared host; numbers are not a stable benchmark. Postgres in Docker on the same machine.
 - Triggers are database-wide, so the integrity test must own its database and must not run in parallel with other files on `crm_import`.
 - Rate limits were raised to 10,000 in the test; default limits (10 commits per workspace per 10 min) were not exercised.
+
+## Follow-up: update batching and lock timeout (main, 2026-11-13)
+Host load 2.5 (near idle), isolated database `crm_import`, `IMPORT_BENCH=1`, same benchmark file, before and after the change that batches existing-contact updates into one `UPDATE ... FROM (VALUES ...)` per 500 rows and raises `lock_timeout` from 20 s to 60 s (statement timeout stays 120 s):
+
+| Case (5,000 rows, 50 tags) | Before | After |
+|---|---|---|
+| Mixed: 4,300 create, 700 update | commit 4.2 to 4.7 s | commit 2.0 s |
+| Update-heavy: 5,000 updates | 18.3 s | 1.1 s |
+| Two commits in one workspace, second waits | second finished at 10.0 s | second finished at 3.9 s |
+| 12 concurrent commits, 12 workspaces | all ok, /v1/me max 2.2 s | not re-run |
+
+Cause of the slow updates: one statement per contact (about 3.6 ms each with RLS and index maintenance). The 409 `import_busy` seen earlier needed a first commit longer than 20 s; with updates batched that no longer occurs in the benchmark, and the timeout is now 60 s as a backstop. The previous 41 s measurement was the pre-batching implementation. Not proven: behaviour with other load on the host, or with 100,000-row workspaces.
+
+Real-database failure test: `apps/api/test/imports-integrity.test.ts` (4 tests) now runs only with `CRM_DB_NAME=<throwaway db> IMPORT_ISOLATED=1`, because it installs triggers database-wide (they fire only for marker values, and are dropped in `afterAll` and `finally`). On the shared `crm` database it is skipped. After a run, `pg_trigger` and `pg_proc` held no `poison*` objects.
+
+## perf.test.ts under CPU contention (separate, open)
+`apps/api/test/perf.test.ts` ("list (default sort) p95 < 300 ms") failed in 2 of 10 runs while other work kept the host at load 12 to 24, and on idle runs it passes. Budgets are unchanged. Proposed handling, not done: run the performance gate as its own turbo task that does not run in parallel with other test files.
