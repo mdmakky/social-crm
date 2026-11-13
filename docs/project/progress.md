@@ -35,3 +35,6 @@ Done: shared typed API client with drift guards (item 5 met at code level); seco
 
 ## Update 2026-11-13: Contacts slice built; acceptance pending review
 Data model, API, web UI, import and export, and settings are done and tested (see roadmap and testing report). The independent review failed on a usage limit and must be rerun before Contacts acceptance can be called passed. Leads and Pipeline are not started. Phase 1 remains OPEN. Next: run the review (resume or relaunch after the limit resets at 12:20pm Asia/Dhaka), fix findings, then close Contacts acceptance.
+
+## Update 2026-11-13: Leads and Pipeline checkpoint (feature branch, not merged)
+Branch `feat/leads-pipeline`, code HEAD `ef574f8`. Slices 0 to 7 of the approved sequence are built and tested (schema and RLS, pipeline configuration, lead CRUD, list, detail, board, tasks link, search and notifications, minimal reporting). Android verification is DEFERRED by user decision (emulator crashes with KVM on this machine; processes stopped; mobile source untouched; nothing mobile is claimed verified). Meta Inbox architecture plan written; implementation not started. See `leads-pipeline-acceptance-report.md` for the VERIFIED, UNVERIFIED, DEFERRED and BLOCKED lists.

@@ -44,3 +44,6 @@ The API trusts origin `crm://` (`apps/api/src/server.ts`). The emulator reaches 
 | 7 | Offline | Stop the API, tap "Call /v1/me" | Error text shown, no crash | Screenshot | Unverified |
 
 Mark each row Pass / Fail with evidence paths only after running it. Do not mark Pass from the unit tests.
+
+## Status 2026-11-13: DEFERRED by user decision (UNVERIFIED)
+Investigation stopped. Findings so far, recorded as observed, not as a diagnosis: with hardware acceleration the emulator (`crm_pixel`, version 37.2.13.0, android-36 x86_64) segfaults in `qemu-system-x86_64-headless` about 20 seconds after "performing a full startup", with `-gpu swiftshader_indirect`, `-gpu guest`, `-gpu off` and with Vulkan disabled (core dumps recorded by systemd-coredump; the crashing frame was not symbolised). With `-accel off` the process stayed alive and `adb` listed it as `offline`; it was not observed to finish booting within the time spent. The cause is not established. The emulator processes started for this task were stopped; mobile source and configuration are unchanged. Login, SecureStore persistence, restart and session restore, logout, expired session and 401 handling remain UNVERIFIED. Do not claim mobile readiness.
