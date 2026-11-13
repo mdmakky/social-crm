@@ -7,6 +7,8 @@ import { writeAudit } from "../audit.ts";
 import { ensureDefaultStages } from "../crm-service.ts";
 import { contactRoutes } from "./contacts.ts";
 import { crmConfigRoutes } from "./crm-config.ts";
+import { searchRoutes } from "../search/routes.ts"; // track:search
+import type { SearchProvider } from "../search/types.ts"; // track:search
 import { importRoutes, type ImportHooks } from "./imports.ts";
 
 export type Vars = { userId: string; requestId: string };
@@ -29,7 +31,7 @@ async function roleIn(tx: Tx, workspaceId: string, userId: string): Promise<Role
   return m?.role ?? null;
 }
 
-export function workspaceRoutes(db: Db, hooks: { import?: ImportHooks } = {}) {
+export function workspaceRoutes(db: Db, hooks: { import?: ImportHooks; extraSearchProviders?: SearchProvider[] } = {}) {
   const r = new Hono<{ Variables: Vars }>();
   const audit = (c: Ctx) => ({ actorUserId: c.get("userId"), requestId: c.get("requestId"), ip: c.req.header("x-forwarded-for")?.split(",")[0]?.trim() });
 
@@ -166,6 +168,7 @@ export function workspaceRoutes(db: Db, hooks: { import?: ImportHooks } = {}) {
   scoped.route("/", crmConfigRoutes(db));
   scoped.route("/", contactRoutes(db));
   scoped.route("/", importRoutes(db, hooks.import));
+  scoped.route("/", searchRoutes(db, hooks.extraSearchProviders)); // track:search
   r.route("/:id", scoped as unknown as Hono<{ Variables: Vars }>);
   return r;
 }
