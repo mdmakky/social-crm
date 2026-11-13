@@ -24,7 +24,7 @@ export const NAV: NavGroup[] = [
       // --- track:tasks ---
       { key: "tasks", label: "Tasks", icon: CheckSquare, path: "tasks" },
       { key: "leads", label: "Leads", icon: BarChart3, path: "leads", requires: "lead.view" },
-      { key: "pipeline", label: "Pipeline", icon: Kanban, soon: true },
+      { key: "pipeline", label: "Pipeline", icon: Kanban, path: "pipeline", requires: "lead.view" },
     ],
   },
   {
