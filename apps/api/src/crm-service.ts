@@ -104,3 +104,23 @@ export async function loadContact(tx: Tx, workspaceId: string, id: string): Prom
   const [r] = await tx.select().from(schema.contacts).where(and(eq(schema.contacts.workspaceId, workspaceId), eq(schema.contacts.id, id), isNull(schema.contacts.deletedAt)));
   return r ?? null;
 }
+
+export const DEFAULT_PIPELINE_STAGES = [
+  { name: "New", p: 10 }, { name: "Contacted", p: 20 }, { name: "Qualified", p: 40 }, { name: "Proposal", p: 60 }, { name: "Negotiation", p: 80 },
+] as const;
+export const DEFAULT_LOST_REASONS = ["No budget", "No response", "Chose competitor", "Not a fit", "Timing", "Other"] as const;
+
+/** Seeds the default "Sales" pipeline (7 stages) and lost reasons when a workspace has no pipeline. Caller must be owner/admin (RLS). */
+export async function ensureDefaultPipeline(tx: Tx, workspaceId: string): Promise<boolean> {
+  await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${`pipelines-seed:${workspaceId}`}, 0))`);
+  const [existing] = await tx.select({ id: schema.pipelines.id }).from(schema.pipelines).where(eq(schema.pipelines.workspaceId, workspaceId)).limit(1);
+  if (existing) return false;
+  const [p] = await tx.insert(schema.pipelines).values({ workspaceId, name: "Sales", kind: "sales", isDefault: true, position: 0 }).returning({ id: schema.pipelines.id });
+  await tx.insert(schema.pipelineStages).values([
+    ...DEFAULT_PIPELINE_STAGES.map((s, i) => ({ workspaceId, pipelineId: p!.id, name: s.name, kind: "open", defaultProbability: s.p, position: i })),
+    { workspaceId, pipelineId: p!.id, name: "Won", kind: "won", defaultProbability: 100, position: DEFAULT_PIPELINE_STAGES.length },
+    { workspaceId, pipelineId: p!.id, name: "Lost", kind: "lost", defaultProbability: 0, position: DEFAULT_PIPELINE_STAGES.length + 1 },
+  ]);
+  await tx.insert(schema.lostReasons).values(DEFAULT_LOST_REASONS.map((name, position) => ({ workspaceId, name, position })));
+  return true;
+}

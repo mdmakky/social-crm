@@ -3,6 +3,8 @@ import { endpoint } from "./endpoint.ts";
 import { crmEndpoints } from "./crm.ts";
 // --- track:search ---
 import { searchEndpoints } from "./search.ts";
+// --- track:leads ---
+import { leadsEndpoints } from "./leads.ts";
 // --- track:tasks ---
 import { tasksEndpoints } from "./tasks.ts";
 // --- track:notifications ---
@@ -11,6 +13,7 @@ import { notificationEndpoints } from "./notifications.ts";
 export * from "./endpoint.ts";
 export * from "./crm.ts";
 export * from "./search.ts"; // track:search
+export * from "./leads.ts"; // track:leads
 export * from "./tasks.ts"; // track:tasks
 export * from "./notifications.ts"; // track:notifications
 
@@ -80,4 +83,4 @@ const coreEndpoints = {
   auditLog: endpoint({ method: "GET", path: "/v1/workspaces/:workspaceId/audit-log", query: AuditQuery, response: AuditPage }),
 } as const;
 
-export const endpoints = { ...coreEndpoints, ...crmEndpoints, ...searchEndpoints /* track:search */, ...tasksEndpoints /* track:tasks */, ...notificationEndpoints /* track:notifications */ } as const;
+export const endpoints = { ...coreEndpoints, ...crmEndpoints, ...searchEndpoints /* track:search */, ...leadsEndpoints /* track:leads */, ...tasksEndpoints /* track:tasks */, ...notificationEndpoints /* track:notifications */ } as const;

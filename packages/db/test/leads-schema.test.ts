@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import pg from "pg";
-import { eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { createDb, schema, withContext, type Db } from "../src/index.ts";
 
 // Leads/pipeline schema: every CHECK and composite FK, role-by-command RLS, append-only history, immutability, tenancy.
