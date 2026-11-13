@@ -38,7 +38,7 @@ export const contacts = pgTable(
     source: text("source").notNull().default("manual"),
     custom: jsonb("custom").notNull().default({}),
     version: integer("version").notNull().default(1),
-    lastActivityAt: timestamp("last_activity_at", { withTimezone: true }),
+    lastActivityAt: timestamp("last_activity_at", { withTimezone: true }).notNull().defaultNow(),
     createdBy: text("created_by").references(() => user.id),
     createdAt: createdAt(),
     updatedAt: updatedAt(),

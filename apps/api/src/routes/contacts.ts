@@ -10,7 +10,7 @@ import { actor, body, fail, forbidden, isUuid, query, wctx, type SC, type Scoped
 
 const EXPORT_LIMIT = 10_000;
 const TS = (col: string) => `to_char(${col} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`;
-const SORT_EXPR = { name: "c.name", created: "c.created_at", lastActivity: "coalesce(c.last_activity_at, c.created_at)" } as const;
+const SORT_EXPR = { name: "c.name", created: "c.created_at", lastActivity: "c.last_activity_at" } as const;
 
 type Q = Record<string, string | number | undefined>;
 type Parsed = { where: SQL[]; error?: string };
