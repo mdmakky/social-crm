@@ -117,7 +117,7 @@ describe("buildContactFromRow", () => {
     const r = buildContactFromRow(["Ana Silva", "ANA@X.com", "+1 555 010 9999", "customer", "Owner@X.com", "vip; lead|vip", "1500"], mapping, ictx);
     expect(r).toEqual({
       ok: true,
-      contact: { name: "Ana Silva", email: "ana@x.com", phone: "+1 555 010 9999", company: null, source: "import", lifecycleStageId: "s2", ownerUserId: "u1", tags: ["vip", "lead"], custom: { budget: 1500 } },
+      contact: { name: "Ana Silva", nameDerived: false, email: "ana@x.com", phone: "+1 555 010 9999", company: null, source: "import", lifecycleStageId: "s2", ownerUserId: "u1", tags: ["vip", "lead"], custom: { budget: 1500 } },
     });
     expect(headers).toHaveLength(7);
   });
@@ -163,5 +163,74 @@ describe("toCsv (export) neutralises spreadsheet formula injection", () => {
     const rows = [["Ana, \"A\" Silva", "a@x.com"], ["Bob", ""]];
     const parsed = parseCsv(toCsv(["Name", "Email"], rows));
     expect(parsed.rows).toEqual(rows);
+  });
+});
+
+
+describe("hostile input is linear time and bounded (security review B1, M1)", () => {
+  const hostile = "x@" + ".a".repeat(50_000) + "@";
+  it("normalizeEmail rejects a 100k-character quadratic payload quickly", () => {
+    const t = performance.now();
+    expect(normalizeEmail(hostile)).toBeNull();
+    expect(normalizeEmail("x@" + ".a".repeat(2_000_000) + "@")).toBeNull();
+    expect(performance.now() - t).toBeLessThan(50);
+  });
+  it("normalizeEmail still accepts ordinary and long-but-valid addresses", () => {
+    expect(normalizeEmail("first.last+tag@sub.example.co.uk")).toBe("first.last+tag@sub.example.co.uk");
+    expect(normalizeEmail("a".repeat(64) + "@example.com")).not.toBeNull();
+    expect(normalizeEmail("a".repeat(65) + "@example.com")).toBeNull();
+    expect(normalizeEmail("a@" + "b".repeat(250) + ".com")).toBeNull();
+  });
+  it("normalizePhone and the CSV parser stay fast on huge cells", () => {
+    const t = performance.now();
+    expect(normalizePhone("1 ".repeat(1_000_000))).toBeNull();
+    expect(() => parseCsv("Email\n" + "x".repeat(5_000_000))).toThrow(/1000 characters/);
+    expect(performance.now() - t).toBeLessThan(300);
+  });
+  it("counts bytes, not characters, for the size limit", () => {
+    expect(() => parseCsv("Name\n" + "€".repeat(1_800_000))).toThrow(/5 MB/);
+  });
+  it("aborts early on too many rows or columns without materialising everything", () => {
+    const t = performance.now();
+    expect(() => parseCsv("a\n" + "1\n".repeat(2_000_000))).toThrow(/5000/);
+    expect(() => parseCsv(Array.from({ length: 60 }, (_, i) => `c${i}`).join(",") + "\n1")).toThrow(/columns/);
+    expect(performance.now() - t).toBeLessThan(1500);
+  });
+  it("refuses NUL bytes in files and fields", () => {
+    expect(() => parseCsv("Name\nA\u0000B")).toThrow(/NUL|invalid/i);
+  });
+});
+
+describe("import fixes (security M3, integrity m7, m11)", () => {
+  const ctx2 = { stages: [{ id: "s1", name: "New" }], defaultStageId: "s1", members: [], customDefs: [] };
+  it("flags a name derived from the email or phone so updates never overwrite a real name", () => {
+    const a = buildContactFromRow(["real@example.com"], ["email"], ctx2);
+    expect(a.ok && a.contact.nameDerived).toBe(true);
+    const b = buildContactFromRow(["+1 555 010 4444"], ["phone"], ctx2);
+    expect(b.ok && b.contact.nameDerived).toBe(true);
+    const c = buildContactFromRow(["Ana", "ana@x.com"], ["name", "email"], ctx2);
+    expect(c.ok && c.contact.nameDerived).toBe(false);
+  });
+  it("applies the same field limits as manual creation", () => {
+    const r = buildContactFromRow(["x".repeat(121), "y".repeat(121), "1".repeat(41)], ["name", "company", "phone"], ctx2);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.errors.map((e) => e.field).sort()).toEqual(["company", "name", "phone"]);
+  });
+  it("collapses line breaks inside names and companies", () => {
+    const r = buildContactFromRow(["Ana\r\nCosta", "Acme\nInc"], ["name", "company"], ctx2);
+    expect(r.ok && r.contact.name).toBe("Ana Costa");
+    expect(r.ok && r.contact.company).toBe("Acme Inc");
+  });
+  it("treats a 00 international prefix like +", () => {
+    expect(normalizePhone("0044 20 7946 0958")).toBe("+442079460958");
+    expect(normalizePhone("+44 20 7946 0958")).toBe("+442079460958");
+    expect(normalizePhone("020 7946 0958")).toBe("02079460958");
+  });
+  it("custom values: unsafe numbers are refused and partial validation skips untouched fields", () => {
+    const d: CustomFieldDef[] = [{ key: "n", label: "N", type: "number", options: [], required: false }, { key: "tier", label: "Tier", type: "select", options: ["gold"], required: true }];
+    expect(validateCustomValues(d, { n: 9007199254740993, tier: "gold" }).ok).toBe(false);
+    expect(validateCustomValues(d, { n: 1e21, tier: "gold" }).ok).toBe(false);
+    expect(validateCustomValues(d, { n: 5 }, { partial: true })).toEqual({ ok: true, values: { n: 5 } });
+    expect(validateCustomValues(d, { n: 5 }).ok).toBe(false);
   });
 });
