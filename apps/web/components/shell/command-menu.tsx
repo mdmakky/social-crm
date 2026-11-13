@@ -3,8 +3,10 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Command } from "cmdk";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
-import { LogOut, Plus, Search } from "lucide-react";
+import { LogOut, Plus, Search, User } from "lucide-react";
 import type { Role } from "@crm/core/permissions";
+import { endpoints, type SearchGroup } from "@crm/contracts";
+import { browserApi, errorMessage } from "@/lib/client-api";
 import { authClient } from "@/lib/auth-client";
 import { builtNav, href } from "@/lib/nav";
 import { Kbd } from "@/components/ui/kbd";
@@ -13,25 +15,80 @@ import type { ShellWorkspace } from "./types";
 const itemCls = "flex cursor-default items-center gap-2 rounded-md px-2 py-2 text-base text-fg data-[selected=true]:bg-selected data-[selected=true]:ring-1 data-[selected=true]:ring-inset data-[selected=true]:ring-accent [&_svg]:size-4 [&_svg]:text-fg-subtle";
 const groupCls = "[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-fg-subtle";
 
+const MIN_CHARS = 2;
+const DEBOUNCE_MS = 200;
+type Remote = { status: "idle" | "loading" | "done" | "error"; groups: SearchGroup[]; error?: string };
+
+/** Debounced global search. Every request gets a sequence number; only the latest may update state. */
+function useGlobalSearch(workspaceId: string, q: string, active: boolean) {
+  const [state, setState] = React.useState<Remote>({ status: "idle", groups: [] });
+  const seq = React.useRef(0);
+  const [retry, setRetry] = React.useState(0);
+  React.useEffect(() => {
+    const mine = ++seq.current;
+    if (!active || q.length < MIN_CHARS) { setState({ status: "idle", groups: [] }); return; }
+    setState((s) => ({ ...s, status: "loading" }));
+    const t = setTimeout(async () => {
+      const res = await browserApi.call(endpoints.search, { params: { workspaceId }, query: { q } });
+      if (mine !== seq.current) return;
+      setState(res.ok ? { status: "done", groups: res.data.groups } : { status: "error", groups: [], error: errorMessage(res.error) });
+    }, DEBOUNCE_MS);
+    return () => clearTimeout(t);
+  }, [workspaceId, q, active, retry]);
+  return { ...state, retry: () => setRetry((n) => n + 1) };
+}
+
 export function CommandMenu({ open, onOpenChange, workspace, workspaces, role }: { open: boolean; onOpenChange: (o: boolean) => void; workspace: ShellWorkspace; workspaces: ShellWorkspace[]; role: Role }) {
   const router = useRouter();
+  const [input, setInput] = React.useState("");
+  const q = input.trim();
+  const remote = useGlobalSearch(workspace.id, q, open);
+  const opener = React.useRef<HTMLElement | null>(null);
+  const [selected, setSelected] = React.useState("");
+  React.useEffect(() => { if (!open) setInput(""); }, [open]);
+  // cmdk does not auto-select force-mounted items, so point the selection at the best live hit (Enter opens it).
+  const firstHit = remote.groups.find((g) => g.hits.length > 0)?.hits[0];
+  const firstKey = firstHit ? `${firstHit.type}:${firstHit.id}` : "";
+  React.useEffect(() => { if (firstKey) setSelected(firstKey); }, [firstKey]);
   const go = (to: string) => { onOpenChange(false); router.push(to); };
   const groups = builtNav(role);
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className="fixed inset-0 z-40 bg-fg/30" />
-        <DialogPrimitive.Content aria-label="Command menu" className="pop fixed left-1/2 top-[12vh] z-50 w-[calc(100vw-32px)] max-w-lg -translate-x-1/2 overflow-hidden rounded-xl border border-line bg-surface shadow-popover">
+        <DialogPrimitive.Content aria-label="Command menu" onOpenAutoFocus={() => { opener.current = document.activeElement as HTMLElement | null; }} onCloseAutoFocus={(e) => { e.preventDefault(); opener.current?.focus(); }} className="pop fixed left-1/2 top-[12vh] z-50 w-[calc(100vw-32px)] max-w-lg -translate-x-1/2 overflow-hidden rounded-xl border border-line bg-surface shadow-popover">
           <DialogPrimitive.Title className="sr-only">Command menu</DialogPrimitive.Title>
           <DialogPrimitive.Description className="sr-only">Search pages and actions, then press Enter.</DialogPrimitive.Description>
-          <Command label="Command menu">
+          <Command label="Command menu" shouldFilter value={selected} onValueChange={setSelected}>
             <div className="flex items-center gap-2 border-b border-line px-3">
               <Search className="size-4 text-fg-subtle" aria-hidden />
-              <Command.Input placeholder="Search pages and actions" className="h-11 flex-1 bg-transparent text-base text-fg outline-none pointer-coarse:text-md" />
+              <Command.Input value={input} onValueChange={setInput} placeholder="Search contacts, pages and actions" className="h-11 flex-1 bg-transparent text-base text-fg outline-none pointer-coarse:text-md" />
               <Kbd>Esc</Kbd>
             </div>
+            {q.length >= MIN_CHARS && (
+              <div role="status" className="border-b border-line px-4 py-2 text-sm text-fg-muted">
+                {remote.status === "loading" && "Searching…"}
+                {remote.status === "done" && remote.groups.every((g) => g.hits.length === 0) && `No results for “${q}”.`}
+                {remote.status === "error" && (
+                  <span className="flex items-center gap-2 text-danger">
+                    <span>Search failed. {remote.error}</span>
+                    <button type="button" onClick={remote.retry} className="rounded px-1 text-accent underline">Retry</button>
+                  </span>
+                )}
+              </div>
+            )}
             <Command.List className="max-h-80 overflow-y-auto p-2">
-              <Command.Empty className="px-2 py-6 text-center text-sm text-fg-muted">No matching pages or actions.</Command.Empty>
+              {q.length < MIN_CHARS && <Command.Empty className="px-2 py-6 text-center text-sm text-fg-muted">No matching pages or actions.</Command.Empty>}
+              {remote.groups.filter((g) => g.hits.length > 0).map((g) => (
+                <Command.Group key={g.type} heading={g.label} forceMount className={groupCls}>
+                  {g.hits.map((h) => (
+                    <Command.Item key={`${g.type}:${h.id}`} value={`${g.type}:${h.id}`} forceMount onSelect={() => go(h.href)} className={itemCls}>
+                      <User />
+                      <span className="min-w-0 flex-1"><span className="block truncate">{h.title}</span>{h.subtitle && <span className="block truncate text-xs text-fg-muted">{h.subtitle}</span>}</span>
+                    </Command.Item>
+                  ))}
+                </Command.Group>
+              ))}
               <Command.Group heading="Go to" className={groupCls}>
                 {groups.flatMap((g) => g.items).map((item) => {
                   const Icon = item.icon;
