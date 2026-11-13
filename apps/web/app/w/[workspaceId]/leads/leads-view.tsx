@@ -17,7 +17,7 @@ import { browserApi, errorMessage } from "@/lib/client-api";
 import { formatDate } from "@/lib/format";
 import { formatMoney, noun, OUTCOME_LABEL, OUTCOME_TONE, stageName } from "@/lib/leads";
 
-type Props = { workspaceId: string; myUserId: string; pipelines: PipelineDto[]; initial: LeadPage | null; members: Member[]; canCreate: boolean; canSetValue: boolean };
+type Props = { initialOutcome: Filters["outcome"]; workspaceId: string; myUserId: string; pipelines: PipelineDto[]; initial: LeadPage | null; members: Member[]; canCreate: boolean; canSetValue: boolean };
 type Filters = { q: string; pipelineId: string; stageId: string; outcome: "open" | "won" | "lost" | "all"; ownerId: string; sort: "updated" | "created" | "close"; dir: "asc" | "desc" };
 const DEFAULTS: Filters = { q: "", pipelineId: "", stageId: "", outcome: "open", ownerId: "", sort: "updated", dir: "desc" };
 const SORTS = [["updated", "Last updated"], ["created", "Created"], ["close", "Expected close"]] as const;
@@ -32,8 +32,8 @@ export function LeadsView(props: Props) {
   return <ToastProvider><Inner {...props} /></ToastProvider>;
 }
 
-function Inner({ workspaceId, myUserId, pipelines, initial, members, canCreate, canSetValue }: Props) {
-  const [f, setF] = React.useState<Filters>(DEFAULTS);
+function Inner({ initialOutcome, workspaceId, myUserId, pipelines, initial, members, canCreate, canSetValue }: Props) {
+  const [f, setF] = React.useState<Filters>({ ...DEFAULTS, outcome: initialOutcome });
   const [page, setPage] = React.useState<LeadPage>(initial ?? { items: [], nextCursor: null });
   const [status, setStatus] = React.useState<"idle" | "loading" | "error">(initial ? "idle" : "error");
   const [errorText, setErrorText] = React.useState<string | null>(null);

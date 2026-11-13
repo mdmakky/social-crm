@@ -19,7 +19,7 @@ import { formatDate } from "@/lib/format";
 import { formatMoney, noun } from "@/lib/leads";
 import { cn } from "@/lib/cn";
 
-type Props = { workspaceId: string; pipelines: PipelineDto[]; lostReasons: LostReasonDto[]; current: PipelineDto | null; initialLeads: LeadDto[]; truncated: boolean; canEdit: boolean; canCreate: boolean; canSetValue: boolean };
+type Props = { workspaceId: string; pipelines: PipelineDto[]; lostReasons: LostReasonDto[]; current: PipelineDto | null; initialLeads: LeadDto[]; wonLeads: LeadDto[]; lostLeads: LeadDto[]; truncated: boolean; canEdit: boolean; canCreate: boolean; canSetValue: boolean };
 const COLUMN_CAP = 50; // cards rendered per column before "Show more" (keeps drag smooth without virtualization)
 const byRank = (a: LeadDto, b: LeadDto) => (a.rank < b.rank ? -1 : a.rank > b.rank ? 1 : a.id < b.id ? -1 : 1);
 
@@ -32,7 +32,7 @@ const collide: CollisionDetection = (args) => {
   return within.length ? within : closestCorners(args);
 };
 
-function Inner({ workspaceId, pipelines, lostReasons, current, initialLeads, truncated, canEdit, canCreate, canSetValue }: Props) {
+function Inner({ workspaceId, pipelines, lostReasons, current, initialLeads, wonLeads, lostLeads, truncated, canEdit, canCreate, canSetValue }: Props) {
   const router = useRouter();
   const toast = useToast();
   const [leads, setLeads] = React.useState(initialLeads);
@@ -150,9 +150,9 @@ function Inner({ workspaceId, pipelines, lostReasons, current, initialLeads, tru
                 </Column>
               );
             })}
-            <div className="flex w-44 shrink-0 flex-col gap-3">
-              {won && <Terminal stage={won} icon={<Trophy className="size-4" aria-hidden />} dragging={dragId !== null} />}
-              {lost && <Terminal stage={lost} icon={<XCircle className="size-4" aria-hidden />} dragging={dragId !== null} />}
+            <div className="flex w-56 shrink-0 flex-col gap-3">
+              {won && <Terminal stage={won} workspaceId={workspaceId} outcome="won" closed={wonLeads} icon={<Trophy className="size-4" aria-hidden />} dragging={dragId !== null} />}
+              {lost && <Terminal stage={lost} workspaceId={workspaceId} outcome="lost" closed={lostLeads} icon={<XCircle className="size-4" aria-hidden />} dragging={dragId !== null} />}
             </div>
           </div>
         </div>
@@ -183,11 +183,19 @@ function Column({ stage, count, total, currency, dragging, children }: { stage: 
   );
 }
 
-function Terminal({ stage, icon, dragging }: { stage: StageDto; icon: React.ReactNode; dragging: boolean }) {
+/** Won and Lost: a drop target plus the leads closed in the last 30 days (newest first). Closed cards are links; reopening is done on the lead. */
+function Terminal({ stage, workspaceId, outcome, closed, icon, dragging }: { stage: StageDto; workspaceId: string; outcome: "won" | "lost"; closed: LeadDto[]; icon: React.ReactNode; dragging: boolean }) {
   const { setNodeRef, isOver } = useDroppable({ id: stage.id });
+  const shown = closed.slice(0, 5);
   return (
-    <section ref={setNodeRef} aria-label={`Drop to mark as ${stage.name.toLowerCase()}`} className={cn("flex min-h-24 flex-1 flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed px-3 text-center text-sm transition-colors duration-150", isOver ? "border-accent bg-accent-subtle text-accent-fg" : dragging ? "border-line-strong text-fg-muted" : "border-line text-fg-subtle")}>
-      {icon}<span className="font-medium">{stage.name}</span><span className="text-xs">{dragging ? "Drop to close" : "Drag a card here"}</span>
+    <section ref={setNodeRef} aria-label={`${stage.name}: drop to mark as ${stage.name.toLowerCase()}`} className={cn("flex min-h-24 flex-1 flex-col gap-1.5 rounded-xl border-2 border-dashed p-2.5 text-sm transition-colors duration-150", isOver ? "border-accent bg-accent-subtle text-accent-fg" : dragging ? "border-line-strong text-fg-muted" : "border-line text-fg-muted")}>
+      <h2 className="flex items-center justify-between gap-1.5 font-semibold text-fg"><span className="inline-flex items-center gap-1.5">{icon}{stage.name}</span><span className="text-xs font-normal tabular-nums text-fg-subtle" title="Closed in the last 30 days">{closed.length}</span></h2>
+      {dragging ? <p className="py-2 text-center text-xs">Drop to close</p> : shown.length === 0 ? <p className="py-1 text-xs text-fg-subtle">None in the last 30 days. Drag a card here to close it.</p> : (
+        <ul className="flex flex-col gap-1">
+          {shown.map((l) => <li key={l.id}><Link href={`/w/${workspaceId}/leads/${l.id}`} className="block truncate rounded-md bg-surface px-2 py-1.5 text-xs text-fg hover:bg-hover">{l.title}</Link></li>)}
+        </ul>
+      )}
+      {!dragging && <Link href={`/w/${workspaceId}/leads?status=${outcome}`} className="mt-auto pt-1 text-xs text-accent-fg underline underline-offset-2">View all {stage.name.toLowerCase()}{closed.length > shown.length ? ` (${closed.length} recent)` : ""}</Link>}
     </section>
   );
 }

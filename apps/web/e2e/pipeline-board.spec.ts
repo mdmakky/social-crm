@@ -49,7 +49,7 @@ test("drag a card to another stage, persist, see value, and drop on Lost with a 
   await page.reload();
   expect(await col(page, "New").locator("[data-card-id]").first().innerText()).toContain("Gamma");
 
-  await drag(page, page.getByRole("button", { name: /^Move Beta\./ }), page.locator('section[aria-label="Drop to mark as lost"]'));
+  await drag(page, page.getByRole("button", { name: /^Move Beta\./ }), page.locator('section[aria-label^="Lost"]'));
   const dlg = page.getByRole("dialog");
   await expect(dlg).toContainText("Mark as lost");
   await dlg.getByLabel("Reason").selectOption({ label: "Not a fit" });

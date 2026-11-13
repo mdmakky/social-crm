@@ -26,3 +26,4 @@ export const CURRENCIES = ["USD", "EUR", "GBP", "CAD", "AUD", "JPY", "INR", "BDT
 
 export const stageName = (pipelines: PipelineDto[], l: Pick<LeadDto, "pipelineId" | "stageId">): StageDto | undefined =>
   pipelines.find((p) => p.id === l.pipelineId)?.stages.find((s) => s.id === l.stageId);
+export const msAgo = (days: number) => Date.now() - days * 86_400_000;

@@ -25,7 +25,14 @@ export function LeadTasks({ workspaceId, lead, members, myUserId, timeZone, canE
     const r = await browserApi.call(endpoints.listLeadTasks, { params: { workspaceId, leadId: lead.id } });
     if (r.ok) { setTasks(r.data); setError(null); } else setError(errorMessage(r.error));
   }, [workspaceId, lead.id]);
-  React.useEffect(() => { void load(); }, [load]);
+  React.useEffect(() => {
+    let live = true;
+    void browserApi.call(endpoints.listLeadTasks, { params: { workspaceId, leadId: lead.id } }).then((r) => {
+      if (!live) return;
+      if (r.ok) { setTasks(r.data); setError(null); } else setError(errorMessage(r.error));
+    });
+    return () => { live = false; };
+  }, [workspaceId, lead.id]);
 
   async function act(t: Task, kind: "done" | "unlink") {
     setBusy(t.id);

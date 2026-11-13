@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { endpoints, type LeadDto } from "@crm/contracts";
 import { can } from "@crm/core/permissions";
 import { dataOf, must, serverApi } from "@/lib/api";
+import { msAgo } from "@/lib/leads";
 import { PipelineBoard } from "./pipeline-board";
 
 export const metadata: Metadata = { title: "Pipeline" };
@@ -30,6 +31,11 @@ export default async function PipelinePage({ params, searchParams }: { params: P
       if (i === BOARD_CAP / 100 - 1) truncated = true;
     }
   }
+  // Recently closed (last 30 days) for the Won and Lost columns; newest first, at most 20 each.
+  const since = msAgo(30);
+  const closedOf = async (outcome: "won" | "lost") =>
+    current ? (dataOf(await api.call(endpoints.listLeads, { params: p, query: { pipelineId: current.id, outcome, limit: 100, sort: "updated", dir: "desc" } }))?.items ?? []).filter((l) => l.closedAt && Date.parse(l.closedAt) >= since) : [];
+  const [wonLeads, lostLeads] = await Promise.all([closedOf("won"), closedOf("lost")]);
   return (
     <PipelineBoard
       key={current?.id}
@@ -38,6 +44,8 @@ export default async function PipelinePage({ params, searchParams }: { params: P
       lostReasons={(cfg?.lostReasons ?? []).filter((r) => !r.archived)}
       current={current ?? null}
       initialLeads={leads}
+      wonLeads={wonLeads}
+      lostLeads={lostLeads}
       truncated={truncated}
       canEdit={can(workspace.role, "lead.edit", {})}
       canCreate={can(workspace.role, "lead.edit", {})}

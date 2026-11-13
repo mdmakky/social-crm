@@ -10,6 +10,7 @@ import { crmConfigRoutes } from "./crm-config.ts";
 import { searchRoutes } from "../search/routes.ts"; // track:search
 import type { SearchProvider } from "../search/types.ts"; // track:search
 // --- track:tasks ---
+import { leadReportRoutes } from "./lead-reports.ts";
 import { leadRoutes } from "./leads.ts";
 import { pipelineRoutes } from "./pipelines.ts";
 import { taskRoutes } from "./tasks.ts";
@@ -178,6 +179,7 @@ export function workspaceRoutes(db: Db, hooks: { import?: ImportHooks; extraSear
   // --- track:tasks ---
   scoped.route("/", pipelineRoutes(db));
   scoped.route("/", leadRoutes(db));
+  scoped.route("/", leadReportRoutes(db));
   scoped.route("/", taskRoutes(db));
   scoped.route("/", notificationRoutes(db)); // track:notifications
   r.route("/:id", scoped as unknown as Hono<{ Variables: Vars }>);

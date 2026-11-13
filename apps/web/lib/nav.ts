@@ -1,4 +1,4 @@
-import { BarChart3, Bot, CheckSquare, Contact, Home, Inbox, Kanban, Plug, ScrollText, Settings, Users, Workflow } from "lucide-react";
+import { BarChart3, PieChart, Bot, CheckSquare, Contact, Home, Inbox, Kanban, Plug, ScrollText, Settings, Users, Workflow } from "lucide-react";
 import type { ComponentType } from "react";
 import { can, type Action, type Role } from "@crm/core/permissions";
 
@@ -25,6 +25,7 @@ export const NAV: NavGroup[] = [
       { key: "tasks", label: "Tasks", icon: CheckSquare, path: "tasks" },
       { key: "leads", label: "Leads", icon: BarChart3, path: "leads", requires: "lead.view" },
       { key: "pipeline", label: "Pipeline", icon: Kanban, path: "pipeline", requires: "lead.view" },
+      { key: "reports", label: "Reports", icon: PieChart, path: "reports", requires: "lead.view" },
     ],
   },
   {
