@@ -83,6 +83,28 @@ State graph (enforced by trigger): `pending -> sending -> sent | failed | unknow
 | D-F | One Page connects to exactly one workspace | Yes (required for safe routing) |
 | D-G | Unknown-state window length and wording | 10 minutes, wording as in section 5 |
 
+### 9a. Decisions APPROVED by the user (2026-11-13)
+| ID | Approved decision |
+|---|---|
+| D-A | Facebook Login for Business for Messenger and Instagram. Instagram-only accounts (no Page) are out of scope for now. Current Meta requirements must be verified again before the real OAuth flow is implemented (a first verification pass is in `docs/integrations/meta-api-verification-2026-11.md`). |
+| D-B | Stable HTTPS development tunnel. Production hosting deferred. The local API must not be exposed before webhook signature verification exists. The user must confirm the actual tunnel domain before any real Meta webhook test. |
+| D-C | HUMAN_AGENT tag disabled by default; enable only after Meta eligibility and permission are verified. |
+| D-D | Environment-based encryption key for owner-only development with `key_id` and rotation support, **explicitly NOT production-grade**. The application role has no SELECT on `integration_secrets`. KMS is mandatory before external users. |
+| D-E | Message bodies are kept until contact erasure. Raw webhook bodies are deleted after 30 days. Contact erasure implementation is mandatory before external users. |
+| D-F | One external Page or account belongs to exactly one workspace; global uniqueness on `(platform, external_account_id)` is a critical tenant-isolation requirement. |
+| D-G | Delivery-unknown timeout is 10 minutes, then an explicit human decision ("Mark as not sent" or "It was delivered"); an unknown send is never retried automatically. |
+Slice 3 (OAuth) does not start until the actual development tunnel and the required Meta configuration are confirmed.
+
+### 9b. Slice 1 as implemented (migrations 0017 and 0018)
+- **Tables:** `integration_accounts`, `integration_secrets`, `platform_identities`, `conversations`, `messages`, `conversation_reads`, `webhook_events`, `outbound_attempts`, `integration_events` (drizzle schema in `packages/db/src/schema/inbox.ts`). All forced RLS, policies written `TO <role>` with D45 scalar subqueries.
+- **Roles (new, created by `packages/db/sql/001_roles_and_probe.sql`, which must be re-run as a superuser on an existing database before migrating):** `crm_app` (the API), `crm_ingest` (webhook ingress: INSERT only on `webhook_events`, `workspace_id` must be NULL, no read-back, column-limited SELECT on `integration_accounts` for routing), `crm_worker` (background processing: scoped by the workspace setting; reads secrets; routes events; the only role that may drive `pending -> sending -> sent | failed | unknown`).
+- **Secrets:** `crm_app` has INSERT only (owner/admin); no SELECT, UPDATE or DELETE and `RETURNING` is refused. The ingress role cannot read them. The worker reads them only inside a matching workspace context.
+- **Raw bodies:** `crm_app` cannot select the `raw_body` column at all (column grant); `purge_webhook_event_bodies()` nulls bodies older than 30 days, refuses a longer retention, and only the worker may execute it. The scheduler that calls it is Slice 2.
+- **Delivery state graph** is enforced by trigger for every role including superusers; `crm_app` may only do `unknown -> sent|failed` and `failed -> pending` (retry with a new client id); `crm_worker` may do the automatic part; nobody can leave `sent`; inbound messages are immutable. One small extension to section 5: `pending -> failed` for a send refused before any request (token or window).
+- **Integrity:** composite FKs force identity, conversation and message to the same workspace and account; message content is immutable; messages are never deleted (contact erasure will need a dedicated anonymisation procedure, still to be built, mandatory before external users); `integration_events` is append-only; send attempts finish once; account routing keys are immutable.
+- **Known gaps carried to later slices:** `conversations.unread_count` is one number while reads are per user (needs a per-user derivation or a decision); no scheduler for the purge; worker grants on contacts, activities and domain events are not defined yet (Slice 2 processing); the unique-violation on `(platform, external_account_id)` tells a workspace that a Page is connected elsewhere (the API must return a generic error).
+- **Meta research impact (see the verification doc, conflicts C1 to C8):** keep raw-bytes signature verification and add a non-ASCII fixture; respond to webhooks within about 5 seconds; add a periodic subscription check; Messenger echoes carry `metadata` so `client_msg_id` can ride in it; Instagram has no `message_echoes`, `message_reads` or `message_deliveries` fields; the Instagram webhooks page says the app must be published to receive webhooks, which may conflict with Development-mode-only testing and must be tested first with the real app.
+
 ## 10. Implementation sequence (each slice is web-first, shared contracts, mobile compatible by contract)
 0. Decisions D-A to D-G recorded; Meta app and test Page set up by the owner using the readiness checklist.
 1. Schema and RLS for integration, conversation and message tables, ingress role and function, state-graph trigger; DB tests for every constraint, role grant, cross-tenant routing and the append-only tables.
