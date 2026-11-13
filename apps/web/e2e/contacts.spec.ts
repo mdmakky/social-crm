@@ -88,7 +88,12 @@ test.describe("contacts list", () => {
     await page.getByRole("button", { name: "Columns", exact: true }).click();
     const dialog = page.getByRole("dialog", { name: "Columns" });
     await dialog.getByRole("listitem").filter({ hasText: "Source" }).getByRole("button", { name: "Hide" }).click();
+    // F11: the row's button turns into Show and keeps focus; a status announces the change
+    await expect(dialog.getByRole("listitem").filter({ hasText: "Source" }).getByRole("button", { name: "Show" })).toBeFocused();
+    await expect(dialog.getByRole("status")).toHaveText("Source hidden");
     await dialog.getByRole("button", { name: "Move Created up" }).click();
+    await expect(dialog.getByRole("button", { name: "Move Created up" })).toBeFocused();
+    await expect(dialog.getByRole("status")).toHaveText("Created, position 5 of 6");
     await dialog.getByRole("button", { name: "Done" }).click();
     await expect(page.getByRole("columnheader")).toHaveText(["Contact", "Lifecycle stage", "Owner", "Tags", "Created", "Last activity"]);
     await page.reload();
@@ -119,15 +124,63 @@ test.describe("contacts list", () => {
     await expect(page.getByText("2 contacts")).toBeVisible();
     await expect(page.getByRole("button", { name: "Views", exact: true })).toBeVisible(); // changing filters leaves the saved view
     await page.getByRole("button", { name: "Views", exact: true }).click();
-    await page.getByRole("menuitem", { name: /Just Ben/ }).click();
+    await page.getByRole("menuitem", { name: /Just Ben/ }).first().click();
     await expect(page.getByRole("button", { name: "Just Ben" })).toBeVisible();
     await expect(page.getByLabel("Search contacts")).toHaveValue("ben");
     await expect(page.getByText("1 contact match your filters")).toBeVisible();
 
+    // F12: rename, update with the current filters, and delete only after confirming
     await page.getByRole("button", { name: "Just Ben" }).click();
-    await page.getByRole("menuitem", { name: /Delete “Just Ben”/ }).click();
+    await page.getByRole("menuitem", { name: /Rename “Just Ben”/ }).click();
+    const rename = page.getByRole("dialog", { name: "Rename view" });
+    await rename.getByLabel("View name").fill("Only Ben");
+    await rename.getByRole("button", { name: "Rename" }).click();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await page.getByLabel("Search contacts").fill("ana");
+    await expect(page.getByText("1 contact match your filters")).toBeVisible();
+    await page.getByRole("button", { name: "Views", exact: true }).click();
+    await page.getByRole("menuitem", { name: /Update “Only Ben” with current filters/ }).click();
+    await page.getByRole("button", { name: "Clear", exact: true }).click();
+    await expect(page.getByText("2 contacts")).toBeVisible();
+    await page.getByRole("button", { name: "Views", exact: true }).click();
+    await page.getByRole("menuitem", { name: /Only Ben/ }).first().click();
+    await expect(page.getByLabel("Search contacts")).toHaveValue("ana"); // the saved filters were replaced, and the name changed
+
+    await page.getByRole("button", { name: "Only Ben" }).click();
+    await page.getByRole("menuitem", { name: /Delete “Only Ben”/ }).click();
+    const confirm = page.getByRole("dialog", { name: /Delete “Only Ben”\?/ });
+    await confirm.getByRole("button", { name: "Cancel" }).click();
+    await page.getByRole("button", { name: "Only Ben" }).click();
+    await expect(page.getByRole("menuitem", { name: /Only Ben/ }).first()).toBeVisible(); // Cancel kept it
+    await page.keyboard.press("Escape");
+    await page.getByRole("button", { name: "Only Ben" }).click();
+    await page.getByRole("menuitem", { name: /Delete “Only Ben”/ }).click();
+    await page.getByRole("dialog").getByRole("button", { name: "Delete view" }).click();
     await page.getByRole("button", { name: "Views", exact: true }).click();
     await expect(page.getByText("No saved views yet.")).toBeVisible();
+  });
+
+  test("applying a saved view does not overwrite the personal column layout (F14)", async ({ page }) => {
+    const { workspaceId } = await signUpAndCreate(page, "Layout Owner", "Layout Co");
+    await seedContacts(page, workspaceId, [{ name: "Lay Out", email: "lay@x.example" }]);
+    await page.goto(`/w/${workspaceId}/contacts`);
+    const cols = page.getByRole("button", { name: "Columns", exact: true });
+    await cols.click();
+    await page.getByRole("dialog", { name: "Columns" }).getByRole("listitem").filter({ hasText: "Source" }).getByRole("button", { name: "Hide" }).click();
+    await page.getByRole("dialog", { name: "Columns" }).getByRole("button", { name: "Done" }).click();
+    await page.getByRole("button", { name: "Views", exact: true }).click();
+    await page.getByRole("menuitem", { name: /Save current view/ }).click();
+    await page.getByRole("dialog", { name: "Save view" }).getByLabel("View name").fill("No source");
+    await page.getByRole("dialog", { name: "Save view" }).getByRole("button", { name: "Save view" }).click();
+    await cols.click();
+    await page.getByRole("dialog", { name: "Columns" }).getByRole("button", { name: "Reset to default" }).click();
+    await page.getByRole("dialog", { name: "Columns" }).getByRole("button", { name: "Done" }).click();
+    await expect(page.getByRole("columnheader")).toHaveCount(7); // personal layout: all seven
+    await page.getByRole("button", { name: "Views", exact: true }).click();
+    await page.getByRole("menuitem", { name: /No source/ }).first().click();
+    await expect(page.getByRole("columnheader")).toHaveCount(6); // the view overlays it
+    await page.reload();
+    await expect(page.getByRole("columnheader")).toHaveCount(7); // the personal layout is untouched
   });
 });
 
@@ -139,13 +192,13 @@ test.describe("permissions in the UI", () => {
     await page.goto(`/w/${workspaceId}/contacts`);
     for (const p of [r.owner, r.admin]) {
       await expect(p.getByRole("link", { name: "Import" })).toBeVisible();
-      await expect(p.getByRole("link", { name: "Export" })).toBeVisible();
+      await expect(p.getByRole("button", { name: "Export" })).toBeVisible(); // a button: it fetches and checks the response before downloading (F2)
       await expect(p.getByRole("button", { name: "Add contact" }).first()).toBeVisible();
     }
     await expect(r.agent.getByRole("button", { name: "Add contact" }).first()).toBeVisible();
     await expect(r.agent.getByRole("link", { name: "Import" })).toHaveCount(0);
-    await expect(r.agent.getByRole("link", { name: "Export" })).toHaveCount(0);
-    for (const k of ["Add contact", "Import", "Export"]) await expect(r.viewer.getByRole(k === "Add contact" ? "button" : "link", { name: k })).toHaveCount(0);
+    await expect(r.agent.getByRole("button", { name: "Export" })).toHaveCount(0);
+    for (const k of ["Add contact", "Import", "Export"]) await expect(r.viewer.getByRole(k === "Import" ? "link" : "button", { name: k })).toHaveCount(0);
 
     await r.viewer.goto(`/w/${workspaceId}/contacts/${id}`);
     await expect(r.viewer.getByLabel("Name")).toBeDisabled();

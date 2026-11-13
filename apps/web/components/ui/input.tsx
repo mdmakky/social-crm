@@ -9,9 +9,9 @@ export const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttribute
   return <input ref={ref} className={cn(control, className)} {...props} />;
 });
 
-export const Select = React.forwardRef<HTMLSelectElement, React.SelectHTMLAttributes<HTMLSelectElement>>(function Select({ className, children, ...props }, ref) {
+export const Select = React.forwardRef<HTMLSelectElement, React.SelectHTMLAttributes<HTMLSelectElement> & { wrapperClassName?: string }>(function Select({ className, wrapperClassName, children, ...props }, ref) {
   return (
-    <div className="relative">
+    <div className={cn("relative", wrapperClassName)}>
       <select ref={ref} className={cn(control, "appearance-none pr-8", className)} {...props}>
         {children}
       </select>
