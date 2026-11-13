@@ -3,6 +3,9 @@ import { endpoint } from "./endpoint.ts";
 
 export * from "./endpoint.ts";
 
+export const PASSWORD_MIN_LENGTH = 10;
+export const RESET_TOKEN_TTL_SECONDS = 30 * 60;
+
 export const Role = z.enum(["owner", "admin", "agent", "viewer"]);
 export type Role = z.infer<typeof Role>;
 

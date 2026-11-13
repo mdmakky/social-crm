@@ -3,7 +3,8 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { MemoryMailer, type Mailer } from "../src/ports/mailer.ts";
+import { readdirSync, readFileSync } from "node:fs";
+import { FileMailer, MemoryMailer, type Mailer } from "../src/ports/mailer.ts";
 import { FsBlobStore, workspaceKey, type BlobStore } from "../src/ports/blob-store.ts";
 
 function mailerContract(name: string, make: () => Mailer) {
@@ -18,6 +19,33 @@ function mailerContract(name: string, make: () => Mailer) {
   });
 }
 mailerContract("MemoryMailer", () => new MemoryMailer());
+const mailDirs: string[] = [];
+mailerContract("FileMailer", () => {
+  const d = mkdtempSync(join(tmpdir(), "mail-"));
+  mailDirs.push(d);
+  return new FileMailer(d);
+});
+describe("FileMailer (local development adapter)", () => {
+  it("writes one JSON file per message that tests and developers can read", async () => {
+    const d = mkdtempSync(join(tmpdir(), "mail-"));
+    mailDirs.push(d);
+    const m = new FileMailer(d);
+    const { id } = await m.send({ to: "a@example.com", subject: "Reset", text: "link: https://x/y" });
+    const files = readdirSync(d);
+    expect(files).toHaveLength(1);
+    expect(files[0]).toContain(id);
+    expect(JSON.parse(readFileSync(join(d, files[0]!), "utf8"))).toMatchObject({ id, to: "a@example.com", subject: "Reset", text: "link: https://x/y" });
+  });
+  it("lists messages for a recipient, newest last", async () => {
+    const d = mkdtempSync(join(tmpdir(), "mail-"));
+    mailDirs.push(d);
+    const m = new FileMailer(d);
+    await m.send({ to: "a@example.com", subject: "1", text: "t" });
+    await m.send({ to: "b@example.com", subject: "x", text: "t" });
+    await m.send({ to: "a@example.com", subject: "2", text: "t" });
+    expect((await m.messagesFor("a@example.com")).map((x) => x.subject)).toEqual(["1", "2"]);
+  });
+});
 describe("MemoryMailer", () => {
   it("keeps sent messages for inspection", async () => {
     const m = new MemoryMailer();
@@ -69,4 +97,4 @@ describe("workspaceKey", () => {
   });
 });
 import { afterAll } from "vitest";
-afterAll(() => dirs.forEach((d) => rmSync(d, { recursive: true, force: true })));
+afterAll(() => [...dirs, ...mailDirs].forEach((d) => rmSync(d, { recursive: true, force: true })));

@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import pg from "pg";
 import { endpoints } from "@crm/contracts";
 import { createApiClient } from "@crm/api-client";
+import { MemoryMailer } from "@crm/core";
 import { createDb, type Db } from "@crm/db";
 import { createAuth } from "../src/auth.ts";
 import { createApp } from "../src/app.ts";
@@ -20,7 +21,7 @@ beforeAll(async () => {
   db = createDb(APP_URL);
   admin = new pg.Client({ connectionString: ADMIN_URL });
   await admin.connect();
-  app = createApp(createAuth(db, { secret: "test-secret-".padEnd(40, "x"), baseURL: "http://localhost:8787", trustedOrigins: [ORIGIN] }), { allowedOrigins: [ORIGIN], db });
+  app = createApp(createAuth(db, { secret: "test-secret-".padEnd(40, "x"), baseURL: "http://localhost:8787", trustedOrigins: [ORIGIN], mailer: new MemoryMailer() }), { allowedOrigins: [ORIGIN], db });
 });
 afterAll(async () => {
   await db.$client.end();

@@ -2,8 +2,14 @@ import { Hono } from "hono";
 import type { Db } from "@crm/db";
 import type { Auth } from "./auth.ts";
 import { workspaceRoutes, type Vars } from "./routes/workspaces.ts";
+import { isAllowedRedirect } from "./redirects.ts";
+import { WindowCounter } from "./throttle.ts";
 
-export function createApp(auth: Auth, opts: { allowedOrigins: string[]; db: Db }) {
+/** Same body Better Auth returns for any address, so throttled and unknown requests are indistinguishable from real ones. */
+const GENERIC_RESET_RESPONSE = { status: true, message: "If this email exists in our system, check your email for the reset link" };
+const sha = async (s: string) => Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s.trim().toLowerCase()))), (b) => b.toString(16).padStart(2, "0")).join("");
+
+export function createApp(auth: Auth, opts: { allowedOrigins: string[]; db: Db; resetThrottle?: { perEmail: number; perIp: number; windowMs: number; tokenAttemptsPerIp?: number } }) {
   const app = new Hono<{ Variables: Vars }>();
   // Mutating requests that carry an Origin header must come from an allowed origin (native apps send none).
   app.use("*", async (c, next) => {
@@ -16,6 +22,33 @@ export function createApp(auth: Auth, opts: { allowedOrigins: string[]; db: Db }
     await next();
     c.res.headers.set("x-request-id", requestId);
   });
+  const t = opts.resetThrottle ?? { perEmail: 3, perIp: 10, windowMs: 3_600_000 };
+  const byEmail = new WindowCounter(t.perEmail, t.windowMs);
+  const byIp = new WindowCounter(t.perIp, t.windowMs);
+  const tokenAttempts = new WindowCounter(t.tokenAttemptsPerIp ?? 20, 10 * 60_000);
+  const clientIp = (c: { req: { header: (n: string) => string | undefined } }) => c.req.header("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+
+  // Password reset protection. Throttled requests get the normal success body so the limit leaks nothing.
+  app.post("/api/auth/request-password-reset", async (c, next) => {
+    const body = (await c.req.raw.clone().json().catch(() => null)) as { email?: unknown; redirectTo?: unknown } | null;
+    // The reset token is appended to this URL, so it must be one of ours. Depends only on the input, never on the account.
+    if (!isAllowedRedirect(body?.redirectTo, opts.allowedOrigins)) return c.json({ error: { code: "invalid_redirect" } }, 400);
+    const email = typeof body?.email === "string" ? body.email : "";
+    const okIp = byIp.allow(`ip:${clientIp(c)}`);
+    const okEmail = email ? byEmail.allow(`email:${await sha(email)}`) : true;
+    if (!okIp || !okEmail) return c.json(GENERIC_RESET_RESPONSE);
+    await next();
+  });
+  // Opening the emailed link redirects to callbackURL (with the token, or with an error for a bad token).
+  app.get("/api/auth/reset-password/:token", async (c, next) => {
+    if (!isAllowedRedirect(c.req.query("callbackURL"), opts.allowedOrigins)) return c.json({ error: { code: "invalid_redirect" } }, 400);
+    await next();
+  });
+  app.post("/api/auth/reset-password", async (c, next) => {
+    if (!tokenAttempts.allow(`ip:${clientIp(c)}`)) return c.json({ error: { code: "rate_limited", message: "Too many attempts. Try again later." } }, 429);
+    await next();
+  });
+
   app.get("/health", (c) => c.json({ ok: true }));
   app.on(["GET", "POST"], "/api/auth/*", (c) => auth.handler(c.req.raw));
 

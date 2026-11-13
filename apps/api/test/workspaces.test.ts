@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import pg from "pg";
+import { MemoryMailer } from "@crm/core";
 import { createDb, type Db } from "@crm/db";
 import { createAuth } from "../src/auth.ts";
 import { createApp } from "../src/app.ts";
@@ -37,7 +38,7 @@ beforeAll(async () => {
   admin = new pg.Client({ connectionString: ADMIN_URL });
   await admin.connect();
   db = createDb(APP_URL);
-  const auth = createAuth(db, { secret: "test-secret-".padEnd(40, "x"), baseURL: "http://localhost:8787", trustedOrigins: [ORIGIN] });
+  const auth = createAuth(db, { secret: "test-secret-".padEnd(40, "x"), baseURL: "http://localhost:8787", trustedOrigins: [ORIGIN], mailer: new MemoryMailer() });
   app = createApp(auth, { allowedOrigins: [ORIGIN], db });
   [owner, outsider, agent, adminUser] = await Promise.all([register("owner"), register("outsider"), register("agent"), register("adminuser")]);
   const res = await post("/v1/workspaces", { name: "Northwind Studio" }, owner.cookie);

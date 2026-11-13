@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import pg from "pg";
+import { MemoryMailer } from "@crm/core";
 import { createDb, type Db } from "@crm/db";
 import { createAuth } from "../src/auth.ts";
 import { createApp } from "../src/app.ts";
@@ -19,7 +20,7 @@ const json = (body: unknown) => ({ method: "POST", headers: { "content-type": "a
 
 beforeAll(() => {
   db = createDb(APP_URL);
-  const auth = createAuth(db, { secret: "test-secret-".padEnd(40, "x"), baseURL: "http://localhost:8787", trustedOrigins: [ORIGIN, "crm://"] });
+  const auth = createAuth(db, { secret: "test-secret-".padEnd(40, "x"), baseURL: "http://localhost:8787", trustedOrigins: [ORIGIN, "crm://"], mailer: new MemoryMailer() });
   app = createApp(auth, { allowedOrigins: [ORIGIN], db });
 });
 afterAll(async () => { await db.$client.end(); });
