@@ -1,6 +1,6 @@
 # Leads and Pipeline: acceptance report (evidence for review, not accepted)
 
-Date: 2026-11-13. Branch `feat/leads-pipeline`, base `main` `ba27c75`. Code HEAD at the time the tests ran: `ef574f8` (a documentation-only commit follows it). **Not merged to `main`. Acceptance is the user's decision.**
+Date: 2026-11-13. Branch `feat/leads-pipeline`, base `main` `ba27c75`. Code HEAD at the time the tests ran: `ef574f8` (a documentation-only commit follows it). **Merged to `main` as `50bf5b6` on 2026-11-13, after the fresh-database and upgrade-database checks below passed (conditional acceptance by the user). The Android items remain DEFERRED / UNVERIFIED.**
 
 ## Commits (oldest first)
 `7021525` schema, RLS, permissions (migrations 0014, 0015) · `5071715` pipeline configuration API · `aca826f` lead API · `2990544` Meta readiness doc (cherry-picked) · `90aceed`-derived api-client mock tests and Android runbook (cherry-picked) · `599f974` web settings, list, detail · `e8003a4` board · `d15fbd9` search and `lead.owner_assigned` (agent, cherry-picked) · `4108f01` and `71f39a5` tasks link and `next_activity_at` trigger, migration 0016 (agent, cherry-picked) · `ef574f8` reporting, closed Won/Lost columns, UI checks.

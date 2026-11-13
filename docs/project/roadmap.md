@@ -135,8 +135,8 @@ Core CRM per the PRD (FR-5 to FR-9, FR-30 to FR-35, FR-44) plus password reset (
 - Not measured at 100,000 rows or over a real network; the earlier workspace, membership and audit policies still call the helper functions per row and have not been rewritten (small tables).
 - Phase 1 remains OPEN (Android emulator login and SecureStore runtime unverified).
 
-## Phase 2, slice 4: Leads and Pipeline (2026-11-13). Status: built and tested on branch `feat/leads-pipeline`; NOT merged to `main`; acceptance is the user's decision
-Code HEAD at checkpoint: `ef574f8` (branch `feat/leads-pipeline`, base `main` `ba27c75`). Full report: `docs/project/leads-pipeline-acceptance-report.md`.
+## Phase 2, slice 4: Leads and Pipeline (2026-11-13). Status: built, tested and MERGED to `main` (merge commit `50bf5b6`, 2026-11-13) after the fresh and upgrade migration checks; conditionally accepted by the user
+Code HEAD at checkpoint: `ef574f8`; merge commit `50bf5b6` on `main` (base `ba27c75`). Migration checks: see the acceptance report. Full report: `docs/project/leads-pipeline-acceptance-report.md`.
 - **VERIFIED (commands ran green):** schema, forced RLS, composite FKs, append-only history, stage immutability (db tests); pipeline configuration, lead CRUD, move, close, reopen, delete, restore, list, history, deal-value grants, reporting, search provider, `lead.owner_assigned` notification, tasks link and `next_activity_at` trigger (api tests); web pipeline settings, lead list, lead detail, board with drag and drop, reports, closed Won/Lost columns (Playwright in Chromium, axe WCAG 2.2 AA, 375/768/1024/1440, reduced motion).
 - **UNVERIFIED:** touch drag on a real device, screen reader output, Firefox and Safari, dark mode, performance with 10,000 leads or 500 board cards, lead search at scale, upgrade of a database that already holds lead data.
 - **DEFERRED (by user decision):** Android runtime, login, SecureStore, session restore, logout, expired session and 401 handling; mobile Leads (slice 8). Phase 1 stays formally OPEN.

@@ -38,3 +38,6 @@ Data model, API, web UI, import and export, and settings are done and tested (se
 
 ## Update 2026-11-13: Leads and Pipeline checkpoint (feature branch, not merged)
 Branch `feat/leads-pipeline`, code HEAD `ef574f8`. Slices 0 to 7 of the approved sequence are built and tested (schema and RLS, pipeline configuration, lead CRUD, list, detail, board, tasks link, search and notifications, minimal reporting). Android verification is DEFERRED by user decision (emulator crashes with KVM on this machine; processes stopped; mobile source untouched; nothing mobile is claimed verified). Meta Inbox architecture plan written; implementation not started. See `leads-pipeline-acceptance-report.md` for the VERIFIED, UNVERIFIED, DEFERRED and BLOCKED lists.
+
+## Update 2026-11-13: Leads and Pipeline merged to main
+Merge commit `50bf5b6` (feature branch `feat/leads-pipeline`, code HEAD `ef574f8`). Fresh-database and upgrade-from-0013 migration checks passed (details in `leads-pipeline-acceptance-report.md`). Android remains DEFERRED / UNVERIFIED. Meta Inbox is planned only (`docs/architecture/meta-inbox-plan.md`), no implementation.
