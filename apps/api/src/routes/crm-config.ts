@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { and, asc, count, eq, isNull, or, sql } from "drizzle-orm";
 import { CreateCustomFieldBody, CreateStageBody, CreateTagBody, CreateViewBody, ReorderStagesBody, UpdateCustomFieldBody, UpdateStageBody, UpdateTagBody, UpdateViewBody, type SavedView } from "@crm/contracts";
 import { can } from "@crm/core/permissions";
-import { schema, withContext, type Db } from "@crm/db";
+import { schema, withContext, type Db, type Tx } from "@crm/db";
 import { writeAudit } from "../audit.ts";
 import { ensureDefaultStages } from "../crm-service.ts";
 import { actor, body, fail, forbidden, isUuid, wctx, type ScopedEnv } from "./scope.ts";
@@ -14,6 +14,7 @@ export function crmConfigRoutes(db: Db) {
   const r = new Hono<ScopedEnv>();
 
   // ----- lifecycle stages -----
+  const lockStages = (tx: Tx, workspaceId: string) => tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${`stages:${workspaceId}`}, 0))`);
   async function listStages(tx: Parameters<Parameters<typeof withContext>[2]>[0], workspaceId: string) {
     const rows = await tx.select().from(schema.lifecycleStages).where(eq(schema.lifecycleStages.workspaceId, workspaceId)).orderBy(asc(schema.lifecycleStages.position));
     const counts = await tx.select({ id: schema.contacts.lifecycleStageId, n: count() }).from(schema.contacts).where(and(eq(schema.contacts.workspaceId, workspaceId), isNull(schema.contacts.deletedAt))).groupBy(schema.contacts.lifecycleStageId);
@@ -36,6 +37,7 @@ export function crmConfigRoutes(db: Db) {
     if (!b.ok) return b.res;
     const { workspaceId } = wctx(c);
     return withContext(db, wctx(c), async (tx) => {
+      await lockStages(tx, workspaceId);
       const existing = await tx.select().from(schema.lifecycleStages).where(eq(schema.lifecycleStages.workspaceId, workspaceId));
       if (existing.some((s) => s.name.toLowerCase() === b.data.name.toLowerCase() && !s.archivedAt)) return fail(c, 409, "name_taken", "A stage with that name already exists.");
       const [row] = await tx.insert(schema.lifecycleStages).values({ workspaceId, name: b.data.name, position: Math.max(-1, ...existing.map((s) => s.position)) + 1 }).returning();
@@ -52,6 +54,7 @@ export function crmConfigRoutes(db: Db) {
     if (!b.ok) return b.res;
     const { workspaceId } = wctx(c);
     return withContext(db, wctx(c), async (tx) => {
+      await lockStages(tx, workspaceId); // two admins archiving the last two active stages must not both succeed (integrity M4)
       const all = await tx.select().from(schema.lifecycleStages).where(eq(schema.lifecycleStages.workspaceId, workspaceId));
       const stage = all.find((s) => s.id === id);
       if (!stage) return fail(c, 404, "not_found");
@@ -62,6 +65,7 @@ export function crmConfigRoutes(db: Db) {
       }
       if (b.data.archived !== undefined) {
         if (b.data.archived && !stage.archivedAt && all.filter((s) => !s.archivedAt).length <= 1) return fail(c, 409, "last_stage", "A workspace needs at least one active lifecycle stage.");
+        if (!b.data.archived && stage.archivedAt && all.some((s) => s.id !== id && !s.archivedAt && s.name.toLowerCase() === (patch.name ?? stage.name).toLowerCase())) return fail(c, 409, "name_taken", "An active stage with that name already exists. Rename one of them first.");
         patch.archivedAt = b.data.archived ? new Date() : null;
       }
       await tx.update(schema.lifecycleStages).set(patch).where(and(eq(schema.lifecycleStages.workspaceId, workspaceId), eq(schema.lifecycleStages.id, id)));
@@ -76,6 +80,7 @@ export function crmConfigRoutes(db: Db) {
     if (!b.ok) return b.res;
     const { workspaceId } = wctx(c);
     return withContext(db, wctx(c), async (tx) => {
+      await lockStages(tx, workspaceId);
       const all = await tx.select().from(schema.lifecycleStages).where(eq(schema.lifecycleStages.workspaceId, workspaceId));
       const ids = new Set(all.map((s) => s.id));
       if (new Set(b.data.ids).size !== b.data.ids.length || b.data.ids.some((i) => !ids.has(i)) || b.data.ids.length !== all.length) return fail(c, 400, "invalid_order", "Send every stage exactly once.");
@@ -88,10 +93,12 @@ export function crmConfigRoutes(db: Db) {
   // ----- tags -----
   async function listTags(tx: Parameters<Parameters<typeof withContext>[2]>[0], workspaceId: string) {
     const rows = await tx.select().from(schema.tags).where(eq(schema.tags.workspaceId, workspaceId)).orderBy(asc(schema.tags.name));
-    const counts = await tx.select({ id: schema.contactTags.tagId, n: count() }).from(schema.contactTags).where(eq(schema.contactTags.workspaceId, workspaceId)).groupBy(schema.contactTags.tagId);
+    const counts = await tx.select({ id: schema.contactTags.tagId, n: count() }).from(schema.contactTags).innerJoin(schema.contacts, and(eq(schema.contacts.workspaceId, schema.contactTags.workspaceId), eq(schema.contacts.id, schema.contactTags.contactId), isNull(schema.contacts.deletedAt))).where(eq(schema.contactTags.workspaceId, workspaceId)).groupBy(schema.contactTags.tagId);
     const by = new Map(counts.map((x) => [x.id, x.n]));
     return rows.map((t) => ({ id: t.id, name: t.name, color: t.color as "neutral", contactCount: by.get(t.id) ?? 0 }));
   }
+  /** Same key the add-tag-by-name route uses, so parallel creates and renames of one name cannot race to a unique violation. */
+  const lockTag = (tx: Tx, workspaceId: string, name: string) => tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${`tag:${workspaceId}:${name.toLowerCase()}`}, 0))`);
   r.get("/tags", async (c) => c.json(await withContext(db, wctx(c), (tx) => listTags(tx, c.get("workspaceId")))));
 
   r.post("/tags", async (c) => {
@@ -100,6 +107,7 @@ export function crmConfigRoutes(db: Db) {
     if (!b.ok) return b.res;
     const { workspaceId } = wctx(c);
     return withContext(db, wctx(c), async (tx) => {
+      await lockTag(tx, workspaceId, b.data.name);
       const dup = await tx.select().from(schema.tags).where(and(eq(schema.tags.workspaceId, workspaceId), sql`lower(${schema.tags.name}) = ${b.data.name.toLowerCase()}`));
       if (dup.length) return fail(c, 409, "name_taken", "A tag with that name already exists.");
       const [t] = await tx.insert(schema.tags).values({ workspaceId, name: b.data.name, color: b.data.color ?? "neutral" }).returning();
@@ -116,6 +124,7 @@ export function crmConfigRoutes(db: Db) {
     const { workspaceId } = wctx(c);
     return withContext(db, wctx(c), async (tx) => {
       if (b.data.name) {
+        await lockTag(tx, workspaceId, b.data.name);
         const dup = await tx.select().from(schema.tags).where(and(eq(schema.tags.workspaceId, workspaceId), sql`lower(${schema.tags.name}) = ${b.data.name.toLowerCase()}`, sql`${schema.tags.id} <> ${id}`));
         if (dup.length) return fail(c, 409, "name_taken", "A tag with that name already exists.");
       }
@@ -131,6 +140,15 @@ export function crmConfigRoutes(db: Db) {
     if (!isUuid(id)) return fail(c, 404, "not_found");
     const { workspaceId } = wctx(c);
     return withContext(db, wctx(c), async (tx) => {
+      const [tag] = await tx.select().from(schema.tags).where(and(eq(schema.tags.workspaceId, workspaceId), eq(schema.tags.id, id)));
+      if (!tag) return fail(c, 404, "not_found");
+      // The cascade removes the tag from every contact; each affected contact gets a timeline entry and moves in "last activity" (integrity M5).
+      await tx.execute(sql`WITH hit AS (
+          SELECT ct.contact_id FROM contact_tags ct JOIN contacts c ON c.workspace_id = ct.workspace_id AND c.id = ct.contact_id
+          WHERE ct.workspace_id = ${workspaceId} AND ct.tag_id = ${id}::uuid AND c.deleted_at IS NULL),
+        ins AS (INSERT INTO activities (workspace_id, contact_id, kind, actor_type, actor_user_id, data)
+          SELECT ${workspaceId}::uuid, contact_id, 'contact.tag_removed', 'user', ${c.get("userId")}, jsonb_build_object('tag', ${tag.name}::text, 'via', 'tag_deleted') FROM hit RETURNING contact_id)
+        UPDATE contacts SET last_activity_at = now() WHERE workspace_id = ${workspaceId}::uuid AND id IN (SELECT contact_id FROM ins)`);
       const del = await tx.delete(schema.tags).where(and(eq(schema.tags.workspaceId, workspaceId), eq(schema.tags.id, id))).returning();
       if (!del.length) return fail(c, 404, "not_found");
       await writeAudit(tx, { ...actor(c), workspaceId, action: "tag.deleted", entityType: "tag", entityId: id, summary: { name: del[0]!.name } });

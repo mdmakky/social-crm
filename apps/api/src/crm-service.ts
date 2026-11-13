@@ -7,10 +7,22 @@ export const DEFAULT_STAGES = ["New", "Engaged", "Qualified", "Customer", "Inact
 
 /** Seeds the five default lifecycle stages when a workspace has none. Returns true when it seeded. */
 export async function ensureDefaultStages(tx: Tx, workspaceId: string): Promise<boolean> {
+  await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${`stages-seed:${workspaceId}`}, 0))`); // two first visits must not both seed
   const existing = await tx.select({ id: schema.lifecycleStages.id }).from(schema.lifecycleStages).where(eq(schema.lifecycleStages.workspaceId, workspaceId)).limit(1);
   if (existing.length) return false;
   await tx.insert(schema.lifecycleStages).values(DEFAULT_STAGES.map((name, position) => ({ workspaceId, name, position })));
   return true;
+}
+
+/**
+ * Makes "look for duplicates, then insert" safe against concurrent writers (integrity review M3).
+ * A shared workspace lock waits out a running CSV import (which holds it exclusively); one exclusive lock per email/phone key serialises
+ * two creates of the same person. Keys are locked in sorted order so two writers cannot deadlock. Released at commit.
+ */
+export async function lockContactWrites(tx: Tx, workspaceId: string, keys: (string | null | undefined)[]) {
+  await tx.execute(sql`SET LOCAL lock_timeout = '10s'`);
+  await tx.execute(sql`SELECT pg_advisory_xact_lock_shared(hashtextextended(${`contacts-write:${workspaceId}`}, 0))`);
+  for (const k of Array.from(new Set(keys.filter((x): x is string => !!x))).sort()) await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${`dup:${workspaceId}:${k}`}, 0))`);
 }
 
 export async function activeStages(tx: Tx, workspaceId: string) {

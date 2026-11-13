@@ -66,7 +66,8 @@ export function workspaceRoutes(db: Db, hooks: { import?: ImportHooks } = {}) {
   scoped.use("*", async (c, next) => {
     const id = c.req.param("id") ?? "";
     if (!UUID.test(id)) return c.json({ error: { code: "not_found" } }, 404);
-    const role = await withContext(db, { userId: c.get("userId"), workspaceId: id }, (tx) => roleIn(tx, id, c.get("userId")));
+    // Membership is proven with only the user in context. app.workspace_id is never set for a workspace the caller is not a member of.
+    const role = await withContext(db, { userId: c.get("userId") }, (tx) => roleIn(tx, id, c.get("userId")));
     if (!role) return c.json({ error: { code: "not_found" } }, 404);
     c.set("workspaceId", id);
     c.set("role", role);

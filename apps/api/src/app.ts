@@ -1,4 +1,6 @@
 import { Hono } from "hono";
+import { bodyLimit } from "hono/body-limit";
+import { HTTPException } from "hono/http-exception";
 import type { Db } from "@crm/db";
 import type { Auth } from "./auth.ts";
 import { workspaceRoutes, type Vars } from "./routes/workspaces.ts";
@@ -18,11 +20,30 @@ export function createApp(auth: Auth, opts: { allowedOrigins: string[]; db: Db; 
     if (!["GET", "HEAD", "OPTIONS"].includes(c.req.method) && origin && !opts.allowedOrigins.includes(origin)) {
       return c.json({ error: { code: "origin_not_allowed" } }, 403);
     }
-    const requestId = c.req.header("x-request-id") ?? crypto.randomUUID();
+    // A client-supplied id is only kept when it looks like an id: it is echoed back and stored in the audit log.
+    const supplied = c.req.header("x-request-id");
+    const requestId = supplied && /^[\w-]{8,64}$/.test(supplied) ? supplied : crypto.randomUUID();
     c.set("requestId", requestId);
     await next();
     c.res.headers.set("x-request-id", requestId);
   });
+  // Body size caps are enforced on the stream before anything is buffered. The CSV upload route sets its own larger cap.
+  const tooLarge = (c: { json: (b: unknown, s: 413) => Response }) => c.json({ error: { code: "too_large", message: "The request is too large." } }, 413);
+  app.use("/api/auth/*", bodyLimit({ maxSize: 64 * 1024, onError: (c) => tooLarge(c) }));
+  const jsonLimit = bodyLimit({ maxSize: 1024 * 1024, onError: (c) => tooLarge(c) });
+  app.use("/v1/*", async (c, next) => (c.req.method === "POST" && /^\/v1\/workspaces\/[^/]+\/imports$/.test(c.req.path) ? next() : jsonLimit(c, next)));
+
+  /** Never returns or logs the error message: drizzle messages carry the SQL and every bound parameter (contact data, tokens). */
+  app.onError((err, c) => {
+    if (err instanceof HTTPException) return err.getResponse();
+    const requestId = (c.get("requestId") as string | undefined) ?? "unknown";
+    const cause = (err as { cause?: { code?: string; constraint?: string } }).cause ?? (err as { code?: string; constraint?: string });
+    console.error(JSON.stringify({ msg: "unhandled error", requestId, method: c.req.method, path: c.req.routePath, error: err.name, code: cause?.code, constraint: cause?.constraint }));
+    if (cause?.code === "55P03") return c.json({ error: { code: "busy", message: "The server is busy with another change. Try again in a moment.", requestId } }, 409);
+    return c.json({ error: { code: "internal_error", message: "Something went wrong. Try again.", requestId } }, 500);
+  });
+  app.notFound((c) => c.json({ error: { code: "not_found" } }, 404));
+
   const t = opts.resetThrottle ?? { perEmail: 3, perIp: 10, windowMs: 3_600_000 };
   const byEmail = new WindowCounter(t.perEmail, t.windowMs);
   const byIp = new WindowCounter(t.perIp, t.windowMs);

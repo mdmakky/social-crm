@@ -5,11 +5,13 @@ import { escapeLike, normalizeEmail, normalizePhone, toCsv, validateCustomValues
 import { can } from "@crm/core/permissions";
 import { schema, user, withContext, type Db, type Tx } from "@crm/db";
 import { writeAudit } from "../audit.ts";
-import { activeMember, activeStages, customDefs, findDuplicates, loadContact, recordActivity, toDetail, toFieldDef, toSummaries } from "../crm-service.ts";
+import { activeMember, activeStages, customDefs, findDuplicates, loadContact, lockContactWrites, recordActivity, toDetail, toFieldDef, toSummaries } from "../crm-service.ts";
 import { actor, body, fail, forbidden, isUuid, query, wctx, type SC, type ScopedEnv } from "./scope.ts";
 
 const EXPORT_LIMIT = 10_000;
 const TS = (col: string) => `to_char(${col} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`;
+const DATE_RE = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2}(\.\d{1,6})?)?(Z|[+-]\d{2}:\d{2}))?$/;
+const CURSOR_TS_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/;
 const SORT_EXPR = { name: "c.name", created: "c.created_at", lastActivity: "c.last_activity_at" } as const;
 
 type Q = Record<string, string | number | undefined>;
@@ -37,10 +39,14 @@ function filters(workspaceId: string, userId: string, q: Q): Parsed {
   for (const [key, op] of [["createdFrom", ">="], ["createdTo", "<"]] as const) {
     const raw = q[key];
     if (raw === undefined) continue;
-    let t = Date.parse(String(raw));
-    if (Number.isNaN(t)) return { where, error: `${key} is not a valid date` };
-    if (key === "createdTo" && /^\d{4}-\d{2}-\d{2}$/.test(String(raw))) t += 86_400_000; // a plain date includes that whole day
-    where.push(op === ">=" ? sql`c.created_at >= ${new Date(t).toISOString()}::timestamptz` : sql`c.created_at < ${new Date(t).toISOString()}::timestamptz`);
+    const v = String(raw);
+    // Strict ISO 8601: a date (whole UTC day) or a date-time WITH an offset. Zone-less values would be read in the server's zone, and Date.parse accepts junk like "1".
+    if (!DATE_RE.test(v)) return { where, error: `${key} must be a date (YYYY-MM-DD) or a date-time with a time zone offset` };
+    const t = Date.parse(v.length === 10 ? `${v}T00:00:00Z` : v);
+    if (Number.isNaN(t) || new Date(t).getUTCFullYear() < 1900 || new Date(t).getUTCFullYear() > 2100) return { where, error: `${key} is not a valid date` };
+    // Date-times go to Postgres as written so microseconds survive; a plain createdTo date includes that whole day.
+    const bound = v.length === 10 ? (key === "createdTo" ? new Date(t + 86_400_000).toISOString() : `${v}T00:00:00Z`) : v;
+    where.push(op === ">=" ? sql`c.created_at >= ${bound}::timestamptz` : sql`c.created_at < ${bound}::timestamptz`);
   }
   return { where };
 }
@@ -71,6 +77,8 @@ export function contactRoutes(db: Db) {
     if (q.cursor) {
       const cur = dec(String(q.cursor));
       if (!cur || cur.sort !== sort || cur.dir !== dir) return { error: "The cursor does not match this query" } as const;
+      // A tampered key must be a 400, never reach a ::timestamptz cast (22007 -> 500).
+      if (sort === "name" ? cur.k.length > 300 || cur.k.includes("\u0000") : !CURSOR_TS_RE.test(cur.k) || Number.isNaN(Date.parse(cur.k))) return { error: "The cursor does not match this query" } as const;
       const cmp = sql.raw(dir === "desc" ? "<" : ">");
       where.push(sort === "name" ? sql`(${keyExpr}, c.id) ${cmp} (${cur.k}, ${cur.id}::uuid)` : sql`(${keyExpr}, c.id) ${cmp} (${cur.k}::timestamptz, ${cur.id}::uuid)`);
     }
@@ -110,7 +118,8 @@ export function contactRoutes(db: Db) {
       rows.sort((a, b) => order.get(a.id)! - order.get(b.id)!);
       const summaries = await toSummaries(tx, workspaceId, rows);
       const ownerIds = Array.from(new Set(summaries.map((s) => s.owner?.id).filter((x): x is string => !!x)));
-      const ownerEmail = new Map((ownerIds.length ? await tx.select({ id: user.id, email: user.email }).from(user).where(inArray(user.id, ownerIds)) : []).map((u) => [u.id, u.email]));
+      // Only current members: a former member's email is not exported.
+      const ownerEmail = new Map((ownerIds.length ? await tx.select({ id: user.id, email: user.email }).from(user).innerJoin(schema.memberships, and(eq(schema.memberships.userId, user.id), eq(schema.memberships.workspaceId, workspaceId), eq(schema.memberships.status, "active"))).where(inArray(user.id, ownerIds)) : []).map((u) => [u.id, u.email]));
       const defs = await customDefs(tx, workspaceId);
       const headers = ["Name", "Email", "Phone", "Company", "Lifecycle stage", "Owner email", "Tags", "Source", "Last activity", "Created", ...defs.map((d) => d.label)];
       const data = summaries.map((s, i) => {
@@ -142,6 +151,7 @@ export function contactRoutes(db: Db) {
       const custom = validateCustomValues(defs.map(toFieldDef), d.custom ?? {});
       if (!custom.ok) return fail(c, 422, "invalid_custom_fields", "Some custom fields are not valid.", custom.errors);
       if (!d.allowDuplicate) {
+        await lockContactWrites(tx, workspaceId, [email && `email:${email}`, phone && `phone:${phone}`]);
         const dupes = await findDuplicates(tx, workspaceId, { email, phone });
         if (dupes.length) return fail(c, 409, "duplicate_contact", "A contact with the same email or phone already exists.", { candidates: dupes });
       }
@@ -198,10 +208,14 @@ export function contactRoutes(db: Db) {
       if (d.phone !== undefined) {
         phoneN = d.phone ? normalizePhone(d.phone) : null;
         if (d.phone && !phoneN) return fail(c, 400, "invalid_body", "Enter a valid phone number (7 to 15 digits).");
-        if (phoneN !== cur.phoneNormalized) { patch.phone = d.phone ?? null; patch.phoneNormalized = phoneN; changed.push("phone"); }
+        // A display-only change (formatting) is saved too; only a change of the normalized number counts for duplicate checks.
+        if (phoneN !== cur.phoneNormalized || (d.phone ?? null) !== cur.phone) { patch.phone = d.phone ?? null; patch.phoneNormalized = phoneN; changed.push("phone"); }
       }
-      if ((patch.emailNormalized !== undefined || patch.phoneNormalized !== undefined) && !d.allowDuplicate) {
-        const dupes = await findDuplicates(tx, workspaceId, { email: patch.emailNormalized !== undefined ? emailN : null, phone: patch.phoneNormalized !== undefined ? phoneN : null }, id);
+      const emailKeyChanged = patch.emailNormalized !== undefined && emailN !== cur.emailNormalized;
+      const phoneKeyChanged = patch.phoneNormalized !== undefined && phoneN !== cur.phoneNormalized;
+      if ((emailKeyChanged || phoneKeyChanged) && !d.allowDuplicate) {
+        await lockContactWrites(tx, workspaceId, [emailKeyChanged && emailN ? `email:${emailN}` : null, phoneKeyChanged && phoneN ? `phone:${phoneN}` : null]);
+        const dupes = await findDuplicates(tx, workspaceId, { email: emailKeyChanged ? emailN : null, phone: phoneKeyChanged ? phoneN : null }, id);
         if (dupes.length) return fail(c, 409, "duplicate_contact", "Another contact already has that email or phone.", { candidates: dupes });
       }
       let ownerChange: { from: string | null; to: string | null } | null = null;
@@ -222,12 +236,17 @@ export function contactRoutes(db: Db) {
         const defs = await customDefs(tx, workspaceId, { includeArchived: true });
         const active = defs.filter((x) => !x.archivedAt);
         const existing = (cur.custom as Record<string, unknown>) ?? {};
-        const merged: Record<string, unknown> = { ...existing };
-        for (const [k, v] of Object.entries(d.custom)) { if (v === null || v === "") delete merged[k]; else merged[k] = v; }
         const activeKeys = new Set(active.map((x) => x.key));
-        const check = validateCustomValues(active.map(toFieldDef), Object.fromEntries(Object.entries(merged).filter(([k]) => activeKeys.has(k))));
-        if (!check.ok) return fail(c, 422, "invalid_custom_fields", "Some custom fields are not valid.", check.errors);
-        const next = { ...Object.fromEntries(Object.entries(merged).filter(([k]) => !activeKeys.has(k))), ...check.values };
+        // Only the fields in this request are validated: a stale stored value or a newly required field must not block editing something else (integrity m9).
+        const removed = Object.entries(d.custom).filter(([k, v]) => (v === null || v === "") && activeKeys.has(k)).map(([k]) => k);
+        const incoming = Object.fromEntries(Object.entries(d.custom).filter(([k, v]) => v !== null && v !== "" && activeKeys.has(k)));
+        const check = validateCustomValues(active.map(toFieldDef), incoming, { partial: true });
+        const errors: Record<string, string> = check.ok ? {} : { ...check.errors };
+        for (const k of removed) { const def = active.find((x) => x.key === k)!; if (def.required === 1) errors[k] = `${def.label} is required`; }
+        if (Object.keys(errors).length) return fail(c, 422, "invalid_custom_fields", "Some custom fields are not valid.", errors);
+        const next: Record<string, unknown> = { ...existing };
+        for (const k of removed) delete next[k];
+        Object.assign(next, check.ok ? check.values : {});
         if (JSON.stringify(next) !== JSON.stringify(existing)) { patch.custom = next; changed.push("custom fields"); }
       }
       if (Object.keys(patch).length === 0) return c.json(await toDetail(tx, workspaceId, cur));
@@ -269,6 +288,7 @@ export function contactRoutes(db: Db) {
       let tag: typeof schema.tags.$inferSelect | undefined;
       if (b.data.tagId) [tag] = await tx.select().from(schema.tags).where(and(eq(schema.tags.workspaceId, workspaceId), eq(schema.tags.id, b.data.tagId)));
       else {
+        await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${`tag:${workspaceId}:${b.data.name!.toLowerCase()}`}, 0))`); // parallel "add VIP" must not race to a unique violation
         [tag] = await tx.select().from(schema.tags).where(and(eq(schema.tags.workspaceId, workspaceId), sql`lower(${schema.tags.name}) = ${b.data.name!.toLowerCase()}`));
         tag ??= (await tx.insert(schema.tags).values({ workspaceId, name: b.data.name! }).returning())[0];
       }
@@ -333,6 +353,7 @@ export function contactRoutes(db: Db) {
     if (b && !b.ok) return b.res;
     const { workspaceId, userId } = wctx(c);
     return withContext(db, wctx(c), async (tx) => {
+      if (!(await loadContact(tx, workspaceId, id))) return fail(c, 404, "not_found"); // a deleted contact's notes are read-only history
       const [n] = await tx.select().from(schema.notes).where(and(eq(schema.notes.workspaceId, workspaceId), eq(schema.notes.contactId, id), eq(schema.notes.id, noteId), isNull(schema.notes.deletedAt)));
       if (!n) return fail(c, 404, "not_found");
       if (!can(c.get("role"), "note.edit", { isOwn: n.authorUserId === userId })) return forbidden(c);
@@ -411,7 +432,7 @@ export function contactRoutes(db: Db) {
     const { workspaceId, userId } = wctx(c);
     return withContext(db, wctx(c), async (tx) => {
       const [t] = await tx.select().from(schema.tasks).where(and(eq(schema.tasks.workspaceId, workspaceId), eq(schema.tasks.id, taskId)));
-      if (!t) return fail(c, 404, "not_found");
+      if (!t || !(await loadContact(tx, workspaceId, t.contactId))) return fail(c, 404, "not_found"); // tasks of a deleted contact are not editable
       if (!can(c.get("role"), "task.edit", { isOwn: t.assigneeUserId === userId || t.createdBy === userId })) return forbidden(c);
       if (mode === "delete") {
         await tx.delete(schema.tasks).where(and(eq(schema.tasks.workspaceId, workspaceId), eq(schema.tasks.id, taskId)));
