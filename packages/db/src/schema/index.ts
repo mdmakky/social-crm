@@ -3,3 +3,5 @@ export * from "./crm.ts";
 // --- track:tasks ---
 export * from "./tasks.ts";
 export * from "./notifications.ts";
+// --- track:leads ---
+export * from "./leads.ts";

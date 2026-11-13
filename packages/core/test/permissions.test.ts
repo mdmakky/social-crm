@@ -7,7 +7,7 @@ describe("permission matrix (docs/architecture/permissions.md)", () => {
   });
   it("viewers are read-only", () => {
     expect(can("viewer", "contact.view", {})).toBe(true);
-    for (const a of ACTIONS.filter((x) => x !== "contact.view" && x !== "workspace.view")) expect(can("viewer", a, {})).toBe(false);
+    for (const a of ACTIONS.filter((x) => x !== "contact.view" && x !== "workspace.view" && x !== "lead.view")) expect(can("viewer", a, {})).toBe(false);
   });
   it("agents work conversations but cannot administer", () => {
     expect(can("agent", "conversation.reply", {})).toBe(true);
@@ -62,5 +62,23 @@ describe("memberChangeAllowed", () => {
     expect(memberChangeAllowed({ ownerCount: 1, actor: "owner", target: "owner", change: { role: "admin" } })).toEqual({ ok: false, reason: "last_owner" });
     expect(memberChangeAllowed({ ownerCount: 1, actor: "owner", target: "owner", change: { remove: true } })).toEqual({ ok: false, reason: "last_owner" });
     expect(memberChangeAllowed({ ownerCount: 2, actor: "owner", target: "owner", change: { remove: true } })).toEqual({ ok: true });
+  });
+
+  it("lead actions: viewers read only, agents edit but not delete or reopen", () => {
+    expect(can("viewer", "lead.view", {})).toBe(true);
+    expect(can("viewer", "lead.edit", {})).toBe(false);
+    expect(can("agent", "lead.edit", {})).toBe(true);
+    expect(can("agent", "lead.delete", {})).toBe(false);
+    expect(can("agent", "lead.reopen", {})).toBe(false);
+    expect(can("admin", "lead.reopen", {})).toBe(true);
+  });
+  it("deal value needs owner/admin or an explicit grant; viewers never", () => {
+    for (const a of ["lead.value.view", "lead.value.edit"] as const) {
+      expect(can("owner", a, {})).toBe(true);
+      expect(can("admin", a, {})).toBe(true);
+      expect(can("agent", a, {})).toBe(false);
+      expect(can("agent", a, { isGranted: true })).toBe(true);
+      expect(can("viewer", a, { isGranted: true })).toBe(false);
+    }
   });
 });
