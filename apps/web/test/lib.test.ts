@@ -43,11 +43,11 @@ describe("navigation permissions", () => {
     expect(l).toContain("AI assistant");
   });
   it("viewers see only the basics", () => {
-    expect(labels("viewer")).toEqual(["Home", "Inbox", "Contacts", "Leads", "Pipeline", "Members", "Settings"]);
+    expect(labels("viewer")).toEqual(["Home", "Inbox", "Contacts", "Tasks", "Leads", "Pipeline", "Members", "Settings"]);
   });
   it("only built features are links; planned ones are listed separately and also permission-filtered", () => {
-    expect(builtNav("owner").flatMap((g) => g.items.map((i) => i.label))).toEqual(["Home", "Contacts", "Members", "Audit log", "Settings"]);
-    expect(builtNav("viewer").flatMap((g) => g.items.map((i) => i.label))).toEqual(["Home", "Contacts", "Members", "Settings"]);
+    expect(builtNav("owner").flatMap((g) => g.items.map((i) => i.label))).toEqual(["Home", "Contacts", "Tasks", "Members", "Audit log", "Settings"]);
+    expect(builtNav("viewer").flatMap((g) => g.items.map((i) => i.label))).toEqual(["Home", "Contacts", "Tasks", "Members", "Settings"]);
     expect(plannedItems("owner").map((i) => i.label)).toEqual(["Inbox", "Leads", "Pipeline", "Automation", "AI assistant", "Integrations"]);
     expect(plannedItems("viewer").map((i) => i.label)).toEqual(["Inbox", "Leads", "Pipeline"]);
   });
