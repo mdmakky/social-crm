@@ -71,6 +71,13 @@
       "when": 1794553658923,
       "tag": "0009_tasks_rls",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1794554212076,
+      "tag": "0010_tasks_due_indexes",
+      "breakpoints": true
     }
   ]
 }

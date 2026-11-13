@@ -40,7 +40,9 @@ export const tasks = pgTable(
     foreignKey({ columns: [t.workspaceId, t.contactId], foreignColumns: [contacts.workspaceId, contacts.id] }),
     index("tasks_contact_idx").on(t.workspaceId, t.contactId, t.status),
     index("tasks_assignee_due_idx").on(t.workspaceId, t.assigneeUserId, t.status, t.dueAt),
-    index("tasks_ws_due_idx").on(t.workspaceId, t.dueAt, t.id),
+    // Expression indexes match the list's "due date, undated last in both directions" ordering exactly.
+    index("tasks_ws_due_idx").on(t.workspaceId, sql`coalesce(${t.dueAt}, 'infinity'::timestamptz)`, t.id),
+    index("tasks_ws_due_desc_idx").on(t.workspaceId, sql`coalesce(${t.dueAt}, '-infinity'::timestamptz) DESC`, sql`${t.id} DESC`),
     index("tasks_ws_created_idx").on(t.workspaceId, t.createdAt.desc(), t.id),
     index("tasks_ws_updated_idx").on(t.workspaceId, t.updatedAt.desc(), t.id),
     index("tasks_ws_priority_idx").on(t.workspaceId, t.priority, t.id),
