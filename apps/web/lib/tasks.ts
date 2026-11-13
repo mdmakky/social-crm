@@ -3,6 +3,7 @@ import { formatDateTime } from "./format";
 
 export const STATUS_LABEL: Record<TaskStatus, string> = { open: "Open", in_progress: "In progress", done: "Done", cancelled: "Cancelled" };
 export const PRIORITY_LABEL: Record<TaskPriority, string> = { low: "Low", normal: "Normal", high: "High", urgent: "Urgent" };
+export const PRIORITY_HUE: Record<TaskPriority, 1 | 2 | 3 | 4 | 5 | 6 | "muted"> = { low: "muted", normal: "muted", high: 3, urgent: 6 };
 export const PRIORITY_TONE: Record<TaskPriority, "neutral" | "accent" | "warning" | "danger"> = { low: "neutral", normal: "neutral", high: "warning", urgent: "danger" };
 
 export const VIEWS = [

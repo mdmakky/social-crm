@@ -45,14 +45,17 @@ type Props = { open: boolean; onOpenChange: (o: boolean) => void; workspace: She
 
 export function CommandMenu(props: Props) {
   const opener = React.useRef<HTMLElement | null>(null);
+  // The exit animation keeps the content mounted briefly after close; remount the palette on every opening so typed text and results always start fresh.
+  const [seen, setSeen] = React.useState({ open: false, n: 0 });
+  if (props.open !== seen.open) setSeen({ open: props.open, n: seen.n + (props.open ? 1 : 0) });
   return (
     <DialogPrimitive.Root open={props.open} onOpenChange={props.onOpenChange}>
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="fixed inset-0 z-40 bg-fg/30" />
+        <DialogPrimitive.Overlay className="scrim fixed inset-0 z-40 bg-fg/25" />
         <DialogPrimitive.Content aria-label="Command menu" onOpenAutoFocus={() => { opener.current = document.activeElement as HTMLElement | null; }} onCloseAutoFocus={(e) => { e.preventDefault(); opener.current?.focus(); }} className="pop fixed left-1/2 top-[12vh] z-50 w-[calc(100vw-32px)] max-w-lg -translate-x-1/2 overflow-hidden rounded-card border border-line bg-surface shadow-popover">
           <DialogPrimitive.Title className="sr-only">Command menu</DialogPrimitive.Title>
           <DialogPrimitive.Description className="sr-only">Search pages and actions, then press Enter.</DialogPrimitive.Description>
-          <Palette {...props} />
+          <Palette key={seen.n} {...props} />
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>
     </DialogPrimitive.Root>

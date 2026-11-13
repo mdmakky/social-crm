@@ -23,3 +23,14 @@ Home (stat tiles, "Your next tasks", plain-sentence activity), Settings (left su
 
 ## Not done
 No DESIGN.md. Dark mode not reviewed. Members and Audit log have no layout redesign. Dialogs were checked by axe and existing specs, not individually redesigned. No keyboard-only manual walkthrough beyond the existing e2e keyboard tests. Mobile app untouched.
+
+
+## Round 2: option D rolled out (2026-11-13)
+The first round (tokens and small fixes) was rejected as still generic. The product owner then chose, page by page, from three HTML option sets in `docs/design/options/` (A Paper Sheet, B Graphite, C Soft Studio, D = C with a sidebar) and picked **D**, then asked for it smaller and less colourful. Implemented in the real app:
+- Tokens (`packages/design-tokens/src/tokens.ts`): violet-tinted ink, lavender-tinted canvas, white surfaces, accent `#5B4BF0` used only for the primary action, links, focus and the active icon; 13px body, 22px titles, 30px controls, 40px rows, radii 8 and 12; Plus Jakarta Sans; six muted hues for avatars and stage dots; one easing and three durations.
+- Shell: white sidebar (active item is a neutral wash), slim top bar with search, icon rail at 768, drawer on mobile.
+- Components: pill and square badges, `Status` dot, tinted avatars, soft-shadow `Panel` (no border), pill chips for view switchers (ink when active).
+- Screens: Home, Contacts, Contact detail, Leads, Pipeline, Tasks, Notifications, Settings, Members, Audit log and states. Reports, Members, Audit log and auth inherit the system without separate edits. Tasks keeps its table (the mockup's grouped list was not built to keep behaviour intact). Contacts segment chips from the mockup were not built.
+- Motion: enter and exit on menus, dialogs, drawer, toasts and scrim; press feedback; page entrance on fine pointers only. Text-bearing content enters with transform only. Reduced motion collapses all of it.
+- Fixes found by tests: palette remounts on every open (exit animation kept it mounted); touch-size test now waits for the page to stream in.
+Before/after: `docs/design/screenshots/ux-d/` (1440, 768, 375).

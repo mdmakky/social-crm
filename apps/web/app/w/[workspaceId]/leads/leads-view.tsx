@@ -3,7 +3,7 @@ import * as React from "react";
 import Link from "next/link";
 import { ArrowDown, ArrowUp, BarChart3, FilterX, Lock, Plus, Search } from "lucide-react";
 import { endpoints, type LeadDto, type LeadListQuery, type LeadPage, type Member, type PipelineDto } from "@crm/contracts";
-import { Badge } from "@/components/ui/badge";
+import { Status } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/input";
 import { PageHeader, Panel } from "@/components/ui/panel";
@@ -15,7 +15,7 @@ import { Tooltip } from "@/components/ui/overlays";
 import { NewLeadDialog } from "@/components/leads/new-lead-dialog";
 import { browserApi, errorMessage } from "@/lib/client-api";
 import { formatDate } from "@/lib/format";
-import { formatMoney, noun, OUTCOME_LABEL, OUTCOME_TONE, stageName } from "@/lib/leads";
+import { formatMoney, noun, OUTCOME_LABEL, stageName } from "@/lib/leads";
 
 type Props = { initialOutcome: Filters["outcome"]; workspaceId: string; myUserId: string; pipelines: PipelineDto[]; initial: LeadPage | null; members: Member[]; canCreate: boolean; canSetValue: boolean };
 type Filters = { q: string; pipelineId: string; stageId: string; outcome: "open" | "won" | "lost" | "all"; ownerId: string; sort: "updated" | "created" | "close"; dir: "asc" | "desc" };
@@ -76,7 +76,7 @@ function Inner({ initialOutcome, workspaceId, myUserId, pipelines, initial, memb
 
   const set = (patch: Partial<Filters>) => setF((x) => ({ ...x, ...patch }));
   const href = (l: LeadDto) => `/w/${workspaceId}/leads/${l.id}`;
-  const stageBadge = (l: LeadDto) => <Badge tone={OUTCOME_TONE[l.outcome]}>{stageName(pipelines, l)?.name ?? OUTCOME_LABEL[l.outcome]}</Badge>;
+  const stageBadge = (l: LeadDto) => <Status hue={l.outcome === "won" ? 2 : l.outcome === "lost" ? "muted" : ((((stageName(pipelines, l)?.position ?? 0) % 6) + 1) as 1 | 2 | 3 | 4 | 5 | 6)}>{stageName(pipelines, l)?.name ?? OUTCOME_LABEL[l.outcome]}</Status>;
   const value = (l: LeadDto) =>
     l.valueHidden ? <Tooltip label="You don't have access to deal value on this record." side="top"><span className="inline-flex items-center gap-1 text-fg-subtle"><Lock className="size-3" aria-hidden />Hidden</span></Tooltip>
       : l.valueMinor !== null && l.currency ? <span className="tabular-nums">{formatMoney(l.valueMinor, l.currency)}</span> : <span className="text-fg-subtle">—</span>;
@@ -143,7 +143,7 @@ function Inner({ initialOutcome, workspaceId, myUserId, pipelines, initial, memb
           <ul className="flex flex-col gap-2 md:hidden" aria-label="Leads">
             {page.items.map((l) => (
               <li key={l.id}>
-                <Link href={href(l)} className="block rounded-card border border-line bg-surface p-3 active:bg-hover">
+                <Link href={href(l)} className="block rounded-card bg-surface p-3 shadow-sheet active:bg-hover">
                   <div className="flex items-start justify-between gap-2"><span className="min-w-0 break-words font-medium text-fg">{l.title}</span>{stageBadge(l)}</div>
                   <div className="mt-1 text-sm text-fg-muted">{l.primaryContact.name}</div>
                   <div className="mt-2 flex items-center justify-between text-sm"><span>{value(l)}</span><span className="text-fg-subtle">{l.owner?.name ?? "Unassigned"}</span></div>

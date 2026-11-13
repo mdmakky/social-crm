@@ -11,7 +11,7 @@ export function UserMenu({ user, workspaceId }: { user: ShellUser; workspaceId: 
   const router = useRouter();
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger aria-label="Account menu" className="flex size-8 items-center justify-center rounded-full hover:bg-hover data-[state=open]:bg-hover pointer-coarse:size-11">
+      <DropdownMenuTrigger aria-label="Account menu" className="press flex size-9 items-center justify-center rounded-full hover:ring-2 hover:ring-accent-subtle data-[state=open]:ring-2 data-[state=open]:ring-accent-subtle pointer-coarse:size-11">
         <Avatar name={user.name} size="md" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-60">

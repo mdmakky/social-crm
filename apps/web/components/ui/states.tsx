@@ -5,8 +5,8 @@ import { Button } from "./button";
 
 export function EmptyState({ icon: Icon, title, description, action, className }: { icon?: React.ComponentType<{ className?: string }>; title: string; description?: string; action?: React.ReactNode; className?: string }) {
   return (
-    <div className={cn("flex flex-col items-center px-6 py-12 text-center", className)}>
-      {Icon && <Icon className="mb-3 size-5 text-fg-subtle" />}
+    <div className={cn("flex flex-col items-center px-6 py-10 text-center", className)}>
+      {Icon && <span aria-hidden className="mb-3 inline-flex size-9 items-center justify-center rounded-lg bg-hover text-fg-subtle"><Icon className="size-4" /></span>}
       <h3 className="text-base font-semibold text-fg">{title}</h3>
       {description && <p className="mt-1 max-w-sm text-sm text-fg-muted">{description}</p>}
       {action && <div className="mt-4">{action}</div>}
@@ -16,8 +16,8 @@ export function EmptyState({ icon: Icon, title, description, action, className }
 
 export function ErrorState({ title = "Something went wrong", description, onRetry }: { title?: string; description?: string; onRetry?: () => void }) {
   return (
-    <div role="alert" className="flex flex-col items-center px-6 py-12 text-center">
-      <AlertCircle className="mb-3 size-5 text-danger" aria-hidden />
+    <div role="alert" className="flex flex-col items-center px-6 py-10 text-center">
+      <span aria-hidden className="mb-3 inline-flex size-9 items-center justify-center rounded-lg bg-danger-bg text-danger"><AlertCircle className="size-4" /></span>
       <h3 className="text-base font-semibold text-fg">{title}</h3>
       {description && <p className="mt-1 max-w-sm text-sm text-fg-muted">{description}</p>}
       {onRetry && <Button className="mt-4" onClick={onRetry}>Try again</Button>}

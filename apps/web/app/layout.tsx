@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import "@fontsource-variable/inter";
+import "@fontsource-variable/plus-jakarta-sans";
 import "./globals.css";
 
 export const metadata: Metadata = { title: { default: "Social CRM", template: "%s · Social CRM" }, description: "Unified inbox, contacts and pipeline for social channels." };

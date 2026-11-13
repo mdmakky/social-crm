@@ -7,7 +7,7 @@ import { endpoints, type ActivityItem, type ContactDetail, type CustomField, typ
 import { can } from "@crm/core/permissions";
 import { CustomFieldInput } from "@/components/contacts/custom-field-input";
 import { Avatar } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
+import { Badge, hueOf, Status } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { Textarea } from "@/components/ui/form-controls";
@@ -27,6 +27,11 @@ type Props = {
   perms: { edit: boolean; delete: boolean };
 };
 
+/** Panels inside one group share a single surface and are divided by hairlines (no stack of identical boxes). */
+const GROUP = "overflow-hidden rounded-card bg-surface shadow-sheet [&>[data-panel]]:rounded-none [&>[data-panel]]:bg-transparent [&>[data-panel]]:shadow-none [&>[data-panel]+[data-panel]]:border-t [&>[data-panel]+[data-panel]]:border-line-card";
+
+/** Well-known stage names get a meaningful dot; custom stages hash to a stable hue. */
+const STAGE_HUE: Record<string, 1 | 2 | 3 | 4 | 5 | 6> = { new: 1, lead: 3, qualified: 5, opportunity: 4, customer: 2, churned: 6 };
 const mailtoHref = (e: string) => `mailto:${encodeURI(e)}`;
 const telHref = (p: string) => `tel:${p.replace(/[^\d+*#,;]/g, "")}`;
 
@@ -68,12 +73,12 @@ export function ContactDetailView(props: Props) {
   return (
     <>
       <Link href={`/w/${workspaceId}/contacts`} className="mb-3 inline-flex items-center gap-1 text-sm text-fg-muted hover:text-fg"><ArrowLeft className="size-4" aria-hidden />Contacts</Link>
-      <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
-          <Avatar name={c.name} size="lg" />
+          <Avatar name={c.name} size="xl" />
           <div className="min-w-0">
             <h1 className="truncate text-xl font-semibold tracking-title text-fg">{c.name}</h1>
-            <p className="break-words text-sm text-fg-muted">
+            <p className="break-words text-base text-fg-subtle">
               {!c.email && !c.phone && !c.company && "No contact details yet"}
               {[
                 c.email && <a key="e" className="underline underline-offset-2 hover:text-fg" href={mailtoHref(c.email)}>{c.email}</a>,
@@ -84,19 +89,23 @@ export function ContactDetailView(props: Props) {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Badge>{c.lifecycleStage.name}</Badge>
+          <Status hue={STAGE_HUE[c.lifecycleStage.name.trim().toLowerCase()] ?? hueOf(c.lifecycleStage.name)}>{c.lifecycleStage.name}</Status>
           {perms.delete && <DeleteMenu workspaceId={workspaceId} contact={c} onDeleted={() => router.push(`/w/${workspaceId}/contacts`)} />}
         </div>
       </div>
 
       <div className="grid items-start gap-4 lg:grid-cols-3">
         <div className="grid gap-4 lg:col-span-2">
+          <div className={GROUP}>
           <DetailsPanel key={c.version} c={c} carry={carry} onCarryUsed={() => setCarry(null)} onCarry={setCarry} saved={savedVersion === c.version} onSaved={(d, viaSave) => { setC(d); if (viaSave) setSavedVersion(d.version); void refreshActivity(); }} stages={stages} members={members} fields={fields} canEdit={perms.edit} workspaceId={workspaceId} myUserId={myUserId} />
           <TagsPanel c={c} allTags={allTags} canEdit={perms.edit} workspaceId={workspaceId} onChanged={(d, t) => { setC(d); if (t) setAllTags(t); void refreshActivity(); }} />
+          </div>
+          <div className={GROUP}>
           <NotesPanel notes={notes} setNotes={setNotes} p={p} role={role} myUserId={myUserId} canEdit={perms.edit} timeZone={timeZone} onChanged={refreshActivity} />
           <ActivityPanel activity={activity} setActivity={setActivity} p={p} timeZone={timeZone} />
+          </div>
         </div>
-        <div className="grid gap-4">
+        <div className={GROUP}>
           <TasksPanel tasks={tasks} setTasks={setTasks} p={p} canEdit={perms.edit} role={role} myUserId={myUserId} members={members} timeZone={timeZone} onChanged={async () => { void refreshActivity(); const d = await browserApi.call(endpoints.getContact, { params: p }); if (d.ok) setC(d.data); }} />
           <Panel>
             <PanelHeader title="Conversations" />
@@ -116,7 +125,7 @@ export function ContactDetailView(props: Props) {
                       <Link href={`/w/${workspaceId}/leads/${l.id}`} className="block truncate text-base font-medium text-fg hover:underline">{l.title}</Link>
                       <p className="truncate text-xs text-fg-subtle">{props.deals!.pipelines.find((x) => x.id === l.pipelineId)?.stages.find((x) => x.id === l.stageId)?.name ?? "Stage"}{l.valueMinor !== null && l.currency ? ` · ${formatMoney(l.valueMinor, l.currency)}` : ""}</p>
                     </div>
-                    <Badge tone={OUTCOME_TONE[l.outcome]}>{OUTCOME_LABEL[l.outcome]}</Badge>
+                    <Badge tone={l.outcome === "open" ? "neutral" : OUTCOME_TONE[l.outcome]}>{OUTCOME_LABEL[l.outcome]}</Badge>
                   </li>
                 ))}
               </ul>
@@ -278,7 +287,7 @@ function TagsPanel({ c, allTags, canEdit, workspaceId, onChanged }: { c: Contact
           <ul className="flex flex-wrap gap-1.5" aria-label="Tags on this contact">
             {c.tags.map((t) => (
               <li key={t.id}>
-                <Badge tone={TAG_TONE[t.color]} className="gap-1 pr-1">
+                <Badge shape="square" tone={TAG_TONE[t.color]} className="gap-1 pr-1">
                   {t.name}
                   {canEdit && <button type="button" aria-label={`Remove tag ${t.name}`} onClick={() => void remove(t.id)} className="inline-flex min-h-6 min-w-6 items-center justify-center rounded-full hover:bg-line"><X className="size-3.5" aria-hidden /></button>}
                 </Badge>

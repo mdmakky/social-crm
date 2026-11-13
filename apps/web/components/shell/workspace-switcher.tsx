@@ -12,17 +12,16 @@ export function WorkspaceSwitcher({ current, all, compact }: { current: ShellWor
     <DropdownMenu>
       <DropdownMenuTrigger
         aria-label={compact ? `Switch workspace, current: ${current.name}` : undefined}
-        className={cn("flex w-full items-center gap-2 rounded-control p-1.5 text-left hover:bg-hover data-[state=open]:bg-hover", compact && "justify-center")}
+        className={cn("press flex w-full items-center gap-2.5 rounded-xl p-1.5 text-left hover:bg-canvas data-[state=open]:bg-canvas", compact && "justify-center")}
       >
-        <Avatar name={current.name} size="md" className="rounded-control" />
+        <span aria-hidden data-initials={current.name.trim().slice(0, 2).toUpperCase()} className="inline-flex size-7 shrink-0 items-center justify-center rounded-lg bg-accent text-[11px] font-bold text-on-accent after:content-[attr(data-initials)]" />
         {!compact && (
           <>
             <span className="min-w-0 flex-1">
               <span className="sr-only">Switch workspace, current: </span>
-              <span className="block truncate text-base font-medium text-fg">{current.name}</span>
-              <span className="block truncate text-xs text-fg-subtle">{ROLE_LABEL[current.role]}</span>
+              <span className="block truncate text-base font-semibold leading-5 text-fg">{current.name}</span>
             </span>
-            <ChevronsUpDown className="size-4 shrink-0 text-fg-subtle" aria-hidden />
+            <ChevronsUpDown className="size-3.5 shrink-0 text-fg-subtle" aria-hidden />
           </>
         )}
       </DropdownMenuTrigger>

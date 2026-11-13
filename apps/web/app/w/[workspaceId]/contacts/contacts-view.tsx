@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { ArrowDown, ArrowUp, ArrowUpDown, Bookmark, Columns3, Download, FilterX, Pencil, Plus, RefreshCw, Search, SlidersHorizontal, Trash2, Upload, Users } from "lucide-react";
 import { CONTACT_COLUMNS, endpoints, type ContactColumn, type ContactListQuery, type ContactPage, type ContactSummary, type CustomField, type LifecycleStage, type Member, type SavedView, type Tag, type ViewConfig } from "@crm/contracts";
 import { Avatar } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
+import { Badge, hueOf, Status } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { Checkbox } from "@/components/ui/form-controls";
@@ -155,28 +155,28 @@ export function ContactsView({ workspaceId, timeZone, myUserId, initial, initial
         }
       />
 
-      <div className="mb-3 flex flex-wrap items-center gap-2">
-        <div className="relative min-w-0 flex-1 basis-56 sm:max-w-sm">
+      <div className="mb-3 flex flex-wrap items-center gap-1.5">
+        <div className="relative min-w-0 flex-1 basis-56 sm:max-w-64">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-fg-subtle" aria-hidden />
-          <Input aria-label="Search contacts" type="search" placeholder="Search name, email or phone" className="pl-8" value={query.search ?? ""} onChange={(e) => set({ search: e.target.value || undefined })} />
+          <Input aria-label="Search contacts" type="search" placeholder="Search name, email or phone" className="pl-8 shadow-none" value={query.search ?? ""} onChange={(e) => set({ search: e.target.value || undefined })} />
         </div>
         <Button variant="secondary" className="md:hidden" aria-expanded={showFilters} onClick={() => setShowFilters((s) => !s)}><SlidersHorizontal />Filters{filtered ? " (on)" : ""}</Button>
-        <div className={`${showFilters ? "flex" : "hidden"} w-full flex-wrap items-center gap-2 md:flex md:w-auto`}>
-          <Select aria-label="Lifecycle stage" className="w-auto min-w-36" value={query.lifecycleStageId ?? ""} onChange={(e) => set({ lifecycleStageId: e.target.value || undefined })}>
+        <div className={`${showFilters ? "flex" : "hidden"} w-full flex-wrap items-center gap-1 md:flex md:w-auto`}>
+          <Select aria-label="Lifecycle stage" quiet active={!!query.lifecycleStageId} className="w-auto" value={query.lifecycleStageId ?? ""} onChange={(e) => set({ lifecycleStageId: e.target.value || undefined })}>
             <option value="">All stages</option>
             {stages.filter((s) => !s.archived).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
           </Select>
-          <Select aria-label="Owner" className="w-auto min-w-32" value={query.ownerId ?? ""} onChange={(e) => set({ ownerId: e.target.value || undefined })}>
+          <Select aria-label="Owner" quiet active={!!query.ownerId} className="w-auto" value={query.ownerId ?? ""} onChange={(e) => set({ ownerId: e.target.value || undefined })}>
             <option value="">All owners</option>
             <option value="me">Me</option>
             <option value="unassigned">Unassigned</option>
             {members.filter((m) => m.userId !== myUserId).map((m) => <option key={m.userId} value={m.userId}>{m.name}</option>)}
           </Select>
-          <Select aria-label="Tag" className="w-auto min-w-28" value={query.tagIds ?? ""} onChange={(e) => set({ tagIds: e.target.value || undefined })}>
+          <Select aria-label="Tag" quiet active={!!query.tagIds} className="w-auto" value={query.tagIds ?? ""} onChange={(e) => set({ tagIds: e.target.value || undefined })}>
             <option value="">Any tag</option>
             {tags.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
           </Select>
-          <Select aria-label="Source" className="w-auto min-w-32" value={query.source ?? ""} onChange={(e) => set({ source: (e.target.value || undefined) as Q["source"] })}>
+          <Select aria-label="Source" quiet active={!!query.source} className="w-auto" value={query.source ?? ""} onChange={(e) => set({ source: (e.target.value || undefined) as Q["source"] })}>
             <option value="">All sources</option>
             {["manual", "import", "messenger", "instagram", "facebook_lead_ad", "web_form", "referral", "other"].map((s) => <option key={s} value={s}>{sourceLabel(s)}</option>)}
           </Select>
@@ -188,7 +188,7 @@ export function ContactsView({ workspaceId, timeZone, myUserId, initial, initial
             {SORT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
           </Select>
           <ViewsMenu views={views} active={activeView} base={baseView} canManageShared={perms.shareViews} onApply={applyView} onSave={() => setSaveOpen(true)} onRename={(v) => { setBaseView(v.id); setRenameOpen(true); }} onUpdate={async (v) => { const r = await browserApi.call(endpoints.updateView, { params: { workspaceId, viewId: v.id }, body: { config: currentConfig() } }); if (!r.ok) return setActionError(errorMessage(r.error)); setViews((x) => x.map((y) => (y.id === v.id ? r.data : y))); }} onDelete={setDeleteView} />
-          <Button variant="secondary" className="hidden md:inline-flex" onClick={() => setColsOpen(true)}><Columns3 />Columns</Button>
+          <Button variant="ghost" className="hidden md:inline-flex" onClick={() => setColsOpen(true)}><Columns3 />Columns</Button>
         </div>
       </div>
 
@@ -199,7 +199,7 @@ export function ContactsView({ workspaceId, timeZone, myUserId, initial, initial
         </Alert>
       )}
 
-      <Panel className={status === "loading" || stale ? "opacity-70 transition-opacity" : ""} aria-busy={status === "loading"}>
+      <Panel className={`overflow-hidden ${status === "loading" || stale ? "opacity-70 transition-opacity" : "transition-opacity"}`} aria-busy={status === "loading"}>
         {status === "error" && page.items.length === 0 ? (
           <ErrorState title="Contacts could not be loaded" description={errorText ?? "Check your connection and try again."} onRetry={() => void load(query)} />
         ) : page.items.length === 0 && status !== "loading" ? (
@@ -221,7 +221,7 @@ export function ContactsView({ workspaceId, timeZone, myUserId, initial, initial
             <ul className="md:hidden">
               {page.items.map((c) => <ContactCard key={c.id} c={c} workspaceId={workspaceId} timeZone={timeZone} />)}
             </ul>
-            <div className="flex items-center justify-between gap-3 border-t border-line px-4 py-3 text-sm text-fg-muted">
+            <div className="flex items-center justify-between gap-3 border-t border-line-card px-4 py-2.5 text-sm text-fg-subtle">
               <span role="status">{status === "loading" ? "Updating…" : `${stale ? "Showing previous results; the last search failed. " : sortLabel ? `Sorted by ${sortLabel}. ` : ""}Showing ${page.items.length.toLocaleString("en-US")} of ${page.total.toLocaleString("en-US")}`}</span>
               {page.nextCursor && <Button onClick={loadMore} loading={moreBusy} disabled={status === "loading"}>Load more</Button>}
             </div>
@@ -251,9 +251,9 @@ function ContactsTable({ items, columns, query, onSort, workspaceId, timeZone }:
             return (
               <TH key={col} className={col === "contact" ? "sticky left-0 z-10" : undefined} aria-sort={active ? (query.dir === "asc" ? "ascending" : "descending") : s ? "none" : undefined}>
                 {s ? (
-                  <button type="button" onClick={() => onSort(col)} className="inline-flex min-h-6 min-w-6 items-center gap-1 rounded py-1 text-xs font-medium text-fg-muted hover:text-fg">
+                  <button type="button" onClick={() => onSort(col)} className="press group/sort inline-flex min-h-6 min-w-6 items-center gap-1 rounded py-1 text-xs font-medium text-fg-subtle hover:text-fg">
                     {COLUMN_LABEL[col]}
-                    {active ? (query.dir === "asc" ? <ArrowUp className="size-3" aria-hidden /> : <ArrowDown className="size-3" aria-hidden />) : <ArrowUpDown className="size-3 text-fg-disabled" aria-hidden />}
+                    {active ? (query.dir === "asc" ? <ArrowUp className="size-3" aria-hidden /> : <ArrowDown className="size-3" aria-hidden />) : <ArrowUpDown className="size-3 text-fg-disabled opacity-0 transition-opacity duration-[var(--dur-fast)] group-hover/sort:opacity-100 group-focus-visible/sort:opacity-100" aria-hidden />}
                   </button>
                 ) : COLUMN_LABEL[col]}
               </TH>
@@ -263,8 +263,8 @@ function ContactsTable({ items, columns, query, onSort, workspaceId, timeZone }:
       </THead>
       <TBody>
         {items.map((c) => (
-          <TR key={c.id} className="group cursor-pointer" onClick={(e) => { if (!(e.target as HTMLElement).closest("a,button")) router.push(`/w/${workspaceId}/contacts/${c.id}`); }}>
-            {columns.map((col) => <TD key={col} className={col === "contact" ? "sticky left-0 z-10 w-72 min-w-56 max-w-72 bg-surface group-hover:bg-canvas" : "whitespace-nowrap"}>{cell(col, c, workspaceId, timeZone)}</TD>)}
+          <TR key={c.id} className="group cursor-pointer bg-surface hover:bg-row-hover" onClick={(e) => { if (!(e.target as HTMLElement).closest("a,button")) router.push(`/w/${workspaceId}/contacts/${c.id}`); }}>
+            {columns.map((col) => <TD key={col} className={col === "contact" ? "sticky left-0 z-10 w-[22rem] min-w-60 max-w-[22rem] bg-inherit" : "whitespace-nowrap"}>{cell(col, c, workspaceId, timeZone)}</TD>)}
           </TR>
         ))}
       </TBody>
@@ -272,29 +272,35 @@ function ContactsTable({ items, columns, query, onSort, workspaceId, timeZone }:
   );
 }
 
+/** Well-known stage names get a meaningful color (early = sky, engaged = indigo, won = green, lost = rose); custom stages hash to a stable hue. */
+const STAGE_HUE: Record<string, 1 | 2 | 3 | 4 | 5 | 6> = { new: 5, lead: 5, subscriber: 5, qualified: 1, opportunity: 3, customer: 6, evangelist: 2, churned: 4, lost: 4 };
+
 /** Lifecycle stage is a state, not a label: dot and plain text, so it never reads as a tag pill. */
 function Stage({ name }: { name: string }) {
-  return <span className="inline-flex items-center gap-1.5 text-sm text-fg"><span className="size-1.5 shrink-0 rounded-full bg-accent" aria-hidden />{name}</span>;
+  return <Status hue={STAGE_HUE[name.trim().toLowerCase()] ?? hueOf(name)}>{name}</Status>;
 }
+
+/** An empty value: a quiet dash on screen, the full words for assistive tech. */
+const Empty = ({ children }: { children: string }) => <span className="text-fg-disabled"><span aria-hidden>—</span><span className="sr-only">{children}</span></span>;
 
 function cell(col: ContactColumn, c: ContactSummary, workspaceId: string, timeZone: string): React.ReactNode {
   switch (col) {
     case "contact":
       return (
         <div className="flex min-w-0 items-center gap-3">
-          <Avatar name={c.name} />
-          <div className="min-w-0">
-            <Link href={`/w/${workspaceId}/contacts/${c.id}`} className="block truncate font-medium text-fg hover:underline">{c.name}</Link>
-            <p className="truncate text-sm text-fg-muted">{c.email ?? c.phone ?? "No email or phone"}</p>
+          <Avatar name={c.name} size="lg" />
+          <div className="min-w-0 leading-tight">
+            <Link href={`/w/${workspaceId}/contacts/${c.id}`} className="block truncate font-medium text-fg hover:text-accent-fg">{c.name}</Link>
+            <p className="truncate text-sm text-fg-subtle">{c.email ?? c.phone ?? "No email or phone"}</p>
           </div>
         </div>
       );
     case "lifecycle": return <Stage name={c.lifecycleStage.name} />;
-    case "owner": return c.owner ? <span className="inline-flex items-center gap-2"><Avatar name={c.owner.name} size="xs" /><span>{c.owner.name}</span></span> : <span className="text-sm text-fg-subtle">Unassigned</span>;
-    case "tags": return c.tags.length ? <span className="inline-flex items-center gap-1">{c.tags.slice(0, 2).map((t) => <Badge key={t.id} tone={TAG_TONE[t.color]}>{t.name}</Badge>)}{c.tags.length > 2 && <span className="text-xs text-fg-subtle" title={c.tags.slice(2).map((t) => t.name).join(", ")}>+{c.tags.length - 2}</span>}</span> : <span className="text-sm text-fg-subtle">None</span>;
+    case "owner": return c.owner ? <span className="inline-flex items-center gap-1.5"><Avatar name={c.owner.name} size="xs" /><span>{c.owner.name}</span></span> : <Empty>Unassigned</Empty>;
+    case "tags": return c.tags.length ? <span className="inline-flex items-center gap-1">{c.tags.slice(0, 2).map((t) => <Badge key={t.id} shape="square" tone={t.color === "neutral" ? "neutral" : TAG_TONE[t.color]}>{t.name}</Badge>)}{c.tags.length > 2 && <span className="text-xs text-fg-subtle" title={c.tags.slice(2).map((t) => t.name).join(", ")}>+{c.tags.length - 2}</span>}</span> : <Empty>No tags</Empty>;
     // The default source is low-signal, so it recedes; any other source reads at normal strength.
-    case "source": return <span className={c.source === "manual" ? "text-sm text-fg-subtle" : "text-sm text-fg"}>{sourceLabel(c.source)}</span>;
-    case "lastActivity": return <time dateTime={c.lastActivityAt ?? undefined} suppressHydrationWarning className="tnum text-sm text-fg-muted">{c.lastActivityAt ? relativeTime(c.lastActivityAt, timeZone) : "None"}</time>;
+    case "source": return <span className={c.source === "manual" ? "text-fg-subtle" : "text-fg"}>{sourceLabel(c.source)}</span>;
+    case "lastActivity": return <time dateTime={c.lastActivityAt ?? undefined} suppressHydrationWarning className="tnum text-fg-muted">{c.lastActivityAt ? relativeTime(c.lastActivityAt, timeZone) : <Empty>No activity</Empty>}</time>;
     case "created": return <time dateTime={c.createdAt} className="tnum text-fg-muted">{formatDate(c.createdAt, timeZone)}</time>;
   }
 }
@@ -312,7 +318,7 @@ function ContactCard({ c, workspaceId, timeZone }: { c: ContactSummary; workspac
           <p className="truncate text-sm text-fg-muted">{c.email ?? c.phone ?? "No email or phone"}</p>
           <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
             <Stage name={c.lifecycleStage.name} />
-            {c.tags.slice(0, 2).map((t) => <Badge key={t.id} tone={TAG_TONE[t.color]}>{t.name}</Badge>)}
+            {c.tags.slice(0, 2).map((t) => <Badge key={t.id} shape="square" tone={TAG_TONE[t.color]}>{t.name}</Badge>)}
             {c.owner && <span className="text-xs text-fg-subtle">· {c.owner.name}</span>}
           </div>
         </div>

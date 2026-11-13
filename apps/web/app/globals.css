@@ -31,25 +31,44 @@
   --color-danger: var(--danger);
   --color-danger-bg: var(--danger-bg);
   --color-danger-fg: var(--danger-fg);
+  --color-hue-1-bg: var(--hue-1-bg);
+  --color-hue-1-fg: var(--hue-1-fg);
+  --color-hue-1-dot: var(--hue-1-dot);
+  --color-hue-2-bg: var(--hue-2-bg);
+  --color-hue-2-fg: var(--hue-2-fg);
+  --color-hue-2-dot: var(--hue-2-dot);
+  --color-hue-3-bg: var(--hue-3-bg);
+  --color-hue-3-fg: var(--hue-3-fg);
+  --color-hue-3-dot: var(--hue-3-dot);
+  --color-hue-4-bg: var(--hue-4-bg);
+  --color-hue-4-fg: var(--hue-4-fg);
+  --color-hue-4-dot: var(--hue-4-dot);
+  --color-hue-5-bg: var(--hue-5-bg);
+  --color-hue-5-fg: var(--hue-5-fg);
+  --color-hue-5-dot: var(--hue-5-dot);
+  --color-hue-6-bg: var(--hue-6-bg);
+  --color-hue-6-fg: var(--hue-6-fg);
+  --color-hue-6-dot: var(--hue-6-dot);
 
-  --font-sans: "Inter Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-sans: "Plus Jakarta Sans Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
   --text-*: initial;
   --text-2xs: 0.6875rem;
   --text-2xs--line-height: 1rem;
   --text-xs: 0.75rem;
   --text-xs--line-height: 1rem;
-  --text-sm: 0.8125rem;
-  --text-sm--line-height: 1.25rem;
-  --text-base: 0.875rem;
+  --text-sm: 0.78125rem;
+  --text-sm--line-height: 1.125rem;
+  --text-base: 0.8125rem;
   --text-base--line-height: 1.25rem;
   --text-md: 1rem;
   --text-md--line-height: 1.5rem;
-  --text-lg: 1.25rem;
-  --text-lg--line-height: 1.75rem;
-  --text-xl: 1.5rem;
-  --text-xl--line-height: 2rem;
-  --text-2xl: 1.75rem;
-  --text-2xl--line-height: 2.25rem;
+  --text-lg: 1.0625rem;
+  --text-lg--line-height: 1.625rem;
+  --text-xl: 1.375rem;
+  --text-xl--line-height: 1.875rem;
+  --text-2xl: 1.625rem;
+  --text-2xl--line-height: 2.125rem;
 
   --tracking-title: -0.01em;
 
@@ -58,11 +77,16 @@
   --radius-md: 6px;
   --radius-lg: 8px;
   --radius-xl: 12px;
+  --radius-sheet: var(--radius-sheet);
   --radius-control: var(--radius-control);
   --radius-card: var(--radius-card);
   --radius-full: 9999px;
   --shadow-*: initial;
   --shadow-popover: var(--shadow-popover);
+  --shadow-sheet: var(--shadow-sheet);
+  --shadow-control: var(--shadow-control);
+  --shadow-lift: var(--shadow-lift);
+  --ease-out: var(--ease-out);
 }
 
 @layer base {
@@ -71,12 +95,12 @@
     accent-color: var(--accent);
     font-family: var(--font-sans);
     font-size: 16px;
-    font-feature-settings: "cv11", "ss01";
+    font-feature-settings: normal;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
   }
   html[data-theme="dark"] { color-scheme: dark; }
-  body { background: var(--bg-canvas); color: var(--fg); font-size: 0.875rem; line-height: 1.25rem; }
+  body { background: var(--bg-canvas); color: var(--fg); font-size: 0.8125rem; line-height: 1.25rem; }
 
   /* Browser surfaces themed from the palette */
   ::selection { background: var(--accent-subtle); color: var(--fg); }
@@ -99,10 +123,28 @@
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
 }
 
-@keyframes skeleton { 0% { opacity: 1; } 50% { opacity: 0.55; } 100% { opacity: 1; } }
-.skeleton { animation: skeleton 1.4s ease-in-out infinite; background: var(--bg-hover); border-radius: var(--radius-md); }
+/* Motion: one easing (--ease-out), three durations. Entrances travel a few px and never bounce.
+   Content that carries text enters with transform only (opacity ramps make low-vision users and contrast checkers see washed-out text). Exits and scrims fade. */
+@keyframes skeleton { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+.skeleton { animation: skeleton 1.5s var(--ease-out) infinite; background: var(--bg-hover); border-radius: var(--radius-control); }
 @keyframes spin { to { transform: rotate(360deg); } }
 .spin { animation: spin 0.8s linear infinite; }
-/* Transform only: fading opacity makes contrast checkers (and low-vision users) see washed-out text mid-open. */
-@keyframes pop { from { transform: translateY(-4px) scale(0.98); } to { transform: none; } }
-.pop { animation: pop 140ms cubic-bezier(0.16, 1, 0.3, 1); }
+@keyframes pop-in { from { transform: translateY(-3px) scale(0.985); } to { transform: none; } }
+@keyframes pop-out { from { opacity: 1; } to { opacity: 0; transform: scale(0.985); } }
+@keyframes scrim-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes scrim-out { from { opacity: 1; } to { opacity: 0; } }
+@keyframes drawer-in { from { transform: translateX(-12px); } to { transform: none; } }
+@keyframes toast-in { from { transform: translateY(8px); } to { transform: none; } }
+@keyframes page-in { from { transform: translateY(4px); } to { transform: none; } }
+.pop { animation: pop-in var(--dur-base) var(--ease-out); }
+.pop[data-state="closed"] { animation: pop-out var(--dur-fast) ease-in forwards; }
+.scrim { animation: scrim-in var(--dur-base) var(--ease-out); }
+.scrim[data-state="closed"] { animation: scrim-out var(--dur-fast) ease-in forwards; }
+.drawer { animation: drawer-in var(--dur-slow) var(--ease-out); }
+.drawer[data-state="closed"] { animation: pop-out var(--dur-fast) ease-in forwards; }
+.toast { animation: toast-in var(--dur-slow) var(--ease-out); }
+@media (pointer: fine) { .page-in { animation: page-in var(--dur-slow) var(--ease-out); } }
+
+/* Press feedback shared by every button-like control. */
+.press { transition: background-color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out); }
+.press:active:not(:disabled) { transform: scale(0.98); }

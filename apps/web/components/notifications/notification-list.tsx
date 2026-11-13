@@ -135,7 +135,7 @@ export function NotificationList({ workspaceId, timeZone, initial }: { workspace
                     <span className="flex flex-wrap items-center gap-x-2">
                       {unread && <span className="sr-only">Unread: </span>}
                       <span className={cn("text-base text-fg", unread ? "font-semibold" : "font-normal")}>{n.title}</span>
-                      {unread && <span aria-hidden className="rounded-full bg-accent-subtle px-1.5 text-xs font-medium text-accent-fg">New</span>}
+                      {unread && <span aria-hidden className="rounded-full bg-hover px-1.5 text-xs font-medium text-accent-fg">New</span>}
                     </span>
                     {n.body && <span className="block text-sm text-fg-muted">{n.body}</span>}
                     <time dateTime={n.createdAt} className="block text-xs text-fg-subtle">{formatDateTime(n.createdAt, timeZone)}</time>

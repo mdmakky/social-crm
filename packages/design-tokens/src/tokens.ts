@@ -1,14 +1,28 @@
-/** Single source of truth for the design system (docs/design/design-system.md). CSS and native outputs are generated from this. */
+/** Single source of truth for the design system (docs/design/design-system.md, docs/design/ux-track.md). CSS and native outputs are generated from this.
+ *  Direction: "Soft Studio" (chosen by the product owner from docs/design/options, option D): lavender canvas, white surfaces, violet accent, Plus Jakarta Sans. */
 export const primitive = {
-  neutral: { 0: "#FFFFFF", 25: "#FAFAFB", 50: "#F6F7F9", 100: "#EEF0F3", 200: "#E3E6EB", 300: "#CBD0D9", 400: "#9AA1AE", 500: "#596070", 600: "#454B58", 700: "#343944", 800: "#23272F", 900: "#16181D" },
-  accent: { 50: "#F1F2FF", 100: "#E4E6FF", 200: "#CFD2FE", 300: "#AAB0FB", 400: "#8087F5", 500: "#6269EF", 600: "#4F46E5", 700: "#4239C9", 800: "#3730A3" },
-  success: { 50: "#EAF6EF", 600: "#1B7A47", 700: "#14633A" },
-  warning: { 50: "#FFF5DB", 600: "#8F5A00", 700: "#6F4500" },
-  danger: { 50: "#FDECEA", 600: "#C0362C", 700: "#9F2B22" },
+  // Ink carries a faint violet cast so text and surfaces feel like one family.
+  neutral: { 0: "#FFFFFF", 25: "#FAFAFB", 50: "#F7F7F9", 100: "#F0F0F4", 150: "#E6E6EC", 200: "#EFEFF3", 300: "#D2D2DB", 400: "#A0A0B0", 500: "#6A6A7C", 600: "#55556A", 700: "#3D3D52", 800: "#2A2A3C", 900: "#1E1D2B" },
+  accent: { 50: "#F5F4FE", 100: "#EEEDFB", 200: "#D8D4F7", 300: "#B5AEF3", 400: "#8F85EE", 500: "#7468EA", 600: "#5B4BF0", 700: "#4637D6", 800: "#3629A8" },
+  success: { 50: "#E4F1EA", 600: "#17603A", 700: "#17603A" },
+  warning: { 50: "#F6EED6", 600: "#6B4E00", 700: "#6B4E00" },
+  danger: { 50: "#F7E6E4", 600: "#C0362C", 700: "#9B2C1F" },
   dark: { canvas: "#0F1115", surface: "#171A20", raised: "#1E222A", line: "#2A2F39", text: "#ECEEF2", muted: "#A4ABB8", accent: "#A5AAFA", accentBg: "#2A2D5C" },
 } as const;
 
 const p = primitive;
+
+/** Identity and status hues (avatars, lifecycle stages, tags, stage columns). Soft tint with dark readable ink of the same hue. 1 lilac, 2 mint, 3 butter, 4 peach, 5 sky, 6 rose. */
+export const hues = {
+  1: { bg: "#ECEAF8", fg: "#4B4199", dot: "#8379D6" },
+  2: { bg: "#E4F1EA", fg: "#25593B", dot: "#4FA57A" },
+  3: { bg: "#F6EED6", fg: "#6B5313", dot: "#C79A2B" },
+  4: { bg: "#F8E8DE", fg: "#7C3F1C", dot: "#D98A5A" },
+  5: { bg: "#E3EEF8", fg: "#264F7B", dot: "#5B97CF" },
+  6: { bg: "#F7E6E4", fg: "#8A3328", dot: "#D4685C" },
+} as const;
+const darkHues = { 1: { bg: "#2A2D5C", fg: "#B9BDFB", dot: "#8F95F5" }, 2: { bg: "#10332F", fg: "#7AD9CC", dot: "#3CB8A8" }, 3: { bg: "#3A2B0A", fg: "#F0C36A", dot: "#E0A33A" }, 4: { bg: "#3D2414", fg: "#F2B08A", dot: "#E58A52" }, 5: { bg: "#10304A", fg: "#8CC8F0", dot: "#4FA6E0" }, 6: { bg: "#3D1822", fg: "#F2A0B2", dot: "#E56B85" } } as const;
+const hueVars = (h: typeof hues | typeof darkHues) => Object.fromEntries(Object.entries(h).flatMap(([k, v]) => [[`hue-${k}-bg`, v.bg], [`hue-${k}-fg`, v.fg], [`hue-${k}-dot`, v.dot]])) as Record<string, string>;
 
 export const semantic = {
   light: {
@@ -17,10 +31,10 @@ export const semantic = {
     "bg-subtle": p.neutral[25],
     "bg-hover": p.neutral[100],
     "bg-selected": p.accent[50],
-    "line": p.neutral[200],
+    "line": p.neutral[150],
     "line-strong": p.neutral[300],
     /** Role tokens: one value per UI role, so a single edit restyles every screen. */
-    "line-control": p.neutral[300],
+    "line-control": p.neutral[150],
     "line-card": p.neutral[200],
     "bg-row-hover": p.neutral[25],
     "fg": p.neutral[900],
@@ -29,10 +43,10 @@ export const semantic = {
     "fg-disabled": p.neutral[400],
     "accent": p.accent[600],
     "accent-hover": p.accent[700],
-    "accent-subtle": p.accent[50],
+    "accent-subtle": p.accent[100],
     "accent-fg": p.accent[700],
     "on-accent": p.neutral[0],
-    "focus": p.accent[500],
+    "focus": p.accent[600],
     "success-bg": p.success[50],
     "success-fg": p.success[700],
     "warning-bg": p.warning[50],
@@ -72,14 +86,26 @@ export const semantic = {
   },
 } as const;
 
+export const hueVarsLight = hueVars(hues);
+export const hueVarsDark = hueVars(darkHues);
+
 export type SemanticName = keyof (typeof semantic)["light"];
 
-export const type = { "2xs": 11, xs: 12, sm: 13, base: 14, md: 16, lg: 20, xl: 24, "2xl": 28 } as const;
+/** Scale (px): 13 body, 22 page title. Calm and compact; colour is reserved for the primary action, links and the active icon. */
+export const type = { "2xs": 11, xs: 12, sm: 12.5, base: 13, md: 16, lg: 17, xl: 22, "2xl": 26 } as const;
 /** 4px base scale */
 export const space = [0, 4, 8, 12, 16, 20, 24, 32, 40, 48, 64] as const;
-export const radius = { sm: 4, md: 6, lg: 8, xl: 12 } as const;
-export const layout = { sidebar: 248, sidebarRail: 56, topbar: 52, contentMax: 1120 } as const;
-export const shadow = { popover: "0 8px 24px rgb(22 24 29 / 0.10), 0 1px 3px rgb(22 24 29 / 0.06)" } as const;
+export const radius = { sm: 5, md: 8, lg: 12, xl: 16 } as const;
+export const layout = { sidebar: 232, sidebarRail: 56, topbar: 52, contentMax: 1160 } as const;
+export const shadow = {
+  popover: "0 10px 28px rgb(30 29 43 / 0.12), 0 2px 6px rgb(30 29 43 / 0.07)",
+  /** Primary surfaces (tables, panels, columns). */
+  sheet: "0 1px 2px rgb(30 29 43 / 0.05), 0 0 0 1px rgb(30 29 43 / 0.04)",
+  control: "0 1px 2px rgb(30 29 43 / 0.04)",
+  lift: "0 14px 32px rgb(20 16 60 / 0.18), 0 2px 6px rgb(20 16 60 / 0.10)",
+} as const;
+/** One easing and three durations for the whole product. Reduced-motion collapses them in CSS. */
+export const motion = { ease: "cubic-bezier(0.16, 1, 0.3, 1)", fast: "90ms", base: "150ms", slow: "240ms" } as const;
 
 /** Role dimensions (px). Components read these via CSS variables; never hardcode a radius or control height. */
-export const role = { "radius-control": radius.md, "radius-card": radius.lg, "control-h": 32, "control-h-touch": 44, "row-h": 44, "page-gutter": 32, "page-gap": 24 } as const;
+export const role = { "radius-control": radius.md, "radius-card": radius.lg, "radius-sheet": radius.xl, "control-h": 30, "control-h-touch": 44, "row-h": 40, "page-gutter": 24, "page-gap": 16 } as const;

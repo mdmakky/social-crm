@@ -8,7 +8,7 @@ import { dueState } from "@crm/core/tasks";
 import { type Role } from "@crm/core/permissions";
 import { canEditTask } from "@crm/core/tasks";
 import { Avatar } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
+import { Badge, Status } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/input";
 import { PageHeader, Panel } from "@/components/ui/panel";
@@ -19,7 +19,7 @@ import { TaskDetail } from "@/components/tasks/task-detail";
 import { TaskDialog } from "@/components/tasks/task-dialog";
 import { browserApi, errorMessage } from "@/lib/client-api";
 import { formatDateTime } from "@/lib/format";
-import { DEFAULT_FILTERS, PRIORITY_LABEL, PRIORITY_TONE, SORT_OPTIONS, STATUS_LABEL, STATUS_OPTIONS, summaryQuery, toApiQuery, toSearchParams, VIEWS, type SortKey, type TaskFilters, type ViewKey } from "@/lib/tasks";
+import { DEFAULT_FILTERS, PRIORITY_HUE, PRIORITY_LABEL, SORT_OPTIONS, STATUS_LABEL, STATUS_OPTIONS, summaryQuery, toApiQuery, toSearchParams, VIEWS, type SortKey, type TaskFilters, type ViewKey } from "@/lib/tasks";
 
 type Props = { workspaceId: string; timeZone: string; role: Role; myUserId: string; initial: TaskPage | null; initialSummary: TaskSummary | null; initialFilters: TaskFilters; members: Member[]; canCreate: boolean };
 
@@ -217,7 +217,7 @@ export function TasksView({ workspaceId, timeZone, role, myUserId, initial, init
                         {(t.status === "in_progress" || t.status === "cancelled") && <Badge tone={t.status === "in_progress" ? "accent" : "neutral"} className="mt-0.5">{STATUS_LABEL[t.status]}</Badge>}
                       </TD>
                       <TD className="whitespace-nowrap">{dueCell(t)}</TD>
-                      <TD><Badge tone={PRIORITY_TONE[t.priority]}>{PRIORITY_LABEL[t.priority]}</Badge></TD>
+                      <TD><Status hue={PRIORITY_HUE[t.priority]}>{PRIORITY_LABEL[t.priority]}</Status></TD>
                       <TD className="whitespace-nowrap">{t.assignee ? <span className="inline-flex items-center gap-2"><Avatar name={t.assignee.name} size="xs" />{t.assignee.name}</span> : <span className="text-fg-subtle">Unassigned</span>}</TD>
                       <TD className="max-w-56">{t.contact ? <Link href={`/w/${workspaceId}/contacts/${t.contact.id}`} className="block truncate underline-offset-2 hover:underline">{t.contact.name}</Link> : <span className="text-fg-subtle">None</span>}</TD>
                     </TR>
@@ -227,13 +227,13 @@ export function TasksView({ workspaceId, timeZone, role, myUserId, initial, init
             </div>
             <ul className="md:hidden" aria-label="Tasks">
               {page.items.map((t) => (
-                <li key={t.id} className="flex items-start gap-1 border-b border-line px-2 py-1 last:border-b-0">
+                <li key={t.id} className="flex items-start gap-1 border-b border-line-card px-2 py-1 last:border-b-0">
                   <CheckBox t={t} allowed={mayEdit(t)} onToggle={toggle} />
                   <button type="button" onClick={() => setDetail(t)} className="min-w-0 flex-1 rounded px-1 py-2 text-left active:bg-hover">
                     <span className={`block break-words text-base font-medium ${t.status === "done" || t.status === "cancelled" ? "text-fg-subtle line-through" : "text-fg"}`}>{t.title}</span>
                     <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
                       {dueCell(t)}
-                      <Badge tone={PRIORITY_TONE[t.priority]}>{PRIORITY_LABEL[t.priority]}</Badge>
+                      <Status hue={PRIORITY_HUE[t.priority]}>{PRIORITY_LABEL[t.priority]}</Status>
                       {(t.status === "in_progress" || t.status === "cancelled") && <Badge tone={t.status === "in_progress" ? "accent" : "neutral"}>{STATUS_LABEL[t.status]}</Badge>}
                     </span>
                     <span className="mt-1 block truncate text-sm text-fg-muted">{t.assignee?.name ?? "Unassigned"}{t.contact ? ` · ${t.contact.name}` : ""}</span>
@@ -241,7 +241,7 @@ export function TasksView({ workspaceId, timeZone, role, myUserId, initial, init
                 </li>
               ))}
             </ul>
-            <div className="flex items-center justify-between gap-3 border-t border-line px-4 py-3 text-sm text-fg-muted">
+            <div className="flex items-center justify-between gap-3 border-t border-line-card px-4 py-3 text-sm text-fg-muted">
               <span role="status">{status === "loading" ? "Updating…" : `Showing ${page.items.length.toLocaleString("en-US")} of ${page.total.toLocaleString("en-US")}`}</span>
               {page.nextCursor && <Button onClick={loadMore} loading={moreBusy}>Load more</Button>}
             </div>
@@ -297,7 +297,7 @@ function DueCell({ t, now, tz }: { t: Task; now: Date; tz: string }) {
   if (!t.dueAt) return <span className="text-fg-subtle">No due date</span>;
   const state = dueState(t, now, tz);
   return (
-    <time dateTime={t.dueAt} suppressHydrationWarning className={`tnum ${state === "overdue" ? "font-medium text-danger-fg" : state === "today" ? "font-medium text-warning-fg" : "text-fg-muted"}`}>
+    <time dateTime={t.dueAt} suppressHydrationWarning className={`tnum ${state === "overdue" ? "font-medium text-danger-fg" : state === "today" ? "font-medium text-fg" : "text-fg-muted"}`}>
       {state === "overdue" ? "Overdue · " : state === "today" ? "Today · " : ""}{formatDateTime(t.dueAt, tz)}
     </time>
   );

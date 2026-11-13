@@ -63,3 +63,6 @@ Not tested: real touch drag, screen reader output, Firefox and Safari, dark mode
 
 ## UX track verification 2026-11-13
 `pnpm exec turbo run lint typecheck test`: 25 of 25 tasks successful. `pnpm exec playwright test` (apps/web, incl. new `e2e/ux-audit.spec.ts`: 15 screens at 1440, 768 and 375, horizontal overflow and axe critical/serious): 115 passed, 0 failed. Earlier on the same branch: 7 failures in the first run (class-name selectors, settings overflow at 375, Home timezone line, overlay contrast); 3 contrast failures reproduced on untouched HEAD and were fixed; one pre-existing race in `leads.spec.ts` fixed in the test.
+
+## UX option D rollout verification 2026-11-13
+`pnpm exec turbo run lint typecheck test`: 25 of 25 successful. `next build`: compiled successfully. `pnpm exec playwright test` (apps/web, ports 3519/9093): 115 passed, 0 failed, including `ux-audit.spec.ts` (15 screens at 1440, 768 and 375: no horizontal overflow, no axe critical or serious violations). The first full run of this state had 2 failures: the command palette kept its typed text on a quick reopen (fixed), and a touch-size test that measured before the page had streamed in (test now waits).

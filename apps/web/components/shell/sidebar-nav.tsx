@@ -12,10 +12,10 @@ export function SidebarNav({ workspaceId, role, compact, onNavigate }: { workspa
   const groups = builtNav(role);
   const planned = plannedItems(role);
   return (
-    <nav aria-label="Main" className="flex flex-1 flex-col gap-4 overflow-y-auto px-2 py-2">
+    <nav aria-label="Main" className={cn("flex flex-1 flex-col gap-1 overflow-y-auto px-3 py-2", compact && "items-center px-2")}>
       {groups.map((g, gi) => (
-        <div key={gi} className="flex flex-col gap-0.5">
-          {g.label && !compact && groups.filter((x) => x.label).length > 1 && <p className="px-2 pb-1 pt-1 text-2xs font-medium text-fg-subtle">{g.label}</p>}
+        <div key={gi} className={cn("flex flex-col gap-px", compact && "w-full")}>
+          {g.label && !compact && groups.filter((x) => x.label).length > 1 && <p className="px-2.5 pb-1 pt-3 text-xs font-semibold text-fg-subtle">{g.label}</p>}
           {g.label && compact && <div className="mx-2 my-1 h-px bg-line" aria-hidden />}
           {g.items.map((item) => {
             const Icon = item.icon;
@@ -27,9 +27,10 @@ export function SidebarNav({ workspaceId, role, compact, onNavigate }: { workspa
                 onClick={onNavigate}
                 aria-current={active ? "page" : undefined}
                 aria-label={compact ? item.label : undefined}
-                className={cn("group flex h-8 items-center gap-2.5 rounded-control px-2 text-base font-medium pointer-coarse:h-11", compact && "justify-center", active ? "bg-selected text-accent-fg" : "text-fg-muted hover:bg-hover hover:text-fg")}
+                // Selected = a white pill on the canvas with a hairline; hover = a soft wash. The accent appears only on the icon.
+                className={cn("press group flex h-8 items-center gap-2.5 rounded-lg px-2.5 text-base font-medium pointer-coarse:h-11 active:scale-[0.985]", compact && "justify-center px-0", active ? "bg-hover text-fg" : "text-fg-muted hover:bg-canvas hover:text-fg")}
               >
-                <Icon className={cn("size-4 shrink-0", active ? "text-accent-fg" : "text-fg-subtle group-hover:text-fg-muted")} />
+                <Icon className={cn("size-4 shrink-0 stroke-[1.75] transition-colors duration-[var(--dur-fast)]", active ? "text-accent" : "text-fg-subtle group-hover:text-fg-muted")} />
                 {!compact && <span className="truncate">{item.label}</span>}
               </Link>
             );
@@ -39,14 +40,14 @@ export function SidebarNav({ workspaceId, role, compact, onNavigate }: { workspa
       ))}
       {!compact && planned.length > 0 && (
         <details className="group">
-          <summary className="flex h-8 cursor-pointer list-none items-center gap-1 rounded-control px-2 text-xs font-medium text-fg-subtle hover:bg-hover pointer-coarse:h-11 [&::-webkit-details-marker]:hidden">
-            <ChevronRight className="size-3.5 transition-transform group-open:rotate-90" aria-hidden />
+          <summary className="press flex h-8 cursor-pointer list-none items-center gap-1 rounded-lg px-3 text-xs font-semibold text-fg-subtle hover:bg-canvas pointer-coarse:h-11 [&::-webkit-details-marker]:hidden">
+            <ChevronRight className="size-3.5 transition-transform duration-[var(--dur-base)] group-open:rotate-90" aria-hidden />
             Coming soon
           </summary>
           <ul className="px-2 pb-1 pt-0.5">
             {planned.map((i) => (
-              <li key={i.key} className="flex h-7 items-center gap-2.5 pl-2 text-sm text-fg-subtle">
-                <i.icon className="size-4 shrink-0 text-fg-subtle" />
+              <li key={i.key} className="flex h-7 items-center gap-2 pl-2 text-sm text-fg-subtle">
+                <i.icon className="size-4 shrink-0 stroke-[1.75]" />
                 {i.label}
               </li>
             ))}

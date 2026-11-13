@@ -1,6 +1,6 @@
 import { cn } from "@/lib/cn";
 
-/** Single tab/segment style for every tab row (task views, settings sections, future inbox views). */
+/** Pill chips for view switchers (task views, notification filters, segments). One style everywhere; the active chip is ink, not accent, so colour stays rare. */
 export const tabClass = (on: boolean) =>
-  cn("-mb-px inline-flex min-h-9 shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 px-3 text-base font-medium transition-colors pointer-coarse:min-h-11", on ? "border-accent text-fg" : "border-transparent text-fg-muted hover:text-fg");
-export const tabListClass = "mb-4 flex gap-1 overflow-x-auto border-b border-line-card";
+  cn("press inline-flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 text-base font-medium pointer-coarse:h-11 active:scale-[0.97]", on ? "border-fg bg-fg text-surface" : "border-line bg-surface text-fg-muted hover:border-line-strong hover:text-fg");
+export const tabListClass = "mb-4 flex gap-1.5 overflow-x-auto pb-1";

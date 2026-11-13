@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { semantic } from "../src/tokens.ts";
+import { hues, semantic } from "../src/tokens.ts";
 
 const lin = (c: number) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
 const lum = (hex: string) => {
@@ -23,6 +23,11 @@ const PAIRS: [keyof T, keyof T, number][] = [
   ["danger", "bg-surface", 4.5],
   ["focus", "bg-surface", 3], ["focus", "bg-canvas", 3], ["line-strong", "bg-surface", 1.4],
 ];
+
+// Hue tints are used for avatars, stage labels and tags: text must read on its own tint.
+describe("identity hues", () => {
+  for (const [name, h] of Object.entries(hues)) it(`hue ${name} fg on bg >= 4.5:1`, () => expect(ratio(h.fg, h.bg)).toBeGreaterThanOrEqual(4.5));
+});
 
 for (const theme of ["light", "dark"] as const) {
   describe(`${theme} theme contrast (WCAG 2.2 AA)`, () => {

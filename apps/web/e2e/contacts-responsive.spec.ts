@@ -92,9 +92,12 @@ test.describe("touch", () => {
     expect(await page.getByLabel("Search contacts").evaluate((e) => getComputedStyle(e).fontSize)).toBe("16px");
     await page.goto(`/w/${workspaceId}/contacts/${id}`);
     for (const label of ["Name", "Email", "Add a note", "New task"]) {
-      const box = await page.getByLabel(label, { exact: true }).first().boundingBox();
+      const field = page.getByLabel(label, { exact: true }).first();
+      await field.waitFor(); // the page streams in behind a skeleton; measure only once the field exists
+      const box = await field.boundingBox();
       expect(box!.height, label).toBeGreaterThanOrEqual(44);
     }
+    await page.getByRole("button", { name: "Add task" }).waitFor();
     const check = await page.getByRole("button", { name: "Add task" }).boundingBox();
     expect(check!.height).toBeGreaterThanOrEqual(44);
   });
