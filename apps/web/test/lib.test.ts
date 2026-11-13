@@ -46,10 +46,10 @@ describe("navigation permissions", () => {
     expect(labels("viewer")).toEqual(["Home", "Inbox", "Contacts", "Tasks", "Leads", "Pipeline", "Reports", "Members", "Settings"]);
   });
   it("only built features are links; planned ones are listed separately and also permission-filtered", () => {
-    expect(builtNav("owner").flatMap((g) => g.items.map((i) => i.label))).toEqual(["Home", "Contacts", "Tasks", "Leads", "Pipeline", "Reports", "Integrations", "Members", "Audit log", "Settings"]);
-    expect(builtNav("viewer").flatMap((g) => g.items.map((i) => i.label))).toEqual(["Home", "Contacts", "Tasks", "Leads", "Pipeline", "Reports", "Members", "Settings"]);
-    expect(plannedItems("owner").map((i) => i.label)).toEqual(["Inbox", "Automation", "AI assistant"]);
-    expect(plannedItems("viewer").map((i) => i.label)).toEqual(["Inbox"]);
+    expect(builtNav("owner").flatMap((g) => g.items.map((i) => i.label))).toEqual(["Home", "Inbox", "Contacts", "Tasks", "Leads", "Pipeline", "Reports", "Integrations", "Members", "Audit log", "Settings"]);
+    expect(builtNav("viewer").flatMap((g) => g.items.map((i) => i.label))).toEqual(["Home", "Inbox", "Contacts", "Tasks", "Leads", "Pipeline", "Reports", "Members", "Settings"]);
+    expect(plannedItems("owner").map((i) => i.label)).toEqual(["Automation", "AI assistant"]);
+    expect(plannedItems("viewer").map((i) => i.label)).toEqual([]);
   });
   it("derives page titles from the path", () => {
     expect(titleFor("/w/abc/members", "abc")).toBe("Members");

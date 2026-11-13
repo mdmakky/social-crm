@@ -36,6 +36,7 @@ export const ConversationListQuery = z.object({
   limit: z.coerce.number().int().min(1).max(100).optional(),
   cursor: z.string().max(200).optional(),
 });
+export type ConversationListQuery = z.input<typeof ConversationListQuery>;
 export const ConversationList = z.object({ items: z.array(ConversationItem), nextCursor: z.string().nullable(), totalUnread: z.number().int().min(0) });
 export type ConversationList = z.infer<typeof ConversationList>;
 
