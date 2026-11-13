@@ -15,7 +15,6 @@ let admin: pg.Client;
 let A: string;
 let B: string;
 let contactA: string;
-let contactB: string;
 let taskOfAgent: string; // created by agentA, unassigned
 let taskOfAgent2: string; // created by agent2A, unassigned
 let taskB: string;
@@ -52,7 +51,7 @@ beforeAll(async () => {
   const stageA = (await withContext(db, ctx(U.ownerA, A), (tx) => tx.insert(schema.lifecycleStages).values({ workspaceId: A, name: "New", position: 0 }).returning()))[0]!.id;
   const stageB = (await withContext(db, ctx(U.ownerB, B), (tx) => tx.insert(schema.lifecycleStages).values({ workspaceId: B, name: "New", position: 0 }).returning()))[0]!.id;
   contactA = (await withContext(db, ctx(U.agentA, A), (tx) => tx.insert(schema.contacts).values({ workspaceId: A, name: "Alice A", lifecycleStageId: stageA }).returning()))[0]!.id;
-  contactB = (await withContext(db, ctx(U.ownerB, B), (tx) => tx.insert(schema.contacts).values({ workspaceId: B, name: "Bob B", lifecycleStageId: stageB }).returning()))[0]!.id;
+  await withContext(db, ctx(U.ownerB, B), (tx) => tx.insert(schema.contacts).values({ workspaceId: B, name: "Bob B", lifecycleStageId: stageB }));
   taskOfAgent = await mkTask(U.agentA, A, { title: "agent task", contactId: contactA });
   taskOfAgent2 = await mkTask(U.agent2A, A, { title: "agent2 task" });
   taskB = await mkTask(U.ownerB, B, { title: "B secret" });

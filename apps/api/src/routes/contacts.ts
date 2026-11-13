@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { and, asc, desc, eq, inArray, isNull, lt, sql, type SQL } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, lt, sql, type SQL } from "drizzle-orm";
 import { AddContactTagBody, ContactListQuery, CreateContactBody, NoteBody, PageQuery, UpdateContactBody } from "@crm/contracts";
 import { escapeLike, normalizeEmail, normalizePhone, toCsv, validateCustomValues } from "@crm/core";
 import { can } from "@crm/core/permissions";

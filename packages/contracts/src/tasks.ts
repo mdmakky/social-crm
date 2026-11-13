@@ -54,7 +54,7 @@ export const UpdateTaskBody = z
   .refine((v) => Object.keys(v).some((k) => k !== "expectedVersion"), "Nothing to update");
 export type UpdateTaskBody = z.input<typeof UpdateTaskBody>;
 
-const csv = <T extends z.ZodEnum<any>>(item: T) => z.string().transform((s) => s.split(",").map((x) => x.trim()).filter(Boolean)).pipe(z.array(item).min(1).max(10));
+const csv = <T extends string>(item: z.ZodType<T, T>) => z.string().transform((s) => s.split(",").map((x) => x.trim()).filter(Boolean)).pipe(z.array(item).min(1).max(10));
 const instant = z.string().datetime({ offset: true });
 export const TaskFilterFields = {
   view: TaskView.optional(),

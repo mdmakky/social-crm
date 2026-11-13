@@ -17,7 +17,7 @@ const patch = (u: TestUser, id: string, body: Record<string, unknown>, ws = A) =
 const events = async (u: TestUser, id: string, ws = A) => ok(await as(u).call(endpoints.listTaskEvents, { params: { workspaceId: ws, taskId: id }, query: { limit: 100 } })).items;
 const kinds = async (id: string) => (await events(owner, id)).map((e) => e.kind).reverse();
 const raw = (u: TestUser, method: string, path: string, body?: unknown) => h.app.request(`/v1/workspaces/${A}${path}`, { method, headers: { cookie: u.cookie, origin: "http://localhost:3000", "content-type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
-const status = (r: { ok: boolean }) => (r as { error: { status: number } }).error.status;
+const status = (r: { ok: boolean }) => (r as unknown as { error: { status: number } }).error.status;
 
 beforeAll(async () => {
   h = await bootstrap();
@@ -392,14 +392,14 @@ describe("contact link keeps the contact timeline and last activity consistent",
     const c = await h.contact(as(agent), A, { name: "Timeline Tina" });
     const last = async () => ok(await as(agent).call(endpoints.getContact, { params: { workspaceId: A, contactId: c.id } })).lastActivityAt;
     const acts = async () => ok(await as(agent).call(endpoints.listActivity, { params: { workspaceId: A, contactId: c.id } })).items.map((i) => i.kind);
-    let before = await last();
+    let before = (await last())!;
     const t = await create(agent, { title: "Send contract", contactId: c.id });
-    expect(await last() >= before).toBe(true);
-    before = await last();
+    expect((await last())! >= before).toBe(true);
+    before = (await last())!;
     await new Promise((r) => setTimeout(r, 15));
     ok(await patch(agent, t.id, { status: "in_progress" })); // no activity: not a milestone
     ok(await patch(agent, t.id, { status: "done" }));
-    expect(await last() > before).toBe(true);
+    expect((await last())! > before).toBe(true);
     ok(await patch(agent, t.id, { status: "open" }));
     ok(await patch(agent, t.id, { status: "cancelled" }));
     ok(await patch(agent, t.id, { title: "Send contract v2" })); // edits are not timeline events
