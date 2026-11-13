@@ -54,7 +54,7 @@ describe("Graph client (injected fetch; NOT Meta)", () => {
     const pages = await g.listPages("USERTOKEN");
     expect(pages).toEqual([
       { id: "1", name: "A", accessToken: "ta", tasks: ["MANAGE"], instagramAccountId: "9" },
-      { id: "3", name: "C", accessToken: "tc", tasks: [], instagramAccountId: null },
+      { id: "3", name: "C", accessToken: "tc", tasks: null, instagramAccountId: null },
     ]);
     expect(calls[0]!.url.toString()).not.toContain("USERTOKEN");
     expect((calls[0]!.init.headers as Record<string, string>).authorization).toBe("Bearer USERTOKEN");

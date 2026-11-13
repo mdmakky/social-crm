@@ -58,7 +58,7 @@ function Inner({ workspaceId, canManage, initial, result }: Props) {
     void browserApi.call(endpoints.listMetaPending, { params }).then((r) => {
       if (!r.ok) { setBanner({ tone: "error", text: "The Meta login expired. Connect again." }); setPending(null); return; }
       setPending(r.data);
-      setPick({ pageId: r.data.pages.find((x) => !x.connected)?.pageId ?? "", ig: false });
+      setPick({ pageId: r.data.pages.find((x) => x.eligible && !x.connected)?.pageId ?? r.data.pages.find((x) => x.eligible)?.pageId ?? "", ig: false });
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -73,7 +73,7 @@ function Inner({ workspaceId, canManage, initial, result }: Props) {
     setBusy("pick");
     const r = await browserApi.call(endpoints.connectMetaPage, { params, body: { pageId: pick.pageId, connectInstagram: pick.ig } });
     setBusy(null);
-    if (!r.ok) { toast(r.error.code === "account_unavailable" ? "This Page can't be connected to this workspace." : errorMessage(r.error), "error"); return; }
+    if (!r.ok) { toast(r.error.code === "account_unavailable" ? "This Page can't be connected to this workspace." : r.error.code === "page_task_missing" ? "Your role on this Page cannot send messages as the Page." : errorMessage(r.error), "error"); return; }
     setDone(r.data.accounts);
     setPending(null);
     toast("Connected");
@@ -127,8 +127,8 @@ function Inner({ workspaceId, canManage, initial, result }: Props) {
             <legend className="sr-only">Facebook Pages</legend>
             {pending.pages.map((g) => (
               <label key={g.pageId} className="flex min-h-11 cursor-pointer items-center gap-3 rounded-control border border-line-card px-3 py-2 has-[:disabled]:opacity-60">
-                <input type="radio" name="page" value={g.pageId} checked={pick.pageId === g.pageId} onChange={() => setPick({ pageId: g.pageId, ig: false })} />
-                <span className="min-w-0 flex-1"><span className="block truncate font-medium">{g.name}</span><span className="block text-sm text-fg-muted">ID {g.pageId}{g.connected ? " · already connected" : ""}</span></span>
+                <input type="radio" name="page" value={g.pageId} disabled={!g.eligible} checked={pick.pageId === g.pageId} onChange={() => setPick({ pageId: g.pageId, ig: false })} />
+                <span className="min-w-0 flex-1"><span className="block truncate font-medium">{g.name}</span><span className="block text-sm text-fg-muted">ID {g.pageId}{g.connected ? " · already connected" : ""}</span>{!g.eligible && g.ineligibleReason && <span className="block text-sm text-warning-fg">{g.ineligibleReason}</span>}</span>
               </label>
             ))}
             {(() => {

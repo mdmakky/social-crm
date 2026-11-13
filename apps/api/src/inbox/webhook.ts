@@ -25,7 +25,7 @@ const sha = (b: Uint8Array | string) => createHash("sha256").update(b).digest();
 const safeEq = (a: string, b: string) => timingSafeEqual(sha(a), sha(b));
 
 /** Reads the body up to max bytes. Returns null as soon as the limit is exceeded (the rest is never read). */
-async function readLimited(req: Request, max: number): Promise<Buffer | null> {
+export async function readLimited(req: Request, max: number): Promise<Buffer | null> {
   const declared = Number(req.headers.get("content-length"));
   if (Number.isFinite(declared) && declared > max) return null;
   if (!req.body) return Buffer.alloc(0);

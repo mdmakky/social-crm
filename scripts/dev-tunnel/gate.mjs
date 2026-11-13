@@ -4,7 +4,7 @@ import http from "node:http";
 
 const PORT = Number(process.env.GATE_PORT ?? 8788);
 const TARGET = new URL(process.env.GATE_TARGET ?? "http://127.0.0.1:8787");
-const ALLOWED = /^\/webhooks\/meta\/(messenger|instagram)(\?[^\s]*)?$/;
+const ALLOWED = /^\/(webhooks\/meta\/(messenger|instagram)|meta\/callbacks\/(deauthorize|data-deletion|data-deletion\/status))(\?[^\s]*)?$/;
 const FORWARD_HEADERS = ["content-type", "content-length", "x-hub-signature-256", "x-hub-signature", "user-agent"];
 
 http
@@ -25,4 +25,4 @@ http
     });
     req.pipe(up);
   })
-  .listen(PORT, "127.0.0.1", () => console.log(`gate on 127.0.0.1:${PORT} -> ${TARGET.origin} (webhook paths only)`));
+  .listen(PORT, "127.0.0.1", () => console.log(`gate on 127.0.0.1:${PORT} -> ${TARGET.origin} (Meta webhook + app-callback paths only)`));

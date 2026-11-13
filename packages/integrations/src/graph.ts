@@ -3,7 +3,8 @@
  * below comes from documentation fetched 2026-11-13 (docs/integrations/meta-oauth-readiness.md) and is UNVERIFIED until a recorded real request.
  * Tokens travel in the Authorization header or POST body, never in a URL we log; error messages never contain a token.
  */
-export type GraphPage = { id: string; name: string; accessToken: string; tasks: string[]; instagramAccountId: string | null };
+/** `tasks` is null when Graph did not return the field (then eligibility cannot be checked: UNVERIFIED whether /me/accounts returns it for every token). */
+export type GraphPage = { id: string; name: string; accessToken: string; tasks: string[] | null; instagramAccountId: string | null };
 export type TokenInfo = { isValid: boolean; expiresAt: Date | null; scopes: string[]; errorCode: number | null };
 
 export class GraphError extends Error {
@@ -16,6 +17,8 @@ export interface MetaGraph {
   /** Authorization-code exchange (redirect_uri must equal the one used for the dialog). */
   exchangeCode(code: string, redirectUri: string): Promise<{ accessToken: string; expiresInSec: number | null }>;
   exchangeLongLived(userToken: string): Promise<{ accessToken: string; expiresInSec: number | null }>;
+  /** App-scoped id of the person who authorised (GET /me?fields=id; standard Graph, response shape UNVERIFIED here). */
+  getUserId(userToken: string): Promise<string | null>;
   /** Pages the user manages, each with its own Page token and the linked Instagram professional account id, if any. */
   listPages(userToken: string): Promise<GraphPage[]>;
   subscribePage(pageId: string, pageToken: string, fields: string[]): Promise<boolean>;
@@ -66,6 +69,10 @@ export function createMetaGraph(cfg: { appId: string; appSecret: string; version
     async exchangeLongLived(userToken) {
       return tokenOf(await call("/oauth/access_token", { query: { grant_type: "fb_exchange_token", client_id: cfg.appId, client_secret: cfg.appSecret, fb_exchange_token: userToken } }));
     },
+    async getUserId(userToken) {
+      const j = await call("/me", { token: userToken, query: { fields: "id" } });
+      return typeof j.id === "string" && /^[0-9]{1,40}$/.test(j.id) ? j.id : null;
+    },
     async listPages(userToken) {
       const out: GraphPage[] = [];
       const next: string | null = "/me/accounts";
@@ -75,7 +82,7 @@ export function createMetaGraph(cfg: { appId: string; appSecret: string; version
         for (const p of j.data ?? []) {
           if (typeof p.id !== "string" || typeof p.access_token !== "string") continue;
           const ig = (p.instagram_business_account as { id?: unknown } | undefined)?.id;
-          out.push({ id: p.id, name: typeof p.name === "string" ? p.name : p.id, accessToken: p.access_token, tasks: Array.isArray(p.tasks) ? p.tasks.filter((t): t is string => typeof t === "string") : [], instagramAccountId: typeof ig === "string" ? ig : null });
+          out.push({ id: p.id, name: typeof p.name === "string" ? p.name : p.id, accessToken: p.access_token, tasks: Array.isArray(p.tasks) ? p.tasks.filter((t): t is string => typeof t === "string") : null, instagramAccountId: typeof ig === "string" ? ig : null });
         }
         const after = j.paging?.next ? j.paging.cursors?.after : undefined;
         if (!after) break;
@@ -101,7 +108,7 @@ export function createMetaGraph(cfg: { appId: string; appSecret: string; version
 }
 
 /** MOCK ONLY: in-memory Graph for tests and mock mode. Behaviour is whatever the test configures; it proves our code, not Meta's. */
-export function createMockGraph(state: { pages?: GraphPage[]; validCodes?: Set<string>; tokenInfo?: Map<string, TokenInfo>; failSubscribe?: boolean } = {}): MetaGraph & { calls: string[]; state: typeof state } {
+export function createMockGraph(state: { pages?: GraphPage[]; validCodes?: Set<string>; tokenInfo?: Map<string, TokenInfo>; failSubscribe?: boolean; metaUserId?: string | null } = {}): MetaGraph & { calls: string[]; state: typeof state } {
   const calls: string[] = [];
   const codes = state.validCodes ?? new Set(["good-code"]);
   return {
@@ -115,6 +122,10 @@ export function createMockGraph(state: { pages?: GraphPage[]; validCodes?: Set<s
     async exchangeLongLived() {
       calls.push("exchangeLongLived");
       return { accessToken: "mock-long-user-token", expiresInSec: 5_183_944 };
+    },
+    async getUserId() {
+      calls.push("getUserId");
+      return state.metaUserId === undefined ? "9000000000000001" : state.metaUserId;
     },
     async listPages() {
       calls.push("listPages");

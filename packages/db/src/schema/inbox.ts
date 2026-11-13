@@ -33,6 +33,8 @@ export const integrationAccounts = pgTable(
     tokenExpiresAt: ts("token_expires_at"),
     lastTokenCheckAt: ts("last_token_check_at"),
     connectedBy: text("connected_by").references(() => user.id),
+    /** Keyed hash (HMAC) of the app-scoped Meta user id of the person who authorised this account. Lets the deauthorization and data-deletion callbacks find the connections of that person without storing the raw id. */
+    connectedMetaUserHash: text("connected_meta_user_hash"),
     connectedAt: ts("connected_at").notNull().defaultNow(),
     version: integer("version").notNull().default(1),
     createdAt: ts("created_at").notNull().defaultNow(),
@@ -45,6 +47,8 @@ export const integrationAccounts = pgTable(
     check("integration_accounts_status", sql`${t.status} IN ('connected','reauth_required','disabled')`),
     // Page and Instagram account ids are numeric strings (to be reconfirmed with the real app). Digits only: no whitespace, zero-padding variants or look-alike characters can create a second key for the same account.
     check("integration_accounts_external_id", sql`${t.externalAccountId} ~ '^[1-9][0-9]{0,99}$'`),
+    index("integration_accounts_meta_user_idx").on(t.connectedMetaUserHash).where(sql`${t.connectedMetaUserHash} IS NOT NULL`),
+    check("integration_accounts_meta_user_hash", sql`${t.connectedMetaUserHash} IS NULL OR ${t.connectedMetaUserHash} ~ '^[0-9a-f]{64}$'`),
     check("integration_accounts_display_name", sql`${t.displayName} IS NULL OR char_length(${t.displayName}) <= 200`),
   ],
 );

@@ -9,6 +9,7 @@ import { notificationsConsumer } from "./notifications/index.ts";
 import { metaWebhookRoutes } from "./inbox/webhook.ts";
 import { startInboxWorker } from "./inbox/process.ts";
 import { runTokenChecks, type MetaConnectDeps } from "./inbox/meta-connect.ts";
+import { metaUserCallbackRoutes } from "./inbox/meta-callbacks.ts";
 import { createMetaGraph, createMockGraph, createSecretBox } from "@crm/integrations";
 import { createHmac } from "node:crypto";
 
@@ -38,6 +39,7 @@ const env = z
     META_MOCK: z.enum(["0", "1"]).default("0"),
     SECRETS_ENCRYPTION_KEY: z.string().optional(),
     SECRETS_KEY_ID: z.string().min(1).max(64).default("dev1"),
+    META_PUBLIC_BASE_URL: z.string().url().optional(), // public https base of this API, used in the data-deletion status link
   })
   .parse(process.env);
 
@@ -55,16 +57,20 @@ if (workerDb && env.SECRETS_ENCRYPTION_KEY && env.META_APP_SECRET && ((env.META_
   if (env.NODE_ENV === "production" && env.META_MOCK === "1") throw new Error("META_MOCK is not allowed in production");
   meta = {
     graph: env.META_MOCK === "1"
-      ? createMockGraph({ pages: [{ id: "100000000000001", name: "Mock Page", accessToken: "mock-page-token", tasks: ["MANAGE"], instagramAccountId: "170000000000001" }] })
+      ? createMockGraph({ pages: [{ id: "100000000000001", name: "Mock Page", accessToken: "mock-page-token", tasks: ["MANAGE", "MESSAGING"], instagramAccountId: "170000000000001" }] })
       : createMetaGraph({ appId: env.META_APP_ID!, appSecret: env.META_APP_SECRET, version: env.META_GRAPH_VERSION }),
     box: createSecretBox({ [env.SECRETS_KEY_ID]: env.SECRETS_ENCRYPTION_KEY }, env.SECRETS_KEY_ID),
     workerDb, appId: env.META_APP_ID ?? "0", configId: env.META_FLFB_CONFIG_ID ?? "0", graphVersion: env.META_GRAPH_VERSION,
     redirectUri: env.META_OAUTH_REDIRECT_URI ?? `${env.WEB_ORIGIN}/v1/integrations/meta/callback`, webOrigin: env.WEB_ORIGIN,
-    stateKey: createHmac("sha256", env.META_APP_SECRET).update("crm-oauth-state-v1").digest(), mock: env.META_MOCK === "1", secureCookies: env.WEB_ORIGIN.startsWith("https://"),
+    stateKey: createHmac("sha256", env.META_APP_SECRET).update("crm-oauth-state-v1").digest(),
+    userHashKey: createHmac("sha256", Buffer.from(env.SECRETS_ENCRYPTION_KEY, "base64")).update("crm-meta-user-v1").digest(), mock: env.META_MOCK === "1", secureCookies: env.WEB_ORIGIN.startsWith("https://"),
   };
   console.log(`meta connect enabled (${meta.mock ? "MOCK graph" : "real graph " + env.META_GRAPH_VERSION})`);
 }
 const app = createApp(auth, { allowedOrigins: origins, db, meta });
+if (meta && workerDb && env.META_APP_SECRET) {
+  app.route("/meta/callbacks", metaUserCallbackRoutes({ appSecrets: [env.META_APP_SECRET, ...(env.META_APP_SECRET_PREVIOUS ? [env.META_APP_SECRET_PREVIOUS] : [])], workerDb, userHashKey: meta.userHashKey, statusKey: createHmac("sha256", env.META_APP_SECRET).update("crm-deletion-status-v1").digest(), publicBaseUrl: env.META_PUBLIC_BASE_URL }));
+}
 if (env.DATABASE_URL_INGEST && env.META_APP_SECRET && env.META_VERIFY_TOKEN) {
   app.route("/webhooks/meta", metaWebhookRoutes({ appSecrets: [env.META_APP_SECRET, ...(env.META_APP_SECRET_PREVIOUS ? [env.META_APP_SECRET_PREVIOUS] : [])], verifyToken: env.META_VERIFY_TOKEN, ingestDb: createDb(env.DATABASE_URL_INGEST) }));
   console.log("meta webhook ingress mounted at /webhooks/meta/{messenger,instagram}");

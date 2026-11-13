@@ -126,6 +126,12 @@ Migrations 0017 and 0018 were revised once after the independent review, before 
 - **Mock mode:** `META_MOCK=1` replaces the Graph client and skips facebook.com (the "dialog" redirects straight to our callback); the UI shows a mock badge; refused in production.
 - **Not done:** real Meta OAuth/subscription (never run), data-deletion and de-authorization callbacks, `tasks`-based Page permission check, multi-instance pending store, KMS.
 
+### 9e. Slice 3 additions: app callbacks, Page tasks (mock-verified)
+- **Callbacks** (`apps/api/src/inbox/meta-callbacks.ts`, mounted at `/meta/callbacks`): `POST /deauthorize` (accounts of that Meta user become `reauth_required`, tokens deleted) and `POST /data-deletion` (accounts disabled, tokens and the user link erased, response `{url, confirmation_code}`, stateless signed status page). Format per Meta's data-deletion page; the deauthorize body is an UNVERIFIED assumption. Bad signatures get 400, unknown users the same answer as known ones, per-source rate limit. Events go to `integration_events` (no audit_log: the worker role cannot write it).
+- **Migration 0020**: `integration_accounts.connected_meta_user_hash` (HMAC of the app-scoped Meta user id, never the raw id) so the callbacks can find a person's accounts across workspaces; worker may update it. Rotating `SECRETS_ENCRYPTION_KEY` needs a re-hash: part of the KMS release gate.
+- **Page tasks:** a Page whose `tasks` lacks `MESSAGING` is refused (422 `page_task_missing`) before anything is created; a missing `tasks` field is allowed and recorded as `tasksUnverified`.
+- **Real-test material:** owner checklist in `docs/integrations/meta-oauth-readiness.md`, `apps/api/dev/meta-preflight.mts`, `docs/integrations/meta-real-test-runbook.md` (NOT RUN).
+
 ## 10. Implementation sequence (each slice is web-first, shared contracts, mobile compatible by contract)
 0. Decisions D-A to D-G recorded; Meta app and test Page set up by the owner using the readiness checklist.
 1. Schema and RLS for integration, conversation and message tables, ingress role and function, state-graph trigger; DB tests for every constraint, role grant, cross-tenant routing and the append-only tables.

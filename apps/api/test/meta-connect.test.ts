@@ -3,6 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { endpoints } from "@crm/contracts";
 import { createDb, type Db } from "@crm/db";
 import { createMockGraph, createSecretBox, GraphError, type GraphPage } from "@crm/integrations";
+import { hashMetaUser } from "../src/inbox/meta-connect.ts";
 import type { MetaConnectDeps } from "../src/inbox/meta-connect.ts";
 import { bootstrap, type Harness, type TestUser } from "./harness.ts";
 
@@ -19,7 +20,7 @@ let deps: MetaConnectDeps;
 let hUnconfigured: Harness;
 let owner: TestUser, admin: TestUser, agent: TestUser, viewer: TestUser, other: TestUser;
 let ws: string, wsOther: string;
-const page = (over: Partial<GraphPage> = {}): GraphPage => ({ id: digits(), name: "Test Page", accessToken: `page-token-${digits()}`, tasks: ["MANAGE"], instagramAccountId: null, ...over });
+const page = (over: Partial<GraphPage> = {}): GraphPage => ({ id: digits(), name: "Test Page", accessToken: `page-token-${digits()}`, tasks: ["MANAGE", "MESSAGING"], instagramAccountId: null, ...over });
 
 const WP = (w: string) => `/v1/workspaces/${w}/integrations/meta`;
 const q = async (text: string, params: unknown[] = []) => (await h.admin.query(text, params)).rows;
@@ -50,7 +51,7 @@ beforeAll(async () => {
   graph = createMockGraph({ pages: [] });
   deps = {
     graph, box, workerDb, appId: "123456", configId: "654321", graphVersion: "v25.0", redirectUri: "http://localhost:3000/v1/integrations/meta/callback", webOrigin: "http://localhost:3000",
-    stateKey: createHmac("sha256", "test-app-secret").update("crm-oauth-state-v1").digest(), mock: true, secureCookies: false, now: () => clock,
+    stateKey: createHmac("sha256", "test-app-secret").update("crm-oauth-state-v1").digest(), userHashKey: createHmac("sha256", "test-user-hash-key").update("crm-meta-user-v1").digest(), mock: true, secureCookies: false, now: () => clock,
   };
   h = await bootstrap(undefined, deps);
   hUnconfigured = await bootstrap();
@@ -296,5 +297,44 @@ describe("lifecycle: disconnect, reconnect, token health, subscription", () => {
     const id = (await (await connect(owner, ws, p)).json()).accounts[0].account.id as string;
     expect(await runTokenChecks(deps)).toBeGreaterThanOrEqual(1);
     expect((await q("SELECT last_token_check_at FROM integration_accounts WHERE id=$1", [id]))[0].last_token_check_at).not.toBeNull();
+  });
+});
+
+describe("Page task validation and Meta user link", () => {
+  it("refuses a Page where the person cannot send as the Page, before anything is created", async () => {
+    const p = page({ tasks: ["ANALYZE", "ADVERTISE"] });
+    const { pending } = await login(owner, ws, [p]);
+    const list = await (await call(owner, "GET", `${WP(ws)}/pending`, { cookies: { crm_meta_pending: pending! } })).json();
+    expect(list.pages[0]).toMatchObject({ pageId: p.id, eligible: false });
+    expect(list.pages[0].ineligibleReason).toMatch(/cannot send messages/);
+    const res = await call(owner, "POST", `${WP(ws)}/connect`, { body: { pageId: p.id }, cookies: { crm_meta_pending: pending! } });
+    expect(res.status).toBe(422);
+    expect((await res.json()).error.code).toBe("page_task_missing");
+    expect(await q("SELECT 1 FROM integration_accounts WHERE external_account_id=$1", [p.id])).toHaveLength(0);
+    expect(await q("SELECT 1 FROM integration_secrets s JOIN integration_accounts a ON a.id=s.integration_account_id WHERE a.external_account_id=$1", [p.id])).toHaveLength(0);
+  });
+
+  it("an empty task list is refused; a missing task field is allowed but recorded as unverified", async () => {
+    const none = page({ tasks: [] });
+    const { pending } = await login(owner, ws, [none]);
+    expect((await call(owner, "POST", `${WP(ws)}/connect`, { body: { pageId: none.id }, cookies: { crm_meta_pending: pending! } })).status).toBe(422);
+    const unknown = page({ tasks: null });
+    const res = await connect(owner, ws, unknown);
+    expect(res.status).toBe(200);
+    const ev = await q("SELECT data FROM integration_events e JOIN integration_accounts a ON a.id=e.integration_account_id WHERE a.external_account_id=$1 AND e.kind='connected'", [unknown.id]);
+    expect(ev[0].data).toMatchObject({ tasksUnverified: true });
+  });
+
+  it("stores only a keyed hash of the Meta user id, and null when Graph cannot tell", async () => {
+    const p = page();
+    await connect(owner, ws, p);
+    const h1 = (await q("SELECT connected_meta_user_hash AS h FROM integration_accounts WHERE external_account_id=$1", [p.id]))[0].h;
+    expect(h1).toBe(hashMetaUser(deps.userHashKey, "9000000000000001"));
+    expect(h1).not.toContain("9000000000000001");
+    graph.state.metaUserId = null;
+    const p2 = page();
+    await connect(owner, ws, p2);
+    graph.state.metaUserId = undefined;
+    expect((await q("SELECT connected_meta_user_hash AS h FROM integration_accounts WHERE external_account_id=$1", [p2.id]))[0].h).toBeNull();
   });
 });

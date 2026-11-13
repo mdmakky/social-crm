@@ -6,7 +6,7 @@
 No account, no domain, no cost. Meta needs a public HTTPS callback for webhooks only; the OAuth redirect goes to the browser, so it can use `http://localhost:3000` (acceptance of a localhost redirect URI by Meta is UNVERIFIED: the docs fetched do not say; fallback is a second quick tunnel to the web app). A named Cloudflare tunnel (stable hostname) needs a Cloudflare account and a domain on it: a later option once a domain exists. Not needed now.
 
 ## What is exposed
-Only `GET|POST /webhooks/meta/messenger` and `/instagram`, through `scripts/dev-tunnel/gate.mjs` (allow-list proxy on 127.0.0.1:8788, forwards a few headers, everything else 404). The tunnel never points at the API directly. The API verifies the HMAC over the raw body, caps the body at 1 MB, rate limits per source and stores rejected attempts without the body (Slice 2, 19 tests).
+Only `GET|POST /webhooks/meta/messenger` and `/instagram`, plus the app callbacks `POST /meta/callbacks/deauthorize`, `POST /meta/callbacks/data-deletion` and `GET /meta/callbacks/data-deletion/status` (re-verified with mock-signed requests over the real tunnel: 200 / 400 bad signature / 503 without public base / 404), through `scripts/dev-tunnel/gate.mjs` (allow-list proxy on 127.0.0.1:8788, forwards a few headers, everything else 404). The tunnel never points at the API directly. The API verifies the HMAC over the raw body, caps the body at 1 MB, rate limits per source and stores rejected attempts without the body (Slice 2, 19 tests).
 
 ## Start, stop, recover
 1. Run the API with the webhook enabled (`DATABASE_URL_INGEST`, `DATABASE_URL_WORKER`, `META_APP_SECRET`, `META_VERIFY_TOKEN`; see `.env.example`), e.g. `pnpm --filter @crm/api dev`.

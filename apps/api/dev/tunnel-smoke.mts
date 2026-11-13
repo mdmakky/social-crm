@@ -1,6 +1,6 @@
 // Sends mock-signed fixtures through the public tunnel URL (.dev-tunnel/url). MOCK secret, not Meta.
 import { readFileSync } from "node:fs";
-import { buildMessagePayload, signedFixture, signMetaBody, mockSecret } from "@crm/integrations";
+import { buildMessagePayload, signedFixture, signMetaBody } from "@crm/integrations";
 
 const base = readFileSync(new URL("../../../.dev-tunnel/url", import.meta.url), "utf8").trim();
 const verify = process.env.META_VERIFY_TOKEN ?? "dev-verify-token-local";

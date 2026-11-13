@@ -12,6 +12,8 @@ import type { Vars } from "../routes/workspaces.ts";
 
 /** Messenger subscription fields (docs/integrations/meta-api-verification-2026-11.md C4). Instagram fields cannot be set through the API (docs): the app dashboard does it. */
 export const MESSENGER_FIELDS = ["messages", "message_echoes", "messaging_postbacks", "message_reads", "message_deliveries"];
+/** Task a person needs on the Page to send as the Page (Meta Pages API overview, "MESSAGING: Send messages as the Page"). Receiving is not documented as a task: UNVERIFIED. */
+export const REQUIRED_PAGE_TASK = "MESSAGING";
 const STATE_TTL_MS = 10 * 60_000;
 const NONCE_COOKIE = "crm_meta_nonce";
 const PENDING_COOKIE = "crm_meta_pending";
@@ -28,13 +30,18 @@ export type MetaConnectDeps = {
   webOrigin: string;
   /** HMAC key for the OAuth state (derived from the app secret). */
   stateKey: Buffer;
+  /** Key for the pseudonymous Meta-user hash stored on accounts (derived from the secrets key; rotating that key needs a re-hash, listed as a release gate). */
+  userHashKey: Buffer;
   /** True when the Graph port is the in-memory mock. Reported to the UI. */
   mock: boolean;
   secureCookies: boolean;
   now?: () => number;
 };
 
-type Pending = { userId: string; workspaceId: string; pages: GraphPage[]; expiresAt: number };
+type Pending = { userId: string; workspaceId: string; pages: GraphPage[]; metaUserHash: string | null; expiresAt: number };
+export const hashMetaUser = (key: Buffer, metaUserId: string) => createHmac("sha256", key).update(metaUserId).digest("hex");
+const eligibility = (p: GraphPage): { eligible: boolean; reason: string | null } =>
+  p.tasks === null || p.tasks.includes(REQUIRED_PAGE_TASK) ? { eligible: true, reason: null } : { eligible: false, reason: "Your role on this Page cannot send messages as the Page. Ask a Page admin for messaging access." };
 const b64u = (b: Buffer) => b.toString("base64url");
 const sign = (key: Buffer, payload: string) => b64u(createHmac("sha256", key).update(payload).digest());
 const safeEq = (a: string, b: string) => a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b));
@@ -68,28 +75,28 @@ const dto = (a: typeof schema.integrationAccounts.$inferSelect): IntegrationAcco
 });
 
 /** Creates or reconnects one account and stores a new encrypted token version (older versions are deleted). Runs inside a worker transaction with the workspace context set. */
-async function upsertAccount(tx: Tx, deps: MetaConnectDeps, a: { workspaceId: string; userId: string; platform: "messenger" | "instagram"; externalId: string; displayName: string; token: string; expiresAt: Date | null }) {
+async function upsertAccount(tx: Tx, deps: MetaConnectDeps, a: { workspaceId: string; userId: string; platform: "messenger" | "instagram"; externalId: string; displayName: string; token: string; expiresAt: Date | null; metaUserHash: string | null; tasksUnverified: boolean }) {
   const found = async () => rowsOf(await tx.execute(sql`SELECT id, workspace_id FROM integration_accounts WHERE platform = ${a.platform} AND external_account_id = ${a.externalId}`))[0];
   let row = await found();
   let reconnected = true;
   if (!row) {
     // ON CONFLICT instead of catching 23505: a caught error would abort this transaction.
     const ins = rowsOf(await tx.execute(sql`
-      INSERT INTO integration_accounts (workspace_id, platform, external_account_id, display_name, token_expires_at, connected_by)
-      VALUES (${a.workspaceId}, ${a.platform}, ${a.externalId}, ${a.displayName}, ${a.expiresAt}, ${a.userId})
+      INSERT INTO integration_accounts (workspace_id, platform, external_account_id, display_name, token_expires_at, connected_by, connected_meta_user_hash)
+      VALUES (${a.workspaceId}, ${a.platform}, ${a.externalId}, ${a.displayName}, ${a.expiresAt}, ${a.userId}, ${a.metaUserHash})
       ON CONFLICT (platform, external_account_id) DO NOTHING RETURNING id, workspace_id`))[0];
     if (ins) { row = ins; reconnected = false; } else row = await found();
   }
   if (!row || row.workspace_id !== a.workspaceId) throw new AccountElsewhere();
   const id = row.id as string;
   if (reconnected) {
-    await tx.execute(sql`UPDATE integration_accounts SET status = 'connected', display_name = ${a.displayName}, token_expires_at = ${a.expiresAt}, connected_by = ${a.userId}, connected_at = now(), version = version + 1, updated_at = now() WHERE id = ${id} AND workspace_id = ${a.workspaceId}`);
+    await tx.execute(sql`UPDATE integration_accounts SET status = 'connected', display_name = ${a.displayName}, token_expires_at = ${a.expiresAt}, connected_by = ${a.userId}, connected_meta_user_hash = ${a.metaUserHash}, connected_at = now(), version = version + 1, updated_at = now() WHERE id = ${id} AND workspace_id = ${a.workspaceId}`);
   }
   const next = Number(rowsOf(await tx.execute(sql`SELECT coalesce(max(version), 0) + 1 AS v FROM integration_secrets WHERE integration_account_id = ${id}`))[0]!.v);
   const sealed = deps.box.seal(a.token, `${a.workspaceId}:${id}`);
   await tx.execute(sql`INSERT INTO integration_secrets (workspace_id, integration_account_id, version, ciphertext, nonce, key_id) VALUES (${a.workspaceId}, ${id}, ${next}, ${sealed.ciphertext}, ${sealed.nonce}, ${sealed.keyId})`);
   await tx.execute(sql`DELETE FROM integration_secrets WHERE integration_account_id = ${id} AND version < ${next}`);
-  await tx.execute(sql`INSERT INTO integration_events (workspace_id, integration_account_id, kind, actor_user_id, data) VALUES (${a.workspaceId}, ${id}, ${reconnected ? "reconnected" : "connected"}, ${a.userId}, ${JSON.stringify({ platform: a.platform, externalAccountId: a.externalId })}::jsonb)`);
+  await tx.execute(sql`INSERT INTO integration_events (workspace_id, integration_account_id, kind, actor_user_id, data) VALUES (${a.workspaceId}, ${id}, ${reconnected ? "reconnected" : "connected"}, ${a.userId}, ${JSON.stringify({ platform: a.platform, externalAccountId: a.externalId, ...(a.tasksUnverified ? { tasksUnverified: true } : {}) })}::jsonb)`);
   return { id, reconnected };
 }
 
@@ -197,7 +204,7 @@ function scopedRoutes(db: Db, deps: MetaConnectDeps | undefined, pending: Pendin
     const p = pending.get(getCookie(c, PENDING_COOKIE), c.get("userId"), c.get("workspaceId"), now());
     if (!p) return fail(c, 404, "no_pending_selection", "The Meta login expired. Connect again.");
     const mine = new Set((await withContext(db, wctx(c), (tx) => accountsOf(tx, c.get("workspaceId")))).filter((a) => a.status !== "disabled").map((a) => `${a.platform}:${a.externalAccountId}`));
-    return c.json({ pages: p.pages.map((g) => ({ pageId: g.id, name: g.name, instagramAccountId: g.instagramAccountId, connected: mine.has(`messenger:${g.id}`) })), expiresAt: new Date(p.expiresAt).toISOString() });
+    return c.json({ pages: p.pages.map((g) => ({ pageId: g.id, name: g.name, instagramAccountId: g.instagramAccountId, connected: mine.has(`messenger:${g.id}`), eligible: eligibility(g).eligible, ineligibleReason: eligibility(g).reason })), expiresAt: new Date(p.expiresAt).toISOString() });
   });
 
   r.post("/integrations/meta/connect", async (c) => {
@@ -209,6 +216,7 @@ function scopedRoutes(db: Db, deps: MetaConnectDeps | undefined, pending: Pendin
     const p = pending.get(cookie, c.get("userId"), c.get("workspaceId"), now());
     const page = p?.pages.find((g) => g.id === parsed.data.pageId);
     if (!p || !page) return fail(c, 404, "no_pending_selection", "The Meta login expired. Connect again.");
+    if (!eligibility(page).eligible) return fail(c, 422, "page_task_missing", eligibility(page).reason ?? undefined);
     const withIg = parsed.data.connectInstagram && !!page.instagramAccountId;
     const targets: { platform: "messenger" | "instagram"; externalId: string; name: string }[] = [{ platform: "messenger", externalId: page.id, name: page.name }];
     if (withIg) targets.push({ platform: "instagram", externalId: page.instagramAccountId!, name: `${page.name} (Instagram)` });
@@ -216,7 +224,7 @@ function scopedRoutes(db: Db, deps: MetaConnectDeps | undefined, pending: Pendin
     try {
       made = await withContext(deps.workerDb, wctx(c), async (tx) => {
         const out = [];
-        for (const t of targets) out.push({ ...(await upsertAccount(tx, deps, { workspaceId: c.get("workspaceId"), userId: c.get("userId"), platform: t.platform, externalId: t.externalId, displayName: t.name, token: page.accessToken, expiresAt: null })), platform: t.platform, externalId: t.externalId });
+        for (const t of targets) out.push({ ...(await upsertAccount(tx, deps, { workspaceId: c.get("workspaceId"), userId: c.get("userId"), platform: t.platform, externalId: t.externalId, displayName: t.name, token: page.accessToken, expiresAt: null, metaUserHash: p.metaUserHash, tasksUnverified: page.tasks === null })), platform: t.platform, externalId: t.externalId });
         return out;
       });
     } catch (e) {
@@ -307,7 +315,9 @@ function callbackRoutes(db: Db, deps: MetaConnectDeps | undefined, pending: Pend
       const short = await deps.graph.exchangeCode(q.data.code, deps.redirectUri);
       const long = await deps.graph.exchangeLongLived(short.accessToken);
       const pages = await deps.graph.listPages(long.accessToken);
-      const id = pending.put({ userId: st.u, workspaceId: st.w, pages, expiresAt: now + STATE_TTL_MS });
+      // Non-fatal: without it the deauthorization callback cannot find this person's connections (recorded as null).
+      const metaUserId = await deps.graph.getUserId(long.accessToken).catch(() => null);
+      const id = pending.put({ userId: st.u, workspaceId: st.w, pages, metaUserHash: metaUserId ? hashMetaUser(deps.userHashKey, metaUserId) : null, expiresAt: now + STATE_TTL_MS });
       setCookie(c, PENDING_COOKIE, id, { httpOnly: true, sameSite: "Lax", path: "/v1", maxAge: STATE_TTL_MS / 1000, secure: deps.secureCookies });
       return home(st.w, pages.length ? "select" : "no_pages");
     } catch {

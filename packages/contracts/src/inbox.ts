@@ -27,7 +27,7 @@ export type MetaIntegrationState = z.infer<typeof MetaIntegrationState>;
 export const MetaConnectStart = z.object({ authUrl: z.string().url() });
 export type MetaConnectStart = z.infer<typeof MetaConnectStart>;
 
-export const MetaPendingPage = z.object({ pageId: z.string(), name: z.string(), instagramAccountId: z.string().nullable(), connected: z.boolean() });
+export const MetaPendingPage = z.object({ pageId: z.string(), name: z.string(), instagramAccountId: z.string().nullable(), connected: z.boolean(), eligible: z.boolean(), ineligibleReason: z.string().nullable() });
 export const MetaPendingList = z.object({ pages: z.array(MetaPendingPage), expiresAt: z.string() });
 export type MetaPendingList = z.infer<typeof MetaPendingList>;
 
