@@ -7,7 +7,7 @@ describe("permission matrix (docs/architecture/permissions.md)", () => {
   });
   it("viewers are read-only", () => {
     expect(can("viewer", "contact.view", {})).toBe(true);
-    for (const a of ACTIONS.filter((x) => x !== "contact.view" && x !== "workspace.view" && x !== "lead.view")) expect(can("viewer", a, {})).toBe(false);
+    for (const a of ACTIONS.filter((x) => x !== "contact.view" && x !== "workspace.view" && x !== "lead.view" && x !== "conversation.view")) expect(can("viewer", a, {})).toBe(false);
   });
   it("agents work conversations but cannot administer", () => {
     expect(can("agent", "conversation.reply", {})).toBe(true);

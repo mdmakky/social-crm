@@ -12,6 +12,7 @@ const MATRIX = {
   "contact.delete": A(true, true, false, false),
   "note.edit": A(true, true, "own", false),
   "view.share": A(true, true, false, false),
+  "conversation.view": A(true, true, true, true),
   "conversation.reply": A(true, true, true, false),
   "conversation.assign": A(true, true, "self", false),
   "lead.view": A(true, true, true, true),

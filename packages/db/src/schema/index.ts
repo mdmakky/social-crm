@@ -5,3 +5,5 @@ export * from "./tasks.ts";
 export * from "./notifications.ts";
 // --- track:leads ---
 export * from "./leads.ts";
+// --- track:inbox ---
+export * from "./inbox.ts";

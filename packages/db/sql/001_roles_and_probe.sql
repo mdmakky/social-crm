@@ -7,9 +7,16 @@ DO $$ BEGIN
   IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'crm_app') THEN
     CREATE ROLE crm_app LOGIN PASSWORD 'app_dev' NOSUPERUSER NOBYPASSRLS;
   END IF;
+  -- Meta Inbox (migration 0018): the webhook ingress process (INSERT only) and the background worker. Dev passwords; real ones come from the environment.
+  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'crm_ingest') THEN
+    CREATE ROLE crm_ingest LOGIN PASSWORD 'ingest_dev' NOSUPERUSER NOBYPASSRLS;
+  END IF;
+  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'crm_worker') THEN
+    CREATE ROLE crm_worker LOGIN PASSWORD 'worker_dev' NOSUPERUSER NOBYPASSRLS;
+  END IF;
 END $$;
 
-GRANT CONNECT ON DATABASE crm TO crm_migrator, crm_app;
+GRANT CONNECT ON DATABASE crm TO crm_migrator, crm_app, crm_ingest, crm_worker;
 GRANT CREATE ON DATABASE crm TO crm_migrator;
 CREATE SCHEMA IF NOT EXISTS probe AUTHORIZATION crm_migrator;
 GRANT USAGE ON SCHEMA probe TO crm_app;
@@ -31,6 +38,6 @@ RESET ROLE;
 
 -- Migrations run as crm_migrator in schema public; crm_app gets DML only on what the migrator creates.
 GRANT USAGE, CREATE ON SCHEMA public TO crm_migrator;
-GRANT USAGE ON SCHEMA public TO crm_app;
+GRANT USAGE ON SCHEMA public TO crm_app, crm_ingest, crm_worker;
 ALTER DEFAULT PRIVILEGES FOR ROLE crm_migrator IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO crm_app;
 ALTER DEFAULT PRIVILEGES FOR ROLE crm_migrator IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO crm_app;
