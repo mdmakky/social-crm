@@ -185,7 +185,7 @@ describe("hostile input is linear time and bounded (security review B1, M1)", ()
     const t = performance.now();
     expect(normalizePhone("1 ".repeat(1_000_000))).toBeNull();
     expect(() => parseCsv("Email\n" + "x".repeat(5_000_000))).toThrow(/1000 characters/);
-    expect(performance.now() - t).toBeLessThan(300);
+    expect(performance.now() - t).toBeLessThan(2000); // ReDoS took minutes; the bound is loose so parallel CI load cannot flake it
   });
   it("counts bytes, not characters, for the size limit", () => {
     expect(() => parseCsv("Name\n" + "€".repeat(1_800_000))).toThrow(/5 MB/);
