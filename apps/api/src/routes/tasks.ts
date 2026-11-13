@@ -76,8 +76,8 @@ function filters(workspaceId: string, userId: string, q: FilterQ): Filters {
   if (q.assignee === "me") where.push(sql`tasks.assignee_user_id = ${userId}`);
   else if (q.assignee === "unassigned") where.push(sql`tasks.assignee_user_id IS NULL`);
   else if (q.assignee) where.push(sql`tasks.assignee_user_id = ${q.assignee}`);
-  if (q.status?.length) where.push(sql`tasks.status::text = ANY(${q.status})`);
-  if (q.priority?.length) where.push(sql`tasks.priority::text = ANY(${q.priority})`);
+  if (q.status?.length) where.push(sql`tasks.status::text IN (${sql.join(q.status.map((x) => sql`${x}`), sql`, `)})`);
+  if (q.priority?.length) where.push(sql`tasks.priority::text IN (${sql.join(q.priority.map((x) => sql`${x}`), sql`, `)})`);
   if (q.contactId) where.push(sql`tasks.contact_id = ${q.contactId}::uuid`);
   if (q.dueFrom) where.push(sql`tasks.due_at >= ${q.dueFrom}::timestamptz`);
   if (q.dueTo) where.push(sql`tasks.due_at <= ${q.dueTo}::timestamptz`);
