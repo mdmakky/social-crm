@@ -1,13 +1,22 @@
 # Free-tier hosting setup
 
-**Status: files written, NOTHING deployed or tested on any provider.** Everything marked UNVERIFIED was not confirmed against the provider's current docs or a real run. This is a development/demo setup, not production.
+**Status: the DATABASE side is VERIFIED on a real Neon project (2026-11-14); nothing else is deployed.** Render, Vercel and the GitHub workflows are untested. Everything marked UNVERIFIED was not confirmed against the provider's current docs or a real run.
+
+## Verified on real Neon (free plan, PG 18.7, aws-ap-southeast-1)
+- Project created without a card through the Vercel Marketplace: `vercel integration add neon --billing-plan free_v3 --name social-crm-db --no-connect --no-env-pull` (the owner's Neon organisation was managed by Vercel, so `neonctl projects create` was refused: `organization is managed by Vercel`). `neonctl projects get` shows `pg_version 18`, plan `free_v3`.
+- `scripts/db-bootstrap-roles.mjs`: roles, `pg_trgm`, grants OK. Two findings fixed in the script: (1) `ALTER DEFAULT PRIVILEGES FOR ROLE crm_migrator` needs `GRANT crm_migrator TO CURRENT_USER WITH SET TRUE` first (the Neon owner is not a member of roles it creates); (2) the owner cannot `ALTER ROLE` a role it created, so a re-run now skips a role whose password already works. Re-run is idempotent (all steps `ok`).
+- All four roles log in, none is superuser or bypasses RLS. `pnpm --filter @crm/db migrate` as `crm_migrator`: 21 migrations; `uuidv7()` works; 126 policies; 36 tables with forced RLS; the 4 tables without RLS are the Better Auth tables (same as the local database). The app role cannot read `integration_secrets` or `raw_body`; the ingest role can INSERT but not SELECT `webhook_events`.
+- API against Neon (local process on another port, real Meta app settings but MOCK-signed fixture): signup, workspace create (RLS + seeding), lists, webhook ingress 200 and bad signature 403 + rejected row, event-driven worker processed the event within seconds (unknown account -> orphan). Request time about 0.4 to 1 s from the test machine to Singapore.
+- Direct (unpooled) connection string used; the pooled endpoint was not tested. The connection string carries `channel_binding=require`; node-pg 8 accepts it today and logs an sslmode deprecation warning.
+- NOT verified: how much of the free 100 CU-hours a day of use costs; behaviour after the compute scales to zero and wakes; the Neon free-plan limits beyond the pricing page.
+ This is a development/demo setup, not production.
 
 ## Architecture
 | Part | Where | Why |
 |---|---|---|
 | Web (Next.js) | Vercel Hobby, Root Directory `apps/web` | serverless is fine for the web |
 | API + workers | ONE Render free web service (`render.yaml`) | the API also runs the webhook ingress, inbox worker and event dispatcher as timers, which need a long-running process |
-| Database | Neon free Postgres | permanent free plan, `CREATE ROLE` is documented as allowed |
+| Database | Neon free Postgres | permanent free plan; roles, pg_trgm, PG 18 and all migrations VERIFIED (see above) |
 | Wake-up | external free pinger on `GET <api>/health` every 10 min | Render free sleeps after 15 min without inbound traffic |
 | Deploys | GitHub Actions on push to `main`: test, migrate, Render deploy hook; Vercel deploys the web by itself | |
 

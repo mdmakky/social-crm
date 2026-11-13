@@ -45,6 +45,9 @@ const steps = [
     redacted: `CREATE ROLE ${role} LOGIN PASSWORD '<redacted>' NOSUPERUSER NOBYPASSRLS  -- or ALTER ROLE when it exists (rotates the password)`,
     build: async (c) => {
       const exists = (await c.query("SELECT 1 FROM pg_roles WHERE rolname = $1", [role])).rowCount > 0;
+      // Re-run on a managed database: the admin may not be allowed to ALTER a role it created (found on Neon). If the role already logs in with the
+      // supplied password there is nothing to change; otherwise fall through to ALTER ROLE, which names the failure if it is not permitted.
+      if (exists && (await canLogin(role, passwords[role]))) return "SELECT 1";
       const verb = exists ? "ALTER ROLE %I LOGIN PASSWORD %L NOSUPERUSER NOBYPASSRLS" : "CREATE ROLE %I LOGIN PASSWORD %L NOSUPERUSER NOBYPASSRLS";
       return (await c.query("SELECT format($1, $2::text, $3::text) AS s", [verb, role, passwords[role]])).rows[0].s;
     },
@@ -61,10 +64,10 @@ const steps = [
     sql: "GRANT USAGE, CREATE ON SCHEMA public TO crm_migrator; GRANT USAGE ON SCHEMA public TO crm_app, crm_ingest, crm_worker",
   },
   {
-    // Needs the admin role to be allowed to act for crm_migrator: UNVERIFIED on managed providers; this step names the failure if not.
+    // ALTER DEFAULT PRIVILEGES FOR ROLE needs the admin to be able to SET ROLE to crm_migrator (PG16+ syntax). On Neon the owner is not a member of a role it just created, so it is granted first (found by running it against a real Neon project).
     name: "default privileges for objects created by crm_migrator",
-    redacted: "ALTER DEFAULT PRIVILEGES FOR ROLE crm_migrator IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO crm_app; ALTER DEFAULT PRIVILEGES FOR ROLE crm_migrator IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO crm_app",
-    sql: "ALTER DEFAULT PRIVILEGES FOR ROLE crm_migrator IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO crm_app; ALTER DEFAULT PRIVILEGES FOR ROLE crm_migrator IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO crm_app",
+    redacted: "GRANT crm_migrator TO CURRENT_USER WITH SET TRUE; ALTER DEFAULT PRIVILEGES FOR ROLE crm_migrator IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO crm_app; ALTER DEFAULT PRIVILEGES FOR ROLE crm_migrator IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO crm_app",
+    sql: "GRANT crm_migrator TO CURRENT_USER WITH SET TRUE; ALTER DEFAULT PRIVILEGES FOR ROLE crm_migrator IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO crm_app; ALTER DEFAULT PRIVILEGES FOR ROLE crm_migrator IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO crm_app",
   },
 ];
 
@@ -75,6 +78,13 @@ if (dry) {
 }
 
 const pg = createRequire(import.meta.url)("../packages/db/node_modules/pg");
+const canLogin = async (role, password) => {
+  const u = new URL(adminUrl);
+  u.username = role;
+  u.password = password;
+  const t = new pg.Client({ connectionString: u.toString() });
+  try { await t.connect(); return true; } catch { return false; } finally { await t.end().catch(() => {}); }
+};
 const scrub = (m) => String(m).split("\n")[0].replaceAll(host || "\u0000", "<host>");
 const c = new pg.Client({ connectionString: adminUrl });
 try {
