@@ -29,9 +29,9 @@ test.describe("csv import wizard", () => {
     await expect(page.getByLabel("Import column Phone as").getByRole("option", { name: "Email", exact: true })).toBeDisabled();
 
     await page.getByRole("button", { name: "Check my data" }).click();
-    await expect(page.getByRole("heading", { name: "Review before importing" })).toBeFocused();
     const problems = page.getByRole("alert").filter({ hasText: "2 rows have problems" });
-    await expect(problems).toBeVisible();
+    await expect(problems).toBeFocused(); // F13: with problem rows the error summary takes focus
+    await expect(page.getByRole("heading", { name: "Review before importing" })).toBeVisible();
     await expect(problems.getByText(/Row 5:.*not a valid email/)).toBeVisible();
     await expect(problems.getByText(/Row 6:.*Unknown lifecycle stage/)).toBeVisible();
     await expect(page.getByText("1 possible duplicate")).toBeVisible();
@@ -154,8 +154,10 @@ test.describe("contact settings", () => {
     await page.getByRole("button", { name: "Save", exact: true }).click();
     await expect(page.getByText("trial-user")).toBeVisible();
 
-    page.once("dialog", (d) => d.accept());
     await page.getByRole("button", { name: "Delete tag trial-user" }).click();
+    const dialog = page.getByRole("dialog", { name: 'Delete tag "trial-user"?' });
+    await expect(dialog).toContainText("removed from 1 contact");
+    await dialog.getByRole("button", { name: "Delete tag" }).click();
     await expect(page.getByText("No tags yet.")).toBeVisible();
     await page.goto(`/w/${workspaceId}/contacts/${id}`);
     await expect(page.getByText("No tags yet.")).toBeVisible();
