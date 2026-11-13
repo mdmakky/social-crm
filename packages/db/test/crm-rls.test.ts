@@ -3,8 +3,8 @@ import pg from "pg";
 import { sql } from "drizzle-orm";
 import { createDb, schema, withContext, type Db } from "../src/index.ts";
 
-const ADMIN = process.env.DATABASE_URL_ADMIN ?? "postgres://postgres:postgres@127.0.0.1:5436/crm";
-const APP = process.env.DATABASE_URL_APP ?? "postgres://crm_app:app_dev@127.0.0.1:5436/crm";
+const ADMIN = process.env.DATABASE_URL_ADMIN ?? "postgres://postgres:postgres@127.0.0.1:5436/" + (process.env.CRM_DB_NAME ?? "crm") + "";
+const APP = process.env.DATABASE_URL_APP ?? "postgres://crm_app:app_dev@127.0.0.1:5436/" + (process.env.CRM_DB_NAME ?? "crm") + "";
 const run = Date.now().toString(36);
 const U = { ownerA: `ca-owner-${run}`, adminA: `ca-admin-${run}`, agentA: `ca-agent-${run}`, viewerA: `ca-viewer-${run}`, agent2A: `ca-agent2-${run}`, ownerB: `ca-ownerb-${run}` };
 
@@ -140,7 +140,7 @@ describe("activities and saved views", () => {
     await withContext(db, ctx(U.agentA, A), (tx) => tx.insert(schema.activities).values({ workspaceId: A, contactId: contactA, kind: "contact.created", actorUserId: U.agentA }));
     await rejects(withContext(db, ctx(U.ownerA, A), (tx) => tx.execute(sql`UPDATE activities SET kind = 'x'`)));
     await rejects(withContext(db, ctx(U.ownerA, A), (tx) => tx.execute(sql`DELETE FROM activities`)));
-    const owner = new pg.Client({ connectionString: process.env.DATABASE_URL_MIGRATOR ?? "postgres://crm_migrator:migrator_dev@127.0.0.1:5436/crm" });
+    const owner = new pg.Client({ connectionString: process.env.DATABASE_URL_MIGRATOR ?? "postgres://crm_migrator:migrator_dev@127.0.0.1:5436/" + (process.env.CRM_DB_NAME ?? "crm") + "" });
     await owner.connect();
     await expect(owner.query("UPDATE activities SET kind = 'x'")).rejects.toThrow(/append-only/);
     await owner.end();

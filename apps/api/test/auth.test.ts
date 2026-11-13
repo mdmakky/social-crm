@@ -5,8 +5,8 @@ import { createDb, type Db } from "@crm/db";
 import { createAuth } from "../src/auth.ts";
 import { createApp } from "../src/app.ts";
 
-const APP_URL = process.env.DATABASE_URL_APP ?? "postgres://crm_app:app_dev@127.0.0.1:5436/crm";
-const ADMIN_URL = "postgres://postgres:postgres@127.0.0.1:5436/crm";
+const APP_URL = process.env.DATABASE_URL_APP ?? "postgres://crm_app:app_dev@127.0.0.1:5436/" + (process.env.CRM_DB_NAME ?? "crm") + "";
+const ADMIN_URL = "postgres://postgres:postgres@127.0.0.1:5436/" + (process.env.CRM_DB_NAME ?? "crm") + "";
 const ORIGIN = "http://localhost:3000";
 const email = `spike-${Date.now()}@example.com`;
 const password = "correct-horse-battery";

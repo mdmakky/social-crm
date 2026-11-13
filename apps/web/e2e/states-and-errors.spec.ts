@@ -54,7 +54,7 @@ test.describe("failure and error states in the browser", () => {
 
   test("audit log: failing to load older entries keeps the list and offers retry", async ({ page }) => {
     const { workspaceId } = await signUpAndCreate(page, "Audit Owner", "Audit Co");
-    for (let i = 0; i < 26; i++) await page.request.patch(`/v1/workspaces/${workspaceId}`, { data: { name: `Audit Co ${i}` }, headers: { origin: "http://localhost:3217" } });
+    for (let i = 0; i < 26; i++) await page.request.patch(`/v1/workspaces/${workspaceId}`, { data: { name: `Audit Co ${i}` }, headers: { origin: `http://localhost:${process.env.E2E_WEB_PORT ?? "3217"}` } });
     await page.goto(`/w/${workspaceId}/audit-log`);
     await expect(page.getByRole("button", { name: "Load older entries" })).toBeVisible(); // content streams in after the skeleton
     const before = await page.getByRole("listitem").count();

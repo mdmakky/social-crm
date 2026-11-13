@@ -4,8 +4,8 @@ import pg from "pg";
 import { sql } from "drizzle-orm";
 import { createDb, withWorkspace, type Db } from "../src/index.ts";
 
-const ADMIN = process.env.DATABASE_URL_ADMIN ?? "postgres://postgres:postgres@127.0.0.1:5436/crm";
-const APP = process.env.DATABASE_URL_APP ?? "postgres://crm_app:app_dev@127.0.0.1:5436/crm";
+const ADMIN = process.env.DATABASE_URL_ADMIN ?? "postgres://postgres:postgres@127.0.0.1:5436/" + (process.env.CRM_DB_NAME ?? "crm") + "";
+const APP = process.env.DATABASE_URL_APP ?? "postgres://crm_app:app_dev@127.0.0.1:5436/" + (process.env.CRM_DB_NAME ?? "crm") + "";
 const A = "11111111-1111-4111-8111-111111111111";
 const B = "22222222-2222-4222-8222-222222222222";
 

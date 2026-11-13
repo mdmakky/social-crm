@@ -118,7 +118,7 @@ test.describe("members", () => {
 test("audit log pages through older entries", async ({ page }) => {
   const { workspaceId } = await signUpAndCreate(page, "Pager Owner", "Paging Co");
   for (let i = 0; i < 27; i++) {
-    const res = await page.request.patch(`/v1/workspaces/${workspaceId}`, { data: { name: `Paging Co ${i}` }, headers: { origin: "http://localhost:3217" } });
+    const res = await page.request.patch(`/v1/workspaces/${workspaceId}`, { data: { name: `Paging Co ${i}` }, headers: { origin: `http://localhost:${process.env.E2E_WEB_PORT ?? "3217"}` } });
     expect(res.status()).toBe(200);
   }
   await page.goto(`/w/${workspaceId}/audit-log`);

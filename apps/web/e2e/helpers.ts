@@ -32,7 +32,7 @@ export async function signUpAndCreate(page: Page, person: string, workspace: str
 
 /** Test-only: adds an existing user to a workspace directly, since invitations are not built yet. */
 export async function addMemberByEmail(workspaceId: string, email: string, role: string) {
-  const c = new pg.Client({ connectionString: "postgres://postgres:postgres@127.0.0.1:5436/crm" });
+  const c = new pg.Client({ connectionString: "postgres://postgres:postgres@127.0.0.1:5436/" + (process.env.CRM_DB_NAME ?? "crm") + "" });
   await c.connect();
   await c.query('INSERT INTO memberships(workspace_id,user_id,role) SELECT $1, id, $3::workspace_role FROM "user" WHERE email = $2', [workspaceId, email, role]);
   await c.end();
@@ -52,7 +52,7 @@ export async function signIn(page: Page, email: string) {
   await page.waitForURL(/\/w\//);
 }
 
-const ORIGIN = "http://localhost:3217";
+const ORIGIN = `http://localhost:${process.env.E2E_WEB_PORT ?? "3217"}`;
 export const api = (page: Page) => ({
   post: async (path: string, data: unknown) => page.request.post(path, { data, headers: { origin: ORIGIN } }),
   patch: async (path: string, data: unknown) => page.request.patch(path, { data, headers: { origin: ORIGIN } }),

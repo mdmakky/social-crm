@@ -3,8 +3,8 @@ import pg from "pg";
 import { eq, sql } from "drizzle-orm";
 import { createDb, withContext, schema, type Db } from "../src/index.ts";
 
-const ADMIN = process.env.DATABASE_URL_ADMIN ?? "postgres://postgres:postgres@127.0.0.1:5436/crm";
-const APP = process.env.DATABASE_URL_APP ?? "postgres://crm_app:app_dev@127.0.0.1:5436/crm";
+const ADMIN = process.env.DATABASE_URL_ADMIN ?? "postgres://postgres:postgres@127.0.0.1:5436/" + (process.env.CRM_DB_NAME ?? "crm") + "";
+const APP = process.env.DATABASE_URL_APP ?? "postgres://crm_app:app_dev@127.0.0.1:5436/" + (process.env.CRM_DB_NAME ?? "crm") + "";
 const run = Date.now().toString(36);
 const U = { owner: `u-owner-${run}`, admin: `u-admin-${run}`, agent: `u-agent-${run}`, other: `u-other-${run}` };
 let db: Db;
@@ -109,7 +109,7 @@ describe("audit log", () => {
     await expect(withContext(db, { userId: U.owner, workspaceId: wsId }, (tx) => tx.execute(sql`DELETE FROM audit_log`))).rejects.toThrow();
   });
   it("is append-only even for the table owner (trigger)", async () => {
-    const owner = new pg.Client({ connectionString: process.env.DATABASE_URL_MIGRATOR ?? "postgres://crm_migrator:migrator_dev@127.0.0.1:5436/crm" });
+    const owner = new pg.Client({ connectionString: process.env.DATABASE_URL_MIGRATOR ?? "postgres://crm_migrator:migrator_dev@127.0.0.1:5436/" + (process.env.CRM_DB_NAME ?? "crm") + "" });
     await owner.connect();
     await expect(owner.query("UPDATE audit_log SET action = 'tampered'")).rejects.toThrow(/append-only/);
     await owner.end();

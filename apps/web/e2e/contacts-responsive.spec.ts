@@ -27,7 +27,7 @@ test("contacts screens hold at 375, 768 and 1440: no page overflow, no axe viola
   const ids = await seedContacts(page, workspaceId, [
     ...Array.from({ length: 12 }, (_, i) => ({ name: `${CONTACT_NAMES[i % 10]} ${["Thomas-Montgomery", "Li", "Fitzgerald-Brandt"][i % 3]}`, email: `person${i}.with.a.rather.long.address@example-company-domain.com`, phone: `+1 555 01${String(i).padStart(2, "0")} 0000`, company: i % 2 ? "Umbrella Corporation International" : "Globex" })),
   ]);
-  const a = (path: string, data: unknown) => page.request.post(path, { data, headers: { origin: "http://localhost:3217" } });
+  const a = (path: string, data: unknown) => page.request.post(path, { data, headers: { origin: `http://localhost:${process.env.E2E_WEB_PORT ?? "3217"}` } });
   await a(`/v1/workspaces/${workspaceId}/contacts/${ids[0]}/tags`, { name: "wholesale" });
   await a(`/v1/workspaces/${workspaceId}/contacts/${ids[0]}/tags`, { name: "vip" });
   await a(`/v1/workspaces/${workspaceId}/contacts/${ids[0]}/tags`, { name: "renewal-2026" });

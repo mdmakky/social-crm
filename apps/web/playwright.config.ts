@@ -1,8 +1,8 @@
 import { defineConfig, devices } from "@playwright/test";
 import { join } from "node:path";
 
-const WEB = "http://localhost:3217";
-const API = "http://localhost:8791";
+const WEB = `http://localhost:${process.env.E2E_WEB_PORT ?? "3217"}`;
+const API = `http://localhost:${process.env.E2E_API_PORT ?? "8791"}`;
 export const MAIL_DIR = join(__dirname, "test-results", "mail");
 
 export default defineConfig({
@@ -21,8 +21,8 @@ export default defineConfig({
       reuseExistingServer: false,
       timeout: 60_000,
       env: {
-        PORT: "8791",
-        DATABASE_URL_APP: "postgres://crm_app:app_dev@127.0.0.1:5436/crm",
+        PORT: process.env.E2E_API_PORT ?? "8791",
+        DATABASE_URL_APP: "postgres://crm_app:app_dev@127.0.0.1:5436/" + (process.env.CRM_DB_NAME ?? "crm") + "",
         BETTER_AUTH_SECRET: "e2e-secret-e2e-secret-e2e-secret-0123456789",
         BETTER_AUTH_URL: WEB,
         WEB_ORIGIN: WEB,
@@ -30,7 +30,7 @@ export default defineConfig({
       },
     },
     {
-      command: `API_URL=${API} pnpm exec next build && API_URL=${API} pnpm exec next start -p 3217`,
+      command: `API_URL=${API} pnpm exec next build && API_URL=${API} pnpm exec next start -p ${process.env.E2E_WEB_PORT ?? "3217"}`,
       url: `${WEB}/login`,
       reuseExistingServer: false,
       timeout: 240_000,

@@ -3,8 +3,8 @@ import { PgBoss, fromDrizzle } from "pg-boss";
 import { sql } from "drizzle-orm";
 import { createDb, type Db } from "@crm/db";
 
-const MIGRATOR = "postgres://crm_migrator:migrator_dev@127.0.0.1:5436/crm";
-const APP = "postgres://crm_app:app_dev@127.0.0.1:5436/crm";
+const MIGRATOR = "postgres://crm_migrator:migrator_dev@127.0.0.1:5436/" + (process.env.CRM_DB_NAME ?? "crm") + "";
+const APP = "postgres://crm_app:app_dev@127.0.0.1:5436/" + (process.env.CRM_DB_NAME ?? "crm") + "";
 const Q = "spike-queue";
 
 let boss: PgBoss;

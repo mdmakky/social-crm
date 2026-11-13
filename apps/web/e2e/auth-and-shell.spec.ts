@@ -22,7 +22,7 @@ test.describe("authentication", () => {
       await page.getByLabel("Password").fill(PASSWORD);
       await page.getByRole("button", { name: "Sign in" }).click();
       await page.waitForURL(/\/w\//);
-      expect(new URL(page.url()).origin).toBe("http://localhost:3217");
+      expect(new URL(page.url()).origin).toBe(`http://localhost:${process.env.E2E_WEB_PORT ?? "3217"}`);
     }
   });
 

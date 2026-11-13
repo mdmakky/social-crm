@@ -8,8 +8,8 @@ import { createAuth } from "../src/auth.ts";
 import { createApp } from "../src/app.ts";
 
 export const ORIGIN = "http://localhost:3000";
-const APP_URL = process.env.DATABASE_URL_APP ?? "postgres://crm_app:app_dev@127.0.0.1:5436/crm";
-const ADMIN_URL = "postgres://postgres:postgres@127.0.0.1:5436/crm";
+const APP_URL = process.env.DATABASE_URL_APP ?? "postgres://crm_app:app_dev@127.0.0.1:5436/" + (process.env.CRM_DB_NAME ?? "crm") + "";
+const ADMIN_URL = "postgres://postgres:postgres@127.0.0.1:5436/" + (process.env.CRM_DB_NAME ?? "crm") + "";
 const run = Date.now().toString(36);
 let n = 0;
 

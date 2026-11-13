@@ -66,7 +66,7 @@ test.describe("responsive layout and accessibility", () => {
     await member(browser, "Sofia Almeida", workspaceId, "agent");
     await member(browser, "Liam Chen", workspaceId, "viewer");
     // an audit entry beyond creation
-    await page.request.patch(`/v1/workspaces/${workspaceId}`, { data: { timezone: "America/New_York" }, headers: { origin: "http://localhost:3217" } });
+    await page.request.patch(`/v1/workspaces/${workspaceId}`, { data: { timezone: "America/New_York" }, headers: { origin: `http://localhost:${process.env.E2E_WEB_PORT ?? "3217"}` } });
 
     const routes = [
       { key: "home", path: `/w/${workspaceId}` },
