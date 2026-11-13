@@ -234,3 +234,11 @@ Wall clock with 3 parallel agents: about 10-12 h plus gate; serial single agent 
 - Axe clean at 375/768/1440 on list, detail, import, settings.
 - Docs in sync (roadmap, progress, known-limitations, testing-report, skill matrix) and the CLAUDE.md Status line updated; no doc says "outstanding" for the independent review, none claims the perf gate without the qualifier.
 - Deferred and recorded: D20 unified record and related-records (P1), four extra sort keys (P3), per-stage colours (P4), HTTP-level and load perf evidence (F4 optional).
+
+## WP-C result
+
+Fixed: F5 (preview sequence guard, controls disabled while a preview runs, Import disabled until the shown preview equals the plan, skip-invalid toggle re-runs the preview, plan reset when columns are re-checked, "Refresh preview" after a failed refresh), F8 (tag delete dialog), F13 (focus on the problem summary, "Download problem rows" CSV), F17 (archive dialog when the stage has contacts). Import API errors: 413 too_large, 429 rate_limited, 409 import_expired (with "Upload a new file"), already_committed, import_busy have specific messages; preview `warnings` are listed under "N rows will be skipped".
+
+Proof: `contacts-wpc-import.spec.ts`, `contacts-wpc-settings.spec.ts`, updated `contacts-import-settings.spec.ts` (step-3 focus now on the problem summary; tag delete via dialog). Full apps/web Playwright: 65 passed.
+
+Notes: the API preview does not change counts with `skipInvalid` (invalid rows are never in the plan), so the toggle test asserts the re-sent preview request and identical commit body, not a changed label. Problem-rows CSV lists only the first 100 (API limit). The 429 message cannot quote Retry-After (client does not expose headers). Warnings are also capped at 100 by the API.
