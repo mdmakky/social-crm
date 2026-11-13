@@ -5,6 +5,7 @@ import { CreateLeadBody, LeadListQuery, LeadVersionBody, LeadVersionQuery, MoveL
 import { escapeLike } from "@crm/core";
 import { can } from "@crm/core/permissions";
 import { schema, user, withContext, type Db, type Tx } from "@crm/db";
+import { emitEvent } from "../events.ts";
 import { writeAudit } from "../audit.ts";
 import { activeMember, loadContact, recordActivity } from "../crm-service.ts";
 import { lockPipeline } from "./pipelines.ts";
@@ -178,6 +179,7 @@ export function leadRoutes(db: Db) {
       await transition(tx, c, l!, null, { stageId: stage.id, outcome: "open" });
       await recordActivity(tx, { workspaceId, contactId: contact.id, leadId: l!.id, kind: "lead.created", actorUserId: userId, data: { title: l!.title, pipelineId: pipeline.id, stageId: stage.id } });
       await audit(c, tx, "lead.created", l!.id, { pipelineId: pipeline.id });
+      if (l!.ownerUserId) await emitEvent(tx, { workspaceId, type: "lead.owner_assigned", entityType: "lead", entityId: l!.id, actorUserId: userId, payload: { ownerUserId: l!.ownerUserId, previousOwnerUserId: null, leadTitle: l!.title } });
       return c.json(await loadDto(tx, c, l!.id), 201);
     });
   });
@@ -231,6 +233,7 @@ export function leadRoutes(db: Db) {
       const contactId = set.primaryContactId ?? l!.primaryContactId;
       await recordActivity(tx, { workspaceId, contactId, leadId: id, kind: "lead.updated", actorUserId: userId, data: { fields: changed } });
       await audit(c, tx, "lead.updated", id, { fields: changed });
+      if (changed.includes("owner") && set.ownerUserId) await emitEvent(tx, { workspaceId, type: "lead.owner_assigned", entityType: "lead", entityId: id, actorUserId: userId, payload: { ownerUserId: set.ownerUserId, previousOwnerUserId: l!.ownerUserId, leadTitle: set.title ?? l!.title } });
       return c.json(await loadDto(tx, c, id));
     });
   });

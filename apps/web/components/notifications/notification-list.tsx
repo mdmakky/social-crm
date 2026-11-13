@@ -16,6 +16,7 @@ import { NOTIFICATIONS_CHANGED } from "./notification-bell";
 /** Where a notification leads, or null when it has no page of its own. */
 export function notificationLink(workspaceId: string, n: Pick<NotificationDto, "entityType" | "entityId" | "data">): string | null {
   if (n.entityType === "contact" && n.entityId) return `/w/${workspaceId}/contacts/${n.entityId}`;
+  if (n.entityType === "lead" && n.entityId) return `/w/${workspaceId}/leads/${n.entityId}`;
   const contactId = n.data.contactId;
   if (n.entityType === "task" && typeof contactId === "string") return `/w/${workspaceId}/contacts/${contactId}`;
   if (n.entityType === "import") return `/w/${workspaceId}/contacts`;
