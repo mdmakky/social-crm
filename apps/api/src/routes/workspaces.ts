@@ -7,6 +7,8 @@ import { writeAudit } from "../audit.ts";
 import { ensureDefaultStages } from "../crm-service.ts";
 import { contactRoutes } from "./contacts.ts";
 import { crmConfigRoutes } from "./crm-config.ts";
+// --- track:tasks ---
+import { taskRoutes } from "./tasks.ts";
 import { importRoutes, type ImportHooks } from "./imports.ts";
 
 export type Vars = { userId: string; requestId: string };
@@ -166,6 +168,8 @@ export function workspaceRoutes(db: Db, hooks: { import?: ImportHooks } = {}) {
   scoped.route("/", crmConfigRoutes(db));
   scoped.route("/", contactRoutes(db));
   scoped.route("/", importRoutes(db, hooks.import));
+  // --- track:tasks ---
+  scoped.route("/", taskRoutes(db));
   r.route("/:id", scoped as unknown as Hono<{ Variables: Vars }>);
   return r;
 }

@@ -1,9 +1,13 @@
 import { z } from "zod";
 import { endpoint } from "./endpoint.ts";
 import { crmEndpoints } from "./crm.ts";
+// --- track:tasks ---
+import { tasksEndpoints } from "./tasks.ts";
 
 export * from "./endpoint.ts";
 export * from "./crm.ts";
+// --- track:tasks ---
+export * from "./tasks.ts";
 
 export const PASSWORD_MIN_LENGTH = 10;
 export const RESET_TOKEN_TTL_SECONDS = 30 * 60;
@@ -71,4 +75,4 @@ const coreEndpoints = {
   auditLog: endpoint({ method: "GET", path: "/v1/workspaces/:workspaceId/audit-log", query: AuditQuery, response: AuditPage }),
 } as const;
 
-export const endpoints = { ...coreEndpoints, ...crmEndpoints } as const;
+export const endpoints = { ...coreEndpoints, ...crmEndpoints, ...tasksEndpoints } as const;

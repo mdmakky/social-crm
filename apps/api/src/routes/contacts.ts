@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { and, asc, desc, eq, inArray, isNull, lt, sql, type SQL } from "drizzle-orm";
-import { AddContactTagBody, ContactListQuery, CreateContactBody, CreateTaskBody, NoteBody, PageQuery, UpdateContactBody, UpdateTaskBody } from "@crm/contracts";
+import { AddContactTagBody, ContactListQuery, CreateContactBody, NoteBody, PageQuery, UpdateContactBody } from "@crm/contracts";
 import { escapeLike, normalizeEmail, normalizePhone, toCsv, validateCustomValues } from "@crm/core";
 import { can } from "@crm/core/permissions";
 import { schema, user, withContext, type Db, type Tx } from "@crm/db";
@@ -370,68 +370,6 @@ export function contactRoutes(db: Db) {
       return c.json({ items: pageRows.map(({ a, name }) => ({ id: a.id, kind: a.kind, actorName: name, data: a.data as Record<string, unknown>, occurredAt: a.occurredAt.toISOString() })), nextCursor: rows.length > limit ? pageRows[pageRows.length - 1]!.a.id : null });
     });
   });
-
-  // ----- tasks and follow-ups -----
-  const taskDto = (t: typeof schema.tasks.$inferSelect, assigneeName: string | null) => ({ id: t.id, contactId: t.contactId, title: t.title, dueAt: t.dueAt?.toISOString() ?? null, status: t.status, assignee: t.assigneeUserId ? { id: t.assigneeUserId, name: assigneeName ?? "" } : null, completedAt: t.completedAt?.toISOString() ?? null, createdAt: t.createdAt.toISOString() });
-
-  r.get("/contacts/:contactId/tasks", async (c) => {
-    const id = c.req.param("contactId");
-    if (!isUuid(id)) return fail(c, 404, "not_found");
-    const { workspaceId } = wctx(c);
-    return withContext(db, wctx(c), async (tx) => {
-      if (!(await loadContact(tx, workspaceId, id))) return fail(c, 404, "not_found");
-      const rows = await tx.select({ t: schema.tasks, name: user.name }).from(schema.tasks).leftJoin(user, eq(user.id, schema.tasks.assigneeUserId)).where(and(eq(schema.tasks.workspaceId, workspaceId), eq(schema.tasks.contactId, id))).orderBy(asc(schema.tasks.status), sql`${schema.tasks.dueAt} ASC NULLS LAST`, asc(schema.tasks.id));
-      return c.json(rows.map((x) => taskDto(x.t, x.name)));
-    });
-  });
-
-  r.post("/contacts/:contactId/tasks", async (c) => {
-    if (!can(c.get("role"), "contact.edit", {})) return forbidden(c);
-    const id = c.req.param("contactId");
-    if (!isUuid(id)) return fail(c, 404, "not_found");
-    const b = await body(c, CreateTaskBody);
-    if (!b.ok) return b.res;
-    const { workspaceId, userId } = wctx(c);
-    return withContext(db, wctx(c), async (tx) => {
-      if (!(await loadContact(tx, workspaceId, id))) return fail(c, 404, "not_found");
-      const assignee = b.data.assigneeUserId === undefined ? userId : b.data.assigneeUserId;
-      if (assignee && !(await activeMember(tx, workspaceId, assignee))) return fail(c, 400, "invalid_assignee", "The assignee must be a member of this workspace.");
-      const [t] = await tx.insert(schema.tasks).values({ workspaceId, contactId: id, title: b.data.title, dueAt: b.data.dueAt ? new Date(b.data.dueAt) : null, assigneeUserId: assignee, createdBy: userId }).returning();
-      await recordActivity(tx, { workspaceId, contactId: id, kind: "task.created", actorUserId: userId, data: { taskId: t!.id, title: t!.title } });
-      const [a] = assignee ? await tx.select({ name: user.name }).from(user).where(eq(user.id, assignee)) : [];
-      return c.json(taskDto(t!, a?.name ?? null), 201);
-    });
-  });
-
-  const taskWrite = async (c: SC, mode: "update" | "delete") => {
-    const taskId = c.req.param("taskId");
-    if (!isUuid(taskId)) return fail(c, 404, "not_found");
-    const b = mode === "update" ? await body(c, UpdateTaskBody) : null;
-    if (b && !b.ok) return b.res;
-    const { workspaceId, userId } = wctx(c);
-    return withContext(db, wctx(c), async (tx) => {
-      const [t] = await tx.select().from(schema.tasks).where(and(eq(schema.tasks.workspaceId, workspaceId), eq(schema.tasks.id, taskId)));
-      if (!t) return fail(c, 404, "not_found");
-      if (!can(c.get("role"), "task.edit", { isOwn: t.assigneeUserId === userId || t.createdBy === userId })) return forbidden(c);
-      if (mode === "delete") {
-        await tx.delete(schema.tasks).where(and(eq(schema.tasks.workspaceId, workspaceId), eq(schema.tasks.id, taskId)));
-        return c.body(null, 204);
-      }
-      const d = (b as { ok: true; data: ReturnType<typeof UpdateTaskBody.parse> }).data;
-      if (d.assigneeUserId && !(await activeMember(tx, workspaceId, d.assigneeUserId))) return fail(c, 400, "invalid_assignee", "The assignee must be a member of this workspace.");
-      const patch: Partial<typeof schema.tasks.$inferInsert> = { updatedAt: new Date() };
-      if (d.title !== undefined) patch.title = d.title;
-      if (d.dueAt !== undefined) patch.dueAt = d.dueAt ? new Date(d.dueAt) : null;
-      if (d.assigneeUserId !== undefined) patch.assigneeUserId = d.assigneeUserId ?? null;
-      if (d.status !== undefined && d.status !== t.status) { patch.status = d.status; patch.completedAt = d.status === "done" ? new Date() : null; }
-      const [u] = await tx.update(schema.tasks).set(patch).where(and(eq(schema.tasks.workspaceId, workspaceId), eq(schema.tasks.id, taskId))).returning();
-      if (patch.status) await recordActivity(tx, { workspaceId, contactId: t.contactId, kind: patch.status === "done" ? "task.completed" : "task.reopened", actorUserId: userId, data: { taskId, title: u!.title } });
-      const [a] = u!.assigneeUserId ? await tx.select({ name: user.name }).from(user).where(eq(user.id, u!.assigneeUserId)) : [];
-      return c.json(taskDto(u!, a?.name ?? null));
-    });
-  };
-  r.patch("/tasks/:taskId", (c) => taskWrite(c, "update"));
-  r.delete("/tasks/:taskId", (c) => taskWrite(c, "delete"));
 
   return r;
 }

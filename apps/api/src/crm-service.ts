@@ -84,7 +84,7 @@ export async function toSummaries(tx: Tx, workspaceId: string, rows: Row[]): Pro
 
 export async function toDetail(tx: Tx, workspaceId: string, row: Row): Promise<ContactDetail> {
   const [s] = await toSummaries(tx, workspaceId, [row]);
-  const [open] = await tx.select({ n: sql<number>`count(*)::int` }).from(schema.tasks).where(and(eq(schema.tasks.workspaceId, workspaceId), eq(schema.tasks.contactId, row.id), eq(schema.tasks.status, "open")));
+  const [open] = await tx.select({ n: sql<number>`count(*)::int` }).from(schema.tasks).where(and(eq(schema.tasks.workspaceId, workspaceId), eq(schema.tasks.contactId, row.id), inArray(schema.tasks.status, ["open", "in_progress"]), isNull(schema.tasks.deletedAt)));
   return { ...s!, custom: (row.custom as Record<string, unknown>) ?? {}, updatedAt: row.updatedAt.toISOString(), openTaskCount: open?.n ?? 0 };
 }
 
