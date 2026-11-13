@@ -35,7 +35,7 @@
 .btn.p{background:var(--accent);border-color:var(--accent);color:#fff} .btn.d{color:var(--bad);border-color:#E7C5C1}
 .btn[aria-disabled=true]{background:#F3F3F6;color:var(--fg-disabled);border-color:var(--line);cursor:not-allowed}
 .card{background:var(--surface);border:1px solid var(--line-card);border-radius:var(--r);padding:16px}
-.ch{display:flex;gap:12px;align-items:center} .ch .t{flex:1;min-width:0} .ch b{display:block} .ch small{color:var(--fg-subtle);display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ch{display:flex;gap:12px;align-items:center;flex-wrap:wrap} .ch .t{flex:1;min-width:0} .ch b{display:block} .ch small{color:var(--fg-subtle);display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 dl{margin:14px 0 0;display:grid;grid-template-columns:auto 1fr;gap:6px 16px;font-size:13px} dt{color:var(--fg-subtle)} dd{margin:0}
 .acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px} .note{margin:12px 0 0;font-size:13px;color:var(--fg-muted)}
 .why{font-size:12px;color:var(--fg-subtle);margin-top:8px}
@@ -48,7 +48,7 @@ dl{margin:14px 0 0;display:grid;grid-template-columns:auto 1fr;gap:6px 16px;font
 .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px} .m .grid{grid-template-columns:1fr}
 .gl{font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--fg-subtle);margin:22px 0 10px}
 /* B master-detail */
-.md{display:grid;grid-template-columns:230px 1fr;gap:18px} .m .md{grid-template-columns:1fr}
+.md{display:grid;grid-template-columns:200px minmax(0,1fr);gap:18px} .m .md{grid-template-columns:1fr}
 .rail{display:flex;flex-direction:column;gap:4px} .rl{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:var(--r-sm);color:var(--fg);border:1px solid transparent}
 .rl.sel{background:#fff;border-color:var(--line-card);box-shadow:0 1px 0 rgba(0,0,0,.03)} .rl .t{flex:1;min-width:0;line-height:1.25} .rl small{display:block;color:var(--fg-subtle);font-size:12px}
 .dot{width:9px;height:9px;border-radius:50%;background:var(--ok-fg);flex:none} .dot.idle{background:#C7C7D1} .dot.warn{background:#B7871A}
@@ -145,8 +145,8 @@ table{width:100%;border-collapse:collapse;font-size:13px} th{font-weight:600;col
    <div class="card">
     <div class="ch"><span class="tile"><svg><use href="#i-msg"/></svg></span><div class="t"><b style="font-size:16px">Facebook Messenger</b><small>Receive and answer messages sent to your Facebook Pages</small></div><button class="btn p">Connect another Page</button></div>
     <div class="sec"><h4>Connected Pages</h4>
-     <table><thead><tr><th>Page</th><th>Status</th><th>Webhook</th><th>Last token check</th><th></th></tr></thead><tbody>
-      <tr><td><b>Testingdemo</b><br><span style="color:var(--fg-subtle);font-size:12px">1159034060634693</span></td><td><span class="pill ok"><i></i>Connected</span></td><td>Subscribed</td><td>2 min ago</td><td style="text-align:right;white-space:nowrap"><button class="btn"><svg width="14" height="14"><use href="#i-refresh"/></svg>Check</button> <button class="btn d">Disconnect</button></td></tr>
+     <table><thead><tr><th>Page</th><th>Status</th><th>Webhook</th><th>Token check</th><th></th></tr></thead><tbody>
+      <tr><td><b>Testingdemo</b><br><span style="color:var(--fg-subtle);font-size:12px">1159034060634693</span></td><td><span class="pill ok"><i></i>Connected</span></td><td>Subscribed</td><td>2 min ago</td><td style="text-align:right"><div class="acts" style="margin:0;justify-content:flex-end"><button class="btn"><svg width="14" height="14"><use href="#i-refresh"/></svg>Check</button><button class="btn d">Disconnect</button></div></td></tr>
      </tbody></table></div>
     <div class="sec"><h4>Webhook subscription</h4><div class="chips"><span class="chip ok">messages</span><span class="chip ok">message_echoes</span><span class="chip ok">messaging_postbacks</span><span class="chip ok">message_reads</span><span class="chip ok">message_deliveries</span></div>
      <p class="why">Subscribed through Meta’s API. If it ever shows failed, a Retry button appears here.</p></div>
