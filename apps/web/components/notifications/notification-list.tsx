@@ -140,7 +140,7 @@ export function NotificationList({ workspaceId, timeZone, initial }: { workspace
                   </span>
                 </>
               );
-              const rowCls = cn("flex min-h-11 min-w-0 flex-1 items-start gap-3 rounded-md px-1 py-1 hover:bg-hover pointer-coarse:min-h-11", unread && "border-l-2 border-accent pl-2");
+              const rowCls = cn("flex min-h-11 min-w-0 flex-1 items-start gap-3 rounded-md px-1 py-1 hover:bg-hover pointer-coarse:min-h-11", unread && "bg-accent-subtle/40");
               return (
                 <li key={n.id} data-unread={unread} className="flex items-start gap-2 px-3 py-2">
                   {href ? (

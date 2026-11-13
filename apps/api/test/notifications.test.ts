@@ -20,7 +20,11 @@ const clear = () => h.admin.query("DELETE FROM notifications WHERE workspace_id 
 
 beforeAll(async () => {
   h = await bootstrap();
-  [owner, admin, agent, viewer, outsider] = await Promise.all(["nowner", "nadmin", "nagent", "nviewer", "noutsider"].map((l) => h.newUser(l)));
+  owner = await h.newUser("nowner");
+  admin = await h.newUser("nadmin");
+  agent = await h.newUser("nagent");
+  viewer = await h.newUser("nviewer");
+  outsider = await h.newUser("noutsider");
   ws = await h.workspace(owner, "Notif", { admin, agent, viewer });
   other = await h.workspace(outsider, "Notif other");
 });
@@ -89,7 +93,7 @@ describe("notifications API", () => {
     expect(pages).toBe(3);
     expect(new Set(seen).size).toBe(7);
     expect(seen).toEqual([...seen].sort().reverse());
-    const raw = (qs: string) => h.app.request(`/v1/workspaces/${ws}/notifications?${qs}`, { headers: { cookie: agent.cookie } }).then((r) => r.status);
+    const raw = (qs: string) => Promise.resolve(h.app.request(`/v1/workspaces/${ws}/notifications?${qs}`, { headers: { cookie: agent.cookie } })).then((r) => r.status);
     expect(await raw("limit=500")).toBe(400);
     expect(await raw("cursor=nope")).toBe(400);
   });
@@ -138,8 +142,7 @@ describe("notification preferences API", () => {
   });
 
   it("rejects unknown kinds and empty bodies; non-members get 404", async () => {
-    const c = h.clientFor(agent);
-    const patch = (b: unknown) => h.app.request(`/v1/workspaces/${ws}/notification-preferences`, { method: "PATCH", headers: { cookie: agent.cookie, origin: "http://localhost:3000", "content-type": "application/json" }, body: JSON.stringify(b) }).then((r) => r.status);
+    const patch = (b: unknown) => Promise.resolve(h.app.request(`/v1/workspaces/${ws}/notification-preferences`, { method: "PATCH", headers: { cookie: agent.cookie, origin: "http://localhost:3000", "content-type": "application/json" }, body: JSON.stringify(b) })).then((r) => r.status);
     expect(await patch({ preferences: [{ kind: "nope", inApp: false }] })).toBe(400);
     expect(await patch({ preferences: [] })).toBe(400);
     expect(failure(await h.clientFor(outsider).call(endpoints.getNotificationPreferences, P())).status).toBe(404);
