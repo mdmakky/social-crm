@@ -52,7 +52,7 @@ test.describe("contact detail", () => {
     await expect(page.getByText("No notes yet.")).toBeVisible();
 
     await page.getByLabel("New task").fill("Send the quote");
-    await page.getByLabel("Due date and time").fill("2020-01-02T09:00");
+    await page.getByLabel("Due", { exact: true }).fill("2020-01-02T09:00");
     await page.getByRole("button", { name: "Add task" }).click();
     await expect(page.getByText("Send the quote").first()).toBeVisible();
     await expect(page.getByText(/Overdue/)).toBeVisible();
@@ -67,8 +67,9 @@ test.describe("contact detail", () => {
     const { workspaceId } = await signUpAndCreate(page, "Related Owner", "Related Co");
     const [id] = await seedContacts(page, workspaceId, [{ name: "Ivan Petrov" }]);
     await page.goto(`/w/${workspaceId}/contacts/${id}`);
-    await expect(page.getByRole("heading", { name: "No conversations yet" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "No pipeline records yet" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Conversations are not available yet" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Pipeline records are not available yet" })).toBeVisible();
+    await expect(page.getByText(/will appear here/)).toHaveCount(0);
     await expect(page.getByText(/separate from any pipeline/)).toBeVisible();
   });
 
