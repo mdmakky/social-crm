@@ -9,6 +9,8 @@ import { contactRoutes } from "./contacts.ts";
 import { crmConfigRoutes } from "./crm-config.ts";
 import { searchRoutes } from "../search/routes.ts"; // track:search
 import type { SearchProvider } from "../search/types.ts"; // track:search
+// --- track:tasks ---
+import { taskRoutes } from "./tasks.ts";
 import { importRoutes, type ImportHooks } from "./imports.ts";
 
 export type Vars = { userId: string; requestId: string };
@@ -170,6 +172,8 @@ export function workspaceRoutes(db: Db, hooks: { import?: ImportHooks; extraSear
   scoped.route("/", contactRoutes(db));
   scoped.route("/", importRoutes(db, hooks.import));
   scoped.route("/", searchRoutes(db, hooks.extraSearchProviders)); // track:search
+  // --- track:tasks ---
+  scoped.route("/", taskRoutes(db));
   r.route("/:id", scoped as unknown as Hono<{ Variables: Vars }>);
   return r;
 }

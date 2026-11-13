@@ -362,11 +362,11 @@ function TasksPanel({ tasks, setTasks, p, canEdit, role, myUserId, members, time
     const r = await browserApi.call(endpoints.createTask, { params: p, body: { title: title.trim(), dueAt: due ? new Date(due).toISOString() : null, assigneeUserId: assignee || null } });
     setBusy(false);
     if (!r.ok) return setError(errorMessage(r.error));
-    setTasks([...tasks, r.data].sort((a, b) => (a.status === b.status ? (a.dueAt ?? "9").localeCompare(b.dueAt ?? "9") : a.status === "open" ? -1 : 1)));
+    setTasks([...tasks, r.data].sort((a, b) => (a.status === b.status ? (a.dueAt ?? "9").localeCompare(b.dueAt ?? "9") : a.status === "open" || a.status === "in_progress" ? -1 : 1)));
     setTitle(""); setDue(""); onChanged();
   }
   async function toggle(t: Task) {
-    const r = await browserApi.call(endpoints.updateTask, { params: { workspaceId: p.workspaceId, taskId: t.id }, body: { status: t.status === "open" ? "done" : "open" } });
+    const r = await browserApi.call(endpoints.updateTask, { params: { workspaceId: p.workspaceId, taskId: t.id }, body: { status: t.status === "open" || t.status === "in_progress" ? "done" : "open" } });
     if (!r.ok) return setError(errorMessage(r.error));
     setTasks(tasks.map((x) => (x.id === t.id ? r.data : x))); onChanged();
   }
@@ -376,8 +376,9 @@ function TasksPanel({ tasks, setTasks, p, canEdit, role, myUserId, members, time
     setTasks(tasks.filter((x) => x.id !== t.id)); onChanged();
   }
   const [now] = React.useState(() => Date.now());
-  const open = tasks.filter((t) => t.status === "open");
-  const overdue = (t: Task) => t.status === "open" && t.dueAt !== null && new Date(t.dueAt).getTime() < now;
+  const isActive = (t: Task) => t.status === "open" || t.status === "in_progress";
+  const open = tasks.filter(isActive);
+  const overdue = (t: Task) => isActive(t) && t.dueAt !== null && new Date(t.dueAt).getTime() < now;
   return (
     <Panel>
       <PanelHeader title="Tasks and follow-ups" description={open.length ? `${open.length} open` : undefined} />
@@ -386,7 +387,7 @@ function TasksPanel({ tasks, setTasks, p, canEdit, role, myUserId, members, time
         {tasks.length === 0 ? <p className="text-sm text-fg-muted">No tasks yet.{canEdit ? " Add a follow-up so this contact isn’t forgotten." : ""}</p> : (
           <ul className="flex flex-col gap-2">
             {tasks.map((t) => {
-              const mine = can(role, "task.edit", { isOwn: t.assignee?.id === myUserId });
+              const mine = can(role, "task.edit", { isOwn: t.assignee?.id === myUserId || t.createdBy?.id === myUserId });
               return (
                 <li key={t.id} className="flex items-start gap-2">
                   <button type="button" role="checkbox" aria-checked={t.status === "done"} aria-label={`${t.status === "done" ? "Reopen" : "Complete"}: ${t.title}`} disabled={!mine} onClick={() => void toggle(t)} className={`mt-0.5 flex size-5 shrink-0 items-center justify-center rounded border pointer-coarse:size-7 ${t.status === "done" ? "border-accent bg-accent text-on-accent" : "border-line-strong bg-surface"} disabled:opacity-50`}>

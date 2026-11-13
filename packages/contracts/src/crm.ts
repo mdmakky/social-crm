@@ -115,11 +115,6 @@ export type ActivityItem = z.infer<typeof ActivityItem>;
 export const ActivityPage = z.object({ items: z.array(ActivityItem), nextCursor: z.string().nullable() });
 export const PageQuery = z.object({ cursor: uuid.optional(), limit: z.coerce.number().int().min(1).max(100).optional() });
 
-export const Task = z.object({ id: uuid, contactId: uuid, title: z.string(), dueAt: iso.nullable(), status: z.enum(["open", "done"]), assignee: z.object({ id: z.string(), name: z.string() }).nullable(), completedAt: iso.nullable(), createdAt: iso });
-export type Task = z.infer<typeof Task>;
-export const CreateTaskBody = z.object({ title: trimmed(1, 200, "Title"), dueAt: z.string().datetime({ offset: true }).nullish(), assigneeUserId: z.string().nullish() });
-export const UpdateTaskBody = z.object({ title: trimmed(1, 200, "Title").optional(), dueAt: z.string().datetime({ offset: true }).nullish(), status: z.enum(["open", "done"]).optional(), assigneeUserId: z.string().nullish() }).refine((v) => Object.keys(v).length > 0, "Nothing to update");
-
 // ---------- saved views ----------
 export const CONTACT_COLUMNS = ["contact", "lifecycle", "owner", "tags", "source", "lastActivity", "created"] as const;
 export const ContactColumn = z.enum(CONTACT_COLUMNS);
@@ -199,10 +194,6 @@ export const crmEndpoints = {
   deleteNote: endpoint({ method: "DELETE", path: `${W}/contacts/:contactId/notes/:noteId`, response: z.undefined() }),
   listActivity: endpoint({ method: "GET", path: `${W}/contacts/:contactId/activity`, query: PageQuery, response: ActivityPage }),
 
-  listContactTasks: endpoint({ method: "GET", path: `${W}/contacts/:contactId/tasks`, response: z.array(Task) }),
-  createTask: endpoint({ method: "POST", path: `${W}/contacts/:contactId/tasks`, body: CreateTaskBody, response: Task }),
-  updateTask: endpoint({ method: "PATCH", path: `${W}/tasks/:taskId`, body: UpdateTaskBody, response: Task }),
-  deleteTask: endpoint({ method: "DELETE", path: `${W}/tasks/:taskId`, response: z.undefined() }),
 
   listViews: endpoint({ method: "GET", path: `${W}/views`, response: z.array(SavedView) }),
   createView: endpoint({ method: "POST", path: `${W}/views`, body: CreateViewBody, response: SavedView }),

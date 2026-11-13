@@ -65,7 +65,7 @@ describe("a caller who is not a member cannot reach a tenant by naming it in the
     await withContext(db, ctx(U.stranger, A), async (tx) => {
       expect(await tx.update(schema.workspaces).set({ name: "pwned" }).where(eq(schema.workspaces.id, A)).returning()).toHaveLength(0);
       expect(await tx.update(schema.contacts).set({ name: "pwned" }).where(eq(schema.contacts.id, contactA)).returning()).toHaveLength(0);
-      expect(await tx.delete(schema.tasks).where(eq(schema.tasks.id, taskByAgent)).returning()).toHaveLength(0);
+      expect(await tx.update(schema.tasks).set({ deletedAt: new Date() }).where(eq(schema.tasks.id, taskByAgent)).returning()).toHaveLength(0); // tasks are soft-deleted (DELETE is revoked)
     });
     await rejects(withContext(db, ctx(U.stranger, A), (tx) => tx.insert(schema.contacts).values({ workspaceId: A, name: "x", lifecycleStageId: stageA })));
   });
@@ -108,7 +108,7 @@ describe("contacts: soft delete is admin-only", () => {
 
 describe("tasks: agents change only their own", () => {
   const upd = (u: string, id: string) => withContext(db, ctx(u, A), (tx) => tx.update(schema.tasks).set({ title: `by ${u}` }).where(eq(schema.tasks.id, id)).returning());
-  const del = (u: string, id: string) => withContext(db, ctx(u, A), (tx) => tx.delete(schema.tasks).where(eq(schema.tasks.id, id)).returning());
+  const del = (u: string, id: string) => withContext(db, ctx(u, A), (tx) => tx.update(schema.tasks).set({ deletedAt: new Date() }).where(eq(schema.tasks.id, id)).returning()); // soft delete: DELETE is revoked from the app role
   it("an agent cannot update or delete someone else's task, but can handle their own", async () => {
     expect(await upd(U.agent2, taskByAgent)).toHaveLength(0);
     expect(await del(U.agent2, taskByAgent)).toHaveLength(0);

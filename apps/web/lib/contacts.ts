@@ -39,6 +39,11 @@ export function activityText(kind: string, d: Record<string, unknown>, actor: st
     case "task.created": return `${who} created the task "${s(d.title)}"`;
     case "task.completed": return `${who} completed the task "${s(d.title)}"`;
     case "task.reopened": return `${who} reopened the task "${s(d.title)}"`;
+    // --- track:tasks ---
+    case "task.cancelled": return `${who} cancelled the task "${s(d.title)}"`;
+    case "task.deleted": return `${who} deleted the task "${s(d.title)}"`;
+    case "task.linked": return `${who} linked the task "${s(d.title)}" to this contact`;
+    case "task.unlinked": return `${who} moved the task "${s(d.title)}" away from this contact`;
     default: return `${who}: ${kind}`;
   }
 }

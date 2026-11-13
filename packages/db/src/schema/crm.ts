@@ -145,30 +145,6 @@ export const activities = pgTable(
   ],
 );
 
-export const taskStatus = pgEnum("task_status", ["open", "done"]);
-
-export const tasks = pgTable(
-  "tasks",
-  {
-    id: id(),
-    workspaceId: workspaceId(),
-    contactId: uuid("contact_id").notNull(),
-    title: text("title").notNull(),
-    dueAt: timestamp("due_at", { withTimezone: true }),
-    status: taskStatus("status").notNull().default("open"),
-    assigneeUserId: text("assignee_user_id").references(() => user.id),
-    createdBy: text("created_by").notNull().references(() => user.id),
-    completedAt: timestamp("completed_at", { withTimezone: true }),
-    createdAt: createdAt(),
-    updatedAt: updatedAt(),
-  },
-  (t) => [
-    foreignKey({ columns: [t.workspaceId, t.contactId], foreignColumns: [contacts.workspaceId, contacts.id] }),
-    index("tasks_contact_idx").on(t.workspaceId, t.contactId, t.status),
-    index("tasks_assignee_due_idx").on(t.workspaceId, t.assigneeUserId, t.status, t.dueAt),
-  ],
-);
-
 /** Saved table configuration. userId null means shared with the whole workspace (admins only). */
 export const savedViews = pgTable(
   "saved_views",

@@ -1,4 +1,4 @@
-import { BarChart3, Bot, Contact, Home, Inbox, Kanban, Plug, ScrollText, Settings, Users, Workflow } from "lucide-react";
+import { BarChart3, Bot, CheckSquare, Contact, Home, Inbox, Kanban, Plug, ScrollText, Settings, Users, Workflow } from "lucide-react";
 import type { ComponentType } from "react";
 import { can, type Action, type Role } from "@crm/core/permissions";
 
@@ -21,6 +21,8 @@ export const NAV: NavGroup[] = [
     items: [
       { key: "inbox", label: "Inbox", icon: Inbox, soon: true },
       { key: "contacts", label: "Contacts", icon: Contact, path: "contacts" },
+      // --- track:tasks ---
+      { key: "tasks", label: "Tasks", icon: CheckSquare, path: "tasks" },
       { key: "leads", label: "Leads", icon: BarChart3, soon: true },
       { key: "pipeline", label: "Pipeline", icon: Kanban, soon: true },
     ],

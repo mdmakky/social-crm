@@ -3,10 +3,13 @@ import { endpoint } from "./endpoint.ts";
 import { crmEndpoints } from "./crm.ts";
 // --- track:search ---
 import { searchEndpoints } from "./search.ts";
+// --- track:tasks ---
+import { tasksEndpoints } from "./tasks.ts";
 
 export * from "./endpoint.ts";
 export * from "./crm.ts";
 export * from "./search.ts"; // track:search
+export * from "./tasks.ts"; // track:tasks
 
 export const PASSWORD_MIN_LENGTH = 10;
 export const RESET_TOKEN_TTL_SECONDS = 30 * 60;
@@ -74,4 +77,4 @@ const coreEndpoints = {
   auditLog: endpoint({ method: "GET", path: "/v1/workspaces/:workspaceId/audit-log", query: AuditQuery, response: AuditPage }),
 } as const;
 
-export const endpoints = { ...coreEndpoints, ...crmEndpoints, ...searchEndpoints /* track:search */ } as const;
+export const endpoints = { ...coreEndpoints, ...crmEndpoints, ...searchEndpoints /* track:search */, ...tasksEndpoints /* track:tasks */ } as const;
