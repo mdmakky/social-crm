@@ -50,6 +50,17 @@ export function NotificationList({ workspaceId, timeZone, initial }: { workspace
     [workspaceId],
   );
 
+  // Back/forward navigation can restore a cached server render; refresh quietly once on mount so read state is current.
+  React.useEffect(() => {
+    void browserApi.call(endpoints.listNotifications, { params: { workspaceId }, query: { limit: 20 } }).then((r) => {
+      if (r.ok && requestId.current === 0) {
+        setItems(r.data.items);
+        setCursor(r.data.nextCursor);
+        setStatus("ready");
+      }
+    });
+  }, [workspaceId]);
+
   const pick = (f: Filter) => {
     setFilter(f);
     void load(f);
@@ -138,7 +149,7 @@ export function NotificationList({ workspaceId, timeZone, initial }: { workspace
                     <button type="button" className={rowCls} onClick={() => open(n, null)}>{inner}</button>
                   )}
                   <Button size="sm" variant="ghost" className="shrink-0" onClick={() => void setRead(n, unread)} aria-label={`${unread ? "Mark as read" : "Mark as unread"}: ${n.title}`}>
-                    {unread ? "Mark read" : "Mark unread"}
+                    {unread ? "Mark as read" : "Mark as unread"}
                   </Button>
                 </li>
               );
