@@ -12,7 +12,6 @@ let admin: pg.Client;
 let wsId: string;
 let otherWs: string;
 
-const msg = (e: unknown) => String((e as { cause?: { message?: string } }).cause?.message ?? e);
 
 beforeAll(async () => {
   admin = new pg.Client({ connectionString: ADMIN });

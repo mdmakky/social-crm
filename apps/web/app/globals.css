@@ -48,6 +48,8 @@
   --text-2xl: 1.75rem;
   --text-2xl--line-height: 2.25rem;
 
+  --tracking-title: -0.01em;
+
   --radius-*: initial;
   --radius-sm: 4px;
   --radius-md: 6px;
@@ -58,25 +60,33 @@
   --shadow-popover: var(--shadow-popover);
 }
 
-html {
-  color-scheme: light;
-  font-family: var(--font-sans);
-  font-size: 16px;
-  font-feature-settings: "cv11", "ss01";
-  -webkit-font-smoothing: antialiased;
-  text-rendering: optimizeLegibility;
-}
-html[data-theme="dark"] { color-scheme: dark; }
-body { background: var(--bg-canvas); color: var(--fg); font-size: 0.875rem; line-height: 1.25rem; }
+@layer base {
+  html {
+    color-scheme: light;
+    accent-color: var(--accent);
+    font-family: var(--font-sans);
+    font-size: 16px;
+    font-feature-settings: "cv11", "ss01";
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  html[data-theme="dark"] { color-scheme: dark; }
+  body { background: var(--bg-canvas); color: var(--fg); font-size: 0.875rem; line-height: 1.25rem; }
 
-/* Browser surfaces themed from the palette */
-::selection { background: var(--accent-subtle); color: var(--fg); }
-input, textarea, select { caret-color: var(--accent); }
-:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
-:focus:not(:focus-visible) { outline: none; }
-* { scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
-::placeholder { color: var(--fg-subtle); opacity: 1; }
-input[type="password"]::-ms-reveal { display: none; }
+  /* Browser surfaces themed from the palette */
+  ::selection { background: var(--accent-subtle); color: var(--fg); }
+  input, textarea, select { caret-color: var(--accent); }
+  :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+  :focus:not(:focus-visible) { outline: none; }
+  * { scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
+  ::placeholder { color: var(--fg-subtle); opacity: 1; }
+  input[type="password"]::-ms-reveal { display: none; }
+  input:-webkit-autofill, input:-webkit-autofill:focus {
+    -webkit-text-fill-color: var(--fg);
+    box-shadow: 0 0 0 1000px var(--accent-subtle) inset;
+    caret-color: var(--accent);
+  }
+}
 
 .tnum { font-variant-numeric: tabular-nums; }
 

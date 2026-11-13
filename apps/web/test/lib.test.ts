@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { describeAudit } from "@/lib/audit-text";
 import { initials } from "@/lib/initials";
-import { NAV, titleFor, visibleNav } from "@/lib/nav";
+import { NAV, builtNav, plannedItems, titleFor, visibleNav } from "@/lib/nav";
 import { formatDate } from "@/lib/format";
 
 describe("describeAudit", () => {
@@ -9,6 +9,11 @@ describe("describeAudit", () => {
     expect(describeAudit({ action: "workspace.created", actorName: "Maya", summary: {} })).toBe("Maya created the workspace");
     expect(describeAudit({ action: "member.role_changed", actorName: "Dana", summary: { name: "Sam", from: "agent", to: "viewer" } })).toBe("Dana changed Sam's role from agent to viewer");
     expect(describeAudit({ action: "member.removed", actorName: null, summary: { name: "Vic" } })).toBe("System removed Vic from the workspace");
+  });
+  it("says what changed in a workspace update", () => {
+    expect(describeAudit({ action: "workspace.updated", actorName: "Ann", summary: { name: "X" } })).toBe("Ann updated the workspace name");
+    expect(describeAudit({ action: "workspace.updated", actorName: "Ann", summary: { name: "X", timezone: "UTC" } })).toBe("Ann updated the workspace name and time zone");
+    expect(describeAudit({ action: "workspace.updated", actorName: "Ann", summary: { timezone: "UTC" } })).toBe("Ann updated the workspace time zone");
   });
   it("never hides an unknown action", () => {
     expect(describeAudit({ action: "something.new", actorName: "Ann", summary: {} })).toBe("Ann: something.new");
@@ -39,6 +44,12 @@ describe("navigation permissions", () => {
   });
   it("viewers see only the basics", () => {
     expect(labels("viewer")).toEqual(["Home", "Inbox", "Contacts", "Leads", "Pipeline", "Members", "Settings"]);
+  });
+  it("only built features are links; planned ones are listed separately and also permission-filtered", () => {
+    expect(builtNav("owner").flatMap((g) => g.items.map((i) => i.label))).toEqual(["Home", "Members", "Audit log", "Settings"]);
+    expect(builtNav("viewer").flatMap((g) => g.items.map((i) => i.label))).toEqual(["Home", "Members", "Settings"]);
+    expect(plannedItems("owner").map((i) => i.label)).toEqual(["Inbox", "Contacts", "Leads", "Pipeline", "Automation", "AI assistant", "Integrations"]);
+    expect(plannedItems("viewer").map((i) => i.label)).toEqual(["Inbox", "Contacts", "Leads", "Pipeline"]);
   });
   it("derives page titles from the path", () => {
     expect(titleFor("/w/abc/members", "abc")).toBe("Members");

@@ -15,9 +15,9 @@ export const metadata: Metadata = { title: "Home" };
 
 const STEPS = [
   { title: "Create your workspace", done: true, note: "Done" },
-  { title: "Invite your team", done: false, note: "Invitations arrive in a later phase" },
-  { title: "Connect Messenger or Instagram", done: false, note: "Available once Meta integration ships (Phase 3)" },
-  { title: "Import or add your contacts", done: false, note: "Contacts arrive in Phase 2" },
+  { title: "Invite your team", done: false, note: "Coming soon" },
+  { title: "Connect Messenger or Instagram", done: false, note: "Coming soon" },
+  { title: "Import or add your contacts", done: false, note: "Coming soon" },
 ];
 
 export default async function Home({ params }: { params: Promise<{ workspaceId: string }> }) {
@@ -30,7 +30,7 @@ export default async function Home({ params }: { params: Promise<{ workspaceId: 
   return (
     <>
       <PageHeader title={ws.name} description={`${ws.memberCount} ${ws.memberCount === 1 ? "member" : "members"} · ${ws.timezone} · Created ${formatDate(ws.createdAt, ws.timezone)}`} actions={<Badge tone="accent">{ROLE_LABEL[ws.role]}</Badge>} />
-      <div className="grid gap-4 lg:grid-cols-5">
+      <div className="grid items-start gap-4 lg:grid-cols-5">
         <Panel className="lg:col-span-3">
           <PanelHeader title="Getting started" description="The first things to set up in a new workspace." />
           <ul>

@@ -51,7 +51,7 @@ export function DialogContent({ title, description, children, className }: { tit
   return (
     <DialogPrimitive.Portal>
       <DialogPrimitive.Overlay className="fixed inset-0 z-40 bg-fg/30" />
-      <DialogPrimitive.Content className={cn("pop fixed left-1/2 top-1/2 z-50 w-[calc(100vw-32px)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border border-line bg-surface p-5 shadow-popover", className)}>
+      <DialogPrimitive.Content onOpenAutoFocus={(e) => { const first = (e.currentTarget as HTMLElement).querySelector<HTMLElement>("[data-dialog-body] select, [data-dialog-body] input, [data-dialog-body] button:not([disabled])"); if (first) { e.preventDefault(); first.focus(); } }} className={cn("pop fixed left-1/2 top-1/2 z-50 w-[calc(100vw-32px)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border border-line bg-surface p-5 shadow-popover", className)}>
         <div className="flex items-start justify-between gap-4">
           <DialogPrimitive.Title className="text-md font-semibold text-fg">{title}</DialogPrimitive.Title>
           <DialogPrimitive.Close asChild>
@@ -59,7 +59,7 @@ export function DialogContent({ title, description, children, className }: { tit
           </DialogPrimitive.Close>
         </div>
         {description ? <DialogPrimitive.Description className="mt-1 text-sm text-fg-muted">{description}</DialogPrimitive.Description> : <DialogPrimitive.Description className="sr-only">{title}</DialogPrimitive.Description>}
-        <div className="mt-4">{children}</div>
+        <div data-dialog-body className="mt-4">{children}</div>
       </DialogPrimitive.Content>
     </DialogPrimitive.Portal>
   );

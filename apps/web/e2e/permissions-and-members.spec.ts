@@ -24,6 +24,7 @@ test.describe("permission-aware navigation and pages", () => {
     const t = await team(browser, page, workspaceId);
     const nav = (p: Page) => p.getByRole("navigation", { name: "Main" }).first();
 
+    for (const p of [page, t.admin.page, t.agent.page, t.viewer.page]) await nav(p).getByText("Coming soon").click();
     await expect(nav(page).getByRole("link", { name: "Audit log" })).toBeVisible();
     await expect(nav(page).getByText("Automation")).toBeVisible();
     await expect(nav(t.admin.page).getByRole("link", { name: "Audit log" })).toBeVisible();
@@ -121,9 +122,9 @@ test("audit log pages through older entries", async ({ page }) => {
   }
   await page.goto(`/w/${workspaceId}/audit-log`);
   await expect(page.getByRole("listitem")).toHaveCount(25 + 0, { timeout: 10_000 }).catch(() => {});
-  const before = await page.getByText(/updated workspace settings/).count();
+  const before = await page.getByText(/updated the workspace name/).count();
   await page.getByRole("button", { name: "Load older entries" }).click();
   await expect(page.getByRole("button", { name: "Load older entries" })).toHaveCount(0);
-  expect(await page.getByText(/updated workspace settings/).count()).toBeGreaterThan(before);
+  expect(await page.getByText(/updated the workspace name/).count()).toBeGreaterThan(before);
   await signIn(page, email).catch(() => {});
 });

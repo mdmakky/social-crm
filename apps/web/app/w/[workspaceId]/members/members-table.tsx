@@ -110,7 +110,7 @@ export function MembersTable({ workspaceId, members, myRole, myUserId, timeZone 
               <TR key={m.userId}>
                 <TD>{identity(m, isMe)}</TD>
                 <TD><Badge tone={m.role === "owner" ? "accent" : "neutral"}>{ROLE_LABEL[m.role]}</Badge></TD>
-                <TD className="tnum text-fg-muted">{formatDate(m.joinedAt, timeZone)}</TD>
+                <TD className="tnum whitespace-nowrap text-fg-muted">{formatDate(m.joinedAt, timeZone)}</TD>
                 <TD>{actions(m, canChange, canRemove)}</TD>
               </TR>
             ))}
@@ -126,7 +126,7 @@ export function MembersTable({ workspaceId, members, myRole, myUserId, timeZone 
           >
             {error && <Alert tone="error" className="mb-3">{error}</Alert>}
             {dialog.kind === "role" && (
-              <Field label="Role" hint={ROLE_HELP[role]}>
+              <Field label="Role" hint={role === dialog.member.role ? "This is their current role. Pick a different one to save." : ROLE_HELP[role]}>
                 {(p) => (
                   <Select {...p} value={role} onChange={(e) => setRole(e.target.value as Role)}>
                     {roleOptionsFor(dialog.member).map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}

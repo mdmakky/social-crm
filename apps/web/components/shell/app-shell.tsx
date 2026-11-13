@@ -1,12 +1,10 @@
 "use client";
 import * as React from "react";
-import { usePathname } from "next/navigation";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { Menu, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
 import { TooltipProvider } from "@/components/ui/overlays";
-import { titleFor } from "@/lib/nav";
 import { CommandMenu } from "./command-menu";
 import { Logo } from "./logo";
 import { SidebarNav } from "./sidebar-nav";
@@ -17,12 +15,22 @@ import { WorkspaceSwitcher } from "./workspace-switcher";
 export function AppShell({ workspace, workspaces, user, children }: { workspace: ShellWorkspace; workspaces: ShellWorkspace[]; user: ShellUser; children: React.ReactNode }) {
   const [drawer, setDrawer] = React.useState(false);
   const [palette, setPalette] = React.useState(false);
-  const pathname = usePathname();
 
   React.useEffect(() => {
     document.cookie = `crm_last_ws=${workspace.id}; path=/; max-age=31536000; samesite=lax`;
   }, [workspace.id]);
-  React.useEffect(() => setDrawer(false), [pathname]);
+  // The drawer is a small-screen pattern: close it when the viewport grows to the rail layout so nothing stays inert.
+  React.useEffect(() => {
+    const mq = window.matchMedia("(min-width: 768px)");
+    const onChange = () => mq.matches && setDrawer(false);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+  const mod = React.useSyncExternalStore(
+    () => () => {},
+    () => (/Mac|iPhone|iPad/.test(navigator.platform) ? "⌘" : "Ctrl"),
+    () => "Ctrl",
+  );
   React.useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
@@ -67,11 +75,12 @@ export function AppShell({ workspace, workspaces, user, children }: { workspace:
         <div className="flex min-w-0 flex-1 flex-col">
           <header className="flex h-[var(--topbar-h)] shrink-0 items-center gap-2 border-b border-line bg-surface px-3 md:px-6">
             <Button variant="ghost" icon aria-label="Open navigation" className="md:hidden" onClick={() => setDrawer(true)}><Menu /></Button>
-            <p className="min-w-0 flex-1 truncate text-base font-semibold text-fg">{titleFor(pathname, workspace.id)}</p>
-            <Button variant="secondary" className="hidden w-56 justify-start gap-2 font-normal text-fg-subtle sm:inline-flex"  onClick={() => setPalette(true)}>
-              <Search aria-hidden /><span className="flex-1 text-left">Search or jump to</span><Kbd>⌘K</Kbd>
+            <p className="min-w-0 flex-1 truncate text-base font-semibold text-fg md:hidden">{workspace.name}</p>
+            <Button variant="secondary" className="hidden w-full max-w-sm justify-start gap-2 font-normal text-fg-subtle sm:inline-flex md:w-72" onClick={() => setPalette(true)}>
+              <Search aria-hidden /><span className="flex-1 text-left">Search or jump to</span><Kbd>{mod === "⌘" ? "⌘K" : "Ctrl K"}</Kbd>
             </Button>
             <Button variant="ghost" icon aria-label="Open command menu" className="sm:hidden" onClick={() => setPalette(true)}><Search /></Button>
+            <div className="hidden flex-1 md:block" />
             <UserMenu user={user} workspaceId={workspace.id} />
           </header>
           <main id="main" tabIndex={-1} className="min-h-0 flex-1 overflow-y-auto outline-none">

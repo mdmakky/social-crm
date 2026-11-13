@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { createWorkspace, PASSWORD, register, signIn, signOut, signUpAndCreate, uniqueEmail } from "./helpers";
 
 test.describe("authentication", () => {
@@ -51,20 +51,20 @@ test.describe("authentication", () => {
   });
 });
 
-async function signOutViaStorage(page: import("@playwright/test").Page) {
+async function signOutViaStorage(page: Page) {
   await page.context().clearCookies();
 }
 
 test.describe("shell", () => {
-  test("shows the full navigation to an owner, with unbuilt features disabled and explained", async ({ page }) => {
+  test("shows built features as links and planned ones as plain text under Coming soon", async ({ page }) => {
     await signUpAndCreate(page, "Ada Owner", "Shell Test Co");
     const nav = page.getByRole("navigation", { name: "Main" }).first();
     for (const label of ["Home", "Members", "Audit log", "Settings"]) await expect(nav.getByRole("link", { name: label })).toBeVisible();
     await expect(nav.getByRole("link", { name: "Home" })).toHaveAttribute("aria-current", "page");
-    const inbox = nav.getByRole("link", { name: /^Inbox Soon/ });
-    await expect(inbox).toHaveAttribute("aria-disabled", "true");
-    await inbox.hover();
-    await expect(page.getByRole("tooltip").first()).toContainText("Unified inbox arrives");
+    await expect(nav.getByRole("link", { name: "Inbox" })).toHaveCount(0); // not built: never a link
+    await nav.getByText("Coming soon").click();
+    for (const label of ["Inbox", "Contacts", "Leads", "Pipeline", "Automation", "AI assistant", "Integrations"]) await expect(nav.getByText(label, { exact: true })).toBeVisible();
+    await expect(nav.getByText(/Phase \d/)).toHaveCount(0); // no internal roadmap language in the product
   });
 
   test("skip link, command menu and keyboard navigation work", async ({ page }) => {

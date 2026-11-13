@@ -6,17 +6,17 @@ import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { LogOut, Plus, Search } from "lucide-react";
 import type { Role } from "@crm/core/permissions";
 import { authClient } from "@/lib/auth-client";
-import { href, visibleNav } from "@/lib/nav";
+import { builtNav, href } from "@/lib/nav";
 import { Kbd } from "@/components/ui/kbd";
 import type { ShellWorkspace } from "./types";
 
-const itemCls = "flex cursor-default items-center gap-2 rounded-md px-2 py-2 text-base text-fg outline-none data-[disabled=true]:text-fg-disabled data-[selected=true]:bg-hover [&_svg]:size-4 [&_svg]:text-fg-subtle";
+const itemCls = "flex cursor-default items-center gap-2 rounded-md px-2 py-2 text-base text-fg outline-none data-[selected=true]:bg-hover [&_svg]:size-4 [&_svg]:text-fg-subtle";
 const groupCls = "[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-fg-subtle";
 
 export function CommandMenu({ open, onOpenChange, workspace, workspaces, role }: { open: boolean; onOpenChange: (o: boolean) => void; workspace: ShellWorkspace; workspaces: ShellWorkspace[]; role: Role }) {
   const router = useRouter();
   const go = (to: string) => { onOpenChange(false); router.push(to); };
-  const groups = visibleNav(role);
+  const groups = builtNav(role);
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal>
@@ -36,10 +36,9 @@ export function CommandMenu({ open, onOpenChange, workspace, workspaces, role }:
                 {groups.flatMap((g) => g.items).map((item) => {
                   const Icon = item.icon;
                   return (
-                    <Command.Item key={item.key} value={item.label} disabled={!!item.soon} onSelect={() => !item.soon && go(href(workspace.id, item))} className={itemCls}>
+                    <Command.Item key={item.key} value={item.label} onSelect={() => go(href(workspace.id, item))} className={itemCls}>
                       <Icon />
                       <span className="flex-1">{item.label}</span>
-                      {item.soon && <span className="text-xs text-fg-subtle">Not available yet</span>}
                     </Command.Item>
                   );
                 })}
@@ -58,6 +57,7 @@ export function CommandMenu({ open, onOpenChange, workspace, workspaces, role }:
                 <Command.Item value="Sign out" onSelect={async () => { onOpenChange(false); await authClient.signOut(); router.replace("/login"); }} className={itemCls}><LogOut /><span>Sign out</span></Command.Item>
               </Command.Group>
             </Command.List>
+            <div className="flex items-center gap-3 border-t border-line px-3 py-2 text-xs text-fg-subtle"><span><Kbd>↑</Kbd> <Kbd>↓</Kbd> to move</span><span><Kbd>Enter</Kbd> to open</span></div>
           </Command>
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>

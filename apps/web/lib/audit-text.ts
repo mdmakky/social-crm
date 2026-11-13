@@ -9,7 +9,10 @@ export function describeAudit(e: Pick<AuditEntry, "action" | "actorName" | "summ
   const s = e.summary;
   switch (e.action) {
     case "workspace.created": return `${who} created the workspace`;
-    case "workspace.updated": return `${who} updated workspace settings`;
+    case "workspace.updated": {
+      const parts = [s.name !== undefined ? "name" : "", s.timezone !== undefined ? "time zone" : ""].filter(Boolean);
+      return `${who} updated the workspace ${parts.join(" and ") || "settings"}`;
+    }
     case "member.role_changed": return `${who} changed ${str(s.name) || "a member"}'s role from ${ROLE[str(s.from)] ?? str(s.from)} to ${ROLE[str(s.to)] ?? str(s.to)}`;
     case "member.removed": return `${who} removed ${str(s.name) || "a member"} from the workspace`;
     default: return `${who}: ${e.action}`;

@@ -26,7 +26,8 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
-    "bundle:android": "expo export --platform android --output-dir .expo-export"
+    "bundle:android": "expo export --platform android --output-dir .expo-export",
+    "lint": "eslint ."
   },
   "private": true
 }

@@ -9,8 +9,8 @@ export type NavItem = {
   /** Path segment under /w/{id}. Omitted items are not built yet. */
   path?: string;
   requires?: Action;
-  /** Present when the feature is planned but not built: shown disabled with the reason. */
-  soon?: string;
+  /** Planned but not built. Listed under "Coming soon" as plain text, never as a link. */
+  soon?: true;
 };
 export type NavGroup = { label?: string; items: NavItem[] };
 
@@ -19,23 +19,23 @@ export const NAV: NavGroup[] = [
   {
     label: "Customers",
     items: [
-      { key: "inbox", label: "Inbox", icon: Inbox, soon: "Unified inbox arrives with Meta messaging (Phases 3 and 4)." },
-      { key: "contacts", label: "Contacts", icon: Contact, soon: "Contacts arrive in Phase 2." },
-      { key: "leads", label: "Leads", icon: BarChart3, soon: "Leads arrive in Phase 2." },
-      { key: "pipeline", label: "Pipeline", icon: Kanban, soon: "The pipeline board arrives in Phase 2." },
+      { key: "inbox", label: "Inbox", icon: Inbox, soon: true },
+      { key: "contacts", label: "Contacts", icon: Contact, soon: true },
+      { key: "leads", label: "Leads", icon: BarChart3, soon: true },
+      { key: "pipeline", label: "Pipeline", icon: Kanban, soon: true },
     ],
   },
   {
     label: "Automate",
     items: [
-      { key: "automation", label: "Automation", icon: Workflow, requires: "workflow.manage", soon: "Workflows arrive in Phase 5." },
-      { key: "ai", label: "AI assistant", icon: Bot, requires: "ai.use", soon: "AI features arrive in Phase 6." },
+      { key: "automation", label: "Automation", icon: Workflow, requires: "workflow.manage", soon: true },
+      { key: "ai", label: "AI assistant", icon: Bot, requires: "ai.use", soon: true },
     ],
   },
   {
     label: "Workspace",
     items: [
-      { key: "integrations", label: "Integrations", icon: Plug, requires: "integration.view", soon: "Meta integration arrives in Phase 3." },
+      { key: "integrations", label: "Integrations", icon: Plug, requires: "integration.view", soon: true },
       { key: "members", label: "Members", icon: Users, path: "members" },
       { key: "audit", label: "Audit log", icon: ScrollText, path: "audit-log", requires: "audit.view" },
       { key: "settings", label: "Settings", icon: Settings, path: "settings" },
@@ -43,10 +43,18 @@ export const NAV: NavGroup[] = [
   },
 ];
 
+const allowed = (role: Role, i: NavItem) => !i.requires || can(role, i.requires, {});
+
 /** Navigation is permission-aware: items the role cannot use are not shown at all. */
 export function visibleNav(role: Role): NavGroup[] {
-  return NAV.map((g) => ({ ...g, items: g.items.filter((i) => !i.requires || can(role, i.requires, {})) })).filter((g) => g.items.length > 0);
+  return NAV.map((g) => ({ ...g, items: g.items.filter((i) => allowed(role, i)) })).filter((g) => g.items.length > 0);
 }
+/** Built features the role can use, grouped. */
+export function builtNav(role: Role): NavGroup[] {
+  return visibleNav(role).map((g) => ({ ...g, items: g.items.filter((i) => !i.soon) })).filter((g) => g.items.length > 0);
+}
+/** Planned features the role would be able to use. */
+export const plannedItems = (role: Role): NavItem[] => visibleNav(role).flatMap((g) => g.items.filter((i) => i.soon));
 
 export const href = (workspaceId: string, item: NavItem) => `/w/${workspaceId}${item.path ? `/${item.path}` : ""}`;
 export const titleFor = (pathname: string, workspaceId: string): string => {

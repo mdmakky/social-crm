@@ -30,7 +30,11 @@ export function AuthForm({ mode, next }: { mode: "login" | "register"; next: str
     else if (register && password.length < MIN) next_.password = `Use at least ${MIN} characters.`;
     setErrors(next_);
     setFormError(null);
-    if (Object.keys(next_).length) return;
+    const firstInvalid = (["name", "email", "password"] as const).find((k) => next_[k]);
+    if (firstInvalid) {
+      e.currentTarget.querySelector<HTMLInputElement>(`[name="${firstInvalid}"]`)?.focus();
+      return;
+    }
 
     setBusy(true);
     const res = register ? await authClient.signUp.email({ name, email, password }) : await authClient.signIn.email({ email, password });
@@ -55,7 +59,7 @@ export function AuthForm({ mode, next }: { mode: "login" | "register"; next: str
   return (
     <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
       <div>
-        <h1 className="text-lg font-semibold tracking-[-0.01em] text-fg">{register ? "Create your account" : "Sign in"}</h1>
+        <h1 className="text-lg font-semibold tracking-title text-fg">{register ? "Create your account" : "Sign in"}</h1>
         <p className="mt-0.5 text-sm text-fg-muted">{register ? "Start with a workspace for your business." : "Welcome back. Pick up your conversations."}</p>
       </div>
       {formError && <Alert tone="error">{formError}</Alert>}
