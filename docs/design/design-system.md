@@ -24,3 +24,18 @@ Each component documents states (default, hover, focus, active, disabled, loadin
 
 ## Review process
 After each UI phase: screenshots at desktop and mobile widths, comparison against the references, an independent strict critique agent, and a fix pass. Findings are logged in `docs/project/testing-report.md`.
+
+## As built in Phase 1 (2026-11-13)
+
+Source of truth: `packages/design-tokens/src/tokens.ts`; generated CSS in `dist/tokens.css`; mapped to Tailwind utilities in `apps/web/app/globals.css`. This section supersedes the direction text above where they differ.
+
+- **Color:** soft neutral canvas `#F6F7F9`, white surfaces, borders `#E3E6EB`/`#CBD0D9`, charcoal text `#16181D` (secondary `#454B58`, tertiary `#596070`), single indigo accent `#4F46E5` (hover `#4239C9`, subtle `#F1F2FF`). Semantic success, warning and danger backgrounds and foregrounds. The raw Tailwind palette is disabled (`--color-*: initial`), so only tokens are usable. 42 contrast assertions run for light and dark themes.
+- **Type:** Inter variable. Scale 11, 12, 13, 14 (body), 16, 20, 24 (page title), 28 (unused). Tight ratio, tabular numerals for dates. Letter-spacing token `tracking-title` on titles.
+- **Space and shape:** 4px base. Radii 4, 6, 8, 12. One shadow (popover). Borders do the separating.
+- **Layout:** sidebar 248px at lg and above; icon rail 56px at md; off-canvas drawer below md. Topbar 52px with search (left) and account (right). Content max 1120px on a canvas background with white panels.
+- **Density:** controls 32px on fine pointers and 44px on coarse pointers (`pointer-coarse:`); inputs use 16px text on touch. Table rows carrying a two-line identity (name plus email) are about 61px, an accepted exception to the 40px default.
+- **Components** (`apps/web/components/ui`): Button (primary, secondary, ghost, danger; sm, md, lg; icon; loading), Input, Select, Field (label, hint, error wiring), Badge, Avatar (initials drawn with CSS), Skeleton, EmptyState, ErrorState, Alert, Panel, PageHeader, Table, Tooltip, DropdownMenu, Dialog (focuses the first field), Kbd. Shell: AppShell, SidebarNav, WorkspaceSwitcher, CommandMenu (cmdk), UserMenu.
+- **Navigation policy:** built features are links; planned features are plain text under one collapsed "Coming soon" group; everything is filtered by role. No internal phase language in the product.
+- **Browser surfaces themed:** selection, caret, `accent-color`, scrollbars, focus ring (in `@layer base`), autofill, placeholder, theme-color, SVG favicon.
+- **States:** hover, focus, active, disabled, loading on buttons; error and success alerts; skeletons for the default, Home and Settings routes; empty and forbidden states; route error boundary.
+- **Not done:** dark theme switch, density modes beyond the table exception, mobile (React Native) components.

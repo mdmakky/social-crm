@@ -204,3 +204,28 @@ Overall: the shell is clean and restrained, but it reads as a competent shadcn d
 2. B2 plus M1 plus M3 (nav honesty, one decision that resolves three findings).
 3. M4 (type scale and topbar), M5, M6, M7, M10, M12.
 4. Everything else as polish before Phase 2 builds list views on this table and shell.
+
+## Resolution status (2026-11-13, after the fix pass)
+
+| Finding | Status | What was done or why deferred |
+|---|---|---|
+| B1 focus rules outside a layer | Fixed | Base rules moved into `@layer base`; radius removed. |
+| B2 7 of 11 nav items disabled, roadmap language visible | Fixed | Only built features are links. Planned features sit in one collapsed "Coming soon" disclosure as plain text, filtered by permission. No phase numbers or tooltips anywhere in the product (an e2e test asserts no "Phase N" text). Home checklist says "Coming soon". |
+| M1 focusable disabled links, tooltip-only reasons, low contrast | Fixed | Removed with B2. |
+| M2 drawer stays open across the md breakpoint | Fixed | `matchMedia` listener closes it. Not covered by an automated resize test yet. |
+| M3 command menu led by disabled rows | Fixed | Only built destinations; footer hint row added. |
+| M4 flat type hierarchy, duplicated topbar title | Fixed | Page title is 24px; the topbar shows search (left) and the account (right), and the workspace name on mobile only. Panel titles stay 14px. 28px token remains unused and is kept for future screens. |
+| M5 members row wrapping and hover | Fixed | Dates are no-wrap; row hover uses a visible token. Row height stays near 61px because rows carry a two-line identity; the design system documents this exception. Seeded emails are test fixtures only. |
+| M6 dialog focus and unexplained disabled Save | Fixed | Focus goes to the first field; the hint explains "This is their current role". |
+| M7 auth: focus first invalid field, onboarding dead end | Partly fixed | First invalid field is focused; onboarding has Sign out. **Forgot-password link is still absent**: password reset needs the Mailer wired to a provider (decision D22 deferred). |
+| M8 input font size triggers iOS zoom | Fixed for touch | Inputs use 16px on coarse pointers. Not verified on a real iOS device. |
+| M9 one skeleton for all routes, missing theme-color/favicon/autofill/accent-color | Fixed | Home and Settings have their own skeletons; theme-color, SVG icon, autofill and `accent-color` added. |
+| M10 dark mode not driven | Deferred by design | Dark tokens exist and pass contrast tests; no switch is exposed (user: light-first, dark not a priority). |
+| M12 token bypasses | Mostly fixed | Select chevron is now an icon using a token color; letter-spacing is a token. Remaining arbitrary values (`w-[min(300px,85vw)]`, `top-[12vh]`) are one-off layout constants. Raw hex in the dark block of `tokens.ts` is the token source itself. |
+| Minor: `Ctrl K` hard-coded | Fixed | Platform-aware. |
+| Minor: icon+lg button, danger hover | Fixed | Compound variant added; danger hover uses a token. |
+| Minor: Recent activity panel stretching | Fixed | Grid aligns items to start. |
+| Minor: audit log lacks what changed | Partly fixed | Workspace updates say which field changed. Before/after values are not stored. |
+| Minor: logo and workspace switcher stack | Deferred | Acceptable for the shell; revisit when the inbox layout is designed. |
+| Minor: 768 rail is icon-only with tooltip labels | Deferred | Labels are reachable by keyboard focus and by accessible name; decision to keep the rail at tablet width stands until the inbox layout needs the space. |
+| No second independent review after the fixes | Open | The fixes were verified by the automated suite and by viewing screenshots, not by a second critique agent. |

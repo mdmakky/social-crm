@@ -37,3 +37,12 @@ Approval record: decisions above marked Approved or Deferred were given by the u
 
 ## Spike outcomes (2026-11-13)
 D1, D2, D4, D6, D7 (stack): verified by the spike on the server side; see `spike-report.md`. D6: Better Auth issues no rotating refresh token, so D27 (sliding session expiry with server revocation) is confirmed. Mobile run on a device is still unverified. User decision 2026-11-13: web work comes first; mobile device verification is deferred.
+
+## Phase 1 web decisions (2026-11-13)
+| # | Decision | Status | Reason |
+|---|---|---|---|
+| D29 | The web app proxies `/api/auth/*` and `/v1/*` to the API (same origin) | Implemented | Keeps session cookies first-party and avoids CORS; the API still enforces an Origin allowlist. |
+| D30 | Unbuilt features are not links. They appear once, as plain text under "Coming soon", filtered by permission, with no internal phase language | Implemented | Independent design critique B2; avoids dead controls and roadmap leakage. |
+| D31 | Design tokens are authored in TypeScript (`packages/design-tokens/src/tokens.ts`) and generated to CSS; no Style Dictionary | Implemented | Smallest thing that works for one platform; a React Native output can be added later from the same source. |
+| D32 | RLS pattern: `app_user_id()` and `app_workspace_id()` session settings per transaction; membership writes restricted to owners/admins in the database; audit log append-only for every role | Implemented | Defense in depth with the application permission matrix. |
+| D33 | TypeScript is 5.9.x in packages and ~6.0.3 in the mobile app (Expo template); TS 7 not adopted | Open | Align deliberately when tooling support is confirmed. |

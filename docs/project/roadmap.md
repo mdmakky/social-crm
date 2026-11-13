@@ -77,3 +77,25 @@ Full security audit (cso, security-review, code-review), tenant isolation, API a
 **Phase 6b reference fix.** The phase gate refers to this roadmap and `capi-architecture.md`, not to an external brief. Gate list: payload validation, hashing vectors, event id stability, deduplication, retry and batch bisection, invalid credentials, API errors, workspace isolation, consent re-check at send time, one real Test Events delivery or the status "mock only".
 
 **Phase 8 exit criteria.** Zero open critical or high findings; restore drill passed; tenant leak suite green for every table; Lighthouse thresholds met on named screens; Android E2E suite green on emulator.
+
+## Phase 1 status (2026-11-13)
+
+Phase 1 is **not complete**. Web foundation items pass; mobile and a few cross-cutting items are open. Status of the original acceptance items, plus items added by the web shell scope:
+
+| # | Acceptance item | Status | Evidence or gap |
+|---|---|---|---|
+| 1 | Typecheck, lint, test pass from a clean checkout | Met (locally) | `pnpm exec turbo run lint typecheck test --force`: 19 of 19 tasks green. No hosted CI exists yet; this is a local run. |
+| 2 | Register, login, logout work on web and on an Android emulator against the same API | **Open** | Web: 9 e2e tests pass. Android emulator run deferred by the user; SDK and AVD are installed but the app has not been run. |
+| 3 | RLS suite: workspace A gets 0 rows from workspace B on every tenant table | Met | 19 db tests including a CI check that every non-auth table has RLS enabled, forced, a policy and `workspace_id`. Covers `workspaces`, `memberships`, `audit_log`; new tables must pass the same check. |
+| 4 | Mobile token stored in secure storage, none in AsyncStorage | **Open** | Code uses expo-secure-store and the bundle compiles; runtime verification not done. |
+| 5 | Generated API client used by both apps | **Not met** | Both apps share Zod schemas from `@crm/contracts`; OpenAPI generation and a generated client were not built. Decision needed: keep shared Zod and a thin typed fetch wrapper, or generate. |
+| 6 | Shell screens render with loading, empty and error states at 375, 768, 1440 | Partly met | Screens verified at all three widths. Error boundaries, route skeletons and empty/forbidden states exist; only some are exercised by tests (forbidden audit log, forbidden activity, not-found). Route skeletons and the error boundary have no automated test. |
+| 7 | axe: no serious violations on shell and auth pages | Met | Zero violations (WCAG 2.2 AA tags) on login, register, onboarding, home, members, audit, settings at 3 sizes, the mobile drawer, command menu and role dialog. axe does not prove full accessibility; keyboard checks cover skip link, command menu and dialogs only. |
+| 8 | Design critique findings addressed | Met with deferrals | See `docs/design/critique-phase1-shell.md` resolution table. No second review after fixes. |
+| 9 | Contrast checks for tokens pass in CI | Met (locally) | 42 contrast tests, light and dark. |
+| 10 | iOS | Not a gate | Untested. |
+| 11 | Workspace and membership foundation, audit log, tenant-table check | Met | API: 16 workspace tests; 9 permission tests. |
+| 12 | Mailer and BlobStore interfaces | Met | Contract tests for MemoryMailer and FsBlobStore (traversal-safe). No production provider (D22 deferred). |
+| 13 | Permission-aware navigation | Met | Unit tests per role and e2e tests for owner, admin, agent, viewer. |
+| 14 | Forgot-password flow | **Not built** | Needs Mailer wired to a provider. |
+| 15 | Responsive: drawer at 375, rail at 768, full sidebar at 1440 | Met | e2e assertions plus screenshots in `docs/design/screenshots/phase1-shell/`. |

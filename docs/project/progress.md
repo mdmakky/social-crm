@@ -25,3 +25,7 @@ Feature completeness audit written. Independent review run (`phase0-review.md`) 
 
 ## Update 2026-11-13: Phase 1 started (stack spike)
 Spike tasks 1 to 5 and 7 passed; task 6 (Android emulator run) deferred by the user so that web work comes first. See `spike-report.md`. Git: local repository initialized, commits authored as the user's GitHub noreply identity; no remote configured yet. Phase 1 is not complete: web shell, design system, auth UI, workspace foundation, and mobile run items remain.
+
+## Update 2026-11-13: Phase 1 web shell built, Phase 1 not complete
+Built and verified: workspaces, memberships, append-only audit log with forced RLS; permission matrix; Mailer and BlobStore ports; design tokens with contrast tests; component library; responsive Next.js shell; login, register, onboarding, Home, Members, Audit log, Settings; permission-aware navigation; ESLint. Local results: lint, typecheck and unit/integration 19 of 19 turbo tasks; 19 Playwright tests; axe clean. An independent design critique found 2 blockers and about 10 majors; they were fixed or explicitly deferred (`docs/design/critique-phase1-shell.md`).
+Open before Phase 1 can close: Android emulator login and SecureStore verification (deferred by the user), generated API client decision, forgot-password, second design review. Phase 2 has not been started.
