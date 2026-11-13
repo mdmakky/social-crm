@@ -12,6 +12,7 @@ import type { SearchProvider } from "../search/types.ts"; // track:search
 // --- track:tasks ---
 import { taskRoutes } from "./tasks.ts";
 import { importRoutes, type ImportHooks } from "./imports.ts";
+import { notificationRoutes } from "./notifications.ts"; // track:notifications
 
 export type Vars = { userId: string; requestId: string };
 type Ctx = Context<{ Variables: Vars }>;
@@ -174,6 +175,7 @@ export function workspaceRoutes(db: Db, hooks: { import?: ImportHooks; extraSear
   scoped.route("/", searchRoutes(db, hooks.extraSearchProviders)); // track:search
   // --- track:tasks ---
   scoped.route("/", taskRoutes(db));
+  scoped.route("/", notificationRoutes(db)); // track:notifications
   r.route("/:id", scoped as unknown as Hono<{ Variables: Vars }>);
   return r;
 }

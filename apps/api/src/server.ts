@@ -4,6 +4,8 @@ import { FileMailer } from "@crm/core";
 import { createDb } from "@crm/db";
 import { createAuth } from "./auth.ts";
 import { createApp } from "./app.ts";
+import { startDispatcher } from "./events.ts";
+import { notificationsConsumer } from "./notifications/index.ts";
 
 const env = z
   .object({
@@ -14,6 +16,8 @@ const env = z
     PORT: z.coerce.number().default(8787),
     NODE_ENV: z.string().default("development"),
     MAIL_DIR: z.string().default(".dev-mail"),
+    EVENT_DISPATCH_INTERVAL_MS: z.coerce.number().default(1000),
+    EVENT_RETENTION_DAYS: z.coerce.number().default(30),
   })
   .parse(process.env);
 
@@ -25,5 +29,10 @@ const mailer = new FileMailer(env.MAIL_DIR);
 const origins = [env.WEB_ORIGIN, "crm://"];
 const db = createDb(env.DATABASE_URL_APP);
 const auth = createAuth(db, { secret: env.BETTER_AUTH_SECRET, baseURL: env.BETTER_AUTH_URL, trustedOrigins: origins, mailer });
-serve({ fetch: createApp(auth, { allowedOrigins: origins, db }).fetch, port: env.PORT });
+const server = serve({ fetch: createApp(auth, { allowedOrigins: origins, db }).fetch, port: env.PORT });
+// In-process event relay (decision D7: moves to a pg-boss worker app later; dispatchPending is the unit of work).
+const dispatcher = startDispatcher(db, { consumers: [notificationsConsumer], intervalMs: env.EVENT_DISPATCH_INTERVAL_MS, retentionDays: env.EVENT_RETENTION_DAYS });
+for (const sig of ["SIGINT", "SIGTERM"] as const) {
+  process.once(sig, () => void dispatcher.stop().then(() => server.close(() => process.exit(0))));
+}
 console.log(`api listening on :${env.PORT}`);

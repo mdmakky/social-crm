@@ -5,7 +5,7 @@ import { cn } from "@/lib/cn";
 
 export function SettingsTabs({ workspaceId }: { workspaceId: string }) {
   const pathname = usePathname();
-  const tabs = [{ href: `/w/${workspaceId}/settings`, label: "General" }, { href: `/w/${workspaceId}/settings/contacts`, label: "Contacts" }];
+  const tabs = [{ href: `/w/${workspaceId}/settings`, label: "General" }, { href: `/w/${workspaceId}/settings/contacts`, label: "Contacts" }, { href: `/w/${workspaceId}/settings/notifications`, label: "Notifications" }];
   return (
     <nav aria-label="Settings sections" className="mb-5 flex gap-1 border-b border-line">
       {tabs.map((t) => {
