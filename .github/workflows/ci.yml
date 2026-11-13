@@ -1,0 +1,32 @@
+name: ci
+on:
+  pull_request:
+  push:
+  workflow_call:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:18 # the tests expect the database on 127.0.0.1:5436 (see apps/api/test/harness.ts)
+        env: { POSTGRES_USER: postgres, POSTGRES_PASSWORD: postgres, POSTGRES_DB: crm }
+        ports: ["5436:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres -d crm" --health-interval 3s --health-timeout 3s --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - run: corepack enable
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # Roles and grants: the same script as local development (dev passwords are fine, the container is thrown away).
+      - run: PGPASSWORD=postgres psql -h 127.0.0.1 -p 5436 -U postgres -d crm -v ON_ERROR_STOP=1 -q -f packages/db/sql/001_roles_and_probe.sql
+      - run: pnpm --filter @crm/db migrate
+        env:
+          DATABASE_URL_MIGRATOR: postgres://crm_migrator:migrator_dev@127.0.0.1:5436/crm
+      - run: pnpm exec turbo run lint typecheck test
+      # Playwright (e2e) is NOT part of CI yet: it needs a fresh database per run and a Next build (see docs/project/testing-report.md).

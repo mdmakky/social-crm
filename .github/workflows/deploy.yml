@@ -1,0 +1,44 @@
+# Push to main: test, migrate the production database, then trigger the Render deploy of the API.
+# The web app is deployed by Vercel's own GitHub integration (no step here).
+# Migrations are FORWARD ONLY: never edit a migration that was already applied; add a new one.
+name: deploy
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production # two pushes must never migrate at the same time
+  cancel-in-progress: false
+
+jobs:
+  test:
+    uses: ./.github/workflows/ci.yml
+
+  migrate:
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # environment: production   # optional: add required reviewers in the repo settings to approve each migration
+    steps:
+      - uses: actions/checkout@v4
+      - run: corepack enable
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Apply migrations
+        run: pnpm --filter @crm/db migrate
+        env:
+          DATABASE_URL_MIGRATOR: ${{ secrets.DATABASE_URL_MIGRATOR }} # secret: never echo it
+
+  deploy-api:
+    needs: migrate
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Trigger the Render deploy hook
+        run: curl -fsS -X POST "$RENDER_DEPLOY_HOOK_URL" > /dev/null # output hidden: the URL contains a key
+        env:
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}

@@ -1,0 +1,50 @@
+# Render Blueprint: ONE free web service that runs the API and the in-process workers (webhook ingress, inbox worker, event dispatcher).
+# autoDeploy is OFF on purpose: .github/workflows/deploy.yml runs the database migrations first and then calls this service's Deploy Hook.
+# Secrets are NOT stored here (sync: false): set them in the Render dashboard. See docs/deploy/free-tier.md.
+services:
+  - type: web
+    name: social-crm-api
+    runtime: node
+    plan: free
+    numInstances: 1 # ponytail: in-memory OAuth pending store and rate limits break with 2+ instances
+    buildCommand: corepack enable && pnpm install --frozen-lockfile
+    startCommand: pnpm --filter @crm/api exec tsx src/server.ts
+    healthCheckPath: /health
+    autoDeploy: false
+    envVars:
+      # not secret
+      - key: NODE_VERSION
+        value: "24" # UNVERIFIED that Render reads this variable; the doc says how to confirm
+      - key: NODE_ENV
+        value: staging # NOT production: apps/api/src/server.ts refuses NODE_ENV=production until a real mail provider exists (D22)
+      - key: INBOX_WORKER_INTERVAL_MS
+        value: "900000" # 15 min fallback poll; keeps the database idle so Neon can scale to zero
+      - key: META_GRAPH_VERSION
+        value: v25.0
+      # secrets and per-environment URLs: set in the dashboard
+      - key: DATABASE_URL_APP
+        sync: false
+      - key: DATABASE_URL_INGEST
+        sync: false
+      - key: DATABASE_URL_WORKER
+        sync: false
+      - key: BETTER_AUTH_SECRET
+        sync: false
+      - key: BETTER_AUTH_URL
+        sync: false # the API's own public URL (https://<service>.onrender.com)
+      - key: WEB_ORIGIN
+        sync: false # the web app's public URL (Vercel)
+      - key: META_APP_ID
+        sync: false
+      - key: META_APP_SECRET
+        sync: false
+      - key: META_VERIFY_TOKEN
+        sync: false
+      - key: META_FLFB_CONFIG_ID
+        sync: false
+      - key: SECRETS_ENCRYPTION_KEY
+        sync: false
+      - key: META_PUBLIC_BASE_URL
+        sync: false # same as BETTER_AUTH_URL
+      - key: META_OAUTH_REDIRECT_URI
+        sync: false # https://<web-url>/v1/integrations/meta/callback (the web app proxies /v1 to the API)
