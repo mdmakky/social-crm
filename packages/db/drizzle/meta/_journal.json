@@ -134,6 +134,13 @@
       "when": 1794576924276,
       "tag": "0018_inbox_rls",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1794577821691,
+      "tag": "0019_inbox_worker_contacts",
+      "breakpoints": true
     }
   ]
 }

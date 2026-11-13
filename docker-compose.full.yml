@@ -1,0 +1,39 @@
+# Whole stack on any machine with Docker:   docker compose -f docker-compose.full.yml up --build
+# Web: http://localhost:3000   API: http://localhost:8787   (development settings, dev passwords, not for the internet)
+services:
+  db:
+    image: postgres:18
+    environment: { POSTGRES_USER: postgres, POSTGRES_PASSWORD: postgres, POSTGRES_DB: crm }
+    volumes:
+      - pgdata:/var/lib/postgresql
+      - ./packages/db/sql/001_roles_and_probe.sql:/docker-entrypoint-initdb.d/001_roles.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d crm"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+  migrate:
+    build: .
+    depends_on: { db: { condition: service_healthy } }
+    environment:
+      DATABASE_URL_MIGRATOR: postgres://crm_migrator:migrator_dev@db:5432/crm
+    command: pnpm --filter @crm/db migrate
+  api:
+    build: .
+    depends_on: { migrate: { condition: service_completed_successfully } }
+    environment:
+      DATABASE_URL_APP: postgres://crm_app:app_dev@db:5432/crm
+      BETTER_AUTH_SECRET: docker-dev-secret-change-me-0123456789abcdef
+      BETTER_AUTH_URL: http://localhost:8787
+      WEB_ORIGIN: http://localhost:3000
+    ports: ["8787:8787"]
+    command: pnpm --filter @crm/api exec tsx src/server.ts
+  web:
+    build: .
+    depends_on: [api]
+    environment:
+      API_URL: http://api:8787
+    ports: ["3000:3000"]
+    command: pnpm --filter @crm/web dev
+volumes:
+  pgdata:

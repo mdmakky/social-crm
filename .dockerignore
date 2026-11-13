@@ -1,0 +1,11 @@
+node_modules
+**/node_modules
+.next
+**/.next
+.git
+.claude
+.env
+.dev-mail
+apps/mobile
+**/test-results
+**/playwright-report

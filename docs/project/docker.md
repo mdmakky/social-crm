@@ -1,0 +1,2 @@
+# Running the whole stack with Docker (development)
+`docker compose -f docker-compose.full.yml up --build` starts Postgres 18 (roles created from `packages/db/sql/001_roles_and_probe.sql`), runs the migrations, then the API (:8787) and web (:3000). Dev passwords only; not for the internet. **Status: files written, image build and first start NOT yet verified.** The Meta webhook and worker stay off unless the `DATABASE_URL_INGEST`, `DATABASE_URL_WORKER`, `META_*` variables are added to the `api` service.
