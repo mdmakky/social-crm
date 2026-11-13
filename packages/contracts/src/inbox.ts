@@ -4,6 +4,8 @@ import { endpoint } from "./endpoint.ts";
 const W = "/v1/workspaces/:workspaceId";
 const Uuid = z.string().uuid();
 
+/** Messenger fields requested when a Page is connected (docs/integrations/meta-api-verification-2026-11.md C4). Instagram fields cannot be set through the API. */
+export const MESSENGER_WEBHOOK_FIELDS = ["messages", "message_echoes", "messaging_postbacks", "message_reads", "message_deliveries"] as const;
 export const InboxPlatform = z.enum(["messenger", "instagram"]);
 export const IntegrationStatus = z.enum(["connected", "reauth_required", "disabled"]);
 export const SubscriptionState = z.enum(["subscribed", "failed", "dashboard_required"]);
@@ -38,6 +40,9 @@ export const ConnectedAccount = z.object({ account: IntegrationAccountDto, subsc
 export const ConnectMetaResult = z.object({ accounts: z.array(ConnectedAccount) });
 export type ConnectMetaResult = z.infer<typeof ConnectMetaResult>;
 
+export const MetaAccountEvent = z.object({ id: Uuid, kind: z.string(), summary: z.string(), createdAt: z.string() });
+export const MetaAccountEvents = z.object({ items: z.array(MetaAccountEvent) });
+export type MetaAccountEvents = z.infer<typeof MetaAccountEvents>;
 export const SubscribeResult = z.object({ subscription: SubscriptionState });
 export const MetaCallbackQuery = z.object({ code: z.string().max(2000).optional(), state: z.string().max(2000).optional(), error: z.string().max(100).optional(), error_reason: z.string().max(100).optional() });
 
@@ -48,6 +53,8 @@ export const inboxEndpoints = {
   connectMetaPage: endpoint({ method: "POST", path: `${W}/integrations/meta/connect`, body: ConnectMetaBody, response: ConnectMetaResult }),
   disconnectMetaAccount: endpoint({ method: "POST", path: `${W}/integrations/meta/accounts/:accountId/disconnect`, response: z.object({ ok: z.literal(true) }) }),
   checkMetaAccountToken: endpoint({ method: "POST", path: `${W}/integrations/meta/accounts/:accountId/check-token`, response: IntegrationAccountDto }),
+  /** Last 10 connection events of one account, as plain-language summaries (never raw event data). Owner/admin only. */
+  listMetaAccountEvents: endpoint({ method: "GET", path: `${W}/integrations/meta/accounts/:accountId/events`, response: MetaAccountEvents }),
   resubscribeMetaAccount: endpoint({ method: "POST", path: `${W}/integrations/meta/accounts/:accountId/resubscribe`, response: SubscribeResult }),
   /** Browser redirect target after the Meta dialog; answers with a 302 to the web app, never JSON. Declared so the drift guard knows the route. */
   metaOAuthCallback: endpoint({ method: "GET", path: "/v1/integrations/meta/callback", query: MetaCallbackQuery, response: z.undefined() }),

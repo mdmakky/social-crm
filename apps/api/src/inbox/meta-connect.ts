@@ -2,7 +2,7 @@ import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { Hono } from "hono";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { and, eq, sql } from "drizzle-orm";
-import { ConnectMetaBody, MetaCallbackQuery, type ConnectMetaResult, type IntegrationAccountDto } from "@crm/contracts";
+import { ConnectMetaBody, MESSENGER_WEBHOOK_FIELDS, MetaCallbackQuery, type ConnectMetaResult, type IntegrationAccountDto } from "@crm/contracts";
 import { can } from "@crm/core/permissions";
 import { schema, withContext, type Db, type Tx } from "@crm/db";
 import { GraphError, type GraphPage, type MetaGraph, type SecretBox } from "@crm/integrations";
@@ -11,7 +11,7 @@ import { actor, body, fail, wctx, type SC, type ScopedEnv } from "../routes/scop
 import type { Vars } from "../routes/workspaces.ts";
 
 /** Messenger subscription fields (docs/integrations/meta-api-verification-2026-11.md C4). Instagram fields cannot be set through the API (docs): the app dashboard does it. */
-export const MESSENGER_FIELDS = ["messages", "message_echoes", "messaging_postbacks", "message_reads", "message_deliveries"];
+export const MESSENGER_FIELDS: string[] = [...MESSENGER_WEBHOOK_FIELDS];
 /** Task a person needs on the Page to send as the Page (Meta Pages API overview, "MESSAGING: Send messages as the Page"). Receiving is not documented as a task: UNVERIFIED. */
 export const REQUIRED_PAGE_TASK = "MESSAGING";
 const STATE_TTL_MS = 10 * 60_000;
@@ -269,6 +269,31 @@ function scopedRoutes(db: Db, deps: MetaConnectDeps | undefined, pending: Pendin
     if (!a) return fail(c, 404, "not_found");
     if (!(await checkAccountToken(deps, a.workspaceId, a.id, c.get("userId")))) return fail(c, 502, "meta_unavailable", "Meta could not be reached. Try again later.");
     return c.json(dto((await ownAccount(c, a.id))!));
+  });
+
+  /** Plain-language history of one account (decisions D-D: no tokens, no raw payloads; only what the event kinds mean). */
+  r.get("/integrations/meta/accounts/:accountId/events", async (c) => {
+    if (!may(c, "integration.manage")) return forbidden(c);
+    const a = await ownAccount(c, c.req.param("accountId") ?? "");
+    if (!a) return fail(c, 404, "not_found");
+    const rows = await withContext(db, wctx(c), (tx) => tx.select().from(schema.integrationEvents).where(and(eq(schema.integrationEvents.workspaceId, a.workspaceId), eq(schema.integrationEvents.integrationAccountId, a.id))).orderBy(sql`${schema.integrationEvents.createdAt} DESC, ${schema.integrationEvents.id} DESC`).limit(10));
+    const text = (kind: string, d: Record<string, unknown>): string => {
+      if (kind === "connected") return "Connected";
+      if (kind === "reconnected") return "Reconnected";
+      if (kind === "disconnected") return "Disconnected";
+      if (kind === "token_checked") return "Token checked: valid";
+      if (kind === "status_changed") {
+        if (d.subscription === "subscribed") return "Webhook subscribed";
+        if (d.subscription === "failed") return "Webhook subscription failed";
+        if (d.subscription === "dashboard_required") return "Webhook fields must be enabled in the Meta dashboard";
+        if (d.reason === "token_invalid" || d.reason === "token_missing") return "Token no longer valid: reconnect needed";
+        if (d.reason === "meta_deauthorized") return "Meta authorisation removed: reconnect needed";
+        if (d.reason === "meta_data_deletion") return "Disconnected after a Meta data deletion request";
+        return "Status changed";
+      }
+      return kind;
+    };
+    return c.json({ items: rows.map((e) => ({ id: e.id, kind: e.kind, summary: text(e.kind, (e.data ?? {}) as Record<string, unknown>), createdAt: e.createdAt.toISOString() })) });
   });
 
   r.post("/integrations/meta/accounts/:accountId/resubscribe", async (c) => {

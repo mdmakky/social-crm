@@ -338,3 +338,19 @@ describe("Page task validation and Meta user link", () => {
     expect((await q("SELECT connected_meta_user_hash AS h FROM integration_accounts WHERE external_account_id=$1", [p2.id]))[0].h).toBeNull();
   });
 });
+
+describe("account events", () => {
+  it("returns plain-language events for owner/admin only, newest first, scoped to the workspace, without raw data", async () => {
+    const p = page();
+    const id = (await (await connect(owner, ws, p)).json()).accounts[0].account.id as string;
+    const res = await call(owner, "GET", `${WP(ws)}/accounts/${id}/events`);
+    expect(res.status).toBe(200);
+    const { items } = await res.json();
+    expect(items.map((e: { summary: string }) => e.summary)).toEqual(["Webhook subscribed", "Connected"]);
+    expect(JSON.stringify(items)).not.toContain(p.accessToken);
+    expect((await call(agent, "GET", `${WP(ws)}/accounts/${id}/events`)).status).toBe(403);
+    expect((await call(other, "GET", `${WP(wsOther)}/accounts/${id}/events`)).status).toBe(404); // another workspace's account id
+    const r = await h.clientFor(owner).call(endpoints.listMetaAccountEvents, { params: { workspaceId: ws, accountId: id } });
+    expect(r.ok).toBe(true);
+  });
+});

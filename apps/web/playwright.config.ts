@@ -27,6 +27,8 @@ export default defineConfig({
         BETTER_AUTH_URL: WEB,
         WEB_ORIGIN: WEB,
         MAIL_DIR,
+        // Opt-in MOCK Meta (no Meta contact): lets the Integrations flow run end to end. Needs the worker role and a key; labelled mock in the UI.
+        ...(process.env.E2E_META_MOCK === "1" ? { DATABASE_URL_WORKER: "postgres://crm_worker:worker_dev@127.0.0.1:5436/" + (process.env.CRM_DB_NAME ?? "crm"), META_APP_SECRET: "e2e-mock-app-secret-0123456789", SECRETS_ENCRYPTION_KEY: Buffer.alloc(32, 9).toString("base64"), META_MOCK: "1" } : {}),
       },
     },
     {

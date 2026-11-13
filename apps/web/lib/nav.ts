@@ -38,7 +38,7 @@ export const NAV: NavGroup[] = [
   {
     label: "Workspace",
     items: [
-      { key: "integrations", label: "Integrations", icon: Plug, path: "settings/integrations", requires: "integration.view" },
+      { key: "integrations", label: "Integrations", icon: Plug, path: "integrations", requires: "integration.view" },
       { key: "members", label: "Members", icon: Users, path: "members" },
       { key: "audit", label: "Audit log", icon: ScrollText, path: "audit-log", requires: "audit.view" },
       { key: "settings", label: "Settings", icon: Settings, path: "settings" },
