@@ -137,6 +137,25 @@ describe("dispatchPending", () => {
     await new Promise((r) => setTimeout(r, 100));
     expect(c.seen.length).toBe(after); // stopped: nothing further is delivered
   });
+
+  it("while idle the dispatcher polls slowly, wake() delivers at once, and active polling stays fast", async () => {
+    const c = recorder(uniq());
+    let active = false;
+    const d = startDispatcher(h.db, { consumers: [c], intervalMs: 20, idleIntervalMs: 3_600_000, isActive: () => active, log: () => undefined });
+    let last = -1;
+    await expect.poll(async () => { const now = c.seen.length; const stable = now === last; last = now; await new Promise((r) => setTimeout(r, 250)); return stable; }, { timeout: 20_000 }).toBe(true); // first pass done
+    const before = c.seen.length;
+    await emit();
+    await new Promise((r) => setTimeout(r, 400));
+    expect(c.seen.length).toBe(before); // idle: the next poll is an hour away
+    d.wake();
+    await expect.poll(() => c.seen.length, { timeout: 10_000 }).toBeGreaterThan(before);
+    active = true;
+    const mid = c.seen.length;
+    await emit();
+    await expect.poll(() => c.seen.length, { timeout: 10_000 }).toBeGreaterThan(mid); // active again: fast polling
+    await d.stop();
+  });
 });
 
 describe("pruneEvents", () => {

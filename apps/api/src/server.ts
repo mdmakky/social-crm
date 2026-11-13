@@ -23,6 +23,7 @@ const env = z
     NODE_ENV: z.string().default("development"),
     MAIL_DIR: z.string().default(".dev-mail"),
     EVENT_DISPATCH_INTERVAL_MS: z.coerce.number().default(1000),
+    EVENT_DISPATCH_IDLE_INTERVAL_MS: z.coerce.number().default(600_000), // poll this slowly when nobody has used the API for ACTIVE_WINDOW_MS
     EVENT_RETENTION_DAYS: z.coerce.number().default(30),
     // Meta Inbox. The webhook is mounted only when all three are set; the worker only when DATABASE_URL_WORKER is set.
     DATABASE_URL_INGEST: z.string().url().optional(),
@@ -30,7 +31,7 @@ const env = z
     META_APP_SECRET: z.string().min(8).optional(),
     META_APP_SECRET_PREVIOUS: z.string().min(8).optional(),
     META_VERIFY_TOKEN: z.string().min(8).optional(),
-    INBOX_WORKER_INTERVAL_MS: z.coerce.number().default(1000),
+    INBOX_WORKER_INTERVAL_MS: z.coerce.number().default(900_000), // slow safety net: the worker is event driven (ingress signals it), so an idle database can sleep
     // Meta OAuth (Slice 3). Connect endpoints are live only when all of these are set (or META_MOCK=1 with the key and worker URL).
     META_APP_ID: z.string().regex(/^[0-9]{5,30}$/).optional(),
     META_FLFB_CONFIG_ID: z.string().regex(/^[0-9]{5,30}$/).optional(),
@@ -67,18 +68,35 @@ if (workerDb && env.SECRETS_ENCRYPTION_KEY && env.META_APP_SECRET && ((env.META_
   };
   console.log(`meta connect enabled (${meta.mock ? "MOCK graph" : "real graph " + env.META_GRAPH_VERSION})`);
 }
+let inboxWorker: ReturnType<typeof startInboxWorker> | null = null; // assigned below; ingress signals it after it stores an event
 const app = createApp(auth, { allowedOrigins: origins, db, meta });
 if (meta && workerDb && env.META_APP_SECRET) {
   app.route("/meta/callbacks", metaUserCallbackRoutes({ appSecrets: [env.META_APP_SECRET, ...(env.META_APP_SECRET_PREVIOUS ? [env.META_APP_SECRET_PREVIOUS] : [])], workerDb, userHashKey: meta.userHashKey, statusKey: createHmac("sha256", env.META_APP_SECRET).update("crm-deletion-status-v1").digest(), publicBaseUrl: env.META_PUBLIC_BASE_URL }));
 }
 if (env.DATABASE_URL_INGEST && env.META_APP_SECRET && env.META_VERIFY_TOKEN) {
-  app.route("/webhooks/meta", metaWebhookRoutes({ appSecrets: [env.META_APP_SECRET, ...(env.META_APP_SECRET_PREVIOUS ? [env.META_APP_SECRET_PREVIOUS] : [])], verifyToken: env.META_VERIFY_TOKEN, ingestDb: createDb(env.DATABASE_URL_INGEST) }));
+  app.route("/webhooks/meta", metaWebhookRoutes({ appSecrets: [env.META_APP_SECRET, ...(env.META_APP_SECRET_PREVIOUS ? [env.META_APP_SECRET_PREVIOUS] : [])], verifyToken: env.META_VERIFY_TOKEN, ingestDb: createDb(env.DATABASE_URL_INGEST), onStored: () => void inboxWorker?.tick() }));
   console.log("meta webhook ingress mounted at /webhooks/meta/{messenger,instagram}");
 }
-const inboxWorker = workerDb ? startInboxWorker(workerDb, { intervalMs: env.INBOX_WORKER_INTERVAL_MS, periodic: meta ? { everyMs: 6 * 3_600_000, run: () => runTokenChecks(meta!) } : undefined, onError: (e) => console.error(JSON.stringify({ msg: "inbox worker error", error: (e as Error).name })) }) : null;
-const server = serve({ fetch: app.fetch, port: env.PORT });
+inboxWorker = workerDb ? startInboxWorker(workerDb, { intervalMs: env.INBOX_WORKER_INTERVAL_MS, periodic: meta ? { everyMs: 6 * 3_600_000, run: () => runTokenChecks(meta!) } : undefined, onError: (e) => console.error(JSON.stringify({ msg: "inbox worker error", error: (e as Error).name })) }) : null;
+// Activity tracking: any request except the health ping marks the system active. While idle the event dispatcher polls slowly (an idle free database can sleep) and wakes when a request arrives.
+const ACTIVE_WINDOW_MS = 120_000;
+let lastActivity = Date.now();
+let dispatcherRef: ReturnType<typeof startDispatcher> | null = null;
+const isActive = () => Date.now() - lastActivity < ACTIVE_WINDOW_MS;
+const server = serve({
+  fetch: (req, ...rest) => {
+    if (new URL(req.url).pathname !== "/health") {
+      const wasIdle = !isActive();
+      lastActivity = Date.now();
+      if (wasIdle) dispatcherRef?.wake();
+    }
+    return app.fetch(req, ...rest);
+  },
+  port: env.PORT,
+});
 // In-process event relay (decision D7: moves to a pg-boss worker app later; dispatchPending is the unit of work).
-const dispatcher = startDispatcher(db, { consumers: [notificationsConsumer], intervalMs: env.EVENT_DISPATCH_INTERVAL_MS, retentionDays: env.EVENT_RETENTION_DAYS });
+const dispatcher = startDispatcher(db, { consumers: [notificationsConsumer], intervalMs: env.EVENT_DISPATCH_INTERVAL_MS, idleIntervalMs: env.EVENT_DISPATCH_IDLE_INTERVAL_MS, isActive, retentionDays: env.EVENT_RETENTION_DAYS });
+dispatcherRef = dispatcher;
 for (const sig of ["SIGINT", "SIGTERM"] as const) {
   process.once(sig, () => void Promise.all([dispatcher.stop(), inboxWorker?.stop()]).then(() => server.close(() => process.exit(0))));
 }

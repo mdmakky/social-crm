@@ -96,13 +96,20 @@ export async function pruneEvents(db: Db, opts: { consumers: string[]; olderThan
  * In-process polling loop (decision D7: moves to a pg-boss worker app later; dispatchPending stays the unit of work).
  * Runs never overlap; stop() resolves after the in-flight run finishes.
  */
-export function startDispatcher(db: Db, opts: { consumers: Consumer[]; intervalMs?: number; retentionDays?: number; log?: (m: string, e?: unknown) => void }) {
+/**
+ * intervalMs is the poll interval while the system is active. With `isActive` + `idleIntervalMs` the loop slows down when nobody is using the API
+ * (a free hosted database can then go to sleep); `wake()` runs a pass at once when activity resumes.
+ */
+export function startDispatcher(db: Db, opts: { consumers: Consumer[]; intervalMs?: number; idleIntervalMs?: number; isActive?: () => boolean; retentionDays?: number; log?: (m: string, e?: unknown) => void }) {
   const log = opts.log ?? ((m, e) => console.error(m, e));
   let stopped = false;
   let timer: ReturnType<typeof setTimeout> | undefined;
   let inflight: Promise<void> = Promise.resolve();
   let lastPrune = 0;
+  let running = false;
+  const nextDelay = () => (opts.isActive && opts.idleIntervalMs !== undefined && !opts.isActive() ? opts.idleIntervalMs : opts.intervalMs ?? 1000);
   const tick = () => {
+    running = true;
     inflight = (async () => {
       try {
         const r = await dispatchPending(db, { consumers: opts.consumers });
@@ -114,11 +121,18 @@ export function startDispatcher(db: Db, opts: { consumers: Consumer[]; intervalM
       } catch (e) {
         log("dispatcher: run failed", e);
       }
-      if (!stopped) timer = setTimeout(tick, opts.intervalMs ?? 1000);
+      running = false;
+      if (!stopped) timer = setTimeout(tick, nextDelay());
     })();
   };
   tick();
   return {
+    /** Run a pass now (used when activity resumes after an idle period). No-op while a pass is running. */
+    wake() {
+      if (stopped || running) return;
+      if (timer) clearTimeout(timer);
+      tick();
+    },
     async stop() {
       stopped = true;
       if (timer) clearTimeout(timer);

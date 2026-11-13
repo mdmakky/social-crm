@@ -169,26 +169,34 @@ export async function purgeRawBodies(db: Db): Promise<number> {
 
 export type InboxWorker = { stop(): Promise<void>; tick(): Promise<void> };
 
-/** In-process loop (same pattern as the event dispatcher, decision D7). Purge runs at start and then every purgeEveryMs. */
+/** In-process worker (same pattern as the event dispatcher, decision D7). Event driven: ingress calls tick() after it stores an event; the interval is only a slow safety net (and keeps purge and token checks running). Purge runs at start and then every purgeEveryMs. */
 export function startInboxWorker(db: Db, opts: { intervalMs: number; purgeEveryMs?: number; onError?: (e: unknown) => void; periodic?: { everyMs: number; run: () => Promise<unknown> } }): InboxWorker {
   const purgeEvery = opts.purgeEveryMs ?? 6 * 3_600_000;
   let lastPurge = 0;
   let lastPeriodic = 0;
   let running: Promise<void> | null = null;
   let stopped = false;
-  const tick = async () => {
-    if (running) return running;
+  // tick() is also the "something was stored" signal (event driven): a request that arrives while a run is in progress sets `again`, so the event
+  // that was inserted just after the run's claim query is processed right after, not at the next interval (which can be minutes on a free database).
+  let again = false;
+  const BATCH = 50;
+  const tick = (): Promise<void> => {
+    if (running) { again = true; return running; }
     running = (async () => {
       try {
-        if (Date.now() - lastPurge >= purgeEvery) {
-          await purgeRawBodies(db);
-          lastPurge = Date.now();
-        }
-        if (opts.periodic && Date.now() - lastPeriodic >= opts.periodic.everyMs) {
-          lastPeriodic = Date.now();
-          await opts.periodic.run();
-        }
-        await processPending(db);
+        do {
+          again = false;
+          if (Date.now() - lastPurge >= purgeEvery) {
+            await purgeRawBodies(db);
+            lastPurge = Date.now();
+          }
+          if (opts.periodic && Date.now() - lastPeriodic >= opts.periodic.everyMs) {
+            lastPeriodic = Date.now();
+            await opts.periodic.run();
+          }
+          // drain a backlog in one go; failed events are not counted, so a failing event is retried at the next signal or interval, never in a hot loop
+          for (let r = await processPending(db, BATCH); r.processed + r.orphan >= BATCH && !stopped; r = await processPending(db, BATCH));
+        } while (again && !stopped);
       } catch (e) {
         opts.onError?.(e);
       } finally {

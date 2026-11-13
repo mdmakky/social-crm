@@ -3,7 +3,7 @@ import { Hono } from "hono";
 import { createDb, type Db } from "@crm/db";
 import { buildBatch, buildMessagePayload, mockSecret, signedFixture, signMetaBody } from "@crm/integrations";
 import { metaWebhookRoutes, MAX_WEBHOOK_BYTES, type IngressConfig } from "../src/inbox/webhook.ts";
-import { processPending, processWebhookEvent, purgeRawBodies, MAX_ATTEMPTS } from "../src/inbox/process.ts";
+import { processPending, processWebhookEvent, purgeRawBodies, startInboxWorker, MAX_ATTEMPTS, type InboxWorker } from "../src/inbox/process.ts";
 import { bootstrap, type Harness } from "./harness.ts";
 
 const DB = process.env.CRM_DB_NAME ?? "crm";
@@ -300,5 +300,32 @@ describe("raw body purge", () => {
     expect(by[oldId].body_purged_at).not.toBeNull();
     expect(by[freshId].raw_body).not.toBeNull();
     await expect(ingestDb.$client.query("SELECT purge_webhook_event_bodies()")).rejects.toThrow(/permission denied/);
+  });
+});
+
+describe("worker: event driven (no polling needed)", () => {
+  it("processes stored events right away, with an hour-long interval, including a burst that arrives while a run is in progress", async () => {
+    const ref = await account(wsA);
+    let w: InboxWorker | null = null;
+    const app = mount(cfg({ onStored: () => void w?.tick() }));
+    w = startInboxWorker(workerDb, { intervalMs: 3_600_000, purgeEveryMs: 86_400_000 });
+    try {
+      await new Promise((r) => setTimeout(r, 500)); // the initial run
+      const posts = await Promise.all(Array.from({ length: 6 }, (_, i) => { const f = signedFixture(msg(ref, digits(), `m.evt${i}`, Date.now() + i)); return post(app, "messenger", f.raw, f.signature); }));
+      expect(posts.map((r) => r.status)).toEqual([200, 200, 200, 200, 200, 200]);
+      await expect.poll(async () => (await eventsFor(ref)).filter((e) => e.status === "processed").length, { timeout: 15_000 }).toBe(6);
+      expect((await q("SELECT count(*)::int AS n FROM messages WHERE integration_account_id = (SELECT id FROM integration_accounts WHERE external_account_id=$1)", [ref]))[0].n).toBe(6);
+    } finally {
+      await w.stop();
+    }
+  });
+
+  it("a rejected or unusable delivery does not signal the worker", async () => {
+    let signals = 0;
+    const app = mount(cfg({ onStored: () => { signals += 1; } }));
+    const raw = Buffer.from("{}");
+    expect((await post(app, "messenger", raw, "sha256=" + "0".repeat(64))).status).toBe(403);
+    expect((await post(app, "messenger", raw, signMetaBody(raw, mockSecret))).status).toBe(200); // signed but no entries: acknowledged, nothing stored
+    expect(signals).toBe(0);
   });
 });

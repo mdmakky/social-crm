@@ -15,6 +15,8 @@ export type IngressConfig = {
   /** Current app secret first, previous one second while rotating. */
   appSecrets: string[];
   verifyToken: string;
+  /** Called after an event batch was stored (never for rejected or unusable bodies). Lets the in-process worker run at once instead of polling. Must not throw. */
+  onStored?: () => void;
   /** Pool connected as crm_ingest (INSERT-only on webhook_events). */
   ingestDb: Db;
   limits?: { perKeyPerWindow: number; failedPerKeyPerWindow: number; rejectedRowsPerWindow: number; windowMs: number };
@@ -119,6 +121,7 @@ export function metaWebhookRoutes(cfg: IngressConfig) {
     });
     // One statement: the whole batch is stored or none of it (Meta retries on 5xx; processing is idempotent by message id).
     await cfg.ingestDb.$client.query(`INSERT INTO webhook_events (platform, signature_valid, raw_body, body_sha256, body_size, account_ref, status) VALUES ${tuples.join(",")}`, values);
+    try { cfg.onStored?.(); } catch { /* a worker signal must never fail the delivery */ }
     return c.text("EVENT_RECEIVED", 200);
   });
 
