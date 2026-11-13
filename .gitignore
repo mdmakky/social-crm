@@ -1,0 +1,12 @@
+node_modules/
+.env
+.env.*
+!.env.example
+.turbo/
+dist/
+.expo/
+.next/
+coverage/
+*.log
+.DS_Store
+graphify-out/cache/
