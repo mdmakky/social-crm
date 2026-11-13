@@ -6,7 +6,7 @@
 |---|---|---|---|
 | R1 | `meta-preflight.mts --graph` | App ID and Secret valid (REAL debug_token on app token) | credentials |
 | R2 | Handshake: Meta dashboard "Verify and save" for messenger | dashboard accepts; API log shows GET 200 | webhook verify |
-| R3 | OAuth: Settings > Integrations > Connect with Meta, approve in the dialog | redirect to `?meta=select`; Page list shows the test Page and eligibility; localhost redirect accepted (settles that UNVERIFIED) | dialog, code exchange, long-lived token, `/me/accounts`, `/me` |
+| R3 | OAuth: Settings > Integrations > Connect with Meta, approve in the dialog | redirect to `?meta=select`; Page list shows the test Page and eligibility; localhost redirect accepted without being added to Valid OAuth Redirect URIs (owner-reported; this settles it) | dialog, code exchange, long-lived token, `/me/accounts`, `/me` |
 | R4 | Connect Page | account `connected`, subscription `subscribed`; check `GET subscribed_apps` result; `tasks` field present or `tasksUnverified` event | Page token, subscribed_apps, tasks |
 | R5 | Linked Instagram: tick "also connect Instagram" | IG account created; `instagram_business_account` returned (settles linked-IG discovery); subscription shows `dashboard_required` | IG discovery |
 | R6 | Messenger delivery: message the Page from a person with an app role | webhook row `signature_valid`, processed into a conversation; capture the real header name and payload shape (settles C1 non-ASCII: send text with non-ASCII characters too) | signature, payload |
