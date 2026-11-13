@@ -38,10 +38,11 @@ export type DispatchResult = { processed: number; errors: { consumer: string; wo
  * the whole batch (offset included) and is retried on the next run: at-least-once delivery.
  * shortcut: a permanently failing event blocks its workspace for that consumer; add a dead-letter/attempt cap when a second real consumer exists.
  */
-export async function dispatchPending(db: Db, opts: { consumers: Consumer[]; batchSize?: number }): Promise<DispatchResult> {
+export async function dispatchPending(db: Db, opts: { consumers: Consumer[]; batchSize?: number; workspaceIds?: string[] }): Promise<DispatchResult> {
   const batch = opts.batchSize ?? 100;
   const result: DispatchResult = { processed: 0, errors: [] };
-  const workspaces = await withSystem(db, undefined, (tx) => tx.select({ id: schema.workspaceEventCounters.workspaceId, last: schema.workspaceEventCounters.lastSeq }).from(schema.workspaceEventCounters));
+  const only = opts.workspaceIds;
+  const workspaces = (await withSystem(db, undefined, (tx) => tx.select({ id: schema.workspaceEventCounters.workspaceId }).from(schema.workspaceEventCounters))).filter((w) => !only || only.includes(w.id));
   for (const consumer of opts.consumers) {
     for (const ws of workspaces) {
       // Offset rows are created in their own short transaction so concurrent first runs never wait on a batch.
@@ -77,9 +78,9 @@ export async function dispatchPending(db: Db, opts: { consumers: Consumer[]; bat
  * Retention: deletes events older than `olderThanDays` AND at or below every named consumer's offset (the DELETE policy enforces
  * the offset rule again in the database). Missing offset rows are created at 0 first, so a newly added consumer holds events back.
  */
-export async function pruneEvents(db: Db, opts: { consumers: string[]; olderThanDays: number }): Promise<number> {
+export async function pruneEvents(db: Db, opts: { consumers: string[]; olderThanDays: number; workspaceIds?: string[] }): Promise<number> {
   const cutoff = new Date(Date.now() - opts.olderThanDays * 86_400_000);
-  const workspaces = await withSystem(db, undefined, (tx) => tx.select({ id: schema.workspaceEventCounters.workspaceId }).from(schema.workspaceEventCounters));
+  const workspaces = (await withSystem(db, undefined, (tx) => tx.select({ id: schema.workspaceEventCounters.workspaceId }).from(schema.workspaceEventCounters))).filter((w) => !opts.workspaceIds || opts.workspaceIds.includes(w.id));
   let deleted = 0;
   for (const ws of workspaces) {
     deleted += await withSystem(db, ws.id, async (tx) => {
