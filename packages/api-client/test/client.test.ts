@@ -91,6 +91,29 @@ describe("authentication modes", () => {
   });
 });
 
+// Mock-based tests of the wiring apps/mobile/App.tsx uses (manual Cookie header read per request, 401 handling).
+// NOT runtime verification: no emulator, SecureStore or real API is involved. See docs/project/android-verification.md.
+describe("mobile session wiring (mock only)", () => {
+  const me = { id: "u", email: "a@b.co", name: "A" };
+  it("reads the stored cookie on every call: login, restore after restart and logout are all picked up", async () => {
+    let stored: string | null = null; // stands in for authClient.getCookie() backed by SecureStore
+    const { client, calls } = setup(() => json(me), { credentials: "omit", headers: async () => ({ cookie: stored ?? "" }) });
+    stored = "better-auth.session_token=abc";
+    await client.call(endpoints.me);
+    stored = null;
+    await client.call(endpoints.me);
+    expect(new Headers(calls[0]!.init.headers).get("cookie")).toBe("better-auth.session_token=abc");
+    expect(new Headers(calls[1]!.init.headers).get("cookie")).toBeFalsy();
+  });
+  it("an expired session yields a typed 401 error (no throw) and notifies onUnauthorized each time", async () => {
+    let n = 0;
+    const { client } = setup(() => json({ error: { code: "unauthenticated", message: "Session expired" } }, 401), { credentials: "omit", headers: () => ({ cookie: "better-auth.session_token=stale" }), onUnauthorized: () => void n++ });
+    const r = [await client.call(endpoints.me), await client.call(endpoints.me)];
+    expect(r.map((x) => err(x))).toEqual([expect.objectContaining({ kind: "http", status: 401, code: "unauthenticated" }), expect.objectContaining({ status: 401 })]);
+    expect(n).toBe(2);
+  });
+});
+
 describe("errors", () => {
   it("maps API error bodies to typed errors", async () => {
     const { client } = setup(() => json({ error: { code: "last_owner", message: "nope" } }, 403));
