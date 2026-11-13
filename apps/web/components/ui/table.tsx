@@ -2,9 +2,10 @@ import * as React from "react";
 import { cn } from "@/lib/cn";
 
 // The wrapper is `relative` so sr-only children (absolutely positioned) are clipped by this scroll container instead of widening the page.
-export function Table({ className, ...props }: React.TableHTMLAttributes<HTMLTableElement>) {
+export function Table({ className, scrollLabel, ...props }: React.TableHTMLAttributes<HTMLTableElement> & { scrollLabel?: string }) {
+  // scrollLabel marks a table that is allowed to scroll sideways inside its own region (keyboard focusable and named).
   return (
-    <div className="relative overflow-x-auto">
+    <div className="relative overflow-x-auto" {...(scrollLabel ? { tabIndex: 0, role: "region", "aria-label": scrollLabel, "data-scroll": "allowed" } : {})}>
       <table className={cn("w-full border-collapse text-left text-base", className)} {...props} />
     </div>
   );

@@ -25,7 +25,7 @@ async function member(browser: Browser, name: string, workspaceId: string, role:
 /** Nothing meant to fit may need its own horizontal scrollbar (a clipped table hides actions). */
 const noInnerScroll = async (page: Page) => {
   const clipped = await page.evaluate(() =>
-    Array.from(document.querySelectorAll<HTMLElement>(".overflow-x-auto"))
+    Array.from(document.querySelectorAll<HTMLElement>(".overflow-x-auto:not([data-scroll=allowed])"))
       .filter((el) => el.clientWidth > 0 && el.scrollWidth > el.clientWidth + 1)
       .map((el) => `${location.pathname.replace(/[0-9a-f-]{36}/, ":id")} scrollWidth=${el.scrollWidth} clientWidth=${el.clientWidth}`),
   );

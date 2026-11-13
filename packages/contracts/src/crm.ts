@@ -7,6 +7,7 @@ export const CONTACT_SOURCES = ["manual", "import", "messenger", "instagram", "f
 export const ContactSource = z.enum(CONTACT_SOURCES);
 export const TAG_COLORS = ["neutral", "accent", "success", "warning", "danger"] as const;
 export const TagColor = z.enum(TAG_COLORS);
+export type TagColor = z.infer<typeof TagColor>;
 
 const trimmed = (min: number, max: number, label: string) => z.string().trim().min(min, `${label} is required`).max(max, `Use at most ${max} characters`);
 const nullableText = (max: number) => z.string().trim().max(max).nullish().transform((v) => (v ? v : null));
@@ -122,6 +123,7 @@ export const UpdateTaskBody = z.object({ title: trimmed(1, 200, "Title").optiona
 // ---------- saved views ----------
 export const CONTACT_COLUMNS = ["contact", "lifecycle", "owner", "tags", "source", "lastActivity", "created"] as const;
 export const ContactColumn = z.enum(CONTACT_COLUMNS);
+export type ContactColumn = z.infer<typeof ContactColumn>;
 export const ViewConfig = z.object({
   columns: z.array(ContactColumn).min(1).max(7).refine((c) => new Set(c).size === c.length, "Columns must be unique").refine((c) => c.includes("contact"), "The contact column is always shown"),
   filters: ContactListQuery.omit({ cursor: true, limit: true, sort: true, dir: true }),

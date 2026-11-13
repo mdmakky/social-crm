@@ -51,3 +51,24 @@ export async function signIn(page: Page, email: string) {
   await page.getByRole("button", { name: "Sign in" }).click();
   await page.waitForURL(/\/w\//);
 }
+
+const ORIGIN = "http://localhost:3217";
+export const api = (page: Page) => ({
+  post: async (path: string, data: unknown) => page.request.post(path, { data, headers: { origin: ORIGIN } }),
+  patch: async (path: string, data: unknown) => page.request.patch(path, { data, headers: { origin: ORIGIN } }),
+  get: async (path: string) => page.request.get(path),
+});
+
+/** Creates contacts through the API so list tests do not depend on typing into forms. */
+export async function seedContacts(page: Page, workspaceId: string, people: { name: string; email?: string; phone?: string; company?: string }[]) {
+  const a = api(page);
+  const ids: string[] = [];
+  for (const p of people) {
+    const res = await a.post(`/v1/workspaces/${workspaceId}/contacts`, p);
+    if (res.status() !== 201) throw new Error(`seed failed: ${res.status()} ${await res.text()}`);
+    ids.push((await res.json()).id);
+  }
+  return ids;
+}
+
+export const CONTACT_NAMES = ["Ana Costa", "Ben Okafor", "Chloe Park", "Dev Patel", "Eli Moreau", "Fatima Noor", "Gus Hall", "Hana Sato", "Ivan Petrov", "Jia Li"];

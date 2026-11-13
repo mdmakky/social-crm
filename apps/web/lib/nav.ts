@@ -20,7 +20,7 @@ export const NAV: NavGroup[] = [
     label: "Customers",
     items: [
       { key: "inbox", label: "Inbox", icon: Inbox, soon: true },
-      { key: "contacts", label: "Contacts", icon: Contact, soon: true },
+      { key: "contacts", label: "Contacts", icon: Contact, path: "contacts" },
       { key: "leads", label: "Leads", icon: BarChart3, soon: true },
       { key: "pipeline", label: "Pipeline", icon: Kanban, soon: true },
     ],
