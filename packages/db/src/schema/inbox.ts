@@ -1,9 +1,9 @@
 import { sql } from "drizzle-orm";
-import { boolean, check, customType, foreignKey, index, integer, jsonb, pgTable, primaryKey, text, timestamp, unique, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { bigint, boolean, check, customType, foreignKey, index, integer, jsonb, pgTable, primaryKey, text, timestamp, unique, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { user } from "../auth-schema.ts";
 import { contacts } from "./crm.ts";
 import { leads } from "./leads.ts";
-import { workspaces } from "./tenancy.ts";
+import { memberships, workspaces } from "./tenancy.ts";
 
 const id = () => uuid("id").primaryKey().default(sql`uuidv7()`);
 const workspaceId = () => uuid("workspace_id").notNull().references(() => workspaces.id);
@@ -43,7 +43,8 @@ export const integrationAccounts = pgTable(
     unique("integration_accounts_platform_external").on(t.platform, t.externalAccountId),
     check("integration_accounts_platform", sql`${t.platform} IN ('messenger','instagram')`),
     check("integration_accounts_status", sql`${t.status} IN ('connected','reauth_required','disabled')`),
-    check("integration_accounts_external_id", sql`char_length(${t.externalAccountId}) BETWEEN 1 AND 100`),
+    // Page and Instagram account ids are numeric strings (to be reconfirmed with the real app). Digits only: no whitespace, zero-padding variants or look-alike characters can create a second key for the same account.
+    check("integration_accounts_external_id", sql`${t.externalAccountId} ~ '^[1-9][0-9]{0,99}$'`),
     check("integration_accounts_display_name", sql`${t.displayName} IS NULL OR char_length(${t.displayName}) <= 200`),
   ],
 );
@@ -89,10 +90,11 @@ export const platformIdentities = pgTable(
   },
   (t) => [
     unique("platform_identities_ws_account_id").on(t.workspaceId, t.integrationAccountId, t.id),
+    unique("platform_identities_ws_account_id_contact").on(t.workspaceId, t.integrationAccountId, t.id, t.contactId),
     unique("platform_identities_account_user").on(t.integrationAccountId, t.externalUserId),
     foreignKey({ columns: [t.workspaceId, t.integrationAccountId], foreignColumns: [integrationAccounts.workspaceId, integrationAccounts.id] }),
     foreignKey({ columns: [t.workspaceId, t.contactId], foreignColumns: [contacts.workspaceId, contacts.id] }),
-    check("platform_identities_external_user", sql`char_length(${t.externalUserId}) BETWEEN 1 AND 100`),
+    check("platform_identities_external_user", sql`${t.externalUserId} ~ '^[1-9][0-9]{0,99}$'`),
     index("platform_identities_contact_idx").on(t.workspaceId, t.contactId),
   ],
 );
@@ -110,7 +112,11 @@ export const conversations = pgTable(
     lastMessageAt: ts("last_message_at"),
     /** Start of the 24 hour reply window; set only by inbound messages. */
     lastInboundAt: ts("last_inbound_at"),
-    unreadCount: integer("unread_count").notNull().default(0),
+    /** Last message sequence number handed out in this conversation (assigned by a trigger under the row lock, so seq order is commit order). Unread is derived from it: see conversation_reads. */
+    messageSeq: bigint("message_seq", { mode: "number" }).notNull().default(0),
+    /** Watermarks reported by the platform (what the contact has delivered/read); only ever move forward. */
+    contactDeliveredAt: ts("contact_delivered_at"),
+    contactReadAt: ts("contact_read_at"),
     leadId: uuid("lead_id"),
     version: integer("version").notNull().default(1),
     createdAt: ts("created_at").notNull().defaultNow(),
@@ -120,12 +126,14 @@ export const conversations = pgTable(
     unique("conversations_ws_id").on(t.workspaceId, t.id),
     unique("conversations_ws_id_account").on(t.workspaceId, t.id, t.integrationAccountId),
     unique("conversations_account_identity").on(t.integrationAccountId, t.identityId),
-    // the identity must belong to the same account and workspace as the conversation
-    foreignKey({ columns: [t.workspaceId, t.integrationAccountId, t.identityId], foreignColumns: [platformIdentities.workspaceId, platformIdentities.integrationAccountId, platformIdentities.id] }),
+    // the identity must belong to the same account and workspace, and the conversation's contact is always the identity's contact (a merge updates both at once)
+    foreignKey({ columns: [t.workspaceId, t.integrationAccountId, t.identityId, t.contactId], foreignColumns: [platformIdentities.workspaceId, platformIdentities.integrationAccountId, platformIdentities.id, platformIdentities.contactId] }).onUpdate("cascade"),
+    // an assignee must be a member of the same workspace
+    foreignKey({ columns: [t.workspaceId, t.assigneeUserId], foreignColumns: [memberships.workspaceId, memberships.userId] }),
     foreignKey({ columns: [t.workspaceId, t.contactId], foreignColumns: [contacts.workspaceId, contacts.id] }),
     foreignKey({ columns: [t.workspaceId, t.leadId], foreignColumns: [leads.workspaceId, leads.id] }),
     check("conversations_status", sql`${t.status} IN ('open','pending','resolved')`),
-    check("conversations_unread", sql`${t.unreadCount} >= 0`),
+    check("conversations_seq", sql`${t.messageSeq} >= 0`),
     index("conversations_list_idx").on(t.workspaceId, t.lastMessageAt.desc(), t.id),
     index("conversations_assignee_idx").on(t.workspaceId, t.assigneeUserId, t.status),
     index("conversations_contact_idx").on(t.workspaceId, t.contactId),
@@ -150,8 +158,12 @@ export const messages = pgTable(
     attachments: jsonb("attachments").notNull().default([]),
     deliveryState: text("delivery_state").notNull(),
     failureCode: text("failure_code"),
-    /** Platform time for inbound messages; creation time for outbound. */
-    occurredAt: ts("occurred_at").notNull(),
+    /** Position in the conversation: strictly increasing in commit order (trigger). The unread cursor of every user is a seq. */
+    seq: bigint("seq", { mode: "number" }).notNull().default(0),
+    /** Platform time for inbound messages; creation time for outbound (set by the database for the application role). */
+    occurredAt: ts("occurred_at").notNull().defaultNow(),
+    /** When delivery_state last changed; the 10 minute unknown window (D-G) is measured from here. */
+    stateChangedAt: ts("state_changed_at").notNull().defaultNow(),
     sentAt: ts("sent_at"),
     createdAt: ts("created_at").notNull().defaultNow(),
   },
@@ -164,12 +176,16 @@ export const messages = pgTable(
     check("messages_delivery_state", sql`${t.deliveryState} IN ('received','pending','sending','sent','failed','unknown')`),
     check("messages_sender_kind", sql`${t.senderKind} IN ('contact','user','external','system')`),
     // inbound: always received, from the contact; outbound: never "received", user senders carry their user id
-    check("messages_direction_shape", sql`(${t.direction} = 'in' AND ${t.deliveryState} = 'received' AND ${t.senderKind} = 'contact' AND ${t.senderUserId} IS NULL AND ${t.externalId} IS NOT NULL) OR (${t.direction} = 'out' AND ${t.deliveryState} <> 'received' AND ${t.senderKind} <> 'contact')`),
+    // inbound: always received, from the contact, with a platform id. outbound: never "received"; a message sent from our composer has no platform id until accepted, but an echo of a message sent elsewhere must carry one (idempotency)
+    check("messages_direction_shape", sql`(${t.direction} = 'in' AND ${t.deliveryState} = 'received' AND ${t.senderKind} = 'contact' AND ${t.senderUserId} IS NULL AND ${t.externalId} IS NOT NULL) OR (${t.direction} = 'out' AND ${t.deliveryState} <> 'received' AND ${t.senderKind} <> 'contact' AND (${t.senderKind} = 'user' OR ${t.externalId} IS NOT NULL))`),
+    check("messages_seq", sql`${t.seq} >= 0`),
     check("messages_user_sender", sql`${t.senderKind} <> 'user' OR ${t.senderUserId} IS NOT NULL`),
     check("messages_content", sql`${t.body} IS NOT NULL OR jsonb_array_length(${t.attachments}) > 0`),
     check("messages_body_len", sql`${t.body} IS NULL OR char_length(${t.body}) <= 20000`),
     check("messages_attachments", sql`jsonb_typeof(${t.attachments}) = 'array' AND jsonb_array_length(${t.attachments}) <= 20`),
     check("messages_failure_code", sql`${t.failureCode} IS NULL OR char_length(${t.failureCode}) <= 100`),
+    unique("messages_conversation_seq").on(t.workspaceId, t.conversationId, t.seq),
+    index("messages_unread_idx").on(t.workspaceId, t.conversationId, t.seq).where(sql`${t.direction} = 'in'`),
     index("messages_thread_idx").on(t.workspaceId, t.conversationId, t.occurredAt.desc(), t.id),
     index("messages_pending_idx").on(t.deliveryState, t.createdAt).where(sql`${t.deliveryState} IN ('pending','sending','unknown')`),
   ],
@@ -181,11 +197,13 @@ export const conversationReads = pgTable(
     workspaceId: workspaceId(),
     conversationId: uuid("conversation_id").notNull(),
     userId: text("user_id").notNull().references(() => user.id),
-    lastReadMessageId: uuid("last_read_message_id"),
+    /** The highest message seq this user has actually seen. Unread = inbound messages with a larger seq. Only ever moves forward and never past the conversation's last seq. */
+    lastReadSeq: bigint("last_read_seq", { mode: "number" }).notNull().default(0),
     updatedAt: ts("updated_at").notNull().defaultNow(),
   },
   (t) => [
     primaryKey({ columns: [t.conversationId, t.userId] }),
+    check("conversation_reads_seq", sql`${t.lastReadSeq} >= 0`),
     foreignKey({ columns: [t.workspaceId, t.conversationId], foreignColumns: [conversations.workspaceId, conversations.id] }),
   ],
 );

@@ -2,9 +2,10 @@ CREATE TABLE "conversation_reads" (
 	"workspace_id" uuid NOT NULL,
 	"conversation_id" uuid NOT NULL,
 	"user_id" text NOT NULL,
-	"last_read_message_id" uuid,
+	"last_read_seq" bigint DEFAULT 0 NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
-	CONSTRAINT "conversation_reads_conversation_id_user_id_pk" PRIMARY KEY("conversation_id","user_id")
+	CONSTRAINT "conversation_reads_conversation_id_user_id_pk" PRIMARY KEY("conversation_id","user_id"),
+	CONSTRAINT "conversation_reads_seq" CHECK ("conversation_reads"."last_read_seq" >= 0)
 );
 --> statement-breakpoint
 CREATE TABLE "conversations" (
@@ -17,7 +18,9 @@ CREATE TABLE "conversations" (
 	"assignee_user_id" text,
 	"last_message_at" timestamp with time zone,
 	"last_inbound_at" timestamp with time zone,
-	"unread_count" integer DEFAULT 0 NOT NULL,
+	"message_seq" bigint DEFAULT 0 NOT NULL,
+	"contact_delivered_at" timestamp with time zone,
+	"contact_read_at" timestamp with time zone,
 	"lead_id" uuid,
 	"version" integer DEFAULT 1 NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
@@ -26,7 +29,7 @@ CREATE TABLE "conversations" (
 	CONSTRAINT "conversations_ws_id_account" UNIQUE("workspace_id","id","integration_account_id"),
 	CONSTRAINT "conversations_account_identity" UNIQUE("integration_account_id","identity_id"),
 	CONSTRAINT "conversations_status" CHECK ("conversations"."status" IN ('open','pending','resolved')),
-	CONSTRAINT "conversations_unread" CHECK ("conversations"."unread_count" >= 0)
+	CONSTRAINT "conversations_seq" CHECK ("conversations"."message_seq" >= 0)
 );
 --> statement-breakpoint
 CREATE TABLE "integration_accounts" (
@@ -48,7 +51,7 @@ CREATE TABLE "integration_accounts" (
 	CONSTRAINT "integration_accounts_platform_external" UNIQUE("platform","external_account_id"),
 	CONSTRAINT "integration_accounts_platform" CHECK ("integration_accounts"."platform" IN ('messenger','instagram')),
 	CONSTRAINT "integration_accounts_status" CHECK ("integration_accounts"."status" IN ('connected','reauth_required','disabled')),
-	CONSTRAINT "integration_accounts_external_id" CHECK (char_length("integration_accounts"."external_account_id") BETWEEN 1 AND 100),
+	CONSTRAINT "integration_accounts_external_id" CHECK ("integration_accounts"."external_account_id" ~ '^[1-9][0-9]{0,99}$'),
 	CONSTRAINT "integration_accounts_display_name" CHECK ("integration_accounts"."display_name" IS NULL OR char_length("integration_accounts"."display_name") <= 200)
 );
 --> statement-breakpoint
@@ -93,14 +96,18 @@ CREATE TABLE "messages" (
 	"attachments" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"delivery_state" text NOT NULL,
 	"failure_code" text,
-	"occurred_at" timestamp with time zone NOT NULL,
+	"seq" bigint DEFAULT 0 NOT NULL,
+	"occurred_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"state_changed_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"sent_at" timestamp with time zone,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "messages_ws_id" UNIQUE("workspace_id","id"),
+	CONSTRAINT "messages_conversation_seq" UNIQUE("workspace_id","conversation_id","seq"),
 	CONSTRAINT "messages_direction" CHECK ("messages"."direction" IN ('in','out')),
 	CONSTRAINT "messages_delivery_state" CHECK ("messages"."delivery_state" IN ('received','pending','sending','sent','failed','unknown')),
 	CONSTRAINT "messages_sender_kind" CHECK ("messages"."sender_kind" IN ('contact','user','external','system')),
-	CONSTRAINT "messages_direction_shape" CHECK (("messages"."direction" = 'in' AND "messages"."delivery_state" = 'received' AND "messages"."sender_kind" = 'contact' AND "messages"."sender_user_id" IS NULL AND "messages"."external_id" IS NOT NULL) OR ("messages"."direction" = 'out' AND "messages"."delivery_state" <> 'received' AND "messages"."sender_kind" <> 'contact')),
+	CONSTRAINT "messages_direction_shape" CHECK (("messages"."direction" = 'in' AND "messages"."delivery_state" = 'received' AND "messages"."sender_kind" = 'contact' AND "messages"."sender_user_id" IS NULL AND "messages"."external_id" IS NOT NULL) OR ("messages"."direction" = 'out' AND "messages"."delivery_state" <> 'received' AND "messages"."sender_kind" <> 'contact' AND ("messages"."sender_kind" = 'user' OR "messages"."external_id" IS NOT NULL))),
+	CONSTRAINT "messages_seq" CHECK ("messages"."seq" >= 0),
 	CONSTRAINT "messages_user_sender" CHECK ("messages"."sender_kind" <> 'user' OR "messages"."sender_user_id" IS NOT NULL),
 	CONSTRAINT "messages_content" CHECK ("messages"."body" IS NOT NULL OR jsonb_array_length("messages"."attachments") > 0),
 	CONSTRAINT "messages_body_len" CHECK ("messages"."body" IS NULL OR char_length("messages"."body") <= 20000),
@@ -134,8 +141,9 @@ CREATE TABLE "platform_identities" (
 	"profile_fetched_at" timestamp with time zone,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "platform_identities_ws_account_id" UNIQUE("workspace_id","integration_account_id","id"),
+	CONSTRAINT "platform_identities_ws_account_id_contact" UNIQUE("workspace_id","integration_account_id","id","contact_id"),
 	CONSTRAINT "platform_identities_account_user" UNIQUE("integration_account_id","external_user_id"),
-	CONSTRAINT "platform_identities_external_user" CHECK (char_length("platform_identities"."external_user_id") BETWEEN 1 AND 100)
+	CONSTRAINT "platform_identities_external_user" CHECK ("platform_identities"."external_user_id" ~ '^[1-9][0-9]{0,99}$')
 );
 --> statement-breakpoint
 CREATE TABLE "webhook_events" (
@@ -168,7 +176,8 @@ ALTER TABLE "conversation_reads" ADD CONSTRAINT "conversation_reads_user_id_user
 ALTER TABLE "conversation_reads" ADD CONSTRAINT "conversation_reads_workspace_id_conversation_id_conversations_workspace_id_id_fk" FOREIGN KEY ("workspace_id","conversation_id") REFERENCES "public"."conversations"("workspace_id","id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "conversations" ADD CONSTRAINT "conversations_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "conversations" ADD CONSTRAINT "conversations_assignee_user_id_user_id_fk" FOREIGN KEY ("assignee_user_id") REFERENCES "public"."user"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "conversations" ADD CONSTRAINT "conversations_workspace_id_integration_account_id_identity_id_platform_identities_workspace_id_integration_account_id_id_fk" FOREIGN KEY ("workspace_id","integration_account_id","identity_id") REFERENCES "public"."platform_identities"("workspace_id","integration_account_id","id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "conversations" ADD CONSTRAINT "conversations_workspace_id_integration_account_id_identity_id_contact_id_platform_identities_workspace_id_integration_account_id_id_contact_id_fk" FOREIGN KEY ("workspace_id","integration_account_id","identity_id","contact_id") REFERENCES "public"."platform_identities"("workspace_id","integration_account_id","id","contact_id") ON DELETE no action ON UPDATE cascade;--> statement-breakpoint
+ALTER TABLE "conversations" ADD CONSTRAINT "conversations_workspace_id_assignee_user_id_memberships_workspace_id_user_id_fk" FOREIGN KEY ("workspace_id","assignee_user_id") REFERENCES "public"."memberships"("workspace_id","user_id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "conversations" ADD CONSTRAINT "conversations_workspace_id_contact_id_contacts_workspace_id_id_fk" FOREIGN KEY ("workspace_id","contact_id") REFERENCES "public"."contacts"("workspace_id","id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "conversations" ADD CONSTRAINT "conversations_workspace_id_lead_id_leads_workspace_id_id_fk" FOREIGN KEY ("workspace_id","lead_id") REFERENCES "public"."leads"("workspace_id","id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "integration_accounts" ADD CONSTRAINT "integration_accounts_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
@@ -193,6 +202,7 @@ CREATE INDEX "conversations_contact_idx" ON "conversations" USING btree ("worksp
 CREATE INDEX "integration_events_account_idx" ON "integration_events" USING btree ("workspace_id","integration_account_id","created_at" DESC NULLS LAST);--> statement-breakpoint
 CREATE UNIQUE INDEX "messages_account_external_uq" ON "messages" USING btree ("integration_account_id","external_id") WHERE "messages"."external_id" IS NOT NULL;--> statement-breakpoint
 CREATE UNIQUE INDEX "messages_ws_client_msg_uq" ON "messages" USING btree ("workspace_id","client_msg_id") WHERE "messages"."client_msg_id" IS NOT NULL;--> statement-breakpoint
+CREATE INDEX "messages_unread_idx" ON "messages" USING btree ("workspace_id","conversation_id","seq") WHERE "messages"."direction" = 'in';--> statement-breakpoint
 CREATE INDEX "messages_thread_idx" ON "messages" USING btree ("workspace_id","conversation_id","occurred_at" DESC NULLS LAST,"id");--> statement-breakpoint
 CREATE INDEX "messages_pending_idx" ON "messages" USING btree ("delivery_state","created_at") WHERE "messages"."delivery_state" IN ('pending','sending','unknown');--> statement-breakpoint
 CREATE INDEX "platform_identities_contact_idx" ON "platform_identities" USING btree ("workspace_id","contact_id");--> statement-breakpoint

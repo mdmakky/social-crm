@@ -1,6 +1,6 @@
 {
-  "id": "c09ab615-7317-4994-a152-d0c7bc93000c",
-  "prevId": "7c77ec40-e9bf-4fab-b34a-ee8203e17260",
+  "id": "8746f0c6-9840-4ede-82f7-d0cd73fbc20b",
+  "prevId": "b624e9bc-d6e6-491f-b13f-b2af8919f7df",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -4430,11 +4430,12 @@
           "primaryKey": false,
           "notNull": true
         },
-        "last_read_message_id": {
-          "name": "last_read_message_id",
-          "type": "uuid",
+        "last_read_seq": {
+          "name": "last_read_seq",
+          "type": "bigint",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true,
+          "default": 0
         },
         "updated_at": {
           "name": "updated_at",
@@ -4499,7 +4500,12 @@
       },
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "conversation_reads_seq": {
+          "name": "conversation_reads_seq",
+          "value": "\"conversation_reads\".\"last_read_seq\" >= 0"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.conversations": {
@@ -4562,12 +4568,24 @@
           "primaryKey": false,
           "notNull": false
         },
-        "unread_count": {
-          "name": "unread_count",
-          "type": "integer",
+        "message_seq": {
+          "name": "message_seq",
+          "type": "bigint",
           "primaryKey": false,
           "notNull": true,
           "default": 0
+        },
+        "contact_delivered_at": {
+          "name": "contact_delivered_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "contact_read_at": {
+          "name": "contact_read_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
         },
         "lead_id": {
           "name": "lead_id",
@@ -4701,19 +4719,36 @@
           "onUpdate": "no action",
           "onDelete": "no action"
         },
-        "conversations_workspace_id_integration_account_id_identity_id_platform_identities_workspace_id_integration_account_id_id_fk": {
-          "name": "conversations_workspace_id_integration_account_id_identity_id_platform_identities_workspace_id_integration_account_id_id_fk",
+        "conversations_workspace_id_integration_account_id_identity_id_contact_id_platform_identities_workspace_id_integration_account_id_id_contact_id_fk": {
+          "name": "conversations_workspace_id_integration_account_id_identity_id_contact_id_platform_identities_workspace_id_integration_account_id_id_contact_id_fk",
           "tableFrom": "conversations",
           "columnsFrom": [
             "workspace_id",
             "integration_account_id",
-            "identity_id"
+            "identity_id",
+            "contact_id"
           ],
           "tableTo": "platform_identities",
           "columnsTo": [
             "workspace_id",
             "integration_account_id",
-            "id"
+            "id",
+            "contact_id"
+          ],
+          "onUpdate": "cascade",
+          "onDelete": "no action"
+        },
+        "conversations_workspace_id_assignee_user_id_memberships_workspace_id_user_id_fk": {
+          "name": "conversations_workspace_id_assignee_user_id_memberships_workspace_id_user_id_fk",
+          "tableFrom": "conversations",
+          "columnsFrom": [
+            "workspace_id",
+            "assignee_user_id"
+          ],
+          "tableTo": "memberships",
+          "columnsTo": [
+            "workspace_id",
+            "user_id"
           ],
           "onUpdate": "no action",
           "onDelete": "no action"
@@ -4783,9 +4818,9 @@
           "name": "conversations_status",
           "value": "\"conversations\".\"status\" IN ('open','pending','resolved')"
         },
-        "conversations_unread": {
-          "name": "conversations_unread",
-          "value": "\"conversations\".\"unread_count\" >= 0"
+        "conversations_seq": {
+          "name": "conversations_seq",
+          "value": "\"conversations\".\"message_seq\" >= 0"
         }
       },
       "isRLSEnabled": false
@@ -4946,7 +4981,7 @@
         },
         "integration_accounts_external_id": {
           "name": "integration_accounts_external_id",
-          "value": "char_length(\"integration_accounts\".\"external_account_id\") BETWEEN 1 AND 100"
+          "value": "\"integration_accounts\".\"external_account_id\" ~ '^[1-9][0-9]{0,99}$'"
         },
         "integration_accounts_display_name": {
           "name": "integration_accounts_display_name",
@@ -5290,11 +5325,26 @@
           "primaryKey": false,
           "notNull": false
         },
+        "seq": {
+          "name": "seq",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
         "occurred_at": {
           "name": "occurred_at",
           "type": "timestamp with time zone",
           "primaryKey": false,
-          "notNull": true
+          "notNull": true,
+          "default": "now()"
+        },
+        "state_changed_at": {
+          "name": "state_changed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
         },
         "sent_at": {
           "name": "sent_at",
@@ -5353,6 +5403,34 @@
           "with": {},
           "method": "btree",
           "where": "\"messages\".\"client_msg_id\" IS NOT NULL",
+          "concurrently": false
+        },
+        "messages_unread_idx": {
+          "name": "messages_unread_idx",
+          "columns": [
+            {
+              "expression": "workspace_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "conversation_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "seq",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "where": "\"messages\".\"direction\" = 'in'",
           "concurrently": false
         },
         "messages_thread_idx": {
@@ -5465,6 +5543,15 @@
             "id"
           ],
           "nullsNotDistinct": false
+        },
+        "messages_conversation_seq": {
+          "name": "messages_conversation_seq",
+          "columns": [
+            "workspace_id",
+            "conversation_id",
+            "seq"
+          ],
+          "nullsNotDistinct": false
         }
       },
       "policies": {},
@@ -5483,7 +5570,11 @@
         },
         "messages_direction_shape": {
           "name": "messages_direction_shape",
-          "value": "(\"messages\".\"direction\" = 'in' AND \"messages\".\"delivery_state\" = 'received' AND \"messages\".\"sender_kind\" = 'contact' AND \"messages\".\"sender_user_id\" IS NULL AND \"messages\".\"external_id\" IS NOT NULL) OR (\"messages\".\"direction\" = 'out' AND \"messages\".\"delivery_state\" <> 'received' AND \"messages\".\"sender_kind\" <> 'contact')"
+          "value": "(\"messages\".\"direction\" = 'in' AND \"messages\".\"delivery_state\" = 'received' AND \"messages\".\"sender_kind\" = 'contact' AND \"messages\".\"sender_user_id\" IS NULL AND \"messages\".\"external_id\" IS NOT NULL) OR (\"messages\".\"direction\" = 'out' AND \"messages\".\"delivery_state\" <> 'received' AND \"messages\".\"sender_kind\" <> 'contact' AND (\"messages\".\"sender_kind\" = 'user' OR \"messages\".\"external_id\" IS NOT NULL))"
+        },
+        "messages_seq": {
+          "name": "messages_seq",
+          "value": "\"messages\".\"seq\" >= 0"
         },
         "messages_user_sender": {
           "name": "messages_user_sender",
@@ -5765,6 +5856,16 @@
           ],
           "nullsNotDistinct": false
         },
+        "platform_identities_ws_account_id_contact": {
+          "name": "platform_identities_ws_account_id_contact",
+          "columns": [
+            "workspace_id",
+            "integration_account_id",
+            "id",
+            "contact_id"
+          ],
+          "nullsNotDistinct": false
+        },
         "platform_identities_account_user": {
           "name": "platform_identities_account_user",
           "columns": [
@@ -5778,7 +5879,7 @@
       "checkConstraints": {
         "platform_identities_external_user": {
           "name": "platform_identities_external_user",
-          "value": "char_length(\"platform_identities\".\"external_user_id\") BETWEEN 1 AND 100"
+          "value": "\"platform_identities\".\"external_user_id\" ~ '^[1-9][0-9]{0,99}$'"
         }
       },
       "isRLSEnabled": false
