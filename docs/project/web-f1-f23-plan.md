@@ -234,3 +234,12 @@ Wall clock with 3 parallel agents: about 10-12 h plus gate; serial single agent 
 - Axe clean at 375/768/1440 on list, detail, import, settings.
 - Docs in sync (roadmap, progress, known-limitations, testing-report, skill matrix) and the CLAUDE.md Status line updated; no doc says "outstanding" for the independent review, none claims the perf gate without the qualifier.
 - Deferred and recorded: D20 unified record and related-records (P1), four extra sort keys (P3), per-stage colours (P4), HTTP-level and load perf evidence (F4 optional).
+
+## WP-A result
+
+Branch `worktree-agent-aa07138a330ae2f05`. Fixed: F1, F2, F6, F10, F11, F12, F14, F15 (sort buttons, skip link), F18, F19, F23b. Defaults applied: P3 (six supported sort orders plus "Custom order"), P4 (stage is dot plus text).
+- F1: `browserApi` redirects to `/login?next=...` on any 401 (once, never from `/login`); failed refresh with rows shows "Showing previous results" and Retry.
+- F2: Export is a button that fetches the CSV, downloads `contacts.csv`, and shows the server message on error (e.g. 413).
+- F12: Update, Rename and confirmed Delete act on the last applied or saved view (`baseView`), so Update works after the filters changed. F14: applying a view overlays columns without touching the saved personal layout.
+- Tests: `e2e/contacts-wpa-states.spec.ts` (F1, F2, F6, F11, F19, F23b), `e2e/contacts-wpa-layout.spec.ts` (F10, F15, F18, axe at 375/768/1440), extended `e2e/contacts.spec.ts` (F11, F12, F14; Export is now a button; view menu items use `.first()` because manage items repeat the view name). Full apps/web Playwright: 63 passed.
+- Not done: extra sort keys (P3, needs API); Retry for a failed Load more (error alert only).
