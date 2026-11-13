@@ -28,9 +28,14 @@ services:
       WEB_ORIGIN: http://localhost:3000
     ports: ["8787:8787"]
     command: pnpm --filter @crm/api exec tsx src/server.ts
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:8787/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 3s
+      timeout: 3s
+      retries: 40
   web:
     build: .
-    depends_on: [api]
+    depends_on: { api: { condition: service_healthy } }
     environment:
       API_URL: http://api:8787
     ports: ["3000:3000"]
