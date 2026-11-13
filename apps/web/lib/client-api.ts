@@ -1,7 +1,17 @@
 import { createApiClient, type ApiError } from "@crm/api-client";
 
 /** Shared typed client for browser code: same-origin, cookie session. */
-export const browserApi = createApiClient({ baseUrl: "", auth: { mode: "cookie" } });
+let leaving = false;
+export const browserApi = createApiClient({
+  baseUrl: "",
+  auth: { mode: "cookie" },
+  // A 401 mid-session means the cookie is gone: go to sign-in and come back here afterwards.
+  onUnauthorized: () => {
+    if (typeof window === "undefined" || leaving || window.location.pathname.startsWith("/login")) return;
+    leaving = true;
+    window.location.assign(`/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}`);
+  },
+});
 
 const MESSAGES: Record<string, string> = {
   last_owner: "A workspace needs at least one owner. Make someone else an owner first.",

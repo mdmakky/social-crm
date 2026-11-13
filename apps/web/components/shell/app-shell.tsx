@@ -45,7 +45,7 @@ export function AppShell({ workspace, workspaces, user, children }: { workspace:
 
   return (
     <TooltipProvider>
-      <a href="#main" className="sr-only z-50 rounded-md bg-surface px-3 py-2 text-base font-medium text-fg shadow-popover focus:not-sr-only focus:fixed focus:left-3 focus:top-3">Skip to content</a>
+      <a href="#main" className="sr-only z-50 rounded-md bg-surface px-3 py-2 text-base font-medium text-fg shadow-popover focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:min-h-6 focus:min-w-6">Skip to content</a>
       <div className="flex h-dvh bg-canvas">
         {/* Rail at md, full sidebar at lg and up */}
         <aside className="hidden w-14 shrink-0 flex-col border-r border-line bg-surface md:flex lg:w-[var(--sidebar-w)]">

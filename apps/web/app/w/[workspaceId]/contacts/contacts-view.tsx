@@ -2,7 +2,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowDown, ArrowUp, ArrowUpDown, Bookmark, Columns3, Download, FilterX, Plus, Search, SlidersHorizontal, Trash2, Upload, Users } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, Bookmark, Columns3, Download, FilterX, Pencil, Plus, RefreshCw, Search, SlidersHorizontal, Trash2, Upload, Users } from "lucide-react";
 import { CONTACT_COLUMNS, endpoints, type ContactColumn, type ContactListQuery, type ContactPage, type ContactSummary, type CustomField, type LifecycleStage, type Member, type SavedView, type Tag, type ViewConfig } from "@crm/contracts";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -16,7 +16,7 @@ import { Alert, EmptyState, ErrorState } from "@/components/ui/states";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import { NewContactDialog } from "@/components/contacts/new-contact-dialog";
 import { browserApi, errorMessage } from "@/lib/client-api";
-import { COLUMN_LABEL, DEFAULT_COLUMNS, relativeTime, SORT_FOR_COLUMN, sourceLabel, TAG_TONE } from "@/lib/contacts";
+import { COLUMN_LABEL, DEFAULT_COLUMNS, relativeTime, SORT_FOR_COLUMN, SORT_OPTIONS, sortOptionFor, sourceLabel, TAG_TONE } from "@/lib/contacts";
 import { formatDate } from "@/lib/format";
 
 type Q = Pick<ContactListQuery, "search" | "lifecycleStageId" | "ownerId" | "tagIds" | "source" | "sort" | "dir">;
@@ -35,9 +35,14 @@ export function ContactsView({ workspaceId, timeZone, myUserId, initial, initial
   const [viewColumns, setViewColumns] = React.useState<ContactColumn[] | null>(null);
   const [views, setViews] = React.useState(initialViews);
   const [activeView, setActiveView] = React.useState<string | null>(null);
+  const [baseView, setBaseView] = React.useState<string | null>(null); // last applied or saved view; stays after filters change so it can be updated
   const [newOpen, setNewOpen] = React.useState(false);
   const [colsOpen, setColsOpen] = React.useState(false);
   const [saveOpen, setSaveOpen] = React.useState(false);
+  const [renameOpen, setRenameOpen] = React.useState(false);
+  const [deleteView, setDeleteView] = React.useState<SavedView | null>(null);
+  const [exporting, setExporting] = React.useState(false);
+  const [actionError, setActionError] = React.useState<string | null>(null);
   const [showFilters, setShowFilters] = React.useState(false);
   const seq = React.useRef(0);
   const first = React.useRef(true);
@@ -56,8 +61,9 @@ export function ContactsView({ workspaceId, timeZone, myUserId, initial, initial
     } catch { return null; }
   }, [stored]);
   const columns = viewColumns ?? storedColumns ?? DEFAULT_COLUMNS;
+  // Editing columns by hand saves the personal layout; applying a saved view only overlays it.
   const saveColumns = (c: ContactColumn[]) => {
-    setViewColumns(c);
+    setViewColumns(null);
     try { localStorage.setItem(storeKey, JSON.stringify(c)); window.dispatchEvent(new Event("crm-columns")); } catch { /* the layout just won't be remembered */ }
   };
 
@@ -90,8 +96,10 @@ export function ContactsView({ workspaceId, timeZone, myUserId, initial, initial
   async function loadMore() {
     if (!page.nextCursor) return;
     setMoreBusy(true);
+    const mine = seq.current;
     const res = await browserApi.call(endpoints.listContacts, { params: { workspaceId }, query: { ...query, limit: 25, cursor: page.nextCursor } });
     setMoreBusy(false);
+    if (mine !== seq.current) return; // the filters changed while this page was loading: its rows belong to the old query
     if (!res.ok) return setErrorText(errorMessage(res.error));
     setErrorText(null);
     setPage((p) => ({ ...res.data, items: [...p.items, ...res.data.items] }));
@@ -107,23 +115,41 @@ export function ContactsView({ workspaceId, timeZone, myUserId, initial, initial
 
   const applyView = (v: SavedView) => {
     setActiveView(v.id);
-    saveColumns(v.config.columns);
+    setBaseView(v.id);
+    setViewColumns(v.config.columns);
     setQuery({ ...(v.config.filters as Q), sort: v.config.sort, dir: v.config.dir });
   };
   const currentConfig = (): ViewConfig => ({ columns, filters: Object.fromEntries(FILTERS.filter((k) => query[k]).map((k) => [k, query[k]])) as ViewConfig["filters"], sort: query.sort ?? "lastActivity", dir: query.dir ?? "desc" });
 
   const filtered = hasFilters(query);
-  const exportHref = `/v1/workspaces/${workspaceId}/contacts/export?${(() => { const p = toParams(query); p.delete("sort"); p.delete("dir"); return p; })()}`;
+  const stale = status === "error" && page.items.length > 0;
+  async function doExport() {
+    setExporting(true);
+    setActionError(null);
+    const { sort: _s, dir: _d, ...filters } = query;
+    const res = await browserApi.call(endpoints.exportContacts, { params: { workspaceId }, query: filters });
+    setExporting(false);
+    if (!res.ok) return setActionError(errorMessage(res.error));
+    const url = URL.createObjectURL(new Blob([res.data], { type: "text/csv" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "contacts.csv";
+    document.body.append(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+  const sortLabel = SORT_OPTIONS.find((o) => o.value === `${query.sort}:${query.dir}`)?.label;
 
   return (
     <>
       <PageHeader
         title="Contacts"
-        description={status === "error" && !page.items.length ? undefined : `${page.total.toLocaleString("en-US")} ${page.total === 1 ? "contact" : "contacts"}${filtered ? " match your filters" : ""}`}
+        description={status === "error" && !page.items.length ? undefined : stale ? "Showing previous results" : `${page.total.toLocaleString("en-US")} ${page.total === 1 ? "contact" : "contacts"}${filtered ? " match your filters" : ""}`}
         actions={
           <div className="flex flex-wrap items-center gap-2">
             {perms.import && <Button asChild variant="secondary"><Link href={`/w/${workspaceId}/contacts/import`}><Upload />Import</Link></Button>}
-            {perms.export && <Button asChild variant="secondary"><a href={exportHref} download><Download />Export</a></Button>}
+            {perms.export && <Button variant="secondary" onClick={() => void doExport()} loading={exporting}><Download />Export</Button>}
             {perms.edit && <Button variant="primary" onClick={() => setNewOpen(true)}><Plus />Add contact</Button>}
           </div>
         }
@@ -157,19 +183,23 @@ export function ContactsView({ workspaceId, timeZone, myUserId, initial, initial
           {filtered && <Button variant="ghost" onClick={clearFilters}><FilterX />Clear</Button>}
         </div>
         <div className="ml-auto flex items-center gap-2">
-          <Select aria-label="Sort by" className="w-auto md:hidden" value={`${query.sort}:${query.dir}`} onChange={(e) => { const [s, d] = e.target.value.split(":"); set({ sort: s as Q["sort"], dir: d as Q["dir"] }); }}>
-            <option value="lastActivity:desc">Latest activity</option>
-            <option value="created:desc">Newest</option>
-            <option value="name:asc">Name A to Z</option>
+          <Select aria-label="Sort by" wrapperClassName="md:hidden" className="w-auto" value={sortOptionFor(query.sort, query.dir)} onChange={(e) => { if (e.target.value === "custom") return; const [s, d] = e.target.value.split(":"); set({ sort: s as Q["sort"], dir: d as Q["dir"] }); }}>
+            {sortOptionFor(query.sort, query.dir) === "custom" && <option value="custom">Custom order</option>}
+            {SORT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
           </Select>
-          <ViewsMenu views={views} active={activeView} canManageShared={perms.shareViews} onApply={applyView} onSave={() => setSaveOpen(true)} onDelete={async (v) => { const r = await browserApi.call(endpoints.deleteView, { params: { workspaceId, viewId: v.id } }); if (r.ok) { setViews((x) => x.filter((y) => y.id !== v.id)); if (activeView === v.id) setActiveView(null); } }} />
+          <ViewsMenu views={views} active={activeView} base={baseView} canManageShared={perms.shareViews} onApply={applyView} onSave={() => setSaveOpen(true)} onRename={(v) => { setBaseView(v.id); setRenameOpen(true); }} onUpdate={async (v) => { const r = await browserApi.call(endpoints.updateView, { params: { workspaceId, viewId: v.id }, body: { config: currentConfig() } }); if (!r.ok) return setActionError(errorMessage(r.error)); setViews((x) => x.map((y) => (y.id === v.id ? r.data : y))); }} onDelete={setDeleteView} />
           <Button variant="secondary" className="hidden md:inline-flex" onClick={() => setColsOpen(true)}><Columns3 />Columns</Button>
         </div>
       </div>
 
-      {errorText && page.items.length > 0 && <Alert tone="error" className="mb-3">{errorText}</Alert>}
+      {actionError && <Alert tone="error" className="mb-3">{actionError}</Alert>}
+      {errorText && page.items.length > 0 && (
+        <Alert tone="error" className="mb-3">
+          <span className="flex flex-wrap items-center justify-between gap-2">{errorText}{stale && <Button size="sm" onClick={() => void load(query)}><RefreshCw />Retry</Button>}</span>
+        </Alert>
+      )}
 
-      <Panel className={status === "loading" ? "opacity-70 transition-opacity" : ""} aria-busy={status === "loading"}>
+      <Panel className={status === "loading" || stale ? "opacity-70 transition-opacity" : ""} aria-busy={status === "loading"}>
         {status === "error" && page.items.length === 0 ? (
           <ErrorState title="Contacts could not be loaded" description={errorText ?? "Check your connection and try again."} onRetry={() => void load(query)} />
         ) : page.items.length === 0 && status !== "loading" ? (
@@ -192,8 +222,8 @@ export function ContactsView({ workspaceId, timeZone, myUserId, initial, initial
               {page.items.map((c) => <ContactCard key={c.id} c={c} workspaceId={workspaceId} timeZone={timeZone} />)}
             </ul>
             <div className="flex items-center justify-between gap-3 border-t border-line px-4 py-3 text-sm text-fg-muted">
-              <span role="status">{status === "loading" ? "Updating…" : `Showing ${page.items.length.toLocaleString("en-US")} of ${page.total.toLocaleString("en-US")}`}</span>
-              {page.nextCursor && <Button onClick={loadMore} loading={moreBusy}>Load more</Button>}
+              <span role="status">{status === "loading" ? "Updating…" : `${stale ? "Showing previous results; the last search failed. " : sortLabel ? `Sorted by ${sortLabel}. ` : ""}Showing ${page.items.length.toLocaleString("en-US")} of ${page.total.toLocaleString("en-US")}`}</span>
+              {page.nextCursor && <Button onClick={loadMore} loading={moreBusy} disabled={status === "loading"}>Load more</Button>}
             </div>
           </>
         )}
@@ -201,7 +231,9 @@ export function ContactsView({ workspaceId, timeZone, myUserId, initial, initial
 
       <NewContactDialog open={newOpen} onOpenChange={setNewOpen} workspaceId={workspaceId} stages={stages} members={members} fields={fields} myUserId={myUserId} />
       <ColumnsDialog open={colsOpen} onOpenChange={setColsOpen} columns={columns} onChange={(c) => { setActiveView(null); saveColumns(c); }} />
-      <SaveViewDialog open={saveOpen} onOpenChange={setSaveOpen} canShare={perms.shareViews} onSave={async (name, shared) => { const r = await browserApi.call(endpoints.createView, { params: { workspaceId }, body: { name, shared, config: currentConfig() } }); if (!r.ok) return errorMessage(r.error); setViews((v) => [...v, r.data].sort((a, b) => a.name.localeCompare(b.name))); setActiveView(r.data.id); return null; }} />
+      <ViewNameDialog open={renameOpen} onOpenChange={setRenameOpen} view={views.find((v) => v.id === baseView) ?? null} onSave={async (name) => { const v = views.find((x) => x.id === baseView); if (!v) return null; const r = await browserApi.call(endpoints.updateView, { params: { workspaceId, viewId: v.id }, body: { name } }); if (!r.ok) return errorMessage(r.error); setViews((x) => x.map((y) => (y.id === v.id ? r.data : y)).sort((a, b) => a.name.localeCompare(b.name))); return null; }} />
+      <DeleteViewDialog view={deleteView} onClose={() => setDeleteView(null)} onConfirm={async (v) => { const r = await browserApi.call(endpoints.deleteView, { params: { workspaceId, viewId: v.id } }); if (!r.ok) return errorMessage(r.error); setViews((x) => x.filter((y) => y.id !== v.id)); if (activeView === v.id) setActiveView(null); if (baseView === v.id) setBaseView(null); return null; }} />
+      <SaveViewDialog open={saveOpen} onOpenChange={setSaveOpen} canShare={perms.shareViews} onSave={async (name, shared) => { const r = await browserApi.call(endpoints.createView, { params: { workspaceId }, body: { name, shared, config: currentConfig() } }); if (!r.ok) return errorMessage(r.error); setViews((v) => [...v, r.data].sort((a, b) => a.name.localeCompare(b.name))); setActiveView(r.data.id); setBaseView(r.data.id); return null; }} />
     </>
   );
 }
@@ -219,7 +251,7 @@ function ContactsTable({ items, columns, query, onSort, workspaceId, timeZone }:
             return (
               <TH key={col} className={col === "contact" ? "sticky left-0 z-10" : undefined} aria-sort={active ? (query.dir === "asc" ? "ascending" : "descending") : s ? "none" : undefined}>
                 {s ? (
-                  <button type="button" onClick={() => onSort(col)} className="inline-flex items-center gap-1 rounded text-xs font-medium text-fg-muted hover:text-fg">
+                  <button type="button" onClick={() => onSort(col)} className="inline-flex min-h-6 min-w-6 items-center gap-1 rounded py-1 text-xs font-medium text-fg-muted hover:text-fg">
                     {COLUMN_LABEL[col]}
                     {active ? (query.dir === "asc" ? <ArrowUp className="size-3" aria-hidden /> : <ArrowDown className="size-3" aria-hidden />) : <ArrowUpDown className="size-3 text-fg-disabled" aria-hidden />}
                   </button>
@@ -240,6 +272,11 @@ function ContactsTable({ items, columns, query, onSort, workspaceId, timeZone }:
   );
 }
 
+/** Lifecycle stage is a state, not a label: dot and plain text, so it never reads as a tag pill. */
+function Stage({ name }: { name: string }) {
+  return <span className="inline-flex items-center gap-1.5 text-sm text-fg"><span className="size-1.5 shrink-0 rounded-full bg-accent" aria-hidden />{name}</span>;
+}
+
 function cell(col: ContactColumn, c: ContactSummary, workspaceId: string, timeZone: string): React.ReactNode {
   switch (col) {
     case "contact":
@@ -252,7 +289,7 @@ function cell(col: ContactColumn, c: ContactSummary, workspaceId: string, timeZo
           </div>
         </div>
       );
-    case "lifecycle": return <Badge>{c.lifecycleStage.name}</Badge>;
+    case "lifecycle": return <Stage name={c.lifecycleStage.name} />;
     case "owner": return c.owner ? <span className="inline-flex items-center gap-2"><Avatar name={c.owner.name} size="xs" /><span>{c.owner.name}</span></span> : <span className="text-fg-subtle">Unassigned</span>;
     case "tags": return c.tags.length ? <span className="inline-flex items-center gap-1">{c.tags.slice(0, 2).map((t) => <Badge key={t.id} tone={TAG_TONE[t.color]}>{t.name}</Badge>)}{c.tags.length > 2 && <span className="text-xs text-fg-subtle" title={c.tags.slice(2).map((t) => t.name).join(", ")}>+{c.tags.length - 2}</span>}</span> : <span className="text-fg-subtle">None</span>;
     case "source": return <span className="text-fg-muted">{sourceLabel(c.source)}</span>;
@@ -273,7 +310,7 @@ function ContactCard({ c, workspaceId, timeZone }: { c: ContactSummary; workspac
           </div>
           <p className="truncate text-sm text-fg-muted">{c.email ?? c.phone ?? "No email or phone"}</p>
           <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-            <Badge>{c.lifecycleStage.name}</Badge>
+            <Stage name={c.lifecycleStage.name} />
             {c.tags.slice(0, 2).map((t) => <Badge key={t.id} tone={TAG_TONE[t.color]}>{t.name}</Badge>)}
             {c.owner && <span className="text-xs text-fg-subtle">· {c.owner.name}</span>}
           </div>
@@ -283,8 +320,10 @@ function ContactCard({ c, workspaceId, timeZone }: { c: ContactSummary; workspac
   );
 }
 
-function ViewsMenu({ views, active, canManageShared, onApply, onSave, onDelete }: { views: SavedView[]; active: string | null; canManageShared: boolean; onApply: (v: SavedView) => void; onSave: () => void; onDelete: (v: SavedView) => void }) {
+function ViewsMenu({ views, active, base, canManageShared, onApply, onSave, onRename, onUpdate, onDelete }: { views: SavedView[]; active: string | null; base: string | null; canManageShared: boolean; onApply: (v: SavedView) => void; onSave: () => void; onRename: (v: SavedView) => void; onUpdate: (v: SavedView) => void; onDelete: (v: SavedView) => void }) {
   const current = views.find((v) => v.id === active);
+  const manage = views.find((v) => v.id === base);
+  const canManage = !!manage && (manage.mine || (manage.shared && canManageShared));
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -301,7 +340,13 @@ function ViewsMenu({ views, active, canManageShared, onApply, onSave, onDelete }
         ))}
         <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={onSave}><Plus aria-hidden />Save current view…</DropdownMenuItem>
-        {current && (current.mine || (current.shared && canManageShared)) && <DropdownMenuItem danger onSelect={() => onDelete(current)}><Trash2 aria-hidden />Delete “{current.name}”</DropdownMenuItem>}
+        {canManage && manage && (
+          <>
+            <DropdownMenuItem onSelect={() => onUpdate(manage)}><RefreshCw aria-hidden />Update “{manage.name}” with current filters</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => onRename(manage)}><Pencil aria-hidden />Rename “{manage.name}”…</DropdownMenuItem>
+            <DropdownMenuItem danger onSelect={() => onDelete(manage)}><Trash2 aria-hidden />Delete “{manage.name}”</DropdownMenuItem>
+          </>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -309,28 +354,48 @@ function ViewsMenu({ views, active, canManageShared, onApply, onSave, onDelete }
 
 function ColumnsDialog({ open, onOpenChange, columns, onChange }: { open: boolean; onOpenChange: (o: boolean) => void; columns: ContactColumn[]; onChange: (c: ContactColumn[]) => void }) {
   const hidden = CONTACT_COLUMNS.filter((c) => !columns.includes(c));
-  const move = (i: number, d: -1 | 1) => { const next = [...columns]; const j = i + d; if (j < 0 || j >= next.length) return; [next[i], next[j]] = [next[j]!, next[i]!]; onChange(next); };
+  const [note, setNote] = React.useState("");
+  const list = React.useRef<HTMLUListElement>(null);
+  const refocus = React.useRef<string | null>(null);
+  // Re-rendering moves or removes the button that had focus; put it back on the same row so keyboard users keep their place.
+  React.useLayoutEffect(() => {
+    const key = refocus.current;
+    if (!key) return;
+    refocus.current = null;
+    const [col, act] = key.split(":") as [string, string];
+    const pick = (a: string) => list.current?.querySelector<HTMLButtonElement>(`[data-col="${col}"][data-act="${a}"]:not(:disabled)`);
+    (pick(act) ?? pick(act === "up" ? "down" : "up"))?.focus();
+  });
+  const apply = (next: ContactColumn[], focus: string, text: string) => { refocus.current = focus; setNote(text); onChange(next); };
+  const move = (i: number, d: -1 | 1) => {
+    const next = [...columns];
+    const j = i + d;
+    if (j < 0 || j >= next.length) return;
+    [next[i], next[j]] = [next[j]!, next[i]!];
+    apply(next, `${columns[i]}:${d < 0 ? "up" : "down"}`, `${COLUMN_LABEL[columns[i]!]}, position ${j + 1} of ${next.length}`);
+  };
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent title="Columns" description="Choose which columns to show and in what order. Your layout is remembered on this device; save a view to share it.">
-        <ul className="flex flex-col gap-1">
+        <p role="status" className="sr-only">{note}</p>
+        <ul ref={list} className="flex flex-col gap-1">
           {columns.map((c, i) => (
             <li key={c} className="flex items-center gap-2 rounded-md px-1 py-0.5">
               <span className="flex-1 text-base text-fg">{COLUMN_LABEL[c]}</span>
-              <Button variant="ghost" icon size="sm" aria-label={`Move ${COLUMN_LABEL[c]} up`} disabled={i === 0} onClick={() => move(i, -1)}><ArrowUp /></Button>
-              <Button variant="ghost" icon size="sm" aria-label={`Move ${COLUMN_LABEL[c]} down`} disabled={i === columns.length - 1} onClick={() => move(i, 1)}><ArrowDown /></Button>
-              {c === "contact" ? <span className="w-20 text-right text-xs text-fg-subtle">Always shown</span> : <Button variant="secondary" size="sm" className="w-20" onClick={() => onChange(columns.filter((x) => x !== c))}>Hide</Button>}
+              <Button variant="ghost" icon size="sm" data-col={c} data-act="up" aria-label={`Move ${COLUMN_LABEL[c]} up`} disabled={i === 0} onClick={() => move(i, -1)}><ArrowUp /></Button>
+              <Button variant="ghost" icon size="sm" data-col={c} data-act="down" aria-label={`Move ${COLUMN_LABEL[c]} down`} disabled={i === columns.length - 1} onClick={() => move(i, 1)}><ArrowDown /></Button>
+              {c === "contact" ? <span className="w-20 text-right text-xs text-fg-subtle">Always shown</span> : <Button variant="secondary" size="sm" className="w-20" data-col={c} data-act="hide" onClick={() => apply(columns.filter((x) => x !== c), `${c}:show`, `${COLUMN_LABEL[c]} hidden`)}>Hide</Button>}
             </li>
           ))}
           {hidden.map((c) => (
             <li key={c} className="flex items-center gap-2 rounded-md px-1 py-0.5">
               <span className="flex-1 text-base text-fg-muted">{COLUMN_LABEL[c]}</span>
-              <Button variant="secondary" size="sm" className="w-20" onClick={() => onChange([...columns, c])}>Show</Button>
+              <Button variant="secondary" size="sm" className="w-20" data-col={c} data-act="show" onClick={() => apply([...columns, c], `${c}:hide`, `${COLUMN_LABEL[c]} shown`)}>Show</Button>
             </li>
           ))}
         </ul>
         <div className="mt-4 flex justify-between">
-          <Button variant="ghost" onClick={() => onChange(DEFAULT_COLUMNS)}>Reset to default</Button>
+          <Button variant="ghost" onClick={() => { setNote("Columns reset to default"); onChange(DEFAULT_COLUMNS); }}>Reset to default</Button>
           <DialogClose asChild><Button variant="primary">Done</Button></DialogClose>
         </div>
       </DialogContent>
@@ -363,5 +428,47 @@ function SaveViewForm({ canShare, onSave, onDone }: { canShare: boolean; onSave:
         <Button type="submit" variant="primary" loading={busy}>Save view</Button>
       </div>
     </form>
+  );
+}
+
+function ViewNameDialog({ open, onOpenChange, view, onSave }: { open: boolean; onOpenChange: (o: boolean) => void; view: SavedView | null; onSave: (name: string) => Promise<string | null> }) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent title="Rename view" description="Only the name changes. Filters and columns stay as saved.">
+        {view && <RenameViewForm key={view.id + view.name} view={view} onSave={onSave} onDone={() => onOpenChange(false)} />}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function RenameViewForm({ view, onSave, onDone }: { view: SavedView; onSave: (name: string) => Promise<string | null>; onDone: () => void }) {
+  const [name, setName] = React.useState(view.name);
+  const [error, setError] = React.useState<string | null>(null);
+  const [busy, setBusy] = React.useState(false);
+  return (
+    <form noValidate onSubmit={async (e) => { e.preventDefault(); if (!name.trim()) return setError("Give the view a name."); setBusy(true); const err = await onSave(name.trim()); setBusy(false); if (err) setError(err); else onDone(); }} className="flex flex-col gap-3">
+      {error && <Alert tone="error">{error}</Alert>}
+      <Field label="View name" error={null}>{(p) => <Input {...p} value={name} onChange={(e) => setName(e.target.value)} maxLength={60} autoFocus />}</Field>
+      <div className="mt-2 flex justify-end gap-2">
+        <DialogClose asChild><Button variant="ghost">Cancel</Button></DialogClose>
+        <Button type="submit" variant="primary" loading={busy}>Rename</Button>
+      </div>
+    </form>
+  );
+}
+
+function DeleteViewDialog({ view, onClose, onConfirm }: { view: SavedView | null; onClose: () => void; onConfirm: (v: SavedView) => Promise<string | null> }) {
+  const [error, setError] = React.useState<string | null>(null);
+  const [busy, setBusy] = React.useState(false);
+  return (
+    <Dialog open={!!view} onOpenChange={(o) => { if (!o) { setError(null); onClose(); } }}>
+      <DialogContent title={view ? `Delete “${view.name}”?` : "Delete view"} description={view?.shared ? "This view is shared. It will be removed for everyone in the workspace." : "The saved filters and columns are removed. Contacts are not affected."}>
+        {error && <Alert tone="error" className="mb-3">{error}</Alert>}
+        <div className="flex justify-end gap-2">
+          <DialogClose asChild><Button variant="ghost">Cancel</Button></DialogClose>
+          <Button variant="danger" loading={busy} onClick={async () => { if (!view) return; setBusy(true); const err = await onConfirm(view); setBusy(false); if (err) setError(err); else onClose(); }}>Delete view</Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
