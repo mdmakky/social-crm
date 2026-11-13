@@ -4,7 +4,7 @@ import { crmEndpoints } from "./crm.ts";
 // --- track:search ---
 import { searchEndpoints } from "./search.ts";
 // --- track:leads ---
-import { leadsEndpoints } from "./leads.ts";
+import { leadsEndpoints, leadRecordEndpoints } from "./leads.ts";
 // --- track:tasks ---
 import { tasksEndpoints } from "./tasks.ts";
 // --- track:notifications ---
@@ -83,4 +83,4 @@ const coreEndpoints = {
   auditLog: endpoint({ method: "GET", path: "/v1/workspaces/:workspaceId/audit-log", query: AuditQuery, response: AuditPage }),
 } as const;
 
-export const endpoints = { ...coreEndpoints, ...crmEndpoints, ...searchEndpoints /* track:search */, ...leadsEndpoints /* track:leads */, ...tasksEndpoints /* track:tasks */, ...notificationEndpoints /* track:notifications */ } as const;
+export const endpoints = { ...coreEndpoints, ...crmEndpoints, ...searchEndpoints /* track:search */, ...leadsEndpoints, ...leadRecordEndpoints /* track:leads */, ...tasksEndpoints /* track:tasks */, ...notificationEndpoints /* track:notifications */ } as const;

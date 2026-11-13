@@ -40,8 +40,8 @@ export async function activeMember(tx: Tx, workspaceId: string, userId: string):
   return !!m;
 }
 
-export async function recordActivity(tx: Tx, a: { workspaceId: string; contactId: string; kind: string; actorUserId: string | null; data?: Record<string, unknown> }) {
-  await tx.insert(schema.activities).values({ workspaceId: a.workspaceId, contactId: a.contactId, kind: a.kind, actorUserId: a.actorUserId, actorType: a.actorUserId ? "user" : "system", data: a.data ?? {} });
+export async function recordActivity(tx: Tx, a: { workspaceId: string; contactId: string; leadId?: string; kind: string; actorUserId: string | null; data?: Record<string, unknown> }) {
+  await tx.insert(schema.activities).values({ workspaceId: a.workspaceId, contactId: a.contactId, leadId: a.leadId ?? null, kind: a.kind, actorUserId: a.actorUserId, actorType: a.actorUserId ? "user" : "system", data: a.data ?? {} });
   await tx.update(schema.contacts).set({ lastActivityAt: new Date() }).where(and(eq(schema.contacts.workspaceId, a.workspaceId), eq(schema.contacts.id, a.contactId)));
 }
 

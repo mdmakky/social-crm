@@ -25,10 +25,14 @@ export async function loadPipelineDto(tx: Tx, workspaceId: string, id: string): 
   return pipelineDto(p, stages);
 }
 
-/** Locks the pipeline row so archive, stage edits and lead writes into it serialise (leads take FOR SHARE). */
+/**
+ * Serialises pipeline configuration against lead writes. Config changes take the advisory lock exclusively, lead creates and moves take it shared
+ * (agents cannot row-lock a pipeline: FOR SHARE needs the UPDATE policy, which is admin-only). Returns false when the pipeline is not visible.
+ */
 export const lockPipeline = async (tx: Tx, workspaceId: string, id: string, mode: "update" | "share" = "update") => {
-  const q = mode === "update" ? sql`FOR UPDATE` : sql`FOR SHARE`;
-  const rows = await tx.execute(sql`SELECT id FROM pipelines WHERE workspace_id = ${workspaceId} AND id = ${id} ${q}`);
+  const key = sql`hashtextextended(${`pipeline:${id}`}, 0)`;
+  await tx.execute(mode === "update" ? sql`SELECT pg_advisory_xact_lock(${key})` : sql`SELECT pg_advisory_xact_lock_shared(${key})`);
+  const rows = await tx.execute(sql`SELECT id FROM pipelines WHERE workspace_id = ${workspaceId} AND id = ${id}`);
   return rows.rows.length > 0;
 };
 

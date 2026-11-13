@@ -42,3 +42,78 @@ export const leadsEndpoints = {
   createLostReason: endpoint({ method: "POST", path: `${W}/lost-reasons`, body: CreateLostReasonBody, response: LostReasonDto }),
   updateLostReason: endpoint({ method: "PATCH", path: `${W}/lost-reasons/:lostReasonId`, body: UpdateLostReasonBody, response: LostReasonDto }),
 } as const;
+
+// ---------------------------------------------------------------- leads
+const Person = z.object({ id: z.string(), name: z.string() });
+const IsoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD");
+export const LeadPriority = z.enum(["low", "normal", "high"]);
+const Money = z.number().int().min(0).max(Number.MAX_SAFE_INTEGER);
+
+export const LeadDto = z.object({
+  id: Uuid, title: z.string(), description: z.string().nullable(),
+  primaryContact: z.object({ id: Uuid, name: z.string(), deleted: z.boolean() }),
+  pipelineId: Uuid, stageId: Uuid, outcome: StageKind, rank: z.string(),
+  /** Null when the caller may not see deal value (valueHidden = true) or when none is set. */
+  valueMinor: z.number().int().nullable(), currency: z.string().nullable(), valueHidden: z.boolean(), canEditValue: z.boolean(),
+  expectedCloseDate: z.string().nullable(), probability: z.number().int(), probabilityManual: z.boolean(),
+  closedAt: z.string().nullable(), lostReasonId: Uuid.nullable(), nextActivityAt: z.string().nullable(),
+  priority: LeadPriority, source: z.string(), owner: Person.nullable(),
+  version: z.number().int(), createdAt: z.string(), updatedAt: z.string(), deletedAt: z.string().nullable(),
+});
+export type LeadDto = z.infer<typeof LeadDto>;
+
+export const LeadSort = z.enum(["updated", "created", "close"]);
+export const LeadListQuery = z.object({
+  pipelineId: Uuid.optional(), stageId: Uuid.optional(), outcome: StageKind.optional(), ownerId: z.string().optional(), contactId: Uuid.optional(),
+  q: z.string().max(120).optional(), deleted: z.enum(["true"]).optional(),
+  sort: LeadSort.optional(), dir: z.enum(["asc", "desc"]).optional(),
+  cursor: z.string().max(400).optional(), limit: z.coerce.number().int().min(1).max(100).optional(),
+});
+export type LeadListQuery = z.input<typeof LeadListQuery>;
+export const LeadPage = z.object({ items: z.array(LeadDto), nextCursor: z.string().nullable() });
+
+export const CreateLeadBody = z.object({
+  title: z.string().trim().min(1).max(160), description: z.string().max(5000).nullable().optional(),
+  primaryContactId: Uuid, pipelineId: Uuid.optional(), stageId: Uuid.optional(),
+  valueMinor: Money.nullable().optional(), currency: Currency.nullable().optional(),
+  expectedCloseDate: IsoDate.nullable().optional(), probability: z.number().int().min(1).max(99).optional(),
+  priority: LeadPriority.optional(), source: z.string().trim().min(1).max(40).optional(), ownerUserId: z.string().nullable().optional(),
+  allowDuplicate: z.boolean().optional(),
+}).refine((b) => (b.valueMinor == null) === (b.currency == null), "Value and currency go together");
+export type CreateLeadBody = z.input<typeof CreateLeadBody>;
+export const UpdateLeadBody = z.object({
+  expectedVersion: z.number().int(),
+  title: z.string().trim().min(1).max(160).optional(), description: z.string().max(5000).nullable().optional(), primaryContactId: Uuid.optional(),
+  valueMinor: Money.nullable().optional(), currency: Currency.nullable().optional(),
+  expectedCloseDate: IsoDate.nullable().optional(), probability: z.number().int().min(1).max(99).optional(), resetProbability: z.literal(true).optional(),
+  priority: LeadPriority.optional(), ownerUserId: z.string().nullable().optional(),
+}).refine((b) => Object.keys(b).some((k) => k !== "expectedVersion"), "Nothing to update");
+export type UpdateLeadBody = z.input<typeof UpdateLeadBody>;
+export const MoveLeadBody = z.object({ expectedVersion: z.number().int(), stageId: Uuid, lostReasonId: Uuid.optional(), beforeLeadId: Uuid.optional(), afterLeadId: Uuid.optional() });
+export type MoveLeadBody = z.input<typeof MoveLeadBody>;
+export const LeadVersionBody = z.object({ expectedVersion: z.number().int() });
+export const LeadVersionQuery = z.object({ expectedVersion: z.coerce.number().int() });
+
+export const LeadTransition = z.object({ id: Uuid, fromStageId: Uuid.nullable(), toStageId: Uuid, fromOutcome: StageKind.nullable(), toOutcome: StageKind, actor: Person.nullable(), lostReasonId: Uuid.nullable(), occurredAt: z.string() });
+export const LeadTransitionList = z.object({ items: z.array(LeadTransition) });
+export const LeadActivity = z.object({ id: Uuid, kind: z.string(), actor: Person.nullable(), data: z.record(z.string(), z.unknown()), occurredAt: z.string() });
+export const LeadActivityList = z.object({ items: z.array(LeadActivity) });
+export const LeadValueGrant = z.object({ userId: z.string(), name: z.string(), canEdit: z.boolean() });
+export const LeadValueGrantList = z.object({ items: z.array(LeadValueGrant) });
+export const SetValueGrantBody = z.object({ canEdit: z.boolean() });
+export const DuplicateLeadDetails = z.object({ duplicates: z.array(z.object({ id: Uuid, title: z.string() })) });
+
+export const leadRecordEndpoints = {
+  listLeads: endpoint({ method: "GET", path: `${W}/leads`, query: LeadListQuery, response: LeadPage }),
+  createLead: endpoint({ method: "POST", path: `${W}/leads`, body: CreateLeadBody, response: LeadDto }),
+  getLead: endpoint({ method: "GET", path: `${W}/leads/:leadId`, response: LeadDto }),
+  updateLead: endpoint({ method: "PATCH", path: `${W}/leads/:leadId`, body: UpdateLeadBody, response: LeadDto }),
+  moveLead: endpoint({ method: "POST", path: `${W}/leads/:leadId/move`, body: MoveLeadBody, response: LeadDto }),
+  deleteLead: endpoint({ method: "DELETE", path: `${W}/leads/:leadId`, query: LeadVersionQuery, response: LeadDto }),
+  restoreLead: endpoint({ method: "POST", path: `${W}/leads/:leadId/restore`, body: LeadVersionBody, response: LeadDto }),
+  listLeadTransitions: endpoint({ method: "GET", path: `${W}/leads/:leadId/transitions`, response: LeadTransitionList }),
+  listLeadActivities: endpoint({ method: "GET", path: `${W}/leads/:leadId/activities`, response: LeadActivityList }),
+  listLeadValueGrants: endpoint({ method: "GET", path: `${W}/leads/:leadId/value-grants`, response: LeadValueGrantList }),
+  setLeadValueGrant: endpoint({ method: "PUT", path: `${W}/leads/:leadId/value-grants/:userId`, body: SetValueGrantBody, response: LeadValueGrant }),
+  removeLeadValueGrant: endpoint({ method: "DELETE", path: `${W}/leads/:leadId/value-grants/:userId`, response: LeadValueGrantList }),
+} as const;
