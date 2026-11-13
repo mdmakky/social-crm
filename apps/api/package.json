@@ -10,6 +10,8 @@
   },
   "dependencies": {
     "@better-auth/expo": "1.7.22",
+    "@crm/contracts": "workspace:*",
+    "@crm/core": "workspace:*",
     "@crm/db": "workspace:*",
     "@hono/node-server": "2.1.8",
     "better-auth": "1.7.22",

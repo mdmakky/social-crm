@@ -5,7 +5,8 @@ import { createDb, withContext, schema, type Db } from "../src/index.ts";
 
 const ADMIN = process.env.DATABASE_URL_ADMIN ?? "postgres://postgres:postgres@127.0.0.1:5436/crm";
 const APP = process.env.DATABASE_URL_APP ?? "postgres://crm_app:app_dev@127.0.0.1:5436/crm";
-const U = { owner: "u-owner", admin: "u-admin", agent: "u-agent", other: "u-other" };
+const run = Date.now().toString(36);
+const U = { owner: `u-owner-${run}`, admin: `u-admin-${run}`, agent: `u-agent-${run}`, other: `u-other-${run}` };
 let db: Db;
 let admin: pg.Client;
 let wsId: string;
@@ -16,18 +17,17 @@ const msg = (e: unknown) => String((e as { cause?: { message?: string } }).cause
 beforeAll(async () => {
   admin = new pg.Client({ connectionString: ADMIN });
   await admin.connect();
-  await admin.query("TRUNCATE audit_log, memberships, workspaces RESTART IDENTITY CASCADE").catch(() => admin.query("ALTER TABLE audit_log DISABLE TRIGGER USER").then(() => admin.query("TRUNCATE audit_log, memberships, workspaces CASCADE")).then(() => admin.query("ALTER TABLE audit_log ENABLE TRIGGER USER")));
   for (const [k, id] of Object.entries(U)) {
-    await admin.query(`INSERT INTO "user"(id,name,email,email_verified) VALUES ($1,$1,$2,true) ON CONFLICT (id) DO NOTHING`, [id, `${k}@t.example`]);
+    await admin.query(`INSERT INTO "user"(id,name,email,email_verified) VALUES ($1,$1,$2,true) ON CONFLICT (id) DO NOTHING`, [id, `${k}-${run}@t.example`]);
   }
   db = createDb(APP);
   wsId = (await withContext(db, { userId: U.owner }, async (tx) => {
-    const [w] = await tx.insert(schema.workspaces).values({ name: "Acme", slug: "acme-test", ownerUserId: U.owner }).returning();
+    const [w] = await tx.insert(schema.workspaces).values({ name: "Acme", slug: `acme-${run}`, ownerUserId: U.owner }).returning();
     await tx.insert(schema.memberships).values({ workspaceId: w!.id, userId: U.owner, role: "owner" });
     return w!.id;
   }));
   otherWs = (await withContext(db, { userId: U.other }, async (tx) => {
-    const [w] = await tx.insert(schema.workspaces).values({ name: "Other Co", slug: "other-test", ownerUserId: U.other }).returning();
+    const [w] = await tx.insert(schema.workspaces).values({ name: "Other Co", slug: `other-${run}`, ownerUserId: U.other }).returning();
     await tx.insert(schema.memberships).values({ workspaceId: w!.id, userId: U.other, role: "owner" });
     return w!.id;
   }));
@@ -47,7 +47,7 @@ afterAll(async () => {
 describe("workspaces and memberships RLS", () => {
   it("a user lists only workspaces they belong to", async () => {
     const mine = await withContext(db, { userId: U.owner }, (tx) => tx.select().from(schema.workspaces));
-    expect(mine.map((w) => w.slug)).toEqual(["acme-test"]);
+    expect(mine.map((w) => w.slug)).toEqual([`acme-${run}`]);
     const none = await withContext(db, { userId: "nobody" }, (tx) => tx.select().from(schema.workspaces));
     expect(none).toEqual([]);
   });
@@ -63,7 +63,7 @@ describe("workspaces and memberships RLS", () => {
   });
   it("cannot create a workspace owned by someone else", async () => {
     await expect(
-      withContext(db, { userId: U.other }, (tx) => tx.insert(schema.workspaces).values({ name: "X", slug: "x-steal", ownerUserId: U.owner })),
+      withContext(db, { userId: U.other }, (tx) => tx.insert(schema.workspaces).values({ name: "X", slug: `x-steal-${run}`, ownerUserId: U.owner })),
     ).rejects.toMatchObject({ cause: { message: expect.stringMatching(/row-level security/) } });
   });
   it("cannot self-grant owner on someone else's workspace", async () => {

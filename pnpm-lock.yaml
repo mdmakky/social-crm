@@ -178,6 +178,12 @@ importers:
       '@better-auth/expo':
         specifier: 1.7.22
         version: 1.7.22(e87f9e173991097b86c47b5aea4a11b5)
+      '@crm/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      '@crm/core':
+        specifier: workspace:*
+        version: link:../../packages/core
       '@crm/db':
         specifier: workspace:*
         version: link:../../packages/db

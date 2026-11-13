@@ -3,7 +3,7 @@ import { sql } from "drizzle-orm";
 import pg from "pg";
 
 export type Db = NodePgDatabase & { $client: pg.Pool };
-type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
+export type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
 
 export function createDb(url: string): Db {
   return drizzle(new pg.Pool({ connectionString: url, max: 10 })) as Db;

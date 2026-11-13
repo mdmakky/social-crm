@@ -15,6 +15,7 @@ const env = z
   .parse(process.env);
 
 const origins = [env.WEB_ORIGIN, "crm://"];
-const auth = createAuth(createDb(env.DATABASE_URL_APP), { secret: env.BETTER_AUTH_SECRET, baseURL: env.BETTER_AUTH_URL, trustedOrigins: origins });
-serve({ fetch: createApp(auth, { allowedOrigins: origins }).fetch, port: env.PORT });
+const db = createDb(env.DATABASE_URL_APP);
+const auth = createAuth(db, { secret: env.BETTER_AUTH_SECRET, baseURL: env.BETTER_AUTH_URL, trustedOrigins: origins });
+serve({ fetch: createApp(auth, { allowedOrigins: origins, db }).fetch, port: env.PORT });
 console.log(`api listening on :${env.PORT}`);

@@ -20,7 +20,7 @@ const json = (body: unknown) => ({ method: "POST", headers: { "content-type": "a
 beforeAll(() => {
   db = createDb(APP_URL);
   const auth = createAuth(db, { secret: "test-secret-".padEnd(40, "x"), baseURL: "http://localhost:8787", trustedOrigins: [ORIGIN, "crm://"] });
-  app = createApp(auth, { allowedOrigins: [ORIGIN] });
+  app = createApp(auth, { allowedOrigins: [ORIGIN], db });
 });
 afterAll(async () => { await db.$client.end(); });
 
