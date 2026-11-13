@@ -11,11 +11,23 @@ export function createDb(url: string): Db {
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/** Runs fn in a transaction with app.workspace_id set (transaction-local, so it cannot leak across pooled connections). */
-export async function withWorkspace<T>(db: Db, workspaceId: string, fn: (tx: Tx) => Promise<T>): Promise<T> {
-  if (!UUID.test(workspaceId)) throw new Error("invalid workspace id");
+export type RequestContext = { userId?: string; workspaceId?: string };
+
+/**
+ * Runs fn in a transaction with app.user_id / app.workspace_id set. Settings are transaction-local,
+ * so they cannot leak across pooled connections.
+ */
+export async function withContext<T>(db: Db, ctx: RequestContext, fn: (tx: Tx) => Promise<T>): Promise<T> {
+  if (ctx.workspaceId !== undefined && !UUID.test(ctx.workspaceId)) throw new Error("invalid workspace id");
   return db.transaction(async (tx) => {
-    await tx.execute(sql`SELECT set_config('app.workspace_id', ${workspaceId}, true)`);
+    await tx.execute(sql`SELECT set_config('app.workspace_id', ${ctx.workspaceId ?? ""}, true), set_config('app.user_id', ${ctx.userId ?? ""}, true)`);
     return fn(tx);
   });
 }
+
+export function withWorkspace<T>(db: Db, workspaceId: string, fn: (tx: Tx) => Promise<T>): Promise<T> {
+  return withContext(db, { workspaceId }, fn);
+}
+
+export * as schema from "./schema/index.ts";
+export { user } from "./auth-schema.ts";

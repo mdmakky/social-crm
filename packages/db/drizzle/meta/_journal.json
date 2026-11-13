@@ -8,6 +8,27 @@
       "when": 1794542087992,
       "tag": "0000_strong_lila_cheney",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1794543176283,
+      "tag": "0001_tenancy",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794543177919,
+      "tag": "0002_tenancy_rls",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1794543206628,
+      "tag": "0003_audit_trigger_statement_level",
+      "breakpoints": true
     }
   ]
 }
