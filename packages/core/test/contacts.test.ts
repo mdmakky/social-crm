@@ -228,7 +228,7 @@ describe("import fixes (security M3, integrity m7, m11)", () => {
   });
   it("custom values: unsafe numbers are refused and partial validation skips untouched fields", () => {
     const d: CustomFieldDef[] = [{ key: "n", label: "N", type: "number", options: [], required: false }, { key: "tier", label: "Tier", type: "select", options: ["gold"], required: true }];
-    expect(validateCustomValues(d, { n: 9007199254740993, tier: "gold" }).ok).toBe(false);
+    expect(validateCustomValues(d, { n: Number.MAX_SAFE_INTEGER + 2, tier: "gold" }).ok).toBe(false);
     expect(validateCustomValues(d, { n: 1e21, tier: "gold" }).ok).toBe(false);
     expect(validateCustomValues(d, { n: 5 }, { partial: true })).toEqual({ ok: true, values: { n: 5 } });
     expect(validateCustomValues(d, { n: 5 }).ok).toBe(false);
