@@ -5,6 +5,7 @@ import { Menu, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
 import { TooltipProvider } from "@/components/ui/overlays";
+import { NotificationBell } from "@/components/notifications/notification-bell";
 import { CommandMenu } from "./command-menu";
 import { Logo } from "./logo";
 import { SidebarNav } from "./sidebar-nav";
@@ -81,6 +82,7 @@ export function AppShell({ workspace, workspaces, user, children }: { workspace:
             </Button>
             <Button variant="ghost" icon aria-label="Open command menu" className="sm:hidden" onClick={() => setPalette(true)}><Search /></Button>
             <div className="hidden flex-1 md:block" />
+            <NotificationBell workspaceId={workspace.id} />
             <UserMenu user={user} workspaceId={workspace.id} />
           </header>
           <main id="main" tabIndex={-1} className="min-h-0 flex-1 overflow-y-auto outline-none">
