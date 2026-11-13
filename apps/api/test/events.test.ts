@@ -148,9 +148,9 @@ describe("dispatchPending", () => {
     await emit();
     await new Promise((r) => setTimeout(r, 400));
     expect(c.seen.length).toBe(before); // idle: the next poll is an hour away
+    active = true; // same order as server.ts: the request marks the system active first, then wakes the dispatcher
     d.wake();
     await expect.poll(() => c.seen.length, { timeout: 10_000 }).toBeGreaterThan(before);
-    active = true;
     const mid = c.seen.length;
     await emit();
     await expect.poll(() => c.seen.length, { timeout: 10_000 }).toBeGreaterThan(mid); // active again: fast polling

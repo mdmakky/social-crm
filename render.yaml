@@ -6,6 +6,7 @@ services:
     name: social-crm-api
     runtime: node
     plan: free
+    region: singapore # same region as the Neon database (aws-ap-southeast-1): every request makes several queries. Free instances in this region: UNVERIFIED (Render's regions page lists Singapore; free availability per region is not stated)
     numInstances: 1 # ponytail: in-memory OAuth pending store and rate limits break with 2+ instances
     buildCommand: corepack enable && pnpm install --frozen-lockfile
     startCommand: pnpm --filter @crm/api exec tsx src/server.ts
@@ -19,6 +20,8 @@ services:
         value: staging # NOT production: apps/api/src/server.ts refuses NODE_ENV=production until a real mail provider exists (D22)
       - key: INBOX_WORKER_INTERVAL_MS
         value: "900000" # 15 min fallback poll; keeps the database idle so Neon can scale to zero
+      - key: DB_POOL_MAX
+        value: "5" # three pools (app, worker, ingest) per process, and a deploy briefly runs two processes: keep the total well under the database limit
       - key: META_GRAPH_VERSION
         value: v25.0
       # secrets and per-environment URLs: set in the dashboard

@@ -8,6 +8,7 @@ import { startDispatcher } from "./events.ts";
 import { notificationsConsumer } from "./notifications/index.ts";
 import { metaWebhookRoutes } from "./inbox/webhook.ts";
 import { startInboxWorker } from "./inbox/process.ts";
+import { createShutdown } from "./shutdown.ts";
 import { runTokenChecks, type MetaConnectDeps } from "./inbox/meta-connect.ts";
 import { metaUserCallbackRoutes } from "./inbox/meta-callbacks.ts";
 import { createMetaGraph, createMockGraph, createSecretBox } from "@crm/integrations";
@@ -68,13 +69,14 @@ if (workerDb && env.SECRETS_ENCRYPTION_KEY && env.META_APP_SECRET && ((env.META_
   };
   console.log(`meta connect enabled (${meta.mock ? "MOCK graph" : "real graph " + env.META_GRAPH_VERSION})`);
 }
+let ingestDb: ReturnType<typeof createDb> | null = null;
 let inboxWorker: ReturnType<typeof startInboxWorker> | null = null; // assigned below; ingress signals it after it stores an event
 const app = createApp(auth, { allowedOrigins: origins, db, meta });
 if (meta && workerDb && env.META_APP_SECRET) {
   app.route("/meta/callbacks", metaUserCallbackRoutes({ appSecrets: [env.META_APP_SECRET, ...(env.META_APP_SECRET_PREVIOUS ? [env.META_APP_SECRET_PREVIOUS] : [])], workerDb, userHashKey: meta.userHashKey, statusKey: createHmac("sha256", env.META_APP_SECRET).update("crm-deletion-status-v1").digest(), publicBaseUrl: env.META_PUBLIC_BASE_URL }));
 }
 if (env.DATABASE_URL_INGEST && env.META_APP_SECRET && env.META_VERIFY_TOKEN) {
-  app.route("/webhooks/meta", metaWebhookRoutes({ appSecrets: [env.META_APP_SECRET, ...(env.META_APP_SECRET_PREVIOUS ? [env.META_APP_SECRET_PREVIOUS] : [])], verifyToken: env.META_VERIFY_TOKEN, ingestDb: createDb(env.DATABASE_URL_INGEST), onStored: () => void inboxWorker?.tick() }));
+  app.route("/webhooks/meta", metaWebhookRoutes({ appSecrets: [env.META_APP_SECRET, ...(env.META_APP_SECRET_PREVIOUS ? [env.META_APP_SECRET_PREVIOUS] : [])], verifyToken: env.META_VERIFY_TOKEN, ingestDb: (ingestDb = createDb(env.DATABASE_URL_INGEST)), onStored: () => void inboxWorker?.tick() }));
   console.log("meta webhook ingress mounted at /webhooks/meta/{messenger,instagram}");
 }
 inboxWorker = workerDb ? startInboxWorker(workerDb, { intervalMs: env.INBOX_WORKER_INTERVAL_MS, periodic: meta ? { everyMs: 6 * 3_600_000, run: () => runTokenChecks(meta!) } : undefined, onError: (e) => console.error(JSON.stringify({ msg: "inbox worker error", error: (e as Error).name })) }) : null;
@@ -97,7 +99,12 @@ const server = serve({
 // In-process event relay (decision D7: moves to a pg-boss worker app later; dispatchPending is the unit of work).
 const dispatcher = startDispatcher(db, { consumers: [notificationsConsumer], intervalMs: env.EVENT_DISPATCH_INTERVAL_MS, idleIntervalMs: env.EVENT_DISPATCH_IDLE_INTERVAL_MS, isActive, retentionDays: env.EVENT_RETENTION_DAYS });
 dispatcherRef = dispatcher;
-for (const sig of ["SIGINT", "SIGTERM"] as const) {
-  process.once(sig, () => void Promise.all([dispatcher.stop(), inboxWorker?.stop()]).then(() => server.close(() => process.exit(0))));
-}
+const shutdown = createShutdown({
+  server,
+  stoppers: [() => dispatcher.stop(), () => inboxWorker?.stop() ?? Promise.resolve()],
+  pools: [db, workerDb, ingestDb].flatMap((d) => (d ? [() => d.$client.end()] : [])),
+  exit: (code) => process.exit(code),
+  timeoutMs: 10_000,
+});
+for (const sig of ["SIGINT", "SIGTERM"] as const) process.on(sig, () => void shutdown());
 console.log(`api listening on :${env.PORT}`);

@@ -320,6 +320,20 @@ describe("worker: event driven (no polling needed)", () => {
     }
   });
 
+  it("after stop() a late signal starts nothing and the event stays for the next process", async () => {
+    const ref = await account(wsA);
+    const w = startInboxWorker(workerDb, { intervalMs: 3_600_000, purgeEveryMs: 86_400_000 });
+    await new Promise((r) => setTimeout(r, 400));
+    await w.stop();
+    const f = signedFixture(msg(ref, digits(), "m.late", Date.now()));
+    expect((await post(hook, "messenger", f.raw, f.signature)).status).toBe(200); // ingress stored it while this process was shutting down
+    await w.tick(); // the late signal
+    await new Promise((r) => setTimeout(r, 400));
+    expect((await eventsFor(ref)).map((e) => e.status)).toEqual(["received"]); // untouched: durable, picked up by the next process
+    expect(await processPending(workerDb)).toMatchObject({ failed: 0 });
+    expect((await eventsFor(ref))[0].status).toBe("processed");
+  });
+
   it("a rejected or unusable delivery does not signal the worker", async () => {
     let signals = 0;
     const app = mount(cfg({ onStored: () => { signals += 1; } }));

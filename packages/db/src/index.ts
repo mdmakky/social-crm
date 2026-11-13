@@ -5,8 +5,9 @@ import pg from "pg";
 export type Db = NodePgDatabase & { $client: pg.Pool };
 export type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
 
-export function createDb(url: string): Db {
-  return drizzle(new pg.Pool({ connectionString: url, max: 10 })) as Db;
+/** `max` defaults to DB_POOL_MAX or 10. One hosted process opens three pools (app, worker, ingest): lower it on a small database, and remember a deploy briefly runs two processes. */
+export function createDb(url: string, max: number = Number(process.env.DB_POOL_MAX) || 10): Db {
+  return drizzle(new pg.Pool({ connectionString: url, max })) as Db;
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

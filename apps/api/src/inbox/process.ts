@@ -181,6 +181,7 @@ export function startInboxWorker(db: Db, opts: { intervalMs: number; purgeEveryM
   let again = false;
   const BATCH = 50;
   const tick = (): Promise<void> => {
+    if (stopped) return Promise.resolve(); // shutting down: a late signal from a request that is still finishing must not start a new pass
     if (running) { again = true; return running; }
     running = (async () => {
       try {
