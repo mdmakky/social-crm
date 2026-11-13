@@ -2,9 +2,37 @@ import { expect, test, type Page } from "@playwright/test";
 import { createWorkspace, PASSWORD, register, signIn, signOut, signUpAndCreate, uniqueEmail } from "./helpers";
 
 test.describe("authentication", () => {
-  test("unauthenticated visitors are sent to sign in, and back after login", async ({ page }) => {
-    await page.goto("/w/00000000-0000-4000-8000-000000000000/members");
+  test("unauthenticated visitors are sent to sign in, and back to the same page after login", async ({ page }) => {
+    const { email, workspaceId } = await signUpAndCreate(page, "Back Again", "Return Co");
+    await signOut(page);
+    await page.goto(`/w/${workspaceId}/members`);
     await expect(page).toHaveURL(/\/login\?next=/);
+    await page.getByLabel("Email").fill(email);
+    await page.getByLabel("Password").fill(PASSWORD);
+    await page.getByRole("button", { name: "Sign in" }).click();
+    await expect(page).toHaveURL(`/w/${workspaceId}`); // the layout's next param targets the workspace root
+  });
+
+  test("the next parameter cannot send users to another site", async ({ page }) => {
+    const { email } = await signUpAndCreate(page, "Redirect Safe", "Redirect Co");
+    for (const evil of ["//evil.example", "/\\evil.example", "https://evil.example"]) {
+      await signOut(page);
+      await page.goto(`/login?next=${encodeURIComponent(evil)}`);
+      await page.getByLabel("Email").fill(email);
+      await page.getByLabel("Password").fill(PASSWORD);
+      await page.getByRole("button", { name: "Sign in" }).click();
+      await page.waitForURL(/\/w\//);
+      expect(new URL(page.url()).origin).toBe("http://localhost:3217");
+    }
+  });
+
+  test("responses carry clickjacking and sniffing protections", async ({ request }) => {
+    const res = await request.get("/login");
+    expect(res.headers()["x-frame-options"]).toBe("DENY");
+    expect(res.headers()["content-security-policy"]).toContain("frame-ancestors 'none'");
+    expect(res.headers()["x-content-type-options"]).toBe("nosniff");
+    expect(res.headers()["referrer-policy"]).toBe("strict-origin-when-cross-origin");
+    expect(res.headers()["x-powered-by"]).toBeUndefined();
   });
 
   test("registration validates input with specific messages", async ({ page }) => {

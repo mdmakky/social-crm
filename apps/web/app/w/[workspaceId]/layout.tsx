@@ -1,21 +1,18 @@
-import { notFound, redirect } from "next/navigation";
-import type { MeResponse, WorkspaceDetail, WorkspaceSummary } from "@crm/contracts";
+import { redirect } from "next/navigation";
+import { endpoints } from "@crm/contracts";
 import { AppShell } from "@/components/shell/app-shell";
-import { apiGet } from "@/lib/api";
+import { must, serverApi } from "@/lib/api";
 
 export default async function WorkspaceLayout({ children, params }: { children: React.ReactNode; params: Promise<{ workspaceId: string }> }) {
   const { workspaceId } = await params;
-  const [me, ws, detail] = await Promise.all([
-    apiGet<MeResponse>("/v1/me"),
-    apiGet<WorkspaceSummary[]>("/v1/workspaces"),
-    apiGet<WorkspaceDetail>(`/v1/workspaces/${workspaceId}`),
-  ]);
-  if (me.status === 401) redirect(`/login?next=${encodeURIComponent(`/w/${workspaceId}`)}`);
-  if (detail.status === 404 || !detail.data) notFound();
-  if (!me.data) throw new Error("Could not load your account");
-  const current = { id: detail.data.id, name: detail.data.name, slug: detail.data.slug, role: detail.data.role };
+  const api = await serverApi();
+  const [me, ws, detail] = await Promise.all([api.call(endpoints.me), api.call(endpoints.listWorkspaces), api.call(endpoints.getWorkspace, { params: { workspaceId } })]);
+  if (!me.ok && me.error.status === 401) redirect(`/login?next=${encodeURIComponent(`/w/${workspaceId}`)}`);
+  const d = must(detail);
+  const user = must(me);
+  const current = { id: d.id, name: d.name, slug: d.slug, role: d.role };
   return (
-    <AppShell workspace={current} workspaces={ws.data ?? [current]} user={{ id: me.data.id, name: me.data.name, email: me.data.email }}>
+    <AppShell workspace={current} workspaces={ws.ok ? ws.data : [current]} user={{ id: user.id, name: user.name, email: user.email }}>
       {children}
     </AppShell>
   );

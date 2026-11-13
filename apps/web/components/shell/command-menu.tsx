@@ -10,7 +10,7 @@ import { builtNav, href } from "@/lib/nav";
 import { Kbd } from "@/components/ui/kbd";
 import type { ShellWorkspace } from "./types";
 
-const itemCls = "flex cursor-default items-center gap-2 rounded-md px-2 py-2 text-base text-fg outline-none data-[selected=true]:bg-hover [&_svg]:size-4 [&_svg]:text-fg-subtle";
+const itemCls = "flex cursor-default items-center gap-2 rounded-md px-2 py-2 text-base text-fg data-[selected=true]:bg-selected data-[selected=true]:ring-1 data-[selected=true]:ring-inset data-[selected=true]:ring-accent [&_svg]:size-4 [&_svg]:text-fg-subtle";
 const groupCls = "[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-fg-subtle";
 
 export function CommandMenu({ open, onOpenChange, workspace, workspaces, role }: { open: boolean; onOpenChange: (o: boolean) => void; workspace: ShellWorkspace; workspaces: ShellWorkspace[]; role: Role }) {
@@ -27,7 +27,7 @@ export function CommandMenu({ open, onOpenChange, workspace, workspaces, role }:
           <Command label="Command menu">
             <div className="flex items-center gap-2 border-b border-line px-3">
               <Search className="size-4 text-fg-subtle" aria-hidden />
-              <Command.Input placeholder="Search pages and actions" className="h-11 flex-1 bg-transparent text-base text-fg outline-none" />
+              <Command.Input placeholder="Search pages and actions" className="h-11 flex-1 bg-transparent text-base text-fg outline-none pointer-coarse:text-md" />
               <Kbd>Esc</Kbd>
             </div>
             <Command.List className="max-h-80 overflow-y-auto p-2">

@@ -12,7 +12,8 @@ import { Select } from "@/components/ui/input";
 import { Dialog, DialogClose, DialogContent, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/overlays";
 import { Alert } from "@/components/ui/states";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
-import { api, errorMessage } from "@/lib/client-api";
+import { endpoints } from "@crm/contracts";
+import { browserApi, errorMessage } from "@/lib/client-api";
 import { formatDate, ROLE_LABEL } from "@/lib/format";
 
 const ROLES: Role[] = ["owner", "admin", "agent", "viewer"];
@@ -42,10 +43,10 @@ export function MembersTable({ workspaceId, members, myRole, myUserId, timeZone 
     if (!dialog) return;
     setBusy(true);
     setError(null);
-    const path = `/v1/workspaces/${workspaceId}/members/${dialog.member.userId}`;
-    const res = dialog.kind === "role" ? await api(path, { method: "PATCH", body: { role } }) : await api(path, { method: "DELETE" });
+    const params = { workspaceId, userId: dialog.member.userId };
+    const res = dialog.kind === "role" ? await browserApi.call(endpoints.updateMember, { params, body: { role } }) : await browserApi.call(endpoints.removeMember, { params });
     setBusy(false);
-    if (!res.ok) return setError(errorMessage(res));
+    if (!res.ok) return setError(errorMessage(res.error));
     setDialog(null);
     router.refresh();
   }
@@ -108,7 +109,7 @@ export function MembersTable({ workspaceId, members, myRole, myUserId, timeZone 
           <TBody>
             {rows.map(({ m, isMe, canChange, canRemove }) => (
               <TR key={m.userId}>
-                <TD>{identity(m, isMe)}</TD>
+                <TD className="w-full max-w-0">{identity(m, isMe)}</TD>
                 <TD><Badge tone={m.role === "owner" ? "accent" : "neutral"}>{ROLE_LABEL[m.role]}</Badge></TD>
                 <TD className="tnum whitespace-nowrap text-fg-muted">{formatDate(m.joinedAt, timeZone)}</TD>
                 <TD>{actions(m, canChange, canRemove)}</TD>

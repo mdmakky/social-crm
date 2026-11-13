@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Alert } from "@/components/ui/states";
-import { api, errorMessage } from "@/lib/client-api";
+import { endpoints } from "@crm/contracts";
+import { browserApi, errorMessage } from "@/lib/client-api";
 import { authClient } from "@/lib/auth-client";
 
 export function CreateWorkspaceForm({ canCancel }: { canCancel: boolean }) {
@@ -23,10 +24,10 @@ export function CreateWorkspaceForm({ canCancel }: { canCancel: boolean }) {
     if (!parsed.success) return setError(parsed.error.issues[0]?.message ?? "Enter a workspace name.");
     setError(null);
     setBusy(true);
-    const res = await api<{ id: string }>("/v1/workspaces", { method: "POST", body: { name: parsed.data } });
+    const res = await browserApi.call(endpoints.createWorkspace, { body: { name: parsed.data } });
     if (!res.ok) {
       setBusy(false);
-      return setFormError(errorMessage(res));
+      return setFormError(errorMessage(res.error));
     }
     router.replace(`/w/${res.data.id}`);
   }

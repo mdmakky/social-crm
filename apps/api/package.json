@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@better-auth/expo": "1.7.22",
+    "@crm/api-client": "workspace:*",
     "@crm/contracts": "workspace:*",
     "@crm/core": "workspace:*",
     "@crm/db": "workspace:*",

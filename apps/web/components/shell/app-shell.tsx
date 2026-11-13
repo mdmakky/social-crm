@@ -75,7 +75,7 @@ export function AppShell({ workspace, workspaces, user, children }: { workspace:
         <div className="flex min-w-0 flex-1 flex-col">
           <header className="flex h-[var(--topbar-h)] shrink-0 items-center gap-2 border-b border-line bg-surface px-3 md:px-6">
             <Button variant="ghost" icon aria-label="Open navigation" className="md:hidden" onClick={() => setDrawer(true)}><Menu /></Button>
-            <p className="min-w-0 flex-1 truncate text-base font-semibold text-fg md:hidden">{workspace.name}</p>
+            <Logo className="min-w-0 flex-1 md:hidden" />
             <Button variant="secondary" className="hidden w-full max-w-sm justify-start gap-2 font-normal text-fg-subtle sm:inline-flex md:w-72" onClick={() => setPalette(true)}>
               <Search aria-hidden /><span className="flex-1 text-left">Search or jump to</span><Kbd>{mod === "⌘" ? "⌘K" : "Ctrl K"}</Kbd>
             </Button>

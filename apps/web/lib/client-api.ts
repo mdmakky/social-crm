@@ -1,22 +1,7 @@
-export type ClientResult<T> = { ok: true; data: T } | { ok: false; status: number; code: string; message?: string };
+import { createApiClient, type ApiError } from "@crm/api-client";
 
-/** Browser-side JSON request to the same-origin API proxy. */
-export async function api<T = unknown>(path: string, init?: { method?: string; body?: unknown }): Promise<ClientResult<T>> {
-  try {
-    const res = await fetch(path, {
-      method: init?.method ?? "GET",
-      headers: init?.body !== undefined ? { "content-type": "application/json" } : undefined,
-      body: init?.body !== undefined ? JSON.stringify(init.body) : undefined,
-      credentials: "same-origin",
-    });
-    if (res.status === 204) return { ok: true, data: undefined as T };
-    const json = await res.json().catch(() => null);
-    if (!res.ok) return { ok: false, status: res.status, code: json?.error?.code ?? "unknown", message: json?.error?.message };
-    return { ok: true, data: json as T };
-  } catch {
-    return { ok: false, status: 0, code: "network", message: "Could not reach the server. Check your connection and try again." };
-  }
-}
+/** Shared typed client for browser code: same-origin, cookie session. */
+export const browserApi = createApiClient({ baseUrl: "", auth: { mode: "cookie" } });
 
 const MESSAGES: Record<string, string> = {
   last_owner: "A workspace needs at least one owner. Make someone else an owner first.",
@@ -24,7 +9,8 @@ const MESSAGES: Record<string, string> = {
   admin_cannot_grant_owner: "Only an owner can grant the owner role.",
   forbidden: "You don't have permission to do that.",
   not_found: "That item no longer exists.",
-  network: "Could not reach the server. Check your connection and try again.",
   invalid_body: "Some of the values are not valid.",
+  unauthenticated: "Your session has ended. Sign in again to continue.",
+  contract_mismatch: "The app and the server are out of sync. Reload the page; if this keeps happening, update the app.",
 };
-export const errorMessage = (r: { code: string; message?: string }) => r.message ?? MESSAGES[r.code] ?? "Something went wrong. Please try again.";
+export const errorMessage = (e: ApiError) => (e.kind === "network" || e.kind === "timeout" ? e.message : MESSAGES[e.code] ?? (e.kind === "http" && e.message && e.status < 500 ? e.message : "Something went wrong. Please try again."));

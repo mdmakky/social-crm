@@ -4,6 +4,7 @@
   "main": "index.ts",
   "dependencies": {
     "@better-auth/expo": "1.7.22",
+    "@crm/api-client": "workspace:*",
     "@crm/contracts": "workspace:*",
     "better-auth": "1.7.22",
     "expo": "~58.0.25",

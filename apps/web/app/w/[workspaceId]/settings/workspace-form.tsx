@@ -1,12 +1,12 @@
 "use client";
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { UpdateWorkspaceBody } from "@crm/contracts";
+import { endpoints, UpdateWorkspaceBody } from "@crm/contracts";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { Input, Select } from "@/components/ui/input";
 import { Alert } from "@/components/ui/states";
-import { api, errorMessage } from "@/lib/client-api";
+import { browserApi, errorMessage } from "@/lib/client-api";
 
 export function WorkspaceForm({ workspaceId, name, timezone, readOnly }: { workspaceId: string; name: string; timezone: string; readOnly: boolean }) {
   const router = useRouter();
@@ -28,9 +28,9 @@ export function WorkspaceForm({ workspaceId, name, timezone, readOnly }: { works
     if (!parsed.success) return setNameError(parsed.error.issues[0]?.message ?? "Check the name.");
     setNameError(null);
     setBusy(true);
-    const res = await api(`/v1/workspaces/${workspaceId}`, { method: "PATCH", body: parsed.data });
+    const res = await browserApi.call(endpoints.updateWorkspace, { params: { workspaceId }, body: parsed.data });
     setBusy(false);
-    if (!res.ok) return setError(errorMessage(res));
+    if (!res.ok) return setError(errorMessage(res.error));
     setSaved(true);
     router.refresh();
   }

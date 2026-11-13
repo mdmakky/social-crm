@@ -15,7 +15,7 @@ export function SidebarNav({ workspaceId, role, compact, onNavigate }: { workspa
     <nav aria-label="Main" className="flex flex-1 flex-col gap-4 overflow-y-auto px-2 py-2">
       {groups.map((g, gi) => (
         <div key={gi} className="flex flex-col gap-0.5">
-          {g.label && !compact && <p className="px-2 pb-1 pt-1 text-2xs font-medium text-fg-subtle">{g.label}</p>}
+          {g.label && !compact && groups.filter((x) => x.label).length > 1 && <p className="px-2 pb-1 pt-1 text-2xs font-medium text-fg-subtle">{g.label}</p>}
           {g.label && compact && <div className="mx-2 my-1 h-px bg-line" aria-hidden />}
           {g.items.map((item) => {
             const Icon = item.icon;
@@ -38,14 +38,14 @@ export function SidebarNav({ workspaceId, role, compact, onNavigate }: { workspa
         </div>
       ))}
       {!compact && planned.length > 0 && (
-        <details className="group mt-auto">
+        <details className="group">
           <summary className="flex h-8 cursor-pointer list-none items-center gap-1 rounded-md px-2 text-xs font-medium text-fg-subtle hover:bg-hover pointer-coarse:h-11 [&::-webkit-details-marker]:hidden">
             <ChevronRight className="size-3.5 transition-transform group-open:rotate-90" aria-hidden />
             Coming soon
           </summary>
           <ul className="px-2 pb-1 pt-0.5">
             {planned.map((i) => (
-              <li key={i.key} className="flex h-7 items-center gap-2.5 pl-1 text-sm text-fg-muted">
+              <li key={i.key} className="flex h-7 items-center gap-2.5 pl-2 text-sm text-fg-subtle">
                 <i.icon className="size-4 shrink-0 text-fg-subtle" />
                 {i.label}
               </li>

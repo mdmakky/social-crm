@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
-import type { MeResponse, WorkspaceDetail } from "@crm/contracts";
+import { endpoints } from "@crm/contracts";
 import { can } from "@crm/core/permissions";
 import { PageHeader, Panel, PanelHeader } from "@/components/ui/panel";
-import { apiGet } from "@/lib/api";
+import { dataOf, must, serverApi } from "@/lib/api";
 import { AccountPanel } from "./account-panel";
 import { WorkspaceForm } from "./workspace-form";
 
@@ -11,9 +10,10 @@ export const metadata: Metadata = { title: "Settings" };
 
 export default async function SettingsPage({ params }: { params: Promise<{ workspaceId: string }> }) {
   const { workspaceId } = await params;
-  const [ws, me] = await Promise.all([apiGet<WorkspaceDetail>(`/v1/workspaces/${workspaceId}`), apiGet<MeResponse>("/v1/me")]);
-  const w = ws.data;
-  if (!w) notFound();
+  const api = await serverApi();
+  const [wsRes, meRes] = await Promise.all([api.call(endpoints.getWorkspace, { params: { workspaceId } }), api.call(endpoints.me)]);
+  const w = must(wsRes);
+  const me = { data: dataOf(meRes) };
   return (
     <>
       <PageHeader title="Settings" description="Workspace and account preferences." />

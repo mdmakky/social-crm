@@ -1,19 +1,22 @@
 import "server-only";
 import { cookies } from "next/headers";
+import { notFound, redirect } from "next/navigation";
+import { createApiClient, type ApiResult } from "@crm/api-client";
 
 const API_URL = process.env.API_URL ?? "http://localhost:8787";
 
-export type ApiResult<T> = { status: number; data: T | null };
-
-/** Server-side GET that forwards the visitor's session cookie to the API. */
-export async function apiGet<T>(path: string): Promise<ApiResult<T>> {
+/** Shared typed client for server components. It forwards the visitor's session cookie to the API. */
+export async function serverApi() {
   const cookie = (await cookies()).toString();
-  try {
-    const res = await fetch(`${API_URL}${path}`, { headers: { cookie }, cache: "no-store" });
-    // Error bodies are never returned as data, so callers can rely on `data` meaning success.
-    const data = res.ok && res.headers.get("content-type")?.includes("json") ? ((await res.json()) as T) : null;
-    return { status: res.status, data };
-  } catch {
-    return { status: 0, data: null };
-  }
+  return createApiClient({ baseUrl: API_URL, auth: { mode: "cookie" }, headers: () => ({ cookie }), timeoutMs: 10_000 });
+}
+
+export const dataOf = <T>(r: ApiResult<T>): T | null => (r.ok ? r.data : null);
+
+/** Unwraps a result for a page that cannot render without it: 401 signs in, 404 is not-found, anything else is an error boundary. */
+export function must<T>(r: ApiResult<T>): T {
+  if (r.ok) return r.data;
+  if (r.error.status === 401) redirect("/login");
+  if (r.error.status === 404) notFound();
+  throw new Error(r.error.message);
 }

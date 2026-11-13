@@ -35,7 +35,7 @@ export function DropdownMenuContent({ className, align = "start", ...props }: Re
 export function DropdownMenuItem({ className, danger, ...props }: React.ComponentProps<typeof Dropdown.Item> & { danger?: boolean }) {
   return (
     <Dropdown.Item
-      className={cn("flex cursor-default select-none items-center gap-2 rounded-md px-2 py-1.5 text-base outline-none data-[disabled]:opacity-50 data-[highlighted]:bg-hover pointer-coarse:py-2.5 [&_svg]:size-4 [&_svg]:text-fg-subtle", danger ? "text-danger-fg" : "text-fg", className)}
+      className={cn("flex cursor-default select-none items-center gap-2 rounded-md px-2 py-1.5 text-base focus-visible:outline-offset-[-2px] data-[disabled]:opacity-50 data-[highlighted]:bg-hover pointer-coarse:py-2.5 [&_svg]:size-4 [&_svg]:text-fg-subtle", danger ? "text-danger-fg" : "text-fg", className)}
       {...props}
     />
   );

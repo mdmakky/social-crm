@@ -47,7 +47,7 @@ export function AuthForm({ mode, next }: { mode: "login" | "register"; next: str
           : res.error.status === 0 || !res.error.status
             ? "Could not reach the server. Check your connection and try again."
             : register
-              ? res.error.message || "We couldn't create your account. Please try again."
+              ? "We couldn't create your account. Check your details and try again."
               : "Email or password is incorrect.",
       );
       return;
@@ -60,7 +60,7 @@ export function AuthForm({ mode, next }: { mode: "login" | "register"; next: str
     <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
       <div>
         <h1 className="text-lg font-semibold tracking-title text-fg">{register ? "Create your account" : "Sign in"}</h1>
-        <p className="mt-0.5 text-sm text-fg-muted">{register ? "Start with a workspace for your business." : "Welcome back. Pick up your conversations."}</p>
+        <p className="mt-0.5 text-sm text-fg-muted">{register ? "Start with a workspace for your business." : "Sign in to continue to your workspace."}</p>
       </div>
       {formError && <Alert tone="error">{formError}</Alert>}
       {register && (

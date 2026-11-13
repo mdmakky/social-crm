@@ -1,8 +1,12 @@
 import { useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
-import { MeResponse } from "@crm/contracts";
+import { endpoints, type MeResponse } from "@crm/contracts";
+import { createApiClient } from "@crm/api-client";
 import { API_URL, authClient } from "./src/auth-client";
+
+// Shared typed client. The Expo auth client keeps the session in SecureStore; its cookie is sent as a manual header.
+const api = createApiClient({ baseUrl: API_URL, auth: { mode: "cookie" }, credentials: "omit", headers: async () => ({ Cookie: await authClient.getCookie() }) });
 
 export default function App() {
   const { data: session, isPending } = authClient.useSession();
@@ -21,9 +25,9 @@ export default function App() {
   }
 
   async function loadMe() {
-    const res = await fetch(`${API_URL}/v1/me`, { headers: { Cookie: await authClient.getCookie() }, credentials: "omit" });
-    if (!res.ok) return setError(`/v1/me returned ${res.status}`);
-    setMe(MeResponse.parse(await res.json()));
+    const res = await api.call(endpoints.me);
+    if (!res.ok) return setError(`${res.error.code}: ${res.error.message}`);
+    setMe(res.data);
   }
 
   if (isPending) return <ActivityIndicator style={styles.center} />;

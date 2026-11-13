@@ -1,4 +1,7 @@
 import { z } from "zod";
+import { endpoint } from "./endpoint.ts";
+
+export * from "./endpoint.ts";
 
 export const Role = z.enum(["owner", "admin", "agent", "viewer"]);
 export type Role = z.infer<typeof Role>;
@@ -42,3 +45,23 @@ export const AuditEntry = z.object({
 export type AuditEntry = z.infer<typeof AuditEntry>;
 export const AuditPage = z.object({ items: z.array(AuditEntry), nextCursor: z.string().nullable() });
 export type AuditPage = z.infer<typeof AuditPage>;
+
+export const OkResponse = z.object({ ok: z.literal(true) });
+export const MemberRoleResponse = z.object({ userId: z.string(), role: Role });
+export const AuditQuery = z.object({ limit: z.number().int().min(1).max(100).optional(), cursor: z.string().uuid().optional() });
+
+/**
+ * Every public /v1 route. The API test suite fails if a route exists without an entry here (or the reverse),
+ * and the typed client in @crm/api-client is the only way the apps call the API.
+ */
+export const endpoints = {
+  me: endpoint({ method: "GET", path: "/v1/me", response: MeResponse }),
+  listWorkspaces: endpoint({ method: "GET", path: "/v1/workspaces", response: z.array(WorkspaceSummary) }),
+  createWorkspace: endpoint({ method: "POST", path: "/v1/workspaces", body: CreateWorkspaceBody, response: WorkspaceSummary }),
+  getWorkspace: endpoint({ method: "GET", path: "/v1/workspaces/:workspaceId", response: WorkspaceDetail }),
+  updateWorkspace: endpoint({ method: "PATCH", path: "/v1/workspaces/:workspaceId", body: UpdateWorkspaceBody, response: OkResponse }),
+  listMembers: endpoint({ method: "GET", path: "/v1/workspaces/:workspaceId/members", response: z.array(Member) }),
+  updateMember: endpoint({ method: "PATCH", path: "/v1/workspaces/:workspaceId/members/:userId", body: UpdateMemberBody, response: MemberRoleResponse }),
+  removeMember: endpoint({ method: "DELETE", path: "/v1/workspaces/:workspaceId/members/:userId", response: z.undefined() }),
+  auditLog: endpoint({ method: "GET", path: "/v1/workspaces/:workspaceId/audit-log", query: AuditQuery, response: AuditPage }),
+} as const;

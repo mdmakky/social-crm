@@ -4,7 +4,8 @@ import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { addMemberByEmail, register, signUpAndCreate } from "./helpers";
 
-const SHOTS = join(__dirname, "../../../docs/design/screenshots/phase1-shell") + "/";
+// Screenshots only overwrite the committed set when explicitly asked: UPDATE_SCREENSHOTS=1
+const SHOTS = (process.env.UPDATE_SCREENSHOTS ? join(__dirname, "../../../docs/design/screenshots/phase1-shell") : join(__dirname, "../test-results/shots")) + "/";
 mkdirSync(SHOTS, { recursive: true });
 
 const SIZES = [
@@ -21,6 +22,15 @@ async function member(browser: Browser, name: string, workspaceId: string, role:
   await ctx.close();
 }
 
+/** Nothing meant to fit may need its own horizontal scrollbar (a clipped table hides actions). */
+const noInnerScroll = async (page: Page) => {
+  const clipped = await page.evaluate(() =>
+    Array.from(document.querySelectorAll<HTMLElement>(".overflow-x-auto"))
+      .filter((el) => el.clientWidth > 0 && el.scrollWidth > el.clientWidth + 1)
+      .map((el) => `${location.pathname.replace(/[0-9a-f-]{36}/, ":id")} scrollWidth=${el.scrollWidth} clientWidth=${el.clientWidth}`),
+  );
+  expect(clipped).toEqual([]);
+};
 const noOverflow = async (page: Page) => {
   const offenders = await page.evaluate(() => {
     const w = document.documentElement.clientWidth;
@@ -70,6 +80,7 @@ test.describe("responsive layout and accessibility", () => {
         await page.goto(r.path);
         await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
         await noOverflow(page);
+        await noInnerScroll(page);
         await axe(page, `${r.key}@${s.name}`);
         await page.screenshot({ path: `${SHOTS}${r.key}-${s.name}.png` });
       }
@@ -126,6 +137,7 @@ test.describe("responsive layout and accessibility", () => {
   });
 
   test("onboarding and empty/forbidden states pass axe", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
     await register(page, "Fresh User");
     await axe(page, "onboarding");
     await page.screenshot({ path: `${SHOTS}onboarding-1440.png` });

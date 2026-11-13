@@ -1,5 +1,5 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
-import { addMemberByEmail, register, signIn, signUpAndCreate } from "./helpers";
+import { addMemberByEmail, register, signUpAndCreate } from "./helpers";
 
 async function newUser(browser: Browser, name: string) {
   const ctx = await browser.newContext();
@@ -101,6 +101,7 @@ test.describe("members", () => {
     await page.getByRole("button", { name: "Actions for Vic Viewer" }).click();
     await page.getByRole("menuitem", { name: "Remove from workspace" }).click();
     await page.getByRole("dialog").getByRole("button", { name: "Remove member" }).click();
+    await expect(page.getByRole("dialog")).toBeHidden(); // the dialog hides the page from the accessibility tree while open, so wait for it first
     await expect(page.getByRole("row", { name: /Vic Viewer/ })).toHaveCount(0);
     await t.viewer.page.goto(`/w/${workspaceId}`);
     await expect(t.viewer.page.getByText("We couldn't find that page")).toBeVisible();
@@ -115,16 +116,15 @@ test.describe("members", () => {
 });
 
 test("audit log pages through older entries", async ({ page }) => {
-  const { workspaceId, email } = await signUpAndCreate(page, "Pager Owner", "Paging Co");
+  const { workspaceId } = await signUpAndCreate(page, "Pager Owner", "Paging Co");
   for (let i = 0; i < 27; i++) {
     const res = await page.request.patch(`/v1/workspaces/${workspaceId}`, { data: { name: `Paging Co ${i}` }, headers: { origin: "http://localhost:3217" } });
     expect(res.status()).toBe(200);
   }
   await page.goto(`/w/${workspaceId}/audit-log`);
-  await expect(page.getByRole("listitem")).toHaveCount(25 + 0, { timeout: 10_000 }).catch(() => {});
+  await expect(page.getByRole("button", { name: "Load older entries" })).toBeVisible();
   const before = await page.getByText(/updated the workspace name/).count();
   await page.getByRole("button", { name: "Load older entries" }).click();
   await expect(page.getByRole("button", { name: "Load older entries" })).toHaveCount(0);
   expect(await page.getByText(/updated the workspace name/).count()).toBeGreaterThan(before);
-  await signIn(page, email).catch(() => {});
 });

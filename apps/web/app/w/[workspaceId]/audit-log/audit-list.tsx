@@ -1,11 +1,11 @@
 "use client";
 import * as React from "react";
 import { ScrollText } from "lucide-react";
-import type { AuditPage } from "@crm/contracts";
+import { endpoints, type AuditPage } from "@crm/contracts";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Alert, EmptyState } from "@/components/ui/states";
-import { api, errorMessage } from "@/lib/client-api";
+import { browserApi, errorMessage } from "@/lib/client-api";
 import { describeAudit } from "@/lib/audit-text";
 import { formatDateTime } from "@/lib/format";
 
@@ -19,9 +19,9 @@ export function AuditList({ workspaceId, timeZone, initial }: { workspaceId: str
     if (!cursor) return;
     setBusy(true);
     setError(null);
-    const res = await api<AuditPage>(`/v1/workspaces/${workspaceId}/audit-log?limit=25&cursor=${cursor}`);
+    const res = await browserApi.call(endpoints.auditLog, { params: { workspaceId }, query: { limit: 25, cursor } });
     setBusy(false);
-    if (!res.ok) return setError(errorMessage(res));
+    if (!res.ok) return setError(errorMessage(res.error));
     setItems((cur) => [...cur, ...res.data.items]);
     setCursor(res.data.nextCursor);
   }

@@ -1,13 +1,12 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
 import { CheckCircle2, Circle, History } from "lucide-react";
-import type { AuditPage, WorkspaceDetail } from "@crm/contracts";
+import { endpoints } from "@crm/contracts";
 import { can } from "@crm/core/permissions";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader, Panel, PanelHeader } from "@/components/ui/panel";
 import { EmptyState } from "@/components/ui/states";
-import { apiGet } from "@/lib/api";
+import { dataOf, must, serverApi } from "@/lib/api";
 import { formatDate, formatDateTime, ROLE_LABEL } from "@/lib/format";
 import { describeAudit } from "@/lib/audit-text";
 
@@ -22,10 +21,10 @@ const STEPS = [
 
 export default async function Home({ params }: { params: Promise<{ workspaceId: string }> }) {
   const { workspaceId } = await params;
-  const ws = (await apiGet<WorkspaceDetail>(`/v1/workspaces/${workspaceId}`)).data;
-  if (!ws) notFound();
+  const api = await serverApi();
+  const ws = must(await api.call(endpoints.getWorkspace, { params: { workspaceId } }));
   const canSeeAudit = can(ws.role, "audit.view", {});
-  const audit = canSeeAudit ? (await apiGet<AuditPage>(`/v1/workspaces/${workspaceId}/audit-log?limit=6`)).data : null;
+  const audit = canSeeAudit ? dataOf(await api.call(endpoints.auditLog, { params: { workspaceId }, query: { limit: 6 } })) : null;
 
   return (
     <>
