@@ -4,6 +4,10 @@ import { CreateWorkspaceBody, UpdateMemberBody, UpdateWorkspaceBody } from "@crm
 import { can, memberChangeAllowed, type Role } from "@crm/core";
 import { schema, user, withContext, type Db, type Tx } from "@crm/db";
 import { writeAudit } from "../audit.ts";
+import { ensureDefaultStages } from "../crm-service.ts";
+import { contactRoutes } from "./contacts.ts";
+import { crmConfigRoutes } from "./crm-config.ts";
+import { importRoutes, type ImportHooks } from "./imports.ts";
 
 export type Vars = { userId: string; requestId: string };
 type Ctx = Context<{ Variables: Vars }>;
@@ -25,7 +29,7 @@ async function roleIn(tx: Tx, workspaceId: string, userId: string): Promise<Role
   return m?.role ?? null;
 }
 
-export function workspaceRoutes(db: Db) {
+export function workspaceRoutes(db: Db, hooks: { import?: ImportHooks } = {}) {
   const r = new Hono<{ Variables: Vars }>();
   const audit = (c: Ctx) => ({ actorUserId: c.get("userId"), requestId: c.get("requestId"), ip: c.req.header("x-forwarded-for")?.split(",")[0]?.trim() });
 
@@ -52,7 +56,7 @@ export function workspaceRoutes(db: Db) {
       return w!;
     });
     await withContext(db, { userId, workspaceId: created.id }, (tx) =>
-      writeAudit(tx, { ...audit(c), workspaceId: created.id, action: "workspace.created", entityType: "workspace", entityId: created.id, summary: { name: created.name } }),
+      Promise.all([ensureDefaultStages(tx, created.id), writeAudit(tx, { ...audit(c), workspaceId: created.id, action: "workspace.created", entityType: "workspace", entityId: created.id, summary: { name: created.name } })]).then(() => undefined),
     );
     return c.json({ id: created.id, name: created.name, slug: created.slug, role: "owner" as const }, 201);
   });
@@ -159,6 +163,9 @@ export function workspaceRoutes(db: Db) {
     });
   });
 
+  scoped.route("/", crmConfigRoutes(db));
+  scoped.route("/", contactRoutes(db));
+  scoped.route("/", importRoutes(db, hooks.import));
   r.route("/:id", scoped as unknown as Hono<{ Variables: Vars }>);
   return r;
 }

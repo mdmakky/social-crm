@@ -94,7 +94,7 @@ export class ImportError extends Error {}
 
 export function parseCsv(text: string): { headers: string[]; rows: string[][] } {
   if (text.length > IMPORT_LIMITS.maxBytes) throw new ImportError("The file is larger than 5 MB.");
-  const body = text.replace(/^﻿/, "");
+  const body = text.replace(/^\uFEFF/, "");
   if (body.trim() === "") throw new ImportError("The file is empty.");
   const first = body.split(/\r?\n/, 1)[0] ?? "";
   const delimiter = ([",", ";", "\t"] as const).map((d) => ({ d, n: first.split(d).length })).sort((a, b) => b.n - a.n)[0]!.d;
@@ -108,9 +108,11 @@ export function parseCsv(text: string): { headers: string[]; rows: string[][] } 
   if (headers.length > IMPORT_LIMITS.maxColumns) throw new ImportError(`The file has more than ${IMPORT_LIMITS.maxColumns} columns.`);
   if (records.length === 0) throw new ImportError("The file has a header but no data rows.");
   if (records.length > IMPORT_LIMITS.maxRows) throw new ImportError(`The file has more than ${IMPORT_LIMITS.maxRows} rows. Split it into smaller files.`);
+  // Our own export prefixes cells that start with = + - @ with an apostrophe (spreadsheet formula injection guard); undo it so exports re-import cleanly.
+  const unguard = (v: string) => (/^'[=+\-@]/.test(v) ? v.slice(1) : v);
   const rows = records.map((r, i) => {
     if (r.length > headers.length) throw new ImportError(`Row ${i + 2} has more values than the header has columns.`);
-    return headers.map((_, c) => (r[c] ?? "").trim());
+    return headers.map((_, c) => unguard((r[c] ?? "").trim()));
   });
   return { headers, rows };
 }

@@ -3,13 +3,14 @@ import type { Db } from "@crm/db";
 import type { Auth } from "./auth.ts";
 import { workspaceRoutes, type Vars } from "./routes/workspaces.ts";
 import { isAllowedRedirect } from "./redirects.ts";
+import type { ImportHooks } from "./routes/imports.ts";
 import { WindowCounter } from "./throttle.ts";
 
 /** Same body Better Auth returns for any address, so throttled and unknown requests are indistinguishable from real ones. */
 const GENERIC_RESET_RESPONSE = { status: true, message: "If this email exists in our system, check your email for the reset link" };
 const sha = async (s: string) => Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s.trim().toLowerCase()))), (b) => b.toString(16).padStart(2, "0")).join("");
 
-export function createApp(auth: Auth, opts: { allowedOrigins: string[]; db: Db; resetThrottle?: { perEmail: number; perIp: number; windowMs: number; tokenAttemptsPerIp?: number } }) {
+export function createApp(auth: Auth, opts: { allowedOrigins: string[]; db: Db; resetThrottle?: { perEmail: number; perIp: number; windowMs: number; tokenAttemptsPerIp?: number }; testHooks?: { import?: ImportHooks } }) {
   const app = new Hono<{ Variables: Vars }>();
   // Mutating requests that carry an Origin header must come from an allowed origin (native apps send none).
   app.use("*", async (c, next) => {
@@ -64,7 +65,7 @@ export function createApp(auth: Auth, opts: { allowedOrigins: string[]; db: Db; 
     const u = c.get("me" as never) as { id: string; email: string; name: string };
     return c.json({ id: u.id, email: u.email, name: u.name });
   });
-  v1.route("/workspaces", workspaceRoutes(opts.db));
+  v1.route("/workspaces", workspaceRoutes(opts.db, opts.testHooks));
   app.route("/v1", v1);
   return app;
 }

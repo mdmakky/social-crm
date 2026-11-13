@@ -11,6 +11,8 @@ export type Endpoint<P extends string = string, Q extends z.ZodType | undefined 
   readonly query?: Q;
   readonly body?: B;
   readonly response: R;
+  /** "text" for non-JSON bodies such as CSV exports. Default JSON. */
+  readonly responseType?: "json" | "text";
 };
 
 export function endpoint<const P extends string, R extends z.ZodType, Q extends z.ZodType | undefined = undefined, B extends z.ZodType | undefined = undefined>(def: {
@@ -19,6 +21,7 @@ export function endpoint<const P extends string, R extends z.ZodType, Q extends 
   response: R;
   query?: Q;
   body?: B;
+  responseType?: "json" | "text";
 }): Endpoint<P, Q, B, R> {
   return def;
 }

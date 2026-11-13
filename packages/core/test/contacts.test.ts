@@ -155,6 +155,10 @@ describe("toCsv (export) neutralises spreadsheet formula injection", () => {
     expect(lines[3]).toBe("'-5,\"a,b\"");
     expect(csv).toContain('"say ""hi""","line\nbreak"');
   });
+  it("values that needed the formula guard still round-trip (the importer removes our apostrophe)", () => {
+    const rows = [["+44 20 7946 0958", "-5"], ["=SUM(A1)", "@home"]];
+    expect(parseCsv(toCsv(["Phone", "Note"], rows)).rows).toEqual(rows);
+  });
   it("round-trips through the parser", () => {
     const rows = [["Ana, \"A\" Silva", "a@x.com"], ["Bob", ""]];
     const parsed = parseCsv(toCsv(["Name", "Email"], rows));

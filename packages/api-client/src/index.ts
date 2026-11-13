@@ -7,6 +7,8 @@ export type ApiError = {
   status: number;
   code: string;
   message: string;
+  /** Extra structured data some errors carry, for example the duplicate candidates or the current record on a version conflict. */
+  details?: unknown;
 };
 export type ApiResult<T> = { ok: true; data: T } | { ok: false; error: ApiError };
 
@@ -25,7 +27,7 @@ export type ApiClientOptions = {
   fetch?: typeof fetch;
 };
 
-const fail = (kind: ApiError["kind"], status: number, code: string, message: string): { ok: false; error: ApiError } => ({ ok: false, error: { kind, status, code, message } });
+const fail = (kind: ApiError["kind"], status: number, code: string, message: string, details?: unknown): { ok: false; error: ApiError } => ({ ok: false, error: { kind, status, code, message, ...(details !== undefined ? { details } : {}) } });
 
 export function createApiClient(opts: ApiClientOptions) {
   const doFetch = opts.fetch ?? fetch;
@@ -71,11 +73,11 @@ export function createApiClient(opts: ApiClientOptions) {
 
     if (!res.ok) {
       if (res.status === 401) opts.onUnauthorized?.();
-      const parsed = (await res.json().catch(() => null)) as { error?: { code?: string; message?: string } } | null;
-      return fail("http", res.status, parsed?.error?.code ?? `http_${res.status}`, parsed?.error?.message ?? res.statusText ?? "Request failed");
+      const parsed = (await res.json().catch(() => null)) as { error?: { code?: string; message?: string; details?: unknown } } | null;
+      return fail("http", res.status, parsed?.error?.code ?? `http_${res.status}`, parsed?.error?.message ?? res.statusText ?? "Request failed", parsed?.error?.details);
     }
 
-    const raw = res.status === 204 ? undefined : await res.json().catch(() => undefined);
+    const raw = res.status === 204 ? undefined : ep.responseType === "text" ? await res.text() : await res.json().catch(() => undefined);
     const out = (ep.response as z.ZodType).safeParse(raw);
     if (!out.success) return fail("contract", res.status, "contract_mismatch", `The server response does not match the shared contract for ${ep.method} ${ep.path}: ${out.error.issues[0]?.path.join(".") ?? ""} ${out.error.issues[0]?.message ?? ""}`.trim());
     return { ok: true, data: out.data as CallOutput<E> };

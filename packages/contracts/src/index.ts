@@ -1,7 +1,9 @@
 import { z } from "zod";
 import { endpoint } from "./endpoint.ts";
+import { crmEndpoints } from "./crm.ts";
 
 export * from "./endpoint.ts";
+export * from "./crm.ts";
 
 export const PASSWORD_MIN_LENGTH = 10;
 export const RESET_TOKEN_TTL_SECONDS = 30 * 60;
@@ -57,7 +59,7 @@ export const AuditQuery = z.object({ limit: z.number().int().min(1).max(100).opt
  * Every public /v1 route. The API test suite fails if a route exists without an entry here (or the reverse),
  * and the typed client in @crm/api-client is the only way the apps call the API.
  */
-export const endpoints = {
+const coreEndpoints = {
   me: endpoint({ method: "GET", path: "/v1/me", response: MeResponse }),
   listWorkspaces: endpoint({ method: "GET", path: "/v1/workspaces", response: z.array(WorkspaceSummary) }),
   createWorkspace: endpoint({ method: "POST", path: "/v1/workspaces", body: CreateWorkspaceBody, response: WorkspaceSummary }),
@@ -68,3 +70,5 @@ export const endpoints = {
   removeMember: endpoint({ method: "DELETE", path: "/v1/workspaces/:workspaceId/members/:userId", response: z.undefined() }),
   auditLog: endpoint({ method: "GET", path: "/v1/workspaces/:workspaceId/audit-log", query: AuditQuery, response: AuditPage }),
 } as const;
+
+export const endpoints = { ...coreEndpoints, ...crmEndpoints } as const;
