@@ -24,3 +24,8 @@ Overflow from an `sr-only` element escaping a scroll container; members table hi
 
 ### Not tested
 Android emulator and SecureStore runtime; iOS; real Meta; Firefox and Safari; screen reader use; keyboard traversal of every control; load or performance (no Lighthouse run yet); dark mode rendering; the drawer's resize behavior; route skeletons and the error boundary; email flows.
+
+## Update 2026-11-13 (shared client, round-2 fixes, password reset)
+Local runs: `pnpm exec turbo run lint typecheck test --force`: 22 of 22 tasks pass. API 46 tests (new: 15 password reset, 3 contract drift); api-client 15; core 22; db 19; design-tokens 42; web unit 34. Browser: 35 Playwright tests pass (adds failure and error states, touch emulation, security headers, open-redirect, drawer resize, focus indicator, password reset). The drift guards were mutation-tested (renaming a route and changing a response schema each failed the suite, then were restored). Mobile: Android bundle (764 modules) builds with the shared client; still not run on a device.
+Defects found by this round's tests and fixed: member-removal test passed before the action finished (an open dialog hides the page from the accessibility tree); FileMailer ordering within the same millisecond; reset token leakage through an attacker-controlled `redirectTo`; server-side 5xx rendering as "not found"; Members table clipping at 768 px.
+Still not tested: Android and iOS runtime; real mail delivery; throttling across instances; real browser engines other than Chromium; screen readers.

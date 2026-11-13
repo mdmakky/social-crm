@@ -53,3 +53,10 @@ D1, D2, D4, D6, D7 (stack): verified by the spike on the server side; see `spike
 | D34 | Shared thin typed fetch client instead of a generated OpenAPI client | **Approved** | Shared Zod contracts; type-safe endpoint definitions; centralized auth, errors, timeouts; cookie and bearer support; one package for web and mobile; drift prevention. OpenAPI generation stays a future milestone. Roadmap item 5 renamed "Shared Typed API Client". |
 | D35 | Begin Phase 2 web-first while Phase 1 stays formally open | **Approved with conditions** | Phase 1 not marked passed; Android emulator login and SecureStore runtime verification remain mandatory; mobile compatibility preserved in all shared contracts and API changes; no mobile-readiness claim until mobile auth tests pass; second independent Phase 1 review first; blockers resolved; loading/empty/error test coverage updated in the roadmap. |
 | D36 | Complete password-reset flow in Phase 2 using the Mailer interface | **Approved** | Local development mail adapter for tests; production provider deferred with hosting (D22). Secure single-use tokens, expiry, invalidation, rate limiting, account-enumeration protection. |
+
+## Phase 2 decisions (2026-11-13)
+| # | Decision | Status | Reason |
+|---|---|---|---|
+| D37 | Redirect targets for auth flows must be same-site paths or one of our origins; checked before Better Auth sees them | Implemented | Found by test: Better Auth followed any `redirectTo`, leaking reset tokens. |
+| D38 | Throttled and unknown-address reset requests return the normal success response | Implemented | Prevents account enumeration through rate-limit behavior. |
+| D39 | `FileMailer` is the only mail adapter until hosting is decided; production start fails closed without a provider | Implemented | D36 and D22 together. |

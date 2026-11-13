@@ -1,7 +1,9 @@
 import { defineConfig, devices } from "@playwright/test";
+import { join } from "node:path";
 
 const WEB = "http://localhost:3217";
 const API = "http://localhost:8791";
+export const MAIL_DIR = join(__dirname, "test-results", "mail");
 
 export default defineConfig({
   testDir: "./e2e",
@@ -24,6 +26,7 @@ export default defineConfig({
         BETTER_AUTH_SECRET: "e2e-secret-e2e-secret-e2e-secret-0123456789",
         BETTER_AUTH_URL: WEB,
         WEB_ORIGIN: WEB,
+        MAIL_DIR,
       },
     },
     {

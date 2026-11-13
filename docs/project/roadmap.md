@@ -97,7 +97,7 @@ Phase 1 is **not complete**. Web foundation items pass; mobile and a few cross-c
 | 11 | Workspace and membership foundation, audit log, tenant-table check | Met | API: 16 workspace tests; 9 permission tests. |
 | 12 | Mailer and BlobStore interfaces | Met | Contract tests for MemoryMailer and FsBlobStore (traversal-safe). No production provider (D22 deferred). |
 | 13 | Permission-aware navigation | Met | Unit tests per role and e2e tests for owner, admin, agent, viewer. |
-| 14 | Forgot-password flow | **Not built** | Needs Mailer wired to a provider. |
+| 14 | Forgot-password flow | **Built in Phase 2 (decision D36); production mail provider still deferred** | See "Password reset" below. |
 | 15 | Responsive: drawer at 375, rail at 768, full sidebar at 1440 | Met | e2e assertions plus screenshots in `docs/design/screenshots/phase1-shell/`; a round-2 regression at 768 was found by review, fixed, and now guarded by a no-inner-scroll test. |
 
 
@@ -106,3 +106,12 @@ Phase 2 may proceed web-first, but Phase 1 is **not** passed. These items stay m
 
 ## Phase 2 scope, web-first (approved to begin 2026-11-13)
 Core CRM per the PRD (FR-5 to FR-9, FR-30 to FR-35, FR-44) plus password reset (FR-1, decision D36). Sequence: (1) shared typed API client; (2) password reset; (3) contacts, tags, notes, activity timeline; (4) leads, pipelines and stages, Kanban; (5) tasks; (6) custom fields; (7) search and filters; (8) CSV import and export; (9) dashboard. Each slice closes only with passing tests, browser inspection and docs. Mobile counterparts follow after the Android verification items above.
+
+
+## Phase 2 progress (2026-11-13)
+
+**Slice 1: shared typed API client** (Phase 1 item 5): done, see item 5 above.
+
+**Slice 2: password reset (D36): done and tested; not usable in production until a mail provider exists (D22).** API: `request-password-reset` and `reset-password` via Better Auth with single-use tokens that expire after 30 minutes; only the newest link works (older tokens deleted); all sessions revoked on reset; per-email (3/hour) and per-IP (10/hour) throttling that returns the normal success body so limits leak nothing; token-guess throttle (20 per 10 minutes per IP, 429); identical status and body for known and unknown addresses; password policy enforced (10+ characters); every workspace the user belongs to gets an `auth.password_reset` audit entry; the server refuses to start in production without a mail provider. Web: Forgot password link, request screen (same confirmation for any address), reset screen with confirm field, invalid and expired link states, success notice on sign-in. Tests: 15 API tests, 6 mail-adapter tests, 6 browser tests (full flow, revoked second device, reuse, newer link wins, unknown address, open-redirect abuse, axe). **Security finding fixed during testing:** Better Auth followed an attacker-supplied `redirectTo` and appended the reset token, which would let an attacker harvest a victim's token through the genuine email link; redirect targets are now allow-listed (request and link callback). Not covered: timing equality between known and unknown addresses (sending is non-blocking, not measured), multi-instance throttling (counters are in-process), email deliverability, HTML mail, account lockout policy.
+
+**Remaining Phase 2 slices, in order:** contacts with tags, notes and activity timeline; leads, pipelines and stages with Kanban; tasks; custom fields; search and filters; CSV import and export; dashboard. Not started.

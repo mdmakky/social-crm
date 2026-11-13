@@ -10,7 +10,7 @@ import { authClient } from "@/lib/auth-client";
 
 const MIN = 10;
 
-export function AuthForm({ mode, next }: { mode: "login" | "register"; next: string }) {
+export function AuthForm({ mode, next, notice }: { mode: "login" | "register"; next: string; notice?: string }) {
   const router = useRouter();
   const [busy, setBusy] = React.useState(false);
   const [formError, setFormError] = React.useState<string | null>(null);
@@ -62,6 +62,7 @@ export function AuthForm({ mode, next }: { mode: "login" | "register"; next: str
         <h1 className="text-lg font-semibold tracking-title text-fg">{register ? "Create your account" : "Sign in"}</h1>
         <p className="mt-0.5 text-sm text-fg-muted">{register ? "Start with a workspace for your business." : "Sign in to continue to your workspace."}</p>
       </div>
+      {notice && <Alert tone="success">{notice}</Alert>}
       {formError && <Alert tone="error">{formError}</Alert>}
       {register && (
         <Field label="Full name" error={errors.name}>
@@ -71,7 +72,7 @@ export function AuthForm({ mode, next }: { mode: "login" | "register"; next: str
       <Field label="Email" error={errors.email}>
         {(p) => <Input {...p} name="email" type="email" autoComplete="email" inputMode="email" autoFocus={!register} />}
       </Field>
-      <Field label="Password" hint={register ? `At least ${MIN} characters.` : undefined} error={errors.password}>
+      <Field label="Password" hint={register ? `At least ${MIN} characters.` : undefined} error={errors.password} action={!register ? <Link href="/forgot-password" className="text-xs font-medium text-accent-fg underline underline-offset-2">Forgot password?</Link> : undefined}>
         {(p) => <Input {...p} name="password" type="password" autoComplete={register ? "new-password" : "current-password"} />}
       </Field>
       <Button type="submit" variant="primary" size="lg" loading={busy}>{register ? "Create account" : "Sign in"}</Button>

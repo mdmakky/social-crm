@@ -40,3 +40,12 @@ Updated: 2026-11-13 (Phase 0).
 - The web app uses a same-origin proxy (`/api/auth`, `/v1`) so cookies stay first-party. In production the web host must proxy to the API (or serve both under one site); this is not deployed or tested outside local.
 - `minimumReleaseAgeExclude` entries that pnpm added for fresh package versions weaken release-age protection for those packages; review as they age.
 - Typography: Inter is self-hosted via `@fontsource-variable/inter`; no fallback metrics tuning (possible layout shift).
+
+## Added with password reset (2026-11-13)
+- No production mail provider (D22). The API refuses to start with `NODE_ENV=production` for that reason. Development and tests use `FileMailer` (JSON files in `MAIL_DIR`, default `.dev-mail/`, gitignored).
+- Reset throttling counters live in process memory: one API instance only. Move to a shared store before scaling out.
+- Client IP for throttling comes from `x-forwarded-for`; the hosting proxy must set it and strip client-supplied values, otherwise all users share one bucket or attackers can spoof it.
+- Timing equality between existing and unknown addresses is by design (mail sending is not awaited) but not measured.
+- Password reset emails are plain text only.
+- No account lockout or breached-password check on sign-in.
+- Web CSP only restricts framing, base URI, form targets and plugins; no `script-src` yet.
