@@ -34,3 +34,6 @@ Status: Proposed = recommended by Claude, awaiting user approval. Evidence and a
 | D28 | AI off by default per workspace and per provider | Proposed | Review M18. |
 
 Approval record: decisions above marked Approved or Deferred were given by the user on 2026-11-13. D1 to D13 and D23 to D28 were not explicitly addressed in that approval; they are treated as in effect for the Phase 1 spike only, subject to spike results, and remain listed as Proposed until confirmed.
+
+## Spike outcomes (2026-11-13)
+D1, D2, D4, D6, D7 (stack): verified by the spike on the server side; see `spike-report.md`. D6: Better Auth issues no rotating refresh token, so D27 (sliding session expiry with server revocation) is confirmed. Mobile run on a device is still unverified. User decision 2026-11-13: web work comes first; mobile device verification is deferred.

@@ -22,3 +22,6 @@ Phase 1 after approval. See acceptance criteria in `roadmap.md`.
 
 ## Update 2026-11-13: audit, review, citation check
 Feature completeness audit written. Independent review run (`phase0-review.md`) and its fixes applied to architecture, database, API, PRD, roadmap and decisions; `permissions.md` added. Meta citation spot-check run (`../research/citation-spot-check.md`); errata appended to the two Meta research files. Still pending: user approval of decisions D1 to D28, Phase 1 not started. The review's major findings were addressed in documents only; none are implemented or tested.
+
+## Update 2026-11-13: Phase 1 started (stack spike)
+Spike tasks 1 to 5 and 7 passed; task 6 (Android emulator run) deferred by the user so that web work comes first. See `spike-report.md`. Git: local repository initialized, commits authored as the user's GitHub noreply identity; no remote configured yet. Phase 1 is not complete: web shell, design system, auth UI, workspace foundation, and mobile run items remain.
