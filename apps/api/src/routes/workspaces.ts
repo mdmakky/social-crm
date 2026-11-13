@@ -122,14 +122,15 @@ export function workspaceRoutes(db: Db) {
       const [owners] = await tx.select({ n: count() }).from(schema.memberships).where(and(eq(schema.memberships.workspaceId, workspaceId), eq(schema.memberships.role, "owner"), eq(schema.memberships.status, "active")));
       const decision = memberChangeAllowed({ actor: c.get("role"), target: target.role, change: newRole ? { role: newRole } : { remove: true }, ownerCount: owners!.n });
       if (!decision.ok) return c.json({ error: { code: decision.reason } }, 403);
+      const [who] = await tx.select({ name: user.name }).from(user).where(eq(user.id, targetId));
       const base = { ...audit(c as unknown as Ctx), workspaceId, entityType: "membership", entityId: targetId };
       if (newRole) {
         await tx.update(schema.memberships).set({ role: newRole }).where(and(eq(schema.memberships.workspaceId, workspaceId), eq(schema.memberships.userId, targetId)));
-        await writeAudit(tx, { ...base, action: "member.role_changed", summary: { from: target.role, to: newRole } });
+        await writeAudit(tx, { ...base, action: "member.role_changed", summary: { from: target.role, to: newRole, name: who?.name } });
         return c.json({ userId: targetId, role: newRole });
       }
       await tx.delete(schema.memberships).where(and(eq(schema.memberships.workspaceId, workspaceId), eq(schema.memberships.userId, targetId)));
-      await writeAudit(tx, { ...base, action: "member.removed", summary: { role: target.role } });
+      await writeAudit(tx, { ...base, action: "member.removed", summary: { role: target.role, name: who?.name } });
       return c.body(null, 204);
     });
   };
