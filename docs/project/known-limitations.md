@@ -77,3 +77,15 @@ Updated: 2026-11-13 (Phase 0).
 - Test suite: `apps/api` test files share one database and run in parallel; several (inbox ingress, profile, contact methods, meta-connect due-token job) drain global queues, so run the suite on a fresh isolated database (`scripts/db-create.sh`) and re-run a failing file alone before suspecting the code. `packages/db` rls-matrix and crm-rls can fail at start with a duplicate `user_email_unique` when both files start in the same millisecond (pre-existing).
 - Customer data retention: the Meta data-deletion callback disconnects accounts and erases tokens and the Meta user link, but it does not purge contacts, messages or detected methods. A retention and customer-data deletion policy is still to be decided.
 - The same number or email detected for two different contacts is stored on both (duplicate detection across contacts is the next planned slice); nothing is merged automatically.
+
+## Outbound Messenger replies (2026-11-14)
+- NEVER tested against real Meta from this code. Automated tests use a mock Graph and a fake `fetch`. The first real send is the hosted manual test (steps in `docs/integrations/meta-real-test-runbook.md`, section "Outbound reply").
+- Text only. No attachments, stickers, quick replies or message tags. Instagram replies are refused (422), not attempted.
+- Replies outside 24 hours are refused; the HUMAN_AGENT 7-day tag is not used (decision pending).
+- The 2000-character cap is ours; Meta's own text limit is not stated on the pages we could read. Meta error codes beyond 10, 100, 190, 551, 613 and 1545041 are mapped from the existing classifier and are unverified for the Send API; the exact error for "outside the window" is not documented in the pages read, so it surfaces as a generic `meta_error_<code>` failure if our own check ever lets one through.
+- Echo matching is by conversation + exact text + 30-minute recency (Meta gives no way to tie an echo to our request). Two identical texts sent within seconds could swap their Meta ids; both stay `sent`.
+- If an echo is stored as an "external" copy before our row can adopt the id (text normalised by Meta), the thread shows the message twice. Not observed; no test can prove Meta never rewrites text.
+- `recoverStuckSends` walks the workspaces of non-disabled Messenger accounts every minute (worker role cannot see messages across workspaces). Fine for tens of workspaces.
+- A rejected token (190) marks the message failed but does not move the account to `reauth_required` by itself; the 6-hourly token check does.
+- The "It was delivered / not delivered" buttons appear 10 minutes after the original send time (client clock vs `occurredAt`); the server enforces the real 10 minutes from the state change.
+- Existing Playwright test "composer stays disabled" was removed (behaviour changed); no new Playwright coverage by request.

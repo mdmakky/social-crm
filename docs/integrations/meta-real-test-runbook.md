@@ -16,3 +16,16 @@
 | R10 | Disconnect then reconnect | `DELETE subscribed_apps` accepted with the Page token or not (settles that UNVERIFIED); account `disabled`, secret gone; reconnect restores | disconnect |
 | R11 | Remove the app in Facebook settings (Apps and Websites) | deauthorize callback arrives: record method, content type, body; accounts become `reauth_required` | deauthorize body |
 | R12 | Data deletion: Facebook settings > request deletion (or dashboard test) | callback arrives; status link opens | data deletion |
+
+
+## Outbound reply (Messenger text) - manual test on the hosted stack
+Prerequisite: the Page is connected (status Connected) and the Render API runs the build containing the outbound commits. Messaging is NOT available for Instagram.
+1. From a personal Facebook account that has a role on the app (Development mode), send a message to the Page. Wait for it to appear in the Inbox.
+2. Open that conversation. The composer must be enabled. Type "Test 1", press Enter. Expected: the bubble appears, status "Sending...", then "Sent"; the text arrives in your Messenger chat.
+3. Shift+Enter must add a line, not send. Double-click Send quickly with a new text: exactly one copy arrives.
+4. In `integration`-side evidence: the `messages` row has `delivery_state='sent'` and an `external_id` (Meta `mid`); `outbound_attempts` has one row with `outcome='accepted'`.
+5. Wait for the echo (a few seconds): the thread must still show ONE bubble for the message.
+6. 24-hour rule: for a conversation whose last inbound message is older than 24 hours, the composer is disabled with the explanation. If you want to see Meta's own refusal instead, tell the developer before testing (needs a code change); do not use message tags.
+7. Failure path (optional): temporarily block the Page for your account, or message from an account that blocked the Page, then reply: expected "Not sent. Meta says this person can't receive messages..." and the text returns to the composer.
+8. Never click "It was delivered" unless the message really arrived; it is audited.
+Record the result (date, message id in the `messages` table, screenshot) before marking the feature verified.
