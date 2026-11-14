@@ -204,7 +204,7 @@ function scopedRoutes(db: Db, deps: MetaConnectDeps | undefined, pending: Pendin
     const p = pending.get(getCookie(c, PENDING_COOKIE), c.get("userId"), c.get("workspaceId"), now());
     if (!p) return fail(c, 404, "no_pending_selection", "The Meta login expired. Connect again.");
     const mine = new Set((await withContext(db, wctx(c), (tx) => accountsOf(tx, c.get("workspaceId")))).filter((a) => a.status !== "disabled").map((a) => `${a.platform}:${a.externalAccountId}`));
-    return c.json({ pages: p.pages.map((g) => ({ pageId: g.id, name: g.name, instagramAccountId: g.instagramAccountId, connected: mine.has(`messenger:${g.id}`), eligible: eligibility(g).eligible, ineligibleReason: eligibility(g).reason })), expiresAt: new Date(p.expiresAt).toISOString() });
+    return c.json({ pages: p.pages.map((g) => ({ pageId: g.id, name: g.name, instagramAccountId: g.instagramAccountId, instagram: g.instagram ?? null, instagramConnected: !!g.instagramAccountId && mine.has(`instagram:${g.instagramAccountId}`), connected: mine.has(`messenger:${g.id}`), eligible: eligibility(g).eligible, ineligibleReason: eligibility(g).reason })), expiresAt: new Date(p.expiresAt).toISOString() });
   });
 
   r.post("/integrations/meta/connect", async (c) => {
@@ -219,7 +219,7 @@ function scopedRoutes(db: Db, deps: MetaConnectDeps | undefined, pending: Pendin
     if (!eligibility(page).eligible) return fail(c, 422, "page_task_missing", eligibility(page).reason ?? undefined);
     const withIg = parsed.data.connectInstagram && !!page.instagramAccountId;
     const targets: { platform: "messenger" | "instagram"; externalId: string; name: string }[] = [{ platform: "messenger", externalId: page.id, name: page.name }];
-    if (withIg) targets.push({ platform: "instagram", externalId: page.instagramAccountId!, name: `${page.name} (Instagram)` });
+    if (withIg) targets.push({ platform: "instagram", externalId: page.instagramAccountId!, name: page.instagram?.username ? `@${page.instagram.username}` : `${page.name} (Instagram)` });
     let made: { id: string; reconnected: boolean; platform: "messenger" | "instagram"; externalId: string }[];
     try {
       made = await withContext(deps.workerDb, wctx(c), async (tx) => {
@@ -340,6 +340,8 @@ function callbackRoutes(db: Db, deps: MetaConnectDeps | undefined, pending: Pend
       const short = await deps.graph.exchangeCode(q.data.code, deps.redirectUri);
       const long = await deps.graph.exchangeLongLived(short.accessToken);
       const pages = await deps.graph.listPages(long.accessToken);
+      // Username and picture of each linked Instagram account for the picker. Best effort and sequential (a few Pages at most): a failure just leaves the plain id.
+      for (const pg of pages) if (pg.instagramAccountId) pg.instagram = await deps.graph.getInstagramAccount(pg.instagramAccountId, pg.accessToken);
       // Non-fatal: without it the deauthorization callback cannot find this person's connections (recorded as null).
       const metaUserId = await deps.graph.getUserId(long.accessToken).catch(() => null);
       const id = pending.put({ userId: st.u, workspaceId: st.w, pages, metaUserHash: metaUserId ? hashMetaUser(deps.userHashKey, metaUserId) : null, expiresAt: now + STATE_TTL_MS });

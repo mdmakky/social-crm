@@ -34,11 +34,14 @@ function parseEvent(m: unknown): MetaEvent {
         attachments.push({ type: a.type, url: typeof u === "string" && u.length <= 2000 && u.startsWith("https://") ? u : null });
       }
     }
+    // Instagram marks media it cannot give us (shares, some story replies) as is_unsupported: keep a visible placeholder instead of dropping the message silently.
+    if (text === null && attachments.length === 0 && msg.is_unsupported === true) attachments.push({ type: "unsupported", url: null });
     if (text === null && attachments.length === 0) return { kind: "ignored", reason: "empty" };
     return { kind: "message", mid: msg.mid, senderId, recipientId, timestampMs, text, attachments, isEcho: msg.is_echo === true };
   }
   if (isObj(m.read)) {
-    const w = tsOf(m.read.watermark);
+    // Messenger sends a watermark; Instagram's messaging_seen carries read.mid (docs 2026-11-14), so the event time is the watermark there.
+    const w = tsOf(m.read.watermark) ?? (typeof m.read.mid === "string" ? tsOf(m.timestamp) : null);
     return w === null ? { kind: "ignored", reason: "bad_watermark" } : { kind: "read", userId: senderId, watermarkMs: w };
   }
   if (isObj(m.delivery)) {

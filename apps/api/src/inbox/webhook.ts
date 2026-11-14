@@ -8,7 +8,8 @@ import { WindowCounter } from "../throttle.ts";
 export const MAX_WEBHOOK_BYTES = 1024 * 1024;
 const PLATFORMS = ["messenger", "instagram"] as const;
 type Platform = (typeof PLATFORMS)[number];
-// Meta names the object "page" for Messenger. The expected object is derived from the callback path, never from the payload.
+// Meta names the object "page" for Messenger. The channel of an event is taken from the signed payload's `object`, not from the callback path: it is UNVERIFIED (C8) whether Meta
+// sends Instagram events to a separate URL or to the one configured for Messenger, and the signature already proves the body came from Meta for our app.
 const OBJECT_OF: Record<Platform, string> = { messenger: "page", instagram: "instagram" };
 
 export type IngressConfig = {
@@ -101,13 +102,14 @@ export function metaWebhookRoutes(cfg: IngressConfig) {
 
     const parsed = parseMetaWebhook(raw);
     // Signed but unusable (not JSON, wrong object, no entries): acknowledge so Meta does not retry forever, store nothing.
-    if (!parsed.ok || parsed.platform !== platform || parsed.entries.length === 0) return c.text("EVENT_RECEIVED", 200);
+    if (!parsed.ok || parsed.entries.length === 0) return c.text("EVENT_RECEIVED", 200);
+    const channel: Platform = parsed.platform;
 
     // One stored row per account entry, so routing is per account. A single-entry body is stored byte for byte; a batch is split into per-entry bodies (the signature was verified over the original).
     const rows: { body: Buffer; account: string }[] = [];
     const seen = new Set<string>();
     for (const e of parsed.entries) {
-      const body = parsed.entries.length === 1 ? raw : Buffer.from(JSON.stringify({ object: OBJECT_OF[platform], entry: [e.raw] }));
+      const body = parsed.entries.length === 1 ? raw : Buffer.from(JSON.stringify({ object: OBJECT_OF[channel], entry: [e.raw] }));
       const digest = `${e.accountId}:${sha(body).toString("hex")}`;
       if (seen.has(digest)) continue; // identical entry repeated inside one batch
       seen.add(digest);
@@ -115,7 +117,7 @@ export function metaWebhookRoutes(cfg: IngressConfig) {
     }
     const values: unknown[] = [];
     const tuples = rows.map((r, i) => {
-      values.push(platform, r.body, sha(r.body), r.body.length, r.account);
+      values.push(channel, r.body, sha(r.body), r.body.length, r.account);
       const o = i * 5;
       return `($${o + 1}, true, $${o + 2}, $${o + 3}, $${o + 4}, $${o + 5}, 'received')`;
     });

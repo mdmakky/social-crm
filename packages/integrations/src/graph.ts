@@ -4,8 +4,10 @@
  * Tokens travel in the Authorization header or POST body, never in a URL we log; error messages never contain a token.
  */
 /** `tasks` is null when Graph did not return the field (then eligibility cannot be checked: UNVERIFIED whether /me/accounts returns it for every token). */
-export type GraphPage = { id: string; name: string; accessToken: string; tasks: string[] | null; instagramAccountId: string | null };
+export type GraphPage = { id: string; name: string; accessToken: string; tasks: string[] | null; instagramAccountId: string | null; /** filled in by the connect callback, not by Graph's account list */ instagram?: InstagramAccountInfo | null };
 export type TokenInfo = { isValid: boolean; expiresAt: Date | null; scopes: string[]; errorCode: number | null };
+
+export type InstagramAccountInfo = { username: string | null; name: string | null; pictureUrl: string | null };
 
 /** `null` from getUserProfile means Graph answered with an empty object: the app has no profile access for this person (documented behaviour). */
 export type UserProfile = { name: string | null; picUrl: string | null };
@@ -52,7 +54,9 @@ export interface MetaGraph {
    * Meta documents no idempotency key (checked 2026-11-14), so a second call can deliver a second copy: callers must never repeat a call whose result is ambiguous.
    * Throws SendError; returns Meta's message id on success.
    */
-  sendText(pageId: string, pageToken: string, psid: string, text: string): Promise<{ messageId: string }>;
+  sendText(pageId: string, pageToken: string, psid: string, text: string, channel?: "messenger" | "instagram"): Promise<{ messageId: string }>;
+  /** Instagram professional account details for the connect screen (best effort: null on any failure). Fields as in the Graph IG User object; UNVERIFIED against the pages read 2026-11-14. */
+  getInstagramAccount(igId: string, pageToken: string): Promise<InstagramAccountInfo | null>;
   /** Authorization-code exchange (redirect_uri must equal the one used for the dialog). */
   exchangeCode(code: string, redirectUri: string): Promise<{ accessToken: string; expiresInSec: number | null }>;
   exchangeLongLived(userToken: string): Promise<{ accessToken: string; expiresInSec: number | null }>;
@@ -64,7 +68,7 @@ export interface MetaGraph {
   unsubscribePage(pageId: string, pageToken: string): Promise<boolean>;
   debugToken(token: string): Promise<TokenInfo>;
   /** Messenger User Profile API: GET /<PSID>?fields=name,profile_pic with the Page token. Needs Advanced Access to "Business Asset User Profile Access" (docs, 2026-11-14); without it Graph returns an empty object, mapped to null here. */
-  getUserProfile(psid: string, pageToken: string): Promise<UserProfile | null>;
+  getUserProfile(psid: string, pageToken: string, channel?: "messenger" | "instagram"): Promise<UserProfile | null>;
 }
 
 const classify = (code: number | null, status: number): GraphError["kind"] =>
@@ -140,13 +144,16 @@ export function createMetaGraph(cfg: { appId: string; appSecret: string; version
       const j = await call(`/${encodeURIComponent(pageId)}/subscribed_apps`, { method: "DELETE", token: pageToken || appToken });
       return j.success === true;
     },
-    async sendText(pageId, pageToken, psid, text) {
+    async sendText(pageId, pageToken, psid, text, channel = "messenger") {
       let res: Response;
       try {
-        res = await f(`${base}/${encodeURIComponent(pageId)}/messages`, {
+        // Instagram: the account id we store is the Instagram id, not the Page id, so the documented `me/messages` form (Page token) is used. The Instagram docs show no messaging_type, so none is sent.
+        const url = channel === "instagram" ? `${base}/me/messages` : `${base}/${encodeURIComponent(pageId)}/messages`;
+        const payload = channel === "instagram" ? { recipient: { id: psid }, message: { text } } : { recipient: { id: psid }, messaging_type: "RESPONSE", message: { text } };
+        res = await f(url, {
           method: "POST",
           headers: { authorization: `Bearer ${pageToken}`, "content-type": "application/json" },
-          body: JSON.stringify({ recipient: { id: psid }, messaging_type: "RESPONSE", message: { text } }),
+          body: JSON.stringify(payload),
           signal: AbortSignal.timeout(15_000),
         });
       } catch {
@@ -162,9 +169,20 @@ export function createMetaGraph(cfg: { appId: string; appSecret: string; version
       // A 4xx with a readable Graph error is a refusal. A 5xx (or an unreadable body) may hide a request that was processed.
       throw new SendError(res.status >= 400 && res.status < 500 && code !== null ? "rejected" : "ambiguous", res.status, code, sub);
     },
-    async getUserProfile(psid, pageToken) {
-      const j = await call(`/${encodeURIComponent(psid)}`, { token: pageToken, query: { fields: "name,profile_pic" } });
-      const name = cleanProfileName(j.name);
+    async getInstagramAccount(igId, pageToken) {
+      try {
+        const j = await call(`/${encodeURIComponent(igId)}`, { token: pageToken, query: { fields: "username,name,profile_picture_url" } });
+        const username = typeof j.username === "string" && /^[A-Za-z0-9._]{1,30}$/.test(j.username) ? j.username : null;
+        const info = { username, name: cleanProfileName(j.name), pictureUrl: safePicUrl(j.profile_picture_url) };
+        return info.username || info.name || info.pictureUrl ? info : null;
+      } catch {
+        return null;
+      }
+    },
+    async getUserProfile(psid, pageToken, channel = "messenger") {
+      // Instagram: name, username, profile_pic (user profile page, 2026-11-14). A person without a name is shown by username.
+      const j = await call(`/${encodeURIComponent(psid)}`, { token: pageToken, query: { fields: channel === "instagram" ? "name,username,profile_pic" : "name,profile_pic" } });
+      const name = cleanProfileName(j.name) ?? (channel === "instagram" && typeof j.username === "string" && /^[A-Za-z0-9._]{1,30}$/.test(j.username) ? j.username : null);
       const picUrl = safePicUrl(j.profile_pic);
       return name === null && picUrl === null ? null : { name, picUrl };
     },
@@ -177,7 +195,7 @@ export function createMetaGraph(cfg: { appId: string; appSecret: string; version
 }
 
 /** MOCK ONLY: in-memory Graph for tests and mock mode. Behaviour is whatever the test configures; it proves our code, not Meta's. */
-export function createMockGraph(state: { pages?: GraphPage[]; validCodes?: Set<string>; tokenInfo?: Map<string, TokenInfo>; failSubscribe?: boolean; metaUserId?: string | null; profiles?: Map<string, UserProfile | null | GraphError>; /** next sendText results, consumed in order; default is success with a generated id */ sends?: (string | SendError)[]; /** runs inside sendText before it answers (tests use it to race an echo) */ onSend?: () => Promise<void> } = {}): MetaGraph & { calls: string[]; state: typeof state } {
+export function createMockGraph(state: { pages?: GraphPage[]; validCodes?: Set<string>; tokenInfo?: Map<string, TokenInfo>; failSubscribe?: boolean; metaUserId?: string | null; profiles?: Map<string, UserProfile | null | GraphError>; instagram?: Map<string, InstagramAccountInfo>; /** next sendText results, consumed in order; default is success with a generated id */ sends?: (string | SendError)[]; /** runs inside sendText before it answers (tests use it to race an echo) */ onSend?: () => Promise<void> } = {}): MetaGraph & { calls: string[]; state: typeof state } {
   const calls: string[] = [];
   const codes = state.validCodes ?? new Set(["good-code"]);
   return {
@@ -209,8 +227,12 @@ export function createMockGraph(state: { pages?: GraphPage[]; validCodes?: Set<s
       calls.push(`unsubscribe:${pageId}`);
       return true;
     },
-    async sendText(pageId, _token, psid, text) {
-      calls.push(`send:${pageId}:${psid}:${text}`);
+    async getInstagramAccount(igId) {
+      calls.push(`igaccount:${igId}`);
+      return state.instagram?.get(igId) ?? null;
+    },
+    async sendText(pageId, _token, psid, text, channel = "messenger") {
+      calls.push(`${channel === "instagram" ? "sendig" : "send"}:${pageId}:${psid}:${text}`);
       await state.onSend?.();
       const next = state.sends?.shift();
       if (next instanceof SendError) throw next;

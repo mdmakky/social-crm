@@ -27,11 +27,12 @@ export function createProfileEnricher(deps: { workerDb: Db; graph: MetaGraph; bo
     const stats: ProfileStats = { enriched: 0, unavailable: 0, failed: 0, skipped: 0 };
     if (now() < pausedUntil) return stats;
     let left = budget;
-    const accounts = rowsOf(await deps.workerDb.execute(sql`SELECT id, workspace_id FROM integration_accounts WHERE platform = 'messenger' AND status = 'connected' ORDER BY created_at LIMIT 100`));
+    const accounts = rowsOf(await deps.workerDb.execute(sql`SELECT id, workspace_id, platform FROM integration_accounts WHERE platform IN ('messenger','instagram') AND status = 'connected' ORDER BY created_at LIMIT 100`));
     for (const a of accounts) {
       if (left <= 0) break;
       const workspaceId = a.workspace_id as string;
       const accountId = a.id as string;
+      const channel = a.platform === "instagram" ? "instagram" : "messenger";
       const { token, due } = await withContext(deps.workerDb, { workspaceId }, async (tx) => ({
         token: await loadToken(tx, tokenDeps, workspaceId, accountId),
         due: rowsOf(
@@ -56,7 +57,7 @@ export function createProfileEnricher(deps: { workerDb: Db; graph: MetaGraph; bo
         let status: "ok" | "unavailable" | "denied" | "error";
         let profile: Awaited<ReturnType<MetaGraph["getUserProfile"]>> = null;
         try {
-          profile = await deps.graph.getUserProfile(p.external_user_id as string, token);
+          profile = await deps.graph.getUserProfile(p.external_user_id as string, token, channel);
           status = profile ? "ok" : "unavailable";
         } catch (e) {
           if (e instanceof GraphError && e.kind === "throttle") {

@@ -35,3 +35,34 @@ describe("sendText (real client, fake fetch: proves our request and classificati
     expect(await fail(graphWith(() => new Response("{", { status: 200 })).g.sendText("1", "t", "2", "x"))).toMatchObject({ outcome: "ambiguous" });
   });
 });
+
+describe("Instagram channel (real client, fake fetch)", () => {
+  it("sends to me/messages with the Page token and no messaging_type, recipient = IGSID", async () => {
+    const { g, seen } = graphWith(() => json({ recipient_id: "55", message_id: "ig_mid" }));
+    expect(await g.sendText("17841000", "PAGE-TOKEN-XYZ", "55", "Hi", "instagram")).toEqual({ messageId: "ig_mid" });
+    const r = seen[0]!;
+    expect(r.url.pathname).toBe("/v25.0/me/messages");
+    expect(r.url.toString()).not.toContain("PAGE-TOKEN-XYZ");
+    expect(JSON.parse(r.init.body as string)).toEqual({ recipient: { id: "55" }, message: { text: "Hi" } });
+  });
+  it("classifies Instagram errors with their subcodes", async () => {
+    const e = await fail(graphWith(() => json({ error: { code: 10, error_subcode: 2534022 } }, 400)).g.sendText("1", "t", "2", "x", "instagram"));
+    expect(e).toMatchObject({ outcome: "rejected", code: 10, subcode: 2534022 });
+  });
+  it("asks for name, username and profile_pic of an Instagram person and falls back to the username", async () => {
+    const { g, seen } = graphWith(() => json({ username: "nusrat.j", profile_pic: "https://scontent.cdninstagram.com/v/p.jpg" }));
+    expect(await g.getUserProfile("55", "t", "instagram")).toEqual({ name: "nusrat.j", picUrl: "https://scontent.cdninstagram.com/v/p.jpg" });
+    expect(seen[0]!.url.searchParams.get("fields")).toBe("name,username,profile_pic");
+    const m = graphWith(() => json({ name: "A B" }));
+    await m.g.getUserProfile("55", "t");
+    expect(m.seen[0]!.url.searchParams.get("fields")).toBe("name,profile_pic"); // Messenger request unchanged
+  });
+  it("getInstagramAccount returns details, or null on any failure (it must never break connecting)", async () => {
+    const ok = graphWith(() => json({ username: "shop.bd", name: "Shop", profile_picture_url: "https://scontent.cdninstagram.com/v/s.jpg" }));
+    expect(await ok.g.getInstagramAccount("1784", "t")).toEqual({ username: "shop.bd", name: "Shop", pictureUrl: "https://scontent.cdninstagram.com/v/s.jpg" });
+    expect(ok.seen[0]!.url.searchParams.get("fields")).toBe("username,name,profile_picture_url");
+    expect(await graphWith(() => json({ error: { code: 100 } }, 400)).g.getInstagramAccount("1784", "t")).toBeNull();
+    expect(await graphWith(() => { throw new Error("x"); }).g.getInstagramAccount("1784", "t")).toBeNull();
+    expect(await graphWith(() => json({ username: "bad name!", profile_picture_url: "http://evil/x.jpg" })).g.getInstagramAccount("1784", "t")).toBeNull();
+  });
+});

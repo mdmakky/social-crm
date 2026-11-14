@@ -40,7 +40,7 @@ async function account(workspaceId: string, platform = "messenger") {
   await q("INSERT INTO integration_accounts (workspace_id, platform, external_account_id) VALUES ($1,$2,$3)", [workspaceId, platform, ref]);
   return ref;
 }
-const eventsFor = (ref: string) => q("SELECT id, status, attempts, last_error, workspace_id, raw_body, body_purged_at FROM webhook_events WHERE account_ref = $1 ORDER BY received_at, id", [ref]);
+const eventsFor = (ref: string) => q("SELECT id, platform, status, attempts, last_error, workspace_id, raw_body, body_purged_at FROM webhook_events WHERE account_ref = $1 ORDER BY received_at, id", [ref]);
 const msg = (a: string, u: string, mid: string, ts: number, extra: Record<string, unknown> = {}) => buildMessagePayload({ accountId: a, userId: u, mid: `${RUN}.${mid}`, text: `hello ${mid}`, timestampMs: ts, ...extra });
 
 beforeAll(async () => {
@@ -109,12 +109,14 @@ describe("ingress: signature, size, rotation", () => {
     expect((await q("SELECT count(*)::int AS n FROM webhook_events"))[0].n).toBe(before);
   });
 
-  it("acknowledges signed but unusable bodies without storing them", async () => {
+  it("acknowledges signed but unusable bodies without storing them; the channel comes from the signed payload, not the URL path", async () => {
     const ref = digits();
-    expect((await send(msg(ref, digits(), "m.wrongpath", Date.now()), "instagram")).status).toBe(200); // object "page" on the instagram path
     const junk = Buffer.from("not json at all");
     expect((await post(hook, "messenger", junk, signMetaBody(junk, mockSecret))).status).toBe(200);
     expect(await eventsFor(ref)).toHaveLength(0);
+    // object "page" posted to the instagram path is stored as a Messenger event (UNVERIFIED C8: Meta may send both objects to one URL)
+    expect((await send(msg(ref, digits(), "m.wrongpath", Date.now()), "instagram")).status).toBe(200);
+    expect((await eventsFor(ref)).map((e: { platform: string }) => e.platform)).toEqual(["messenger"]);
   });
 });
 

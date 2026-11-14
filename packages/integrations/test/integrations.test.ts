@@ -97,3 +97,16 @@ describe("parser", () => {
     expect(parseMetaWebhook(f.raw).ok).toBe(true);
   });
 });
+
+describe("Instagram webhook parsing", () => {
+  const body = (m: unknown) => Buffer.from(JSON.stringify({ object: "instagram", entry: [{ id: "17841", time: 1, messaging: [m] }] }));
+  const pair = { sender: { id: "55" }, recipient: { id: "17841" } };
+  it("reads the instagram object, echoes, unsupported media and messaging_seen", () => {
+    const r = parseMetaWebhook(body({ ...pair, timestamp: 100, message: { mid: "m1", is_unsupported: true } }));
+    expect(r.ok && r.platform).toBe("instagram");
+    expect(r.ok && r.entries[0]!.events[0]).toMatchObject({ kind: "message", attachments: [{ type: "unsupported", url: null }], isEcho: false });
+    expect((parseMetaWebhook(body({ ...pair, timestamp: 100, read: { mid: "m1" } })) as { ok: true; entries: { events: unknown[] }[] }).entries[0]!.events[0]).toEqual({ kind: "read", userId: "55", watermarkMs: 100 });
+    expect((parseMetaWebhook(body({ ...pair, timestamp: 100, reaction: { mid: "m1" } })) as { ok: true; entries: { events: unknown[] }[] }).entries[0]!.events[0]).toMatchObject({ kind: "ignored" });
+    expect((parseMetaWebhook(body({ ...pair, timestamp: 100, message: { mid: "m2" } })) as { ok: true; entries: { events: unknown[] }[] }).entries[0]!.events[0]).toMatchObject({ kind: "ignored", reason: "empty" });
+  });
+});
