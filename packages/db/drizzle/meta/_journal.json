@@ -148,6 +148,13 @@
       "when": 1794581324233,
       "tag": "0020_meta_user_hash",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1794582324233,
+      "tag": "0021_profile_enrichment",
+      "breakpoints": true
     }
   ]
 }

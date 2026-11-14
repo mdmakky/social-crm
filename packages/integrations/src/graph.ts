@@ -7,6 +7,28 @@
 export type GraphPage = { id: string; name: string; accessToken: string; tasks: string[] | null; instagramAccountId: string | null };
 export type TokenInfo = { isValid: boolean; expiresAt: Date | null; scopes: string[]; errorCode: number | null };
 
+/** `null` from getUserProfile means Graph answered with an empty object: the app has no profile access for this person (documented behaviour). */
+export type UserProfile = { name: string | null; picUrl: string | null };
+
+/** Display name from Graph: single line, no control characters, bounded. Anything else is dropped so the placeholder stays. */
+export function cleanProfileName(v: unknown): string | null {
+  if (typeof v !== "string") return null;
+  // eslint-disable-next-line no-control-regex -- stripping control characters is the point
+  const s = v.replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029]/g, " ").replace(/\s+/g, " ").trim();
+  return s.length > 0 && s.length <= 120 ? s : null;
+}
+const PIC_HOSTS = /(^|\.)(fbcdn\.net|fbsbx\.com|cdninstagram\.com|facebook\.com)$/;
+/** Profile picture URL: https only, a Meta CDN host, bounded. The URL expires on Meta's side (documented), so it is stored as a hint, not as an asset. */
+export function safePicUrl(v: unknown): string | null {
+  if (typeof v !== "string" || v.length > 2048) return null;
+  try {
+    const u = new URL(v);
+    return u.protocol === "https:" && PIC_HOSTS.test(u.hostname) ? u.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
 export class GraphError extends Error {
   constructor(readonly code: number | null, readonly status: number, readonly kind: "auth" | "throttle" | "permission" | "other") {
     super(`graph_error_${code ?? status}`);
@@ -24,6 +46,8 @@ export interface MetaGraph {
   subscribePage(pageId: string, pageToken: string, fields: string[]): Promise<boolean>;
   unsubscribePage(pageId: string, pageToken: string): Promise<boolean>;
   debugToken(token: string): Promise<TokenInfo>;
+  /** Messenger User Profile API: GET /<PSID>?fields=name,profile_pic with the Page token. Needs Advanced Access to "Business Asset User Profile Access" (docs, 2026-11-14); without it Graph returns an empty object, mapped to null here. */
+  getUserProfile(psid: string, pageToken: string): Promise<UserProfile | null>;
 }
 
 const classify = (code: number | null, status: number): GraphError["kind"] =>
@@ -99,6 +123,12 @@ export function createMetaGraph(cfg: { appId: string; appSecret: string; version
       const j = await call(`/${encodeURIComponent(pageId)}/subscribed_apps`, { method: "DELETE", token: pageToken || appToken });
       return j.success === true;
     },
+    async getUserProfile(psid, pageToken) {
+      const j = await call(`/${encodeURIComponent(psid)}`, { token: pageToken, query: { fields: "name,profile_pic" } });
+      const name = cleanProfileName(j.name);
+      const picUrl = safePicUrl(j.profile_pic);
+      return name === null && picUrl === null ? null : { name, picUrl };
+    },
     async debugToken(token) {
       const j = (await call("/debug_token", { token: appToken, query: { input_token: token } })) as { data?: { is_valid?: boolean; expires_at?: number; scopes?: string[]; error?: { code?: number } } };
       const d = j.data ?? {};
@@ -108,7 +138,7 @@ export function createMetaGraph(cfg: { appId: string; appSecret: string; version
 }
 
 /** MOCK ONLY: in-memory Graph for tests and mock mode. Behaviour is whatever the test configures; it proves our code, not Meta's. */
-export function createMockGraph(state: { pages?: GraphPage[]; validCodes?: Set<string>; tokenInfo?: Map<string, TokenInfo>; failSubscribe?: boolean; metaUserId?: string | null } = {}): MetaGraph & { calls: string[]; state: typeof state } {
+export function createMockGraph(state: { pages?: GraphPage[]; validCodes?: Set<string>; tokenInfo?: Map<string, TokenInfo>; failSubscribe?: boolean; metaUserId?: string | null; profiles?: Map<string, UserProfile | null | GraphError> } = {}): MetaGraph & { calls: string[]; state: typeof state } {
   const calls: string[] = [];
   const codes = state.validCodes ?? new Set(["good-code"]);
   return {
@@ -139,6 +169,12 @@ export function createMockGraph(state: { pages?: GraphPage[]; validCodes?: Set<s
     async unsubscribePage(pageId) {
       calls.push(`unsubscribe:${pageId}`);
       return true;
+    },
+    async getUserProfile(psid) {
+      calls.push(`profile:${psid}`);
+      const p = state.profiles?.get(psid);
+      if (p instanceof GraphError) throw p;
+      return p ?? null;
     },
     async debugToken(token) {
       calls.push("debugToken");

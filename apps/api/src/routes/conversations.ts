@@ -31,13 +31,14 @@ const dec = (s: string): { t: string | null; id: string } | null => {
 const select = (where: SQL, tail: SQL = sql``) => sql`
   SELECT c.id, c.status, c.assignee_user_id, c.last_message_at, c.last_inbound_at, c.contact_delivered_at, c.contact_read_at, c.message_seq, c.version,
          to_char(c.last_message_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS cursor_t,
-         a.platform, a.display_name AS account_name, ct.id AS contact_id, ct.name AS contact_name, ct.email AS contact_email, ct.phone AS contact_phone, au.name AS assignee_name,
+         a.platform, a.display_name AS account_name, ct.id AS contact_id, ct.name AS contact_name, pi.profile_pic_url AS contact_avatar, ct.email AS contact_email, ct.phone AS contact_phone, au.name AS assignee_name,
          left(lm.body, 120) AS preview, lm.direction AS preview_direction,
          conversation_unread_count(c.id) AS unread,
          coalesce((SELECT r.last_read_seq FROM conversation_reads r WHERE r.workspace_id = c.workspace_id AND r.conversation_id = c.id AND r.user_id = (SELECT app_user_id())), 0) AS last_read_seq
   FROM conversations c
   JOIN integration_accounts a ON a.workspace_id = c.workspace_id AND a.id = c.integration_account_id
   JOIN contacts ct ON ct.workspace_id = c.workspace_id AND ct.id = c.contact_id
+  LEFT JOIN platform_identities pi ON pi.workspace_id = c.workspace_id AND pi.id = c.identity_id
   LEFT JOIN "user" au ON au.id = c.assignee_user_id
   LEFT JOIN LATERAL (SELECT m.body, m.direction FROM messages m WHERE m.workspace_id = c.workspace_id AND m.conversation_id = c.id ORDER BY m.seq DESC LIMIT 1) lm ON true
   WHERE ${where} ${tail}`;
@@ -48,7 +49,7 @@ const item = (r: Row): ConversationItem => {
     id: r.id as string,
     platform: r.platform as ConversationItem["platform"],
     accountName: (r.account_name as string | null) ?? null,
-    contact: { id: r.contact_id as string, name: r.contact_name as string },
+    contact: { id: r.contact_id as string, name: r.contact_name as string, avatarUrl: (r.contact_avatar as string | null) ?? null },
     status: r.status as ConversationItem["status"],
     assignee: r.assignee_user_id ? { userId: r.assignee_user_id as string, name: (r.assignee_name as string | null) ?? "" } : null,
     lastMessageAt: iso(r.last_message_at),
@@ -66,7 +67,7 @@ const detail = (r: Row): ConversationDetail => ({
   contactReadAt: iso(r.contact_read_at),
   lastSeq: Number(r.message_seq),
   lastReadSeq: Number(r.last_read_seq),
-  contactSummary: { id: r.contact_id as string, name: r.contact_name as string, email: (r.contact_email as string | null) ?? null, phone: (r.contact_phone as string | null) ?? null },
+  contactSummary: { id: r.contact_id as string, name: r.contact_name as string, avatarUrl: (r.contact_avatar as string | null) ?? null, email: (r.contact_email as string | null) ?? null, phone: (r.contact_phone as string | null) ?? null },
 });
 
 const loadDetail = async (tx: Tx, workspaceId: string, id: string) => {

@@ -171,7 +171,7 @@ function Row({ c, workspaceId, selected, now }: { c: ConversationItem; workspace
     <li>
       <Link href={`/w/${workspaceId}/inbox/${c.id}`} data-conv-row aria-current={selected ? "true" : undefined}
         className={cn("relative flex min-h-16 gap-2.5 border-b border-line-card px-3 py-2.5 outline-none hover:bg-hover focus-visible:bg-hover focus-visible:ring-2 focus-visible:ring-accent", selected && "bg-accent-subtle before:absolute before:inset-y-0 before:left-0 before:w-0.5 before:bg-accent")}>
-        <span className="relative shrink-0 self-start"><Avatar name={c.contact.name} size="lg" /><ChannelMark platform={c.platform} /></span>
+        <span className="relative shrink-0 self-start"><Avatar name={c.contact.name} src={c.contact.avatarUrl} size="lg" /><ChannelMark platform={c.platform} /></span>
         <span className="min-w-0 flex-1">
           <span className="flex items-baseline gap-2">
             <span className={cn("min-w-0 flex-1 truncate text-base text-fg", unread ? "font-semibold" : "font-medium")}>{c.contact.name}</span>

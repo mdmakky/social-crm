@@ -170,7 +170,7 @@ export async function purgeRawBodies(db: Db): Promise<number> {
 export type InboxWorker = { stop(): Promise<void>; tick(): Promise<void> };
 
 /** In-process worker (same pattern as the event dispatcher, decision D7). Event driven: ingress calls tick() after it stores an event; the interval is only a slow safety net (and keeps purge and token checks running). Purge runs at start and then every purgeEveryMs. */
-export function startInboxWorker(db: Db, opts: { intervalMs: number; purgeEveryMs?: number; onError?: (e: unknown) => void; periodic?: { everyMs: number; run: () => Promise<unknown> } }): InboxWorker {
+export function startInboxWorker(db: Db, opts: { intervalMs: number; enrich?: () => Promise<unknown>; purgeEveryMs?: number; onError?: (e: unknown) => void; periodic?: { everyMs: number; run: () => Promise<unknown> } }): InboxWorker {
   const purgeEvery = opts.purgeEveryMs ?? 6 * 3_600_000;
   let lastPurge = 0;
   let lastPeriodic = 0;
@@ -180,6 +180,25 @@ export function startInboxWorker(db: Db, opts: { intervalMs: number; purgeEveryM
   // that was inserted just after the run's claim query is processed right after, not at the next interval (which can be minutes on a free database).
   let again = false;
   const BATCH = 50;
+  // Profile enrichment is separate and single-flight: it starts after events were stored, is never awaited by ingestion, and its errors never reach it.
+  let enriching: Promise<void> | null = null;
+  let enrichAgain = false;
+  const runEnrich = () => {
+    if (!opts.enrich || stopped) return;
+    if (enriching) { enrichAgain = true; return; }
+    enriching = (async () => {
+      try {
+        do {
+          enrichAgain = false;
+          await opts.enrich!();
+        } while (enrichAgain && !stopped);
+      } catch (e) {
+        opts.onError?.(e);
+      } finally {
+        enriching = null;
+      }
+    })();
+  };
   const tick = (): Promise<void> => {
     if (stopped) return Promise.resolve(); // shutting down: a late signal from a request that is still finishing must not start a new pass
     if (running) { again = true; return running; }
@@ -196,7 +215,12 @@ export function startInboxWorker(db: Db, opts: { intervalMs: number; purgeEveryM
             await opts.periodic.run();
           }
           // drain a backlog in one go; failed events are not counted, so a failing event is retried at the next signal or interval, never in a hot loop
-          for (let r = await processPending(db, BATCH); r.processed + r.orphan >= BATCH && !stopped; r = await processPending(db, BATCH));
+          let stored = 0;
+          for (let r = await processPending(db, BATCH); ; r = await processPending(db, BATCH)) {
+            stored += r.processed;
+            if (r.processed + r.orphan < BATCH || stopped) break;
+          }
+          if (stored > 0) runEnrich();
         } while (again && !stopped);
       } catch (e) {
         opts.onError?.(e);
@@ -206,7 +230,7 @@ export function startInboxWorker(db: Db, opts: { intervalMs: number; purgeEveryM
     })();
     return running;
   };
-  const timer = setInterval(() => void tick(), opts.intervalMs);
+  const timer = setInterval(() => { void tick(); runEnrich(); }, opts.intervalMs); // the slow interval also retries profiles whose backoff has passed
   timer.unref();
   void tick();
   return {
@@ -216,6 +240,7 @@ export function startInboxWorker(db: Db, opts: { intervalMs: number; purgeEveryM
       stopped = true;
       clearInterval(timer);
       await running;
+      await enriching;
     },
   };
 }

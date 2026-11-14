@@ -103,7 +103,7 @@ async function upsertAccount(tx: Tx, deps: MetaConnectDeps, a: { workspaceId: st
 const eventSql = (tx: Tx, workspaceId: string, accountId: string, kind: string, actorUserId: string | null, data: Record<string, unknown>) =>
   tx.execute(sql`INSERT INTO integration_events (workspace_id, integration_account_id, kind, actor_user_id, data) VALUES (${workspaceId}, ${accountId}, ${kind}, ${actorUserId}, ${JSON.stringify(data)}::jsonb)`);
 
-async function loadToken(tx: Tx, deps: MetaConnectDeps, workspaceId: string, accountId: string): Promise<string | null> {
+export async function loadToken(tx: Tx, deps: MetaConnectDeps, workspaceId: string, accountId: string): Promise<string | null> {
   const s = rowsOf(await tx.execute(sql`SELECT ciphertext, nonce, key_id FROM integration_secrets WHERE integration_account_id = ${accountId} AND workspace_id = ${workspaceId} ORDER BY version DESC LIMIT 1`))[0];
   if (!s) return null;
   try {

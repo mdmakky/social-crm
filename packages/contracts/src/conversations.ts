@@ -13,7 +13,7 @@ export const ConversationItem = z.object({
   id: Uuid,
   platform: z.enum(["messenger", "instagram"]),
   accountName: z.string().nullable(),
-  contact: z.object({ id: Uuid, name: z.string() }),
+  contact: z.object({ id: Uuid, name: z.string(), avatarUrl: z.string().url().nullable() }),
   status: ConversationStatus,
   assignee: z.object({ userId: z.string(), name: z.string() }).nullable(),
   lastMessageAt: z.string().nullable(),
@@ -46,7 +46,7 @@ export const ConversationDetail = ConversationItem.extend({
   contactReadAt: z.string().nullable(),
   lastSeq: z.number().int().min(0),
   lastReadSeq: z.number().int().min(0),
-  contactSummary: z.object({ id: Uuid, name: z.string(), email: z.string().nullable(), phone: z.string().nullable() }),
+  contactSummary: z.object({ id: Uuid, name: z.string(), avatarUrl: z.string().url().nullable(), email: z.string().nullable(), phone: z.string().nullable() }),
 });
 export type ConversationDetail = z.infer<typeof ConversationDetail>;
 

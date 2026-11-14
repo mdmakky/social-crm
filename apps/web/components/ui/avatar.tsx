@@ -10,7 +10,7 @@ const TINT = { 1: "bg-hue-1-bg text-hue-1-fg", 2: "bg-hue-2-bg text-hue-2-fg", 3
 export function Avatar({ name, src, size = "md", className }: { name: string; src?: string | null; size?: keyof typeof SIZES; className?: string }) {
   return (
     <AvatarPrimitive.Root className={cn("inline-flex shrink-0 select-none items-center justify-center overflow-hidden rounded-full font-semibold", TINT[hueOf(name)], SIZES[size], className)}>
-      {src && <AvatarPrimitive.Image src={src} alt="" className="size-full object-cover" />}
+      {src && <AvatarPrimitive.Image src={src} alt="" referrerPolicy="no-referrer" className="size-full object-cover" />}
       {/* Initials are decorative; drawn with CSS so they are not part of any control's text content. */}
       <AvatarPrimitive.Fallback aria-hidden data-initials={initials(name)} className="after:content-[attr(data-initials)]" />
     </AvatarPrimitive.Root>

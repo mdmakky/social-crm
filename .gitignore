@@ -18,3 +18,4 @@ tsconfig.tsbuildinfo
 .dev-mail/
 .claude/
 .dev-tunnel/
+.vercel

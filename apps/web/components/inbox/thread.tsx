@@ -183,7 +183,7 @@ export function Thread({ conversationId }: { conversationId: string }) {
       <section aria-label={`Conversation with ${name}`} className="flex min-w-0 flex-1 flex-col">
         <header className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-line px-3 py-2.5">
           <Link href={`/w/${workspaceId}/inbox`} aria-label="Back to inbox" className="-ml-1 inline-flex size-11 items-center justify-center rounded-control text-fg-muted hover:bg-hover md:hidden"><ChevronLeft className="size-5" aria-hidden /></Link>
-          <Avatar name={name} size="lg" />
+          <Avatar name={name} src={detail.contact.avatarUrl} size="lg" />
           <div className="min-w-[9rem] flex-1 basis-40">
             <h2 ref={headingRef} tabIndex={-1} className="truncate text-md font-semibold text-fg outline-none"><Link href={`/w/${workspaceId}/contacts/${detail.contact.id}`} className="hover:underline">{name}</Link></h2>
             <ChannelBadge platform={detail.platform} account={detail.accountName} />
@@ -273,7 +273,7 @@ function ContactPanel({ d, workspaceId, now }: { d: ConversationDetail; workspac
   const c = d.contactSummary;
   return (
     <div className="space-y-4 text-base">
-      <div className="flex items-center gap-3"><Avatar name={c.name} size="xl" /><div className="min-w-0"><p className="truncate font-semibold text-fg">{c.name}</p><ChannelBadge platform={d.platform} account={d.accountName} /></div></div>
+      <div className="flex items-center gap-3"><Avatar name={c.name} src={c.avatarUrl} size="xl" /><div className="min-w-0"><p className="truncate font-semibold text-fg">{c.name}</p><ChannelBadge platform={d.platform} account={d.accountName} /></div></div>
       <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-sm">
         <dt className="text-fg-subtle">Email</dt><dd className="min-w-0 truncate">{c.email ? <a className="text-accent-fg underline" href={`mailto:${c.email}`}>{c.email}</a> : <span className="text-fg-subtle">Not set</span>}</dd>
         <dt className="text-fg-subtle">Phone</dt><dd className="min-w-0 truncate">{c.phone ? <a className="text-accent-fg underline" href={`tel:${c.phone}`}>{c.phone}</a> : <span className="text-fg-subtle">Not set</span>}</dd>
