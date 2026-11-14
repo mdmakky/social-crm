@@ -54,7 +54,12 @@ export interface MetaGraph {
    * Meta documents no idempotency key (checked 2026-11-14), so a second call can deliver a second copy: callers must never repeat a call whose result is ambiguous.
    * Throws SendError; returns Meta's message id on success.
    */
-  sendText(pageId: string, pageToken: string, psid: string, text: string, channel?: "messenger" | "instagram"): Promise<{ messageId: string }>;
+  sendText(pageId: string, pageToken: string, psid: string, text: string, channel?: "messenger" | "instagram" | "instagram_unified"): Promise<{ messageId: string }>;
+  /**
+   * Unified Login: GET me/assigned_instagram_accounts?fields=id,username with the system-user token (migration guide, 2026-11-14). The id is the Instagram professional account id used in webhooks.
+   * Throws GraphError. At most 25 accounts are read.
+   */
+  listAssignedInstagramAccounts(token: string): Promise<{ id: string; username: string | null }[]>;
   /** Instagram professional account details for the connect screen (best effort: null on any failure). Fields as in the Graph IG User object; UNVERIFIED against the pages read 2026-11-14. */
   getInstagramAccount(igId: string, pageToken: string): Promise<InstagramAccountInfo | null>;
   /** Authorization-code exchange (redirect_uri must equal the one used for the dialog). */
@@ -148,8 +153,9 @@ export function createMetaGraph(cfg: { appId: string; appSecret: string; version
       let res: Response;
       try {
         // Instagram: the account id we store is the Instagram id, not the Page id, so the documented `me/messages` form (Page token) is used. The Instagram docs show no messaging_type, so none is sent.
+        // Unified Login: the token is a system-user token, for which `me` is the system user, so the Instagram account id is addressed explicitly: POST /{ig-id}/messages (migration guide).
         const url = channel === "instagram" ? `${base}/me/messages` : `${base}/${encodeURIComponent(pageId)}/messages`;
-        const payload = channel === "instagram" ? { recipient: { id: psid }, message: { text } } : { recipient: { id: psid }, messaging_type: "RESPONSE", message: { text } };
+        const payload = channel !== "messenger" ? { recipient: { id: psid }, message: { text } } : { recipient: { id: psid }, messaging_type: "RESPONSE", message: { text } };
         res = await f(url, {
           method: "POST",
           headers: { authorization: `Bearer ${pageToken}`, "content-type": "application/json" },
@@ -168,6 +174,15 @@ export function createMetaGraph(cfg: { appId: string; appSecret: string; version
       const sub = typeof json?.error?.error_subcode === "number" ? json.error.error_subcode : null;
       // A 4xx with a readable Graph error is a refusal. A 5xx (or an unreadable body) may hide a request that was processed.
       throw new SendError(res.status >= 400 && res.status < 500 && code !== null ? "rejected" : "ambiguous", res.status, code, sub);
+    },
+    async listAssignedInstagramAccounts(token) {
+      const j = (await call("/me/assigned_instagram_accounts", { token, query: { fields: "id,username", limit: "25" } })) as { data?: Record<string, unknown>[] };
+      const out: { id: string; username: string | null }[] = [];
+      for (const a of (j.data ?? []).slice(0, 25)) {
+        if (typeof a.id !== "string" || !/^[1-9][0-9]{0,99}$/.test(a.id)) continue;
+        out.push({ id: a.id, username: typeof a.username === "string" && /^[A-Za-z0-9._]{1,30}$/.test(a.username) ? a.username : null });
+      }
+      return out;
     },
     async getInstagramAccount(igId, pageToken) {
       try {
@@ -195,7 +210,7 @@ export function createMetaGraph(cfg: { appId: string; appSecret: string; version
 }
 
 /** MOCK ONLY: in-memory Graph for tests and mock mode. Behaviour is whatever the test configures; it proves our code, not Meta's. */
-export function createMockGraph(state: { pages?: GraphPage[]; validCodes?: Set<string>; tokenInfo?: Map<string, TokenInfo>; failSubscribe?: boolean; metaUserId?: string | null; profiles?: Map<string, UserProfile | null | GraphError>; instagram?: Map<string, InstagramAccountInfo>; /** next sendText results, consumed in order; default is success with a generated id */ sends?: (string | SendError)[]; /** runs inside sendText before it answers (tests use it to race an echo) */ onSend?: () => Promise<void> } = {}): MetaGraph & { calls: string[]; state: typeof state } {
+export function createMockGraph(state: { pages?: GraphPage[]; validCodes?: Set<string>; tokenInfo?: Map<string, TokenInfo>; failSubscribe?: boolean; metaUserId?: string | null; profiles?: Map<string, UserProfile | null | GraphError>; instagram?: Map<string, InstagramAccountInfo>; /** token -> accounts shared through Unified Login, or an error */ assigned?: Map<string, { id: string; username: string | null }[] | GraphError>; /** next sendText results, consumed in order; default is success with a generated id */ sends?: (string | SendError)[]; /** runs inside sendText before it answers (tests use it to race an echo) */ onSend?: () => Promise<void> } = {}): MetaGraph & { calls: string[]; state: typeof state } {
   const calls: string[] = [];
   const codes = state.validCodes ?? new Set(["good-code"]);
   return {
@@ -227,12 +242,18 @@ export function createMockGraph(state: { pages?: GraphPage[]; validCodes?: Set<s
       calls.push(`unsubscribe:${pageId}`);
       return true;
     },
+    async listAssignedInstagramAccounts(token) {
+      calls.push("assignedAccounts");
+      const a = state.assigned?.get(token);
+      if (a instanceof GraphError) throw a;
+      return a ?? [];
+    },
     async getInstagramAccount(igId) {
       calls.push(`igaccount:${igId}`);
       return state.instagram?.get(igId) ?? null;
     },
     async sendText(pageId, _token, psid, text, channel = "messenger") {
-      calls.push(`${channel === "instagram" ? "sendig" : "send"}:${pageId}:${psid}:${text}`);
+      calls.push(`${channel === "instagram" ? "sendig" : channel === "instagram_unified" ? "sendigu" : "send"}:${pageId}:${psid}:${text}`);
       await state.onSend?.();
       const next = state.sends?.shift();
       if (next instanceof SendError) throw next;

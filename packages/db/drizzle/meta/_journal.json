@@ -169,6 +169,13 @@
       "when": 1794584324233,
       "tag": "0023_contact_method_corrections",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1794670724233,
+      "tag": "0024_instagram_unified_login",
+      "breakpoints": true
     }
   ]
 }
