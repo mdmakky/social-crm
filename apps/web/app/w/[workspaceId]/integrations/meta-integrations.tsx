@@ -35,6 +35,11 @@ const RESULT: Record<string, { tone: "error" | "warning" | "info"; text: string 
   forbidden: { tone: "error", text: "Only owners and admins can connect Meta accounts." },
   no_pages: { tone: "warning", text: "Meta returned no Pages for this login. Make sure you have access to a Page and approved it in the Meta dialog." },
   not_configured: { tone: "warning", text: "Meta is not configured on this server." },
+  ig_connected: { tone: "info", text: "Instagram account connected directly (no Facebook Page). Its webhook subscription was accepted." },
+  ig_connected_unsubscribed: { tone: "warning", text: "Instagram account connected, but Instagram did not accept the webhook subscription. New messages may not arrive until it is re-checked (see Webhook subscription below)." },
+  ig_no_accounts: { tone: "warning", text: "No Instagram account was shared in the login. Connect again and select the Instagram account (it must be a Business or Creator account) in the Meta dialog." },
+  ig_partial: { tone: "warning", text: "Some Instagram accounts were connected; others are already connected to another workspace and were skipped." },
+  account_unavailable: { tone: "error", text: "That Instagram account is already connected to another workspace, so it can't be connected here." },
 };
 const SUBSCRIPTION = { subscribed: "Webhook subscribed", failed: "Webhook subscription failed", dashboard_required: "Instagram webhook fields must be enabled in the Meta app dashboard (UNVERIFIED)" } as const;
 const STATUS: Record<IntegrationAccountDto["status"], { label: string; tone: "success" | "warning" | "neutral" }> = {
@@ -62,7 +67,7 @@ function Inner({ workspaceId, canManage, initial, result, channel: initialChanne
   const opener = React.useRef<HTMLElement | null>(null);
   const [banner, setBanner] = React.useState(result && RESULT[result] ? RESULT[result] : null);
   // `selected` is what the detail pane shows. null on a phone means "show the channel list"; from md up the rail is always visible and falls back to Messenger.
-  const [selected, setSelected] = React.useState<ChannelKey | null>(result ? "messenger" : isChannel(initialChannel) ? initialChannel : null);
+  const [selected, setSelected] = React.useState<ChannelKey | null>(isChannel(initialChannel) ? initialChannel : result ? "messenger" : null);
   const [events, setEvents] = React.useState<Record<string, MetaAccountEvents["items"] | "error">>({});
   const [resub, setResub] = React.useState<Record<string, keyof typeof SUBSCRIPTION>>({});
   const active = CHANNELS.find((c) => c.key === (selected ?? "messenger"))!;
@@ -81,7 +86,7 @@ function Inner({ workspaceId, canManage, initial, result, channel: initialChanne
 
   // After the Meta dialog the callback redirects here with ?meta=select; load the discovered Pages, then drop the query so a refresh does not repeat it.
   React.useEffect(() => {
-    if (result) window.history.replaceState(null, "", `${window.location.pathname}?channel=messenger`);
+    if (result) window.history.replaceState(null, "", `${window.location.pathname}?channel=${isChannel(initialChannel) ? initialChannel : "messenger"}`);
     if (result !== "select") return;
     void browserApi.call(endpoints.listMetaPending, { params }).then((r) => {
       if (!r.ok) { setBanner({ tone: "error", text: "The Meta login expired. Connect again." }); setPending(null); return; }
@@ -117,6 +122,12 @@ function Inner({ workspaceId, canManage, initial, result, channel: initialChanne
     setPending(null);
     toast("Connected");
     await reload();
+  }
+  async function startInstagramUnified() {
+    setBusy("ig-connect");
+    const r = await browserApi.call(endpoints.startInstagramUnified, { params });
+    if (!r.ok) { setBusy(null); toast(r.error.code === "integration_not_configured" ? "Direct Instagram connection is not configured on this server." : errorMessage(r.error), "error"); return; }
+    window.location.assign(r.data.authUrl);
   }
   async function checkToken(a: IntegrationAccountDto) {
     setBusy(a.id);
@@ -155,6 +166,23 @@ function Inner({ workspaceId, canManage, initial, result, channel: initialChanne
   const reason = !data.configured ? "Meta is not configured on this server." : !canManage ? "Only owners and admins can connect accounts." : undefined;
   const connectBtn = (label: string, variant: "primary" | "secondary" = "primary") => (
     <Button variant={variant} disabled={!!reason} loading={busy === "connect"} onClick={() => void startConnect()} title={reason} aria-describedby={reason ? "meta-reason" : undefined}><Plug className="size-4" aria-hidden />{label}</Button>
+  );
+  const igReason = reason ?? (!data.instagramUnifiedConfigured ? "Direct Instagram connection is not configured on this server." : undefined);
+  /** Instagram has two independent ways in; both are always shown side by side so the choice is explicit. */
+  const instagramConnect = (compact = false) => (
+    <div className={cn("grid gap-3", compact ? "" : "sm:grid-cols-2")}>
+      <div className="flex flex-col gap-2 rounded-control border border-line-card p-3">
+        <p className="text-sm font-medium text-fg">With a Facebook Page</p>
+        <p className="text-sm text-fg-subtle">For an Instagram professional account that is linked to a Facebook Page. Also connects the Page&apos;s Messenger inbox.</p>
+        <div>{connectBtn("Connect with Facebook Page", "secondary")}</div>
+      </div>
+      <div className="flex flex-col gap-2 rounded-control border border-line-card p-3">
+        <p className="text-sm font-medium text-fg">Directly, without a Facebook Page</p>
+        <p className="text-sm text-fg-subtle">For Business or Creator accounts that are not linked to any Page. You sign in with Instagram and choose the account to share.</p>
+        <div><Button variant="primary" disabled={!!igReason} loading={busy === "ig-connect"} onClick={() => void startInstagramUnified()} title={igReason} aria-describedby={igReason ? "ig-reason" : undefined}><Plug className="size-4" aria-hidden />Connect Instagram</Button></div>
+        {igReason && <p id="ig-reason" className="text-sm text-fg-subtle">{igReason}</p>}
+      </div>
+    </div>
   );
   const live = (platform: "messenger" | "instagram") => data.accounts.filter((a) => a.platform === platform && a.status !== "disabled");
   const railState = (c: Channel): { sub: string; dot: "ok" | "warn" | "idle" | "soon" } => {
@@ -196,7 +224,7 @@ function Inner({ workspaceId, canManage, initial, result, channel: initialChanne
             <div className="flex flex-wrap items-center gap-3 border-b border-line-card px-4 py-3">
               <span className="grid size-9 flex-none place-items-center rounded-control bg-accent-subtle text-accent-fg"><active.icon className="size-5" aria-hidden /></span>
               <div className="min-w-[12rem] flex-1"><h2 className="text-base font-semibold text-fg">{active.label}</h2><p className="text-sm text-fg-subtle">{active.blurb}</p></div>
-              {active.platform && live(active.platform).length > 0 && <div className="w-full sm:w-auto [&>button]:w-full sm:[&>button]:w-auto">{connectBtn(active.platform === "messenger" ? "Connect another Page" : "Connect another account", "primary")}</div>}
+              {active.platform === "messenger" && live("messenger").length > 0 && <div className="w-full sm:w-auto [&>button]:w-full sm:[&>button]:w-auto">{connectBtn("Connect another Page", "primary")}</div>}
             </div>
 
             {!active.platform ? (
@@ -246,21 +274,21 @@ function Inner({ workspaceId, canManage, initial, result, channel: initialChanne
                   <h3 id="accts" className="px-4 pt-4 text-sm font-semibold text-fg">{active.platform === "messenger" ? "Connected Pages" : "Connected accounts"}</h3>
                   {shown.length === 0 ? (
                     <EmptyState icon={active.icon} title={`No ${active.label} account connected`}
-                      description={active.platform === "messenger" ? "Connect a Facebook Page to receive its Messenger messages here." : "Instagram connects through the Facebook Page it is linked to. Link your Instagram professional account to the Page, turn on “Allow access to messages” in Instagram, then connect."}
-                      action={connectBtn("Connect with Meta")} />
+                      description={active.platform === "messenger" ? "Connect a Facebook Page to receive its Messenger messages here." : "Connect an Instagram Business or Creator account either through the Facebook Page it is linked to, or directly with Instagram if it has no Page. Turn on “Allow access to messages” in Instagram first."}
+                      action={active.platform === "instagram" ? undefined : connectBtn("Connect with Meta")} />
                   ) : (
                     <ul className="flex flex-col divide-y divide-line-card">
                       {shown.map((a) => (
                         <li key={a.id} className="flex flex-col gap-3 p-4 lg:flex-row lg:items-center lg:justify-between">
                           <div className="min-w-0">
-                            <div className="flex flex-wrap items-center gap-2"><span className="truncate font-medium">{a.displayName ?? a.externalAccountId}</span><Badge tone={STATUS[a.status].tone}>{STATUS[a.status].label}</Badge></div>
+                            <div className="flex flex-wrap items-center gap-2"><span className="truncate font-medium">{a.displayName ?? a.externalAccountId}</span><Badge tone={STATUS[a.status].tone}>{STATUS[a.status].label}</Badge>{a.platform === "instagram" && <Badge shape="square">{a.authMethod === "unified" ? "Direct · no Page" : "Via Facebook Page"}</Badge>}</div>
                             <p className="mt-1 text-sm text-fg-muted">ID {a.externalAccountId} · Last token check: <LocalTime iso={a.lastTokenCheckAt} /></p>
                             {a.status === "reauth_required" && <p className="mt-2 rounded-control bg-warning-bg px-3 py-2 text-sm text-warning-fg">Meta stopped accepting this connection, so new messages are not arriving. Reconnect to resume.</p>}
                           </div>
                           {canManage && (
                             <div className="flex flex-wrap gap-2">
                               {a.status !== "disabled" && <Button size="sm" loading={busy === a.id} onClick={() => void checkToken(a)}><RefreshCw className="size-4" aria-hidden />Check token</Button>}
-                              {a.status !== "connected" && <Button size="sm" variant={a.status === "reauth_required" ? "primary" : "secondary"} disabled={!data.configured} loading={busy === "connect"} onClick={() => void startConnect()}>Reconnect</Button>}
+                              {a.status !== "connected" && <Button size="sm" variant={a.status === "reauth_required" ? "primary" : "secondary"} disabled={!data.configured} loading={busy === (a.authMethod === "unified" ? "ig-connect" : "connect")} onClick={() => void (a.authMethod === "unified" ? startInstagramUnified() : startConnect())}>Reconnect</Button>}
                               {a.status !== "disabled" && <Button size="sm" variant="danger" onClick={(e) => { opener.current = e.currentTarget; setConfirm(a); }}><Trash2 className="size-4" aria-hidden />Disconnect</Button>}
                             </div>
                           )}
@@ -269,6 +297,13 @@ function Inner({ workspaceId, canManage, initial, result, channel: initialChanne
                     </ul>
                   )}
                 </section>
+
+                {active.platform === "instagram" && (
+                  <section aria-labelledby="igc" className="border-b border-line-card p-4">
+                    <h3 id="igc" className="mb-3 text-sm font-semibold text-fg">{live("instagram").length ? "Connect another Instagram account" : "Connect an Instagram account"}</h3>
+                    {instagramConnect()}
+                  </section>
+                )}
 
                 <section aria-labelledby="wh" className="border-b border-line-card p-4">
                   <h3 id="wh" className="text-sm font-semibold text-fg">Webhook subscription</h3>
@@ -285,7 +320,16 @@ function Inner({ workspaceId, canManage, initial, result, channel: initialChanne
                       ))}
                     </>
                   ) : (
-                    <p className="mt-1 text-sm text-fg-subtle">Instagram webhook fields cannot be set from here: they must be enabled in the Meta app dashboard (UNVERIFIED until a real Instagram message is delivered).</p>
+                    <>
+                      <p className="mt-1 text-sm text-fg-subtle">Accounts connected through a Facebook Page: webhook fields cannot be set from here and must be enabled in the Meta app dashboard (UNVERIFIED until a real Instagram message is delivered). Accounts connected directly (no Page) are subscribed from here.</p>
+                      {canManage && shown.filter((a) => a.status === "connected" && a.authMethod === "unified").map((a) => (
+                        <div key={a.id} className="mt-3 flex flex-wrap items-center gap-2 text-sm">
+                          <span className="font-medium">{a.displayName ?? a.externalAccountId}</span>
+                          <Button size="sm" loading={busy === `sub:${a.id}`} onClick={() => void resubscribe(a.id)}><RefreshCw className="size-4" aria-hidden />Re-check subscription</Button>
+                          {resub[a.id] && <Badge tone={resub[a.id] === "subscribed" ? "success" : "warning"}>{SUBSCRIPTION[resub[a.id]!]}</Badge>}
+                        </div>
+                      ))}
+                    </>
                   )}
                 </section>
 
