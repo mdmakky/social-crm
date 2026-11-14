@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import type { Db, Tx } from "@crm/db";
 import { parseMetaWebhook, type MetaEvent } from "@crm/integrations";
+import { saveExtracted } from "./extract.ts";
 
 /** After this many failed attempts an event stays `failed` (dead letter) until an admin replays it (failed -> received). */
 export const MAX_ATTEMPTS = 5;
@@ -107,6 +108,7 @@ async function applyEvent(tx: Tx, ctx: Ctx, ev: MetaEvent): Promise<void> {
         version = version + 1, updated_at = now()
       WHERE workspace_id = ${ctx.workspaceId} AND id = ${conv.id}`);
     await tx.execute(sql`UPDATE contacts SET last_activity_at = GREATEST(last_activity_at, ${at}::timestamptz) WHERE workspace_id = ${ctx.workspaceId} AND id = ${conv.contactId}`);
+    if (inbound && ev.text) await saveExtracted(tx, { workspaceId: ctx.workspaceId, platform: ctx.platform, contactId: conv.contactId, conversationId: conv.id, messageId: inserted[0]!.id as string, text: ev.text });
     return;
   }
   // read / delivery receipts: watermark moves forward only, for a conversation that already exists

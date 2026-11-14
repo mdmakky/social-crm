@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { foreignKey, index, integer, jsonb, pgEnum, pgTable, primaryKey, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
+import { boolean, check, foreignKey, index, integer, jsonb, numeric, pgEnum, pgTable, primaryKey, text, timestamp, unique, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { user } from "../auth-schema.ts";
 import { workspaces } from "./tenancy.ts";
 import { leads } from "./leads.ts";
@@ -180,3 +180,38 @@ export const importJobs = pgTable("import_jobs", {
   createdAt: createdAt(),
   committedAt: timestamp("committed_at", { withTimezone: true }),
 });
+
+/** Phones and emails of a contact with provenance. The legacy contacts.phone/email remain the human-entered primary values; see migration 0022. */
+export const contactMethods = pgTable(
+  "contact_methods",
+  {
+    id: id(),
+    workspaceId: workspaceId(),
+    contactId: uuid("contact_id").notNull(),
+    kind: text("kind").notNull(),
+    value: text("value").notNull(),
+    rawValue: text("raw_value"),
+    source: text("source").notNull(),
+    sourceConversationId: uuid("source_conversation_id"),
+    sourceMessageId: uuid("source_message_id"),
+    confidence: numeric("confidence", { precision: 3, scale: 2 }).notNull().default("1"),
+    verified: boolean("verified").notNull().default(false),
+    verifiedAt: timestamp("verified_at", { withTimezone: true }),
+    verifiedBy: text("verified_by"),
+    isPrimary: boolean("is_primary").notNull().default(false),
+    extractedAt: timestamp("extracted_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    unique("contact_methods_unique").on(t.workspaceId, t.contactId, t.kind, t.value),
+    foreignKey({ columns: [t.workspaceId, t.contactId], foreignColumns: [contacts.workspaceId, contacts.id] }).onDelete("cascade"),
+    check("contact_methods_kind", sql`${t.kind} IN ('phone','email')`),
+    check("contact_methods_source", sql`${t.source} IN ('messenger','instagram','manual','import','other')`),
+    check("contact_methods_confidence", sql`${t.confidence} >= 0 AND ${t.confidence} <= 1`),
+    check("contact_methods_value_len", sql`length(${t.value}) BETWEEN 3 AND 254 AND (raw_value IS NULL OR length(raw_value) <= 200)`),
+    index("contact_methods_contact_idx").on(t.workspaceId, t.contactId),
+    index("contact_methods_value_idx").on(t.workspaceId, t.kind, t.value),
+    uniqueIndex("contact_methods_one_primary").on(t.workspaceId, t.contactId, t.kind).where(sql`${t.isPrimary}`),
+  ],
+);
