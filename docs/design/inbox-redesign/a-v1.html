@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Inbox option A: Focus (refined three-pane)</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Noto+Sans+Bengali:wght@400;500&display=swap">
+<link rel="stylesheet" href="base.css">
+<style>
+/* A: edge-to-edge panes, no floating card. Solid indigo outbound bubbles, meta outside bubbles. */
+.list{width:352px;flex:none;background:var(--surface);border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+.lh{padding:16px 16px 0}
+.lh h1{margin:0;font-size:18px;font-weight:600;letter-spacing:-.01em;display:flex;align-items:center;gap:8px}
+.lh h1 .btn{margin-left:auto}
+.srch{margin:12px 0 0;display:flex;align-items:center;gap:8px;height:34px;padding:0 10px;border-radius:var(--r);background:var(--canvas);border:1px solid transparent;color:var(--fg-3)}
+.srch:focus-within{border-color:var(--accent);background:#fff}
+.srch input{border:0;background:none;outline:0;flex:1;min-width:0;color:var(--fg)}
+.tabs{display:flex;gap:2px;padding:8px 8px 0;border-bottom:1px solid var(--line)}
+.tab{border:0;background:none;height:36px;padding:0 8px;color:var(--fg-3);font-weight:500;font-size:13px;display:flex;gap:6px;align-items:center;position:relative}
+.tab b{font-weight:500;font-size:12px;background:var(--hover);padding:0 6px;border-radius:99px;color:var(--fg-2)}
+.tab.on{color:var(--fg)}.tab.on::after{content:"";position:absolute;left:10px;right:10px;bottom:-1px;height:2px;background:var(--accent);border-radius:2px}
+.tab.on b{background:var(--accent-subtle);color:#3B33B5}
+.rows{overflow:auto;flex:1}
+.sec{padding:12px 16px 4px;font-size:12px;font-weight:500;color:var(--fg-3)}
+.row{display:flex;gap:12px;padding:12px 16px;border-bottom:1px solid var(--line);position:relative;cursor:pointer;text-decoration:none;color:inherit}
+.row:hover{background:var(--hover)}
+.row.on{background:var(--accent-subtle)}.row.on::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent)}
+.row .t{min-width:0;flex:1}
+.row .l1{display:flex;align-items:baseline;gap:8px}
+.row .nm{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:14px;font-weight:500}
+.row.un .nm{font-weight:600}
+.row time{font-size:12px;color:var(--fg-3)}
+.row.un time{color:var(--accent);font-weight:500}
+.row .l2{display:flex;align-items:center;gap:8px;margin-top:2px}
+.row .pv{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13px;color:var(--fg-3)}
+.row.un .pv{color:var(--fg)}
+.row .pv i{font-style:normal;color:var(--fg-3)}
+.thread{flex:1;min-width:0;display:flex;flex-direction:column;background:var(--canvas)}
+.th{height:64px;flex:none;background:var(--surface);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px;padding:0 20px}
+.th .who{min-width:0}
+.th .who b{display:block;font-size:15px;font-weight:600;line-height:1.2}
+.th .who span{font-size:12px;color:var(--fg-3);display:flex;align-items:center;gap:6px;margin-top:2px}
+.th .sp{flex:1}
+.sel{height:30px;padding:0 10px;border-radius:var(--r);border:1px solid var(--line-2);background:#fff;display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:500}
+.sel .i{color:var(--fg-3)}
+.sel.st::before{content:"";width:8px;height:8px;border-radius:50%;background:#17A05D}
+.msgs{flex:1;overflow:auto;padding:20px 28px 8px;display:flex;flex-direction:column;gap:2px}
+.day{align-self:center;margin:6px 0 14px;font-size:12px;font-weight:500;color:var(--fg-3);background:var(--surface);border:1px solid var(--line);border-radius:99px;padding:2px 12px}
+.g{display:flex;flex-direction:column;gap:3px;max-width:min(560px,72%);margin-bottom:12px}
+.g.out{align-self:flex-end;align-items:flex-end}.g.in{align-self:flex-start;align-items:flex-start}
+.b{padding:9px 14px;border-radius:16px;font-size:14px;line-height:1.5;white-space:pre-wrap}
+.in .b{background:#fff;border:1px solid var(--line);border-bottom-left-radius:4px}
+.out .b{background:var(--accent);color:#fff;border-bottom-right-radius:4px}
+.out .b.ext{background:var(--accent-subtle);color:var(--fg);border:1px solid var(--accent-line);border-bottom-right-radius:4px}
+.msgs>:first-child{margin-top:auto}
+.meta .ok{display:inline-flex;align-items:center;gap:3px;color:var(--ok)}
+.meta .ok .i{color:var(--ok)}
+.out .b.pend{opacity:.6}
+.meta{font-size:12px;color:var(--fg-3);display:flex;align-items:center;gap:6px;padding:0 4px}
+.meta .i{width:13px;height:13px;color:#17A05D}
+.src{display:inline-flex;align-items:center;gap:4px;background:var(--hover);padding:0 6px;border-radius:99px;height:18px;font-size:11px}
+.comp{flex:none;padding:0 20px 16px}
+.win{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--fg-3);padding:8px 4px}
+.win .chip{height:20px}
+.box{background:#fff;border:1px solid var(--line-2);border-radius:var(--r-lg)}
+.box:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-subtle)}
+.mode{display:flex;gap:4px;padding:8px 8px 0}
+.mode button{border:0;background:none;height:28px;padding:0 10px;border-radius:6px;font-size:13px;font-weight:500;color:var(--fg-3);display:flex;gap:6px;align-items:center}
+.mode button.on{background:var(--accent-subtle);color:#3B33B5}
+.box.note .mode button.on{background:var(--warn-bg);color:var(--warn)}
+.box.note{background:#FFFBF0;border-color:#E8D49A}
+textarea{max-height:160px;display:block;width:100%;border:0;outline:0;resize:none;background:none;padding:10px 14px 4px;min-height:56px;font-size:14px;line-height:1.6}
+.tools{display:flex;align-items:center;gap:2px;padding:4px 8px 8px}
+.tools .hint{margin-left:auto;margin-right:8px;font-size:12px;color:var(--fg-3)}
+.ctx{width:320px;flex:none;background:var(--surface);border-left:1px solid var(--line);overflow:auto}
+.card{padding:16px 20px;border-bottom:1px solid var(--line)}
+.card h4{margin:0 0 10px;font-size:12px;font-weight:600;color:var(--fg-3);display:flex;align-items:center}
+.card h4 a{margin-left:auto;color:var(--accent);font-weight:500;text-decoration:none}
+.prof{display:flex;gap:12px;align-items:center}
+.prof b{display:block;font-size:16px;font-weight:600}
+.kv{display:flex;align-items:center;gap:10px;height:32px;font-size:13px}
+.kv .i{color:var(--fg-3)}
+.kv span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.kv .btn{opacity:0}.kv:hover .btn{opacity:1}
+.tag{font-size:11px;color:var(--fg-3);background:var(--hover);border-radius:99px;padding:0 6px;line-height:18px;flex:none}
+.lnk{display:flex;align-items:center;gap:10px;height:32px;font-size:13px;color:var(--fg);text-decoration:none;border-radius:6px}
+.lnk:hover{background:var(--hover)}.lnk .i{color:var(--fg-3)}.lnk em{font-style:normal;color:var(--fg-3);margin-left:auto;font-size:12px}
+.btn.pri[disabled]{background:#C9CCF4;border-color:#C9CCF4;cursor:not-allowed}
+.back{display:none}
+.empty{flex:1;display:grid;place-items:center;text-align:center;color:var(--fg-3);padding:24px}
+.empty b{display:block;color:var(--fg);font-size:14px;margin:10px 0 2px}
+.empty .ic{width:40px;height:40px;border-radius:10px;background:var(--hover);display:grid;place-items:center;margin:0 auto}
+.sk{display:flex;gap:12px;padding:12px 16px;border-bottom:1px solid var(--line)}
+.sk i{display:block;background:var(--hover);border-radius:6px;height:12px;animation:p 1.2s ease-in-out infinite}
+.sk .c{width:40px;height:40px;border-radius:50%;flex:none;background:var(--hover);animation:p 1.2s ease-in-out infinite}
+@keyframes p{50%{opacity:.5}}@media (prefers-reduced-motion:reduce){.sk i,.sk .c{animation:none}}
+.st-sw{display:inline-flex;gap:2px;margin-left:8px}.st-sw button{border:0;background:none;font-size:11px;padding:0 6px;border-radius:99px;color:var(--fg-3);line-height:18px}.st-sw button.on{background:var(--accent-subtle);color:#3B33B5}
+.sug{display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px dashed var(--line-2);border-radius:var(--r);margin-bottom:6px;font-size:13px}
+.sug div{flex:1;min-width:0}.sug small{display:block;color:var(--fg-3);font-size:12px}
+.lead{border:1px solid var(--line);border-radius:var(--r);padding:10px 12px}
+.lead .stg{display:flex;gap:3px;margin-top:8px}.lead .stg i{flex:1;height:4px;border-radius:2px;background:var(--line)}.lead .stg i.f{background:var(--accent)}
+.task{display:flex;gap:10px;align-items:flex-start;font-size:13px;padding:4px 0}
+.task input{margin-top:3px;accent-color:var(--accent)}
+.task small{display:block;color:var(--fg-3);font-size:12px}
+@media (max-width:1280px){.ctx{display:none}}
+@media (max-width:800px){.app{grid-template-columns:1fr}.side{display:none}.top .find{width:auto;flex:1}.list{width:100%}.thread{display:none}.page.t .list{display:none}.page.t .thread{display:flex}.back{display:inline-flex}.th{padding:0 12px;gap:8px}.th .sel,.th #pn{display:none}.msgs{padding:16px 14px}.g{max-width:88%}.comp{padding:0 12px 12px}.tools .hint{display:none}.tools .btn.pri{margin-left:auto}}
+</style></head>
+<body>
+<div class="app">
+<aside class="side" id="side"></aside>
+<div class="main"><header class="top" id="top"></header>
+<div class="page">
+
+<section class="list" aria-label="Conversations">
+  <div class="lh">
+    <h1>Inbox <button class="btn icon ghost" aria-label="Filter and sort" id="fi"></button></h1>
+    <label class="srch" id="sr"><span id="sri"></span><input placeholder="Search name or message" aria-label="Search conversations"></label>
+  </div>
+  <div class="tabs" role="tablist">
+    <button class="tab on" role="tab">All <b>8</b></button>
+    <button class="tab" role="tab">Unread <b>2</b></button>
+    <button class="tab" role="tab">Mine <b>2</b></button>
+    <button class="tab" role="tab">Unassigned <b>6</b></button>
+  </div>
+  <div class="rows" id="rows"></div>
+</section>
+
+<section class="thread" aria-label="Conversation with Md. Arafatuzzaman">
+  <div class="th">
+    <button class="btn icon ghost back" id="bk" aria-label="Back to inbox"></button>
+    <div class="avatar s40">MA<span class="mark m" id="mk"></span></div>
+    <div class="who"><b>Md. Arafatuzzaman</b><span id="ws"></span></div>
+    <div class="sp"></div>
+    <button class="sel st">Open <span id="d1"></span></button>
+    <button class="sel"><span id="u1"></span>Unassigned <span id="d2"></span></button>
+    <button class="btn icon ghost" id="pn" aria-label="Toggle contact panel"></button>
+    <button class="btn icon ghost" id="mo" aria-label="More"></button>
+  </div>
+  <div class="msgs bn" id="msgs">
+    <span class="day">Today</span>
+    <div class="g out"><div class="b ext">আমাদের একজন সহকর্মী শীঘ্রই 01760345030 এই নম্বরে যোগাযোগ করবেন।</div><div class="meta"><span class="src">Sent from Meta app</span>13:15</div></div>
+    <div class="g out"><div class="b">Apnar Email ta amader k pathan</div><div class="meta">Mr. Matrix · 15:26</div></div>
+    <div class="g in"><div class="b">makky.cse@gmail.com</div><div class="meta">15:26</div></div>
+    <div class="g out"><div class="b">thank you will get your service soon</div><div class="meta">Mr. Matrix · 15:27</div></div>
+    <div class="g out"><div class="b ext">আমাদের একজন সহকর্মীকে যুক্ত করছি — উনি অর্ডার, ডেলিভারি আর পেমেন্ট নিয়ে আপনাকে সঠিক তথ্য দেবেন। একটু অপেক্ষা করুন 🙏</div><div class="meta"><span class="src">Sent from Meta app</span>15:44<span class="ok"><span id="ck"></span>Sent</span></div></div>
+  </div>
+  <div class="comp">
+    <div class="win"><span class="chip ok">Reply window open</span>Customer wrote 5h ago, replies allowed for 19h more</div>
+    <div class="box" id="box">
+      <div class="mode"><button class="on" id="m1">Reply on Messenger</button><button id="m2">Internal note</button></div>
+      <textarea class="bn" id="ta" rows="2" placeholder="Write a reply…" aria-label="Reply"></textarea>
+      <div class="tools"><button class="btn icon ghost" id="t1" aria-label="Attach"></button><button class="btn icon ghost" id="t2" aria-label="Emoji"></button><button class="btn icon ghost" id="t3" aria-label="Saved replies"></button><span class="hint"><span class="kbd" style="margin:0">Enter</span> send · <span class="kbd" style="margin:0">Shift Enter</span> new line</span><button class="btn pri" id="snd" disabled title="Write a message to send">Send</button></div>
+    </div>
+  </div>
+</section>
+
+<aside class="ctx" aria-label="Contact">
+  <div class="card"><div class="prof"><div class="avatar s56">MA</div><div><b>Md. Arafatuzzaman</b><span class="chip" style="margin-top:4px">2 channels</span></div></div></div>
+  <div class="card"><h4>Details <a href="#">Edit</a></h4>
+    <div class="kv" id="kv1"><span>makky.cse@gmail.com</span><button class="btn icon ghost" aria-label="Copy email"></button></div>
+    <div class="kv" id="kv2"><span class="tnum">+880 1760 345030</span><button class="btn icon ghost" aria-label="Copy phone"></button></div>
+    <div class="note" style="margin:2px 0 6px 26px">Auto-detected from the Messenger chat</div>
+    <a class="lnk" href="#" id="lk">Also on Instagram<em>7m ago</em></a>
+  </div>
+  <div class="card"><h4>Lead <a href="#">Open</a></h4>
+    <div class="lead"><b style="font-size:13px">Service enquiry</b><div class="note">Stage: Qualified</div><div class="stg"><i class="f"></i><i class="f"></i><i class="f"></i><i></i></div></div>
+  </div>
+  <div class="card"><h4>Tasks <a href="#">Add</a></h4>
+    <label class="task"><input type="checkbox"><span>Send service details by email<small>Due tomorrow</small></span></label>
+    <label class="task"><input type="checkbox"><span>Confirm delivery address<small>No due date</small></span></label>
+  </div>
+  <div class="card" style="border:0"><button class="btn" style="width:100%;justify-content:center">Open contact <span id="ar"></span></button></div>
+</aside>
+
+</div></div></div>
+<div class="demo">Option A · demo data · <a href="index.html">all options</a><span class="st-sw" id="sw" aria-label="Preview states"></span></div>
+<script src="base.js"></script>
+<script>
+const $=id=>document.getElementById(id);
+$('fi').innerHTML=I('filter');$('sri').innerHTML=I('search');$('d1').innerHTML=I('down','sm');$('d2').innerHTML=I('down','sm');$('u1').innerHTML=I('user','sm');
+$('pn').innerHTML=I('panel');$('mo').innerHTML=I('more');$('t1').innerHTML=I('clip');$('t2').innerHTML=I('smile');$('t3').innerHTML=I('reply');
+$('mk').innerHTML=I('msg');$('ck').innerHTML=I('check');$('ar').innerHTML=I('up','sm');
+$('ws').innerHTML=`<span class="chip" style="height:18px;font-size:11px">${I('msg','sm')}Messenger</span>Testingdemo`;
+['kv1','kv2'].forEach((k,i)=>$(k).insertAdjacentHTML('afterbegin',I(['mail','phone'][i])));
+$('lk').insertAdjacentHTML('afterbegin',I('cam'));$('bk').innerHTML=I('right','').replace('<svg class="i "','<svg class="i " style="transform:rotate(180deg)"');
+document.querySelectorAll('.kv .btn').forEach(b=>b.innerHTML=I('copy','sm'));
+const R=[['Today'],
+['Md. Arafatuzzaman','7m','You: hey','ig',1,0,'MA'],
+['Sadia Rahman','24m','Is the blue one still available?','m',1,1,'SR','t2'],
+['Imran Hossain','1h','Price for 3 units to Chattogram?','m',0,1,'IH','t3'],
+['Earlier'],
+['Md. Arafatuzzaman','5h','You: আমাদের একজন সহকর্মীকে যুক্ত করছি — উনি অর্ডার…','m',0,0,'MA'],
+['Nusrat Jahan','Mon','Thanks! Received it today.','ig',0,0,'NJ','t5'],
+['Tanvir Ahmed','Sun','You: We can deliver on Thursday.','m',0,0,'TA','t4']];
+const rowsHTML=R.map((r,i)=>r.length==1?`<div class="sec">${r[0]}</div>`:`<a href="#" class="row ${r[2].startsWith('You')?'':'un'} ${i==5?'on':''}"><div class="avatar s40 ${r[7]||''}">${r[6]}<span class="mark ${r[3]=='ig'?'ig':'m'}">${I(r[3]=='ig'?'cam':'msg')}</span></div><div class="t"><div class="l1"><span class="nm">${r[0]}</span><time>${r[1]}</time></div><div class="l2"><span class="pv bn" style="line-height:1.4">${r[2]}</span>${r[2].startsWith('You')?'':'<span class="dot" title="Unread"></span>'}</div></div></a>`).join('');
+const page=document.querySelector('.page');
+const sk=Array(6).fill('<div class="sk"><div class="c"></div><div style="flex:1;display:grid;gap:8px;align-content:center"><i style="width:45%"></i><i style="width:80%"></i></div></div>').join('');
+const ST={
+ normal:rowsHTML,
+ loading:sk,
+ empty:`<div class="empty"><div><div class="ic">${I('inbox','lg')}</div><b>No conversations yet</b>Messages from Messenger and Instagram land here.<br><a href="#" style="color:var(--accent);font-weight:500;text-decoration:none">Connect a channel</a></div></div>`,
+ error:`<div class="empty"><div><b>Could not load conversations</b>Check your connection. Nothing was lost.<br><button class="btn" style="margin-top:12px" onclick="setState('normal')">Try again</button></div></div>`};
+function setState(k){$('rows').innerHTML=ST[k];$('rows').setAttribute('aria-busy',k=='loading');document.querySelectorAll('#sw button').forEach(b=>b.classList.toggle('on',b.dataset.k==k));bind()}
+$('sw').innerHTML=['normal','loading','empty','error'].map(k=>`<button data-k="${k}">${k}</button>`).join('');
+$('sw').onclick=e=>e.target.dataset.k&&setState(e.target.dataset.k);
+function bind(){document.querySelectorAll('.row').forEach(r=>r.onclick=e=>{e.preventDefault();document.querySelectorAll('.row').forEach(x=>x.classList.remove('on'));r.classList.add('on');page.classList.add('t')})}
+$('bk').onclick=()=>page.classList.remove('t');
+setState('normal');
+// composer: autogrow, enable on text, Enter sends
+const ta=$('ta'),snd=$('snd');
+ta.oninput=()=>{ta.style.height='auto';ta.style.height=Math.min(ta.scrollHeight,160)+'px';snd.disabled=!ta.value.trim()};
+function send(){const v=ta.value.trim();if(!v)return;const m=$('msgs');const note=bx.classList.contains('note');
+ const g=document.createElement('div');g.className='g out';g.innerHTML=`<div class="b pend" style="${note?'background:#FFFBF0;color:var(--fg);border:1px solid #E8D49A':''}"></div><div class="meta">Mr. Matrix · now · ${note?'Internal note':'Sending…'}</div>`;g.firstChild.textContent=v;m.appendChild(g);m.scrollTop=m.scrollHeight;ta.value='';ta.oninput();
+ if(!note)setTimeout(()=>{g.firstChild.classList.remove('pend');g.lastChild.innerHTML='Mr. Matrix · now<span class="ok">'+I('check')+'Sent</span>'},900)}
+snd.onclick=send;ta.onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send()}};
+const bx=$('box');$('m1').onclick=()=>{bx.classList.remove('note');$('m1').className='on';$('m2').className=''};
+$('m2').onclick=()=>{bx.classList.add('note');$('m2').className='on';$('m1').className=''};
+$('pn').onclick=()=>{const c=document.querySelector('.ctx');c.style.display=c.style.display=='none'?'':'none'};
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on'));t.classList.add('on')});
+</script></body></html>

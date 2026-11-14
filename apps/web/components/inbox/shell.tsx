@@ -2,18 +2,20 @@
 import * as React from "react";
 import Link from "next/link";
 import { useSelectedLayoutSegment } from "next/navigation";
-import { FilterX, Inbox, Search } from "lucide-react";
+import { Check, FilterX, Inbox, Search, SlidersHorizontal, X } from "lucide-react";
 import { endpoints, type ConversationItem, type ConversationList, type ConversationListQuery, type Member } from "@crm/contracts";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input, Select } from "@/components/ui/input";
+import { Input } from "@/components/ui/input";
+import { Kbd } from "@/components/ui/kbd";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/overlays";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState, ErrorState } from "@/components/ui/states";
 import { ToastProvider } from "@/components/ui/toast";
 import { cn } from "@/lib/cn";
 import { browserApi } from "@/lib/client-api";
-import { PLATFORM_LABEL, relTime, useNow } from "@/lib/inbox";
+import { PLATFORM_LABEL, TAB_FILTERS, dayLabel, relTime, sameDay, tabOf, useNow, type InboxTab } from "@/lib/inbox";
 import { ChannelMark } from "./parts";
 import { INBOX_CHANGED, InboxContext, type InboxCtx } from "./context";
 
@@ -54,6 +56,7 @@ function Inner({ children, members }: { children: React.ReactNode; members: Memb
   const [error, setError] = React.useState(false);
   const [more, setMore] = React.useState(false);
   const fRef = React.useRef(f);
+  const searchRef = React.useRef<HTMLInputElement>(null);
   const params = { workspaceId };
 
   // Search is debounced into the filters.
@@ -103,9 +106,10 @@ function Inner({ children, members }: { children: React.ReactNode; members: Memb
   // j / k move between rows when focus is not in a field; Enter on a focused row opens it natively.
   React.useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.metaKey || e.ctrlKey || e.altKey || (e.key !== "j" && e.key !== "k")) return;
+      if (e.metaKey || e.ctrlKey || e.altKey || (e.key !== "j" && e.key !== "k" && e.key !== "/")) return;
       const el = e.target as HTMLElement;
       if (el.closest("input,textarea,select,[contenteditable=true]")) return;
+      if (e.key === "/") { e.preventDefault(); searchRef.current?.focus(); return; }
       const rows = Array.from(document.querySelectorAll<HTMLElement>("[data-conv-row]"));
       if (rows.length === 0) return;
       const i = rows.indexOf(document.activeElement as HTMLElement);
@@ -115,32 +119,50 @@ function Inner({ children, members }: { children: React.ReactNode; members: Memb
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  const dirty = f.status !== "open" || f.assignee !== "" || f.unread || f.q !== "";
+  const tab = tabOf(f);
+  const dirty = f.status !== "open" || tab === null || f.q !== "";
   const clear = () => { setQ(""); setF(DEFAULTS); };
+  const setTab = (t: InboxTab) => setF((x) => ({ ...x, ...TAB_FILTERS[t] }));
+  const TABS: { id: InboxTab; label: string }[] = [{ id: "all", label: "All" }, { id: "unread", label: "Unread" }, { id: "mine", label: "Mine" }, { id: "unassigned", label: "Unassigned" }];
+  const STATUSES: { id: Filters["status"]; label: string }[] = [{ id: "open", label: "Open" }, { id: "pending", label: "Pending" }, { id: "resolved", label: "Resolved" }, { id: "all", label: "All statuses" }];
 
   return (
     <div className="flex h-[calc(100dvh-var(--topbar-h)-3.5rem)] min-h-[28rem] overflow-hidden rounded-card border border-line bg-surface max-md:h-[calc(100dvh-var(--topbar-h)-2rem)]">
-      <section aria-label="Conversations" className={cn("min-w-0 flex-col border-r border-line md:flex md:w-[300px] md:shrink-0 lg:w-[340px]", selected ? "hidden" : "flex w-full")}>
-        <div className="space-y-2 border-b border-line p-3">
+      <section aria-label="Conversations" className={cn("min-w-0 flex-col border-r border-line md:flex md:w-[300px] md:shrink-0 lg:w-[352px]", selected ? "hidden" : "flex w-full")}>
+        <div className="px-4 pt-4">
           <div className="flex items-center gap-2">
-            <h1 className="flex-1 text-md font-semibold text-fg">Inbox</h1>
+            <h1 className="text-lg font-semibold tracking-title text-fg">Inbox</h1>
             {unreadTotal > 0 && <Badge tone="accent">{unreadTotal > 99 ? "99+" : unreadTotal} unread</Badge>}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" icon size="sm" className="relative ml-auto" aria-label="Filter conversations"><SlidersHorizontal aria-hidden />{(f.status !== "open" || tab === null) && <span aria-hidden className="absolute right-1 top-1 size-1.5 rounded-full bg-accent" />}</Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>Status</DropdownMenuLabel>
+                {STATUSES.map((o) => <DropdownMenuItem key={o.id} onSelect={() => setF({ ...f, status: o.id })}>{o.label}{f.status === o.id && <Check className="ml-auto !text-accent" aria-label="Selected" />}</DropdownMenuItem>)}
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel>Assigned to</DropdownMenuLabel>
+                {members.filter((m) => m.userId !== myUserId && m.status === "active").map((m) => <DropdownMenuItem key={m.userId} onSelect={() => setF({ ...f, ...TAB_FILTERS.all, assignee: m.userId })}>{m.name}{f.assignee === m.userId && <Check className="ml-auto !text-accent" aria-label="Selected" />}</DropdownMenuItem>)}
+                {dirty && <><DropdownMenuSeparator /><DropdownMenuItem onSelect={clear}><FilterX aria-hidden />Clear all filters</DropdownMenuItem></>}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
-          <div className="relative">
+          <div className="relative mt-3">
             <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-fg-subtle" aria-hidden />
-            <Input aria-label="Search conversations" placeholder="Search name or message" value={q} onChange={(e) => setQ(e.target.value)} className="pl-8" />
+            <Input ref={searchRef} aria-label="Search conversations" placeholder="Search name or message" value={q} onChange={(e) => setQ(e.target.value)} className="pl-8 pr-8" />
+            {q ? <button type="button" aria-label="Clear search" onClick={() => { setQ(""); searchRef.current?.focus(); }} className="press absolute right-1.5 top-1/2 inline-flex size-5 -translate-y-1/2 items-center justify-center rounded-full bg-line text-fg-muted hover:bg-line-strong"><X className="size-3" aria-hidden /></button>
+              : <kbd aria-hidden className="pointer-events-none absolute right-2 top-1/2 hidden -translate-y-1/2 rounded border border-line bg-surface px-1.5 text-xs text-fg-subtle md:block">/</kbd>}
           </div>
-          <div className="flex flex-wrap items-center gap-1.5">
-            <Select aria-label="Status" quiet active={f.status !== "open"} value={f.status} onChange={(e) => setF({ ...f, status: e.target.value as Filters["status"] })}>
-              <option value="open">Open</option><option value="pending">Pending</option><option value="resolved">Resolved</option><option value="all">All statuses</option>
-            </Select>
-            <Select aria-label="Assignee" quiet active={f.assignee !== ""} value={f.assignee} onChange={(e) => setF({ ...f, assignee: e.target.value })}>
-              <option value="">Anyone</option><option value="me">Me</option><option value="unassigned">Unassigned</option>
-              {members.filter((m) => m.userId !== myUserId && m.status === "active").map((m) => <option key={m.userId} value={m.userId}>{m.name}</option>)}
-            </Select>
-            <Button variant={f.unread ? "secondary" : "ghost"} size="sm" aria-pressed={f.unread} onClick={() => setF({ ...f, unread: !f.unread })}>Unread</Button>
-            {dirty && <Button variant="ghost" size="sm" onClick={clear}><FilterX aria-hidden />Clear</Button>}
-          </div>
+        </div>
+        <div role="tablist" aria-label="Conversation views" className="mt-2 flex gap-0.5 border-b border-line px-2">
+          {TABS.map((t) => (
+            <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} onClick={() => setTab(t.id)}
+              className={cn("press relative inline-flex h-9 items-center gap-1.5 px-2 text-base font-medium pointer-coarse:h-11", tab === t.id ? "text-fg" : "text-fg-subtle hover:text-fg")}>
+              {t.label}
+              {t.id === "unread" && unreadTotal > 0 && <span className="rounded-full bg-hover px-1.5 text-xs text-fg-muted tabular-nums">{unreadTotal > 99 ? "99+" : unreadTotal}</span>}
+              <span aria-hidden className={cn("absolute inset-x-2 -bottom-px h-0.5 origin-left rounded bg-accent transition-transform duration-[var(--dur-base)] ease-[var(--ease-out)]", tab === t.id ? "scale-x-100" : "scale-x-0")} />
+            </button>
+          ))}
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto" aria-busy={items === null}>
@@ -152,12 +174,18 @@ function Inner({ children, members }: { children: React.ReactNode; members: Memb
                 action={dirty ? <Button size="sm" variant="secondary" onClick={clear}>Clear filters</Button> : <Button size="sm" variant="secondary" asChild><Link href={`/w/${workspaceId}/settings/integrations`}>Open integrations</Link></Button>} />
             ) : (
               <ul>
-                {items.map((c) => <Row key={c.id} c={c} workspaceId={workspaceId} selected={selected === c.id} now={now} />)}
+                {items.map((c, i) => (
+                  <React.Fragment key={c.id}>
+                    {(i === 0 || !c.lastMessageAt || !items[i - 1]!.lastMessageAt || !sameDay(items[i - 1]!.lastMessageAt!, c.lastMessageAt)) && c.lastMessageAt && <li aria-hidden className="px-4 pb-1 pt-3 text-xs font-medium text-fg-subtle">{dayLabel(c.lastMessageAt, now)}</li>}
+                    <Row c={c} workspaceId={workspaceId} selected={selected === c.id} now={now} index={i} />
+                  </React.Fragment>
+                ))}
                 {next && <li className="p-3 text-center"><Button variant="secondary" size="sm" loading={more} onClick={() => void loadMore()}>Load more</Button></li>}
               </ul>
             )}
         </div>
         <p role="status" className="sr-only">{items ? `${items.length} conversations${unreadTotal ? `, ${unreadTotal} unread` : ""}` : "Loading conversations"}</p>
+        <p aria-hidden className="hidden items-center gap-3 border-t border-line px-4 py-2 text-xs text-fg-subtle lg:flex"><span><Kbd>J</Kbd> <Kbd>K</Kbd> move</span><span><Kbd>/</Kbd> search</span><span><Kbd>C</Kbd> contact</span></p>
       </section>
 
       <div className={cn("min-w-0 flex-1 md:flex", selected ? "flex" : "hidden")}>{children}</div>
@@ -165,25 +193,25 @@ function Inner({ children, members }: { children: React.ReactNode; members: Memb
   );
 }
 
-function Row({ c, workspaceId, selected, now }: { c: ConversationItem; workspaceId: string; selected: boolean; now: number }) {
+function Row({ c, workspaceId, selected, now, index }: { c: ConversationItem; workspaceId: string; selected: boolean; now: number; index: number }) {
   const unread = c.unreadCount > 0;
   return (
-    <li>
+    <li className="rise" style={{ "--i": Math.min(index, 10) } as React.CSSProperties}>
       <Link href={`/w/${workspaceId}/inbox/${c.id}`} data-conv-row aria-current={selected ? "true" : undefined}
-        className={cn("relative flex min-h-16 gap-2.5 border-b border-line-card px-3 py-2.5 outline-none hover:bg-hover focus-visible:bg-hover focus-visible:ring-2 focus-visible:ring-accent", selected && "bg-accent-subtle before:absolute before:inset-y-0 before:left-0 before:w-0.5 before:bg-accent")}>
-        <span className="relative shrink-0 self-start"><Avatar name={c.contact.name} src={c.contact.avatarUrl} size="lg" /><ChannelMark platform={c.platform} /></span>
+        className={cn("press relative flex min-h-[4.25rem] gap-3 border-b border-line-card px-4 py-3 outline-none before:absolute before:inset-y-0 before:left-0 before:w-[3px] before:origin-center before:scale-y-0 before:bg-accent before:transition-transform before:duration-[var(--dur-base)] before:ease-[var(--ease-out)] hover:bg-hover focus-visible:bg-hover focus-visible:ring-2 focus-visible:ring-accent", selected && "bg-accent-subtle before:scale-y-100")}>
+        <span className="relative shrink-0 self-start"><Avatar name={c.contact.name} src={c.contact.avatarUrl} size="xl" /><ChannelMark platform={c.platform} /></span>
         <span className="min-w-0 flex-1">
           <span className="flex items-baseline gap-2">
-            <span className={cn("min-w-0 flex-1 truncate text-base text-fg", unread ? "font-semibold" : "font-medium")}>{c.contact.name}</span>
-            <time dateTime={c.lastMessageAt ?? undefined} title={c.lastMessageAt ? new Date(c.lastMessageAt).toLocaleString() : undefined} className="shrink-0 text-xs tabular-nums text-fg-subtle">{relTime(c.lastMessageAt, now)}</time>
+            <span className={cn("min-w-0 flex-1 truncate text-md text-fg", unread ? "font-semibold" : "font-medium")}>{c.contact.name}</span>
+            <time dateTime={c.lastMessageAt ?? undefined} title={c.lastMessageAt ? new Date(c.lastMessageAt).toLocaleString() : undefined} className={cn("shrink-0 text-xs tabular-nums", unread ? "font-medium text-accent-fg" : "text-fg-subtle")}>{relTime(c.lastMessageAt, now)}</time>
           </span>
-          <span className="flex items-center gap-1.5">
-            <span className={cn("min-w-0 flex-1 truncate text-sm", unread ? "text-fg" : "text-fg-muted")}>{c.preview === null ? <span className="italic">Attachment</span> : <>{c.previewDirection === "out" ? "You: " : ""}{c.preview}</>}</span>
+          <span className="flex items-center gap-2">
+            <span className={cn("min-w-0 flex-1 truncate text-base", unread ? "text-fg" : "text-fg-subtle")}>{c.preview === null ? <span className="italic">Attachment</span> : <>{c.previewDirection === "out" ? "You: " : ""}{c.preview}</>}</span>
             {c.status !== "open" && <Badge tone="neutral" shape="square">{c.status === "pending" ? "Pending" : "Resolved"}</Badge>}
-            {unread && <Badge tone="accent"><span aria-hidden>{c.unreadCount > 99 ? "99+" : c.unreadCount}</span><span className="sr-only">{c.unreadCount} unread</span></Badge>}
             {c.assignee && <Avatar name={c.assignee.name} size="xs" />}
+            {unread && <span aria-hidden className="size-2 shrink-0 rounded-full bg-accent" />}
           </span>
-          <span className="sr-only">via {PLATFORM_LABEL[c.platform]}{c.assignee ? `, assigned to ${c.assignee.name}` : ", unassigned"}</span>
+          <span className="sr-only">{unread ? `${c.unreadCount} unread. ` : ""}via {PLATFORM_LABEL[c.platform]}{c.assignee ? `, assigned to ${c.assignee.name}` : ", unassigned"}</span>
         </span>
       </Link>
     </li>

@@ -1,21 +1,23 @@
 "use client";
 import * as React from "react";
 import Link from "next/link";
-import { ArrowDown, ChevronLeft, PanelRight, Send } from "lucide-react";
+import { ArrowDown, Check, ChevronLeft, Copy, MoreHorizontal, PanelRight, Send, X } from "lucide-react";
 import { endpoints, MAX_REPLY_LENGTH, type ConversationDetail, type MessageDto, type UpdateConversationBody } from "@crm/contracts";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/form-controls";
 import { Select } from "@/components/ui/input";
-import { Dialog, DialogContent } from "@/components/ui/overlays";
+import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/overlays";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, ErrorState } from "@/components/ui/states";
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/cn";
 import { browserApi, errorMessage } from "@/lib/client-api";
-import { dayLabel, isSendKey, relTime, replyUsage, sameDay, useNow, windowMinutesLeft } from "@/lib/inbox";
+import { continuesRun, dayLabel, isSendKey, relTime, replyUsage, sameDay, useNow, windowMinutesLeft } from "@/lib/inbox";
 import { notifyInboxChanged, useInbox } from "./context";
 import { Attachments, ChannelBadge, DeliveryStatus } from "./parts";
+import { StageControl, useContactLead } from "./stage";
 
 const PAGE = 50;
 const POLL_MS = 10_000;
@@ -26,7 +28,7 @@ const subscribeLg = (cb: () => void) => { const m = window.matchMedia("(min-widt
 const useIsLg = () => React.useSyncExternalStore(subscribeLg, () => window.matchMedia("(min-width: 1024px)").matches, () => false);
 
 export function Thread({ conversationId }: { conversationId: string }) {
-  const { workspaceId, myUserId, canReply, canAssignAny, members } = useInbox();
+  const { workspaceId, myUserId, canReply, canAssignAny, canEditLead, members } = useInbox();
   const toast = useToast();
   const now = useNow();
   const lg = useIsLg();
@@ -38,7 +40,7 @@ export function Thread({ conversationId }: { conversationId: string }) {
   const [atBottom, setAtBottom] = React.useState(true);
   const [pendingNew, setPendingNew] = React.useState(0);
   const [announce, setAnnounce] = React.useState("");
-  const [ctxOpen, setCtxOpen] = React.useState(() => { try { return window.localStorage.getItem("crm-inbox-ctx") !== "0"; } catch { return true; } });
+  const [ctxOpen, setCtxOpen] = React.useState(() => { try { return window.localStorage.getItem("crm-inbox-ctx") === "1"; } catch { return false; } });
   const [sheet, setSheet] = React.useState(false);
   const logRef = React.useRef<HTMLDivElement>(null);
   const headingRef = React.useRef<HTMLHeadingElement>(null);
@@ -48,6 +50,7 @@ export function Thread({ conversationId }: { conversationId: string }) {
   const readUpTo = React.useRef(0);
   const [firstRead, setFirstRead] = React.useState<number | null>(null);
   const params = { workspaceId, conversationId };
+  const lead = useContactLead(workspaceId, detail?.contact.id ?? null, detail?.contact.name ?? "");
 
   const refresh = React.useCallback(async (initial: boolean) => {
     const [d, m] = await Promise.all([
@@ -209,10 +212,19 @@ export function Thread({ conversationId }: { conversationId: string }) {
     merge(r.data.message);
   }
 
-  const toggleCtx = () => {
-    if (!lg) { setSheet(true); return; }
+  const toggleCtx = React.useCallback(() => {
+    if (!lg) { setSheet((v) => !v); return; }
     setCtxOpen((v) => { try { window.localStorage.setItem("crm-inbox-ctx", v ? "0" : "1"); } catch { /* storage unavailable: the choice just is not remembered */ } return !v; });
-  };
+  }, [lg]);
+  // C toggles the contact panel when focus is not in a field.
+  React.useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "c" || e.metaKey || e.ctrlKey || e.altKey || (e.target as HTMLElement).closest("input,textarea,select,[contenteditable=true],[role=menu],[role=dialog]")) return;
+      toggleCtx();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [toggleCtx]);
 
   if (failed === "gone") return <div className="flex flex-1 items-center justify-center p-6"><Alert tone="info">This conversation no longer exists or you can&apos;t open it. <Link className="font-medium underline" href={`/w/${workspaceId}/inbox`}>Back to inbox</Link></Alert></div>;
   if (failed === "error" && !detail) return <div className="flex-1"><ErrorState title="Couldn't load this conversation" onRetry={() => { setFailed(null); void refresh(true); }} /></div>;
@@ -225,103 +237,128 @@ export function Thread({ conversationId }: { conversationId: string }) {
   const assigneeOptions = [{ id: myUserId, name: "Me" }, ...(canAssignAny ? members.filter((m) => m.userId !== myUserId && m.status === "active").map((m) => ({ id: m.userId, name: m.name })) : [])];
   const current = detail.assignee;
   if (current && !assigneeOptions.some((o) => o.id === current.userId)) assigneeOptions.push({ id: current.userId, name: current.name });
+  const panelOpen = lg ? ctxOpen : sheet;
+  const STATUS: { id: ConversationDetail["status"]; label: string }[] = [{ id: "open", label: "Open" }, { id: "pending", label: "Pending" }, { id: "resolved", label: "Resolved" }];
 
   return (
-    <div className="flex min-w-0 flex-1">
-      <section aria-label={`Conversation with ${name}`} className="flex min-w-0 flex-1 flex-col">
-        <header className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-line px-3 py-2.5">
-          <Link href={`/w/${workspaceId}/inbox`} aria-label="Back to inbox" className="-ml-1 inline-flex size-11 items-center justify-center rounded-control text-fg-muted hover:bg-hover md:hidden"><ChevronLeft className="size-5" aria-hidden /></Link>
-          <Avatar name={name} src={detail.contact.avatarUrl} size="lg" />
+    <div className="fade-in flex min-w-0 flex-1">
+      <section aria-label={`Conversation with ${name}`} className="flex min-w-0 flex-1 flex-col bg-canvas">
+        <header className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-line bg-surface px-4 py-3">
+          <Link href={`/w/${workspaceId}/inbox`} aria-label="Back to inbox" className="press -ml-2 inline-flex size-11 items-center justify-center rounded-control text-fg-muted hover:bg-hover md:hidden"><ChevronLeft className="size-5" aria-hidden /></Link>
+          <Avatar name={name} src={detail.contact.avatarUrl} size="xl" />
           <div className="min-w-[9rem] flex-1 basis-40">
             <h2 ref={headingRef} tabIndex={-1} className="truncate text-md font-semibold text-fg outline-none"><Link href={`/w/${workspaceId}/contacts/${detail.contact.id}`} className="hover:underline">{name}</Link></h2>
-            <ChannelBadge platform={detail.platform} account={detail.accountName} />
+            <div className="flex items-center gap-1.5"><ChannelBadge platform={detail.platform} account={detail.accountName} />{detail.status !== "open" && <Badge tone={detail.status === "resolved" ? "success" : "warning"}>{detail.status === "resolved" ? "Resolved" : "Pending"}</Badge>}</div>
           </div>
           <div className="flex flex-wrap items-center gap-1.5">
-            {canReply ? (
-              <Select aria-label="Status" value={detail.status} onChange={(e) => void change({ status: e.target.value as ConversationDetail["status"] })}>
-                <option value="open">Open</option><option value="pending">Pending</option><option value="resolved">Resolved</option>
-              </Select>
-            ) : <span className="text-sm text-fg-muted">Status: {detail.status}</span>}
+            <StageControl ctl={lead} canEdit={canEditLead} />
             {canReply ? (
               <Select aria-label="Assignee" value={detail.assignee?.userId ?? ""} onChange={(e) => void change({ assigneeUserId: e.target.value || null })}>
                 <option value="">Unassigned</option>
                 {assigneeOptions.map((o) => <option key={o.id} value={o.id} disabled={!canAssignAny && o.id !== myUserId && o.id !== current?.userId}>{o.name}</option>)}
               </Select>
             ) : <span className="text-sm text-fg-muted">{detail.assignee ? `Assigned to ${detail.assignee.name}` : "Unassigned"}</span>}
-            <Button variant="ghost" size="sm" aria-expanded={lg ? ctxOpen : sheet} onClick={toggleCtx}><PanelRight aria-hidden />Contact</Button>
+            <Button variant={panelOpen ? "secondary" : "ghost"} size="sm" aria-expanded={panelOpen} aria-controls="contact-panel" onClick={toggleCtx} title="Contact (C)" className={cn("max-sm:px-0 max-sm:w-7 pointer-coarse:max-sm:w-11", panelOpen && "border-accent/30 bg-accent-subtle text-accent-fg")}><PanelRight aria-hidden /><span className="max-sm:sr-only">Contact</span></Button>
+            {canReply && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild><Button variant="ghost" icon size="sm" aria-label="More actions"><MoreHorizontal aria-hidden /></Button></DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuLabel>Conversation status</DropdownMenuLabel>
+                  {STATUS.map((o) => <DropdownMenuItem key={o.id} onSelect={() => void change({ status: o.id })}>{o.label}{detail.status === o.id && <Check className="ml-auto !text-accent" aria-label="Current status" />}</DropdownMenuItem>)}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
           </div>
         </header>
 
         <div className="relative min-h-0 flex-1">
-          <div ref={logRef} role="log" aria-live="off" aria-label={`Messages with ${name}`} onScroll={onScroll} className="h-full space-y-1 overflow-y-auto px-4 py-3" tabIndex={0}>
-            {hasMore && <div className="pb-2 text-center"><Button size="sm" variant="secondary" loading={earlier} onClick={() => void loadEarlier()}>Load earlier messages</Button></div>}
+          <div ref={logRef} role="log" aria-live="off" aria-label={`Messages with ${name}`} onScroll={onScroll} className="flex h-full flex-col overflow-y-auto px-6 py-5" tabIndex={0}>
+            {hasMore && <div className="pb-3 text-center"><Button size="sm" variant="secondary" loading={earlier} onClick={() => void loadEarlier()}>Load earlier messages</Button></div>}
             {msgs.length === 0 && <p className="py-10 text-center text-sm text-fg-muted">No messages yet.</p>}
+            <div className="mt-auto" />
             {msgs.map((m, i) => {
               const prev = msgs[i - 1];
               return (
                 <React.Fragment key={m.id}>
-                  {(!prev || !sameDay(prev.occurredAt, m.occurredAt)) && <p className="py-2 text-center text-xs font-medium text-fg-subtle">{dayLabel(m.occurredAt, now)}</p>}
+                  {(!prev || !sameDay(prev.occurredAt, m.occurredAt)) && <p className="mb-3 mt-1 self-center rounded-full border border-line bg-surface px-3 py-0.5 text-xs font-medium text-fg-subtle">{dayLabel(m.occurredAt, now)}</p>}
                   {firstRead !== null && m.direction === "in" && m.seq > firstRead && !msgs.slice(0, i).some((x) => x.direction === "in" && x.seq > firstRead) && (
-                    <p className="flex items-center gap-2 py-1 text-xs font-medium text-accent-fg"><span className="h-px flex-1 bg-accent/30" />New messages<span className="h-px flex-1 bg-accent/30" /></p>
+                    <p className="mb-3 flex items-center gap-2 text-xs font-semibold text-accent-fg"><span className="h-px flex-1 bg-accent/30" />New messages<span className="h-px flex-1 bg-accent/30" /></p>
                   )}
-                  <Bubble m={m} now={now} onDecide={canReply ? decide : undefined} deciding={deciding} />
+                  <Bubble m={m} now={now} run={continuesRun(m, msgs[i + 1])} onDecide={canReply ? decide : undefined} deciding={deciding} />
                 </React.Fragment>
               );
             })}
           </div>
-          {pendingNew > 0 && !atBottom && (
-            <Button size="sm" variant="primary" className="absolute bottom-3 left-1/2 -translate-x-1/2 shadow-popover" onClick={toBottom}><ArrowDown aria-hidden />{pendingNew} new message{pendingNew > 1 ? "s" : ""}</Button>
-          )}
+          <Button size="sm" variant={pendingNew > 0 ? "primary" : "secondary"} tabIndex={atBottom ? -1 : 0} aria-hidden={atBottom} onClick={toBottom}
+            className={cn("absolute bottom-3 left-1/2 -translate-x-1/2 shadow-popover transition-[opacity,transform] duration-[var(--dur-base)] ease-[var(--ease-out)]", atBottom ? "pointer-events-none translate-y-2 opacity-0" : "opacity-100")}>
+            <ArrowDown aria-hidden />{pendingNew > 0 ? `${pendingNew} new message${pendingNew > 1 ? "s" : ""}` : "Latest"}
+          </Button>
         </div>
         <p role="status" aria-live="polite" className="sr-only">{announce}</p>
 
-        <footer className="border-t border-line p-3">
-          {!canReply ? <p className="text-sm text-fg-muted">You have read-only access.</p> : (
+        <footer className="px-4 pb-4 pt-1">
+          {!canReply ? <p className="py-3 text-sm text-fg-muted">You have read-only access.</p> : (
             <>
               {detail.replyWindow === "closed" && <Alert tone="warning" className="mb-2">You can&apos;t reply: more than 24 hours have passed since {name}&apos;s last message. Meta only allows replies within 24 hours. You can reply as soon as {name} writes again.</Alert>}
               {detail.replyWindow === "none" && <Alert tone="info" className="mb-2">There is no reply window yet. You can reply after {name} writes first.</Alert>}
               {left !== null && left < 120 && <Alert tone="warning" className="mb-2">The 24-hour reply window closes in {Math.floor(left / 60)} h {left % 60} min. After that you can&apos;t reply until {name} writes again.</Alert>}
-              <form onSubmit={(e) => { e.preventDefault(); void submit(); }} className="flex items-end gap-2">
+              {left !== null && left >= 120 && <p className="mb-1.5 flex items-center gap-2 px-1 text-xs text-fg-subtle"><Badge tone="success">Reply window open</Badge>You can reply for {Math.floor(left / 60)} more hours.</p>}
+              <form onSubmit={(e) => { e.preventDefault(); void submit(); }} className={cn("rounded-xl border border-line-strong bg-surface transition-[border-color,box-shadow] duration-[var(--dur-fast)] focus-within:border-accent focus-within:ring-[3px] focus-within:ring-accent/20", !canType && "bg-hover")}>
                 <Textarea
                   ref={composerRef}
                   aria-label="Reply"
                   aria-describedby="composer-hint"
                   value={draft}
-                  onChange={(e) => setDraft(e.target.value)}
+                  onChange={(e) => { setDraft(e.target.value); const t = e.currentTarget; t.style.height = "auto"; t.style.height = `${Math.min(t.scrollHeight, 160)}px`; }}
                   onKeyDown={(e) => { if (isSendKey({ key: e.key, shiftKey: e.shiftKey, altKey: e.altKey, isComposing: e.nativeEvent.isComposing })) { e.preventDefault(); void submit(); } }}
                   disabled={!canType}
                   placeholder={canType ? "Write a reply" : "Replies are unavailable for this conversation"}
-                  className="min-h-11 flex-1"
+                  className="min-h-14 resize-none rounded-xl border-0 bg-transparent px-4 pt-3 shadow-none hover:border-0 focus-visible:ring-0"
                   rows={2}
                 />
-                <Button type="submit" variant="primary" loading={submitting} disabled={!canType || draft.trim() === "" || usage.over}><Send aria-hidden />Send</Button>
+                <div className="flex items-center gap-2 px-3 pb-2.5">
+                  <p id="composer-hint" className="min-w-0 flex-1 text-xs text-fg-subtle max-sm:sr-only">Enter to send, Shift+Enter for a new line.{usage.used > usage.max * 0.8 ? ` ${usage.used}/${usage.max} ${usage.unit}` : ""}{usage.over ? <span className="text-danger-fg"> Too long for {detail.platform === "instagram" ? "Instagram" : "Messenger"}: shorten it to send.</span> : null}</p>
+                  <Button type="submit" variant="primary" loading={submitting} disabled={!canType || draft.trim() === "" || usage.over}><Send aria-hidden />Send</Button>
+                </div>
               </form>
-              <p id="composer-hint" className="mt-1.5 text-xs text-fg-subtle">Enter to send, Shift+Enter for a new line.{usage.used > usage.max * 0.8 ? ` ${usage.used}/${usage.max} ${usage.unit}` : ""}{usage.over ? <span className="text-danger-fg"> Too long for {detail.platform === "instagram" ? "Instagram" : "Messenger"}: shorten it to send.</span> : null}</p>
             </>
           )}
         </footer>
       </section>
 
-      {lg && ctxOpen && <aside aria-label="Contact" className="hidden w-[300px] shrink-0 overflow-y-auto border-l border-line p-4 lg:block"><ContactPanel d={detail} workspaceId={workspaceId} now={now} /></aside>}
+      {/* Closed by default. On wide screens the panel slides open in place; below that it is a sheet. */}
+      <aside id="contact-panel" aria-label="Contact" aria-hidden={!(lg && ctxOpen)} inert={!(lg && ctxOpen)}
+        className={cn("hidden shrink-0 overflow-hidden border-l bg-surface transition-[width,border-color] duration-[var(--dur-slow)] ease-[var(--ease-out)] lg:block", lg && ctxOpen ? "w-[320px] border-line" : "w-0 border-transparent")}>
+        <div className={cn("h-full w-[320px] overflow-y-auto transition-[opacity,transform] duration-[var(--dur-slow)] ease-[var(--ease-out)]", lg && ctxOpen ? "translate-x-0 opacity-100" : "translate-x-3 opacity-0")}>
+          <ContactPanel d={detail} workspaceId={workspaceId} now={now} lead={lead} canEditLead={canEditLead} onClose={toggleCtx} />
+        </div>
+      </aside>
       <Dialog open={sheet && !lg} onOpenChange={setSheet}>
-        <DialogContent title="Contact" description={`Details for ${name}`}><ContactPanel d={detail} workspaceId={workspaceId} now={now} /></DialogContent>
+        <DialogContent title="Contact" description={`Details for ${name}`}><ContactPanel d={detail} workspaceId={workspaceId} now={now} lead={lead} canEditLead={canEditLead} /></DialogContent>
       </Dialog>
     </div>
   );
 }
 
-function Bubble({ m, now, onDecide, deciding }: { m: MessageDto; now: number; onDecide?: (id: string, d: "sent" | "not_sent") => void; deciding: boolean }) {
+function Bubble({ m, now, run, onDecide, deciding }: { m: MessageDto; now: number; run: boolean; onDecide?: (id: string, d: "sent" | "not_sent") => void; deciding: boolean }) {
   const out = m.direction === "out";
-  const who = out ? m.senderName ?? (m.senderKind === "external" ? "Sent from another app" : m.senderKind === "system" ? "System" : "You") : null;
+  const ext = m.senderKind === "external";
+  const who = out && !ext ? (m.senderName ?? (m.senderKind === "system" ? "System" : "You")) : null;
   return (
-    <div className={cn("flex", out ? "justify-end" : "justify-start")}>
-      <div className={cn("max-w-[85%] md:max-w-[34rem]", out && "text-right")}>
-        <div className={cn("inline-block rounded-card border px-3 py-2 text-left text-base", out ? "border-accent/20 bg-accent-subtle text-fg" : "border-line bg-surface text-fg")}>
-          {who && <p className="mb-0.5 text-xs font-medium text-fg-muted">{who}</p>}
-          {m.body && <p className="whitespace-pre-wrap break-words">{m.body}</p>}
+    <div className={cn("rise flex", out ? "justify-end" : "justify-start", run ? "mb-0.5" : "mb-3")}>
+      <div className={cn("flex max-w-[85%] flex-col md:max-w-[34rem]", out ? "items-end" : "items-start")}>
+        <div className={cn("rounded-2xl border px-3.5 py-2 text-left text-base",
+          !out ? "rounded-bl-sm border-line bg-surface text-fg" : ext ? "rounded-br-sm border-accent/20 bg-accent-subtle text-fg" : "rounded-br-sm border-transparent bg-accent text-on-accent")}>
+          {m.body && <p className="whitespace-pre-wrap break-words leading-[1.55]">{m.body}</p>}
           <Attachments items={m.attachments} />
-          <p className="mt-1 text-xs text-fg-subtle"><time dateTime={m.occurredAt}>{hhmm(m.occurredAt)}</time></p>
         </div>
+        {!run && (
+          <p className="mt-1 flex items-center gap-1.5 px-1 text-xs text-fg-subtle">
+            {ext && <Badge tone="neutral" shape="square">Sent from another app</Badge>}
+            {who && <span>{who} ·</span>}
+            <time dateTime={m.occurredAt}>{hhmm(m.occurredAt)}</time>
+          </p>
+        )}
         <DeliveryStatus m={m} now={now} onDecide={onDecide} deciding={deciding} />
       </div>
     </div>
@@ -330,16 +367,26 @@ function Bubble({ m, now, onDecide, deciding }: { m: MessageDto; now: number; on
 
 const SOURCE_LABEL: Record<string, string> = { messenger: "Messenger", instagram: "Instagram", manual: "Added by hand", import: "Imported", other: "Other" };
 
-/** Phones and emails read out of the conversation (or added elsewhere) with where they came from. Unverified values are marked, never presented as confirmed. */
+function CopyButton({ value, label }: { value: string; label: string }) {
+  const toast = useToast();
+  return (
+    <Button variant="ghost" icon size="sm" aria-label={label} className="opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100 pointer-coarse:opacity-100"
+      onClick={() => { void navigator.clipboard?.writeText(value).then(() => toast("Copied to clipboard"), () => toast("Could not copy. Select the text and copy it by hand.", "error")); }}>
+      <Copy aria-hidden />
+    </Button>
+  );
+}
+
+/** Phones and emails read out of the conversation, with where they came from. Unverified values are marked, never presented as confirmed. */
 function DetectedMethods({ methods }: { methods: ConversationDetail["contactSummary"]["methods"] }) {
   if (methods.length === 0) return null;
   return (
     <section aria-label="Detected phone numbers and emails" className="space-y-1.5">
-      <h3 className="text-xs font-medium uppercase tracking-wide text-fg-subtle">Detected from conversation</h3>
+      <h3 className="text-xs font-medium text-fg-subtle">Detected from conversation</h3>
       <ul className="space-y-1.5 text-sm">
         {methods.map((m) => (
           <li key={m.id} className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-            <a className="min-w-0 truncate text-accent-fg underline" href={m.kind === "email" ? `mailto:${m.value}` : `tel:${m.value}`}>{m.value}</a>
+            <a className="min-w-0 truncate text-fg hover:underline" href={m.kind === "email" ? `mailto:${m.value}` : `tel:${m.value}`}>{m.value}</a>
             <span className="text-xs text-fg-subtle">{SOURCE_LABEL[m.source] ?? m.source}{m.isPrimary ? " · primary" : ""} · {m.verified ? "verified" : `auto-detected ${Math.round(m.confidence * 100)}%`}</span>
           </li>
         ))}
@@ -348,18 +395,46 @@ function DetectedMethods({ methods }: { methods: ConversationDetail["contactSumm
   );
 }
 
-function ContactPanel({ d, workspaceId, now }: { d: ConversationDetail; workspaceId: string; now: number }) {
+function ContactPanel({ d, workspaceId, now, lead, canEditLead, onClose }: { d: ConversationDetail; workspaceId: string; now: number; lead: ReturnType<typeof useContactLead>; canEditLead: boolean; onClose?: () => void }) {
   const c = d.contactSummary;
   return (
-    <div className="space-y-4 text-base">
-      <div className="flex items-center gap-3"><Avatar name={c.name} src={c.avatarUrl} size="xl" /><div className="min-w-0"><p className="truncate font-semibold text-fg">{c.name}</p><ChannelBadge platform={d.platform} account={d.accountName} /></div></div>
-      <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-sm">
-        <dt className="text-fg-subtle">Email</dt><dd className="min-w-0 truncate">{c.email ? <a className="text-accent-fg underline" href={`mailto:${c.email}`}>{c.email}</a> : <span className="text-fg-subtle">Not set</span>}</dd>
-        <dt className="text-fg-subtle">Phone</dt><dd className="min-w-0 truncate">{c.phone ? <a className="text-accent-fg underline" href={`tel:${c.phone}`}>{c.phone}</a> : <span className="text-fg-subtle">Not set</span>}</dd>
-        <dt className="text-fg-subtle">Last message</dt><dd>{d.lastInboundAt ? `${relTime(d.lastInboundAt, now)} ago` : "None yet"}</dd>
-      </dl>
-      <DetectedMethods methods={c.methods} />
-      <Button variant="secondary" size="sm" asChild><Link href={`/w/${workspaceId}/contacts/${c.id}`}>Open contact</Link></Button>
+    <div className="text-base">
+      <div className="flex items-center gap-3 border-b border-line p-5">
+        <Avatar name={c.name} src={c.avatarUrl} size="xl" />
+        <div className="min-w-0 flex-1"><p className="truncate font-semibold text-fg">{c.name}</p><ChannelBadge platform={d.platform} account={d.accountName} /></div>
+        {onClose && <Button variant="ghost" icon size="sm" aria-label="Close contact panel" onClick={onClose}><X aria-hidden /></Button>}
+      </div>
+      <div className="space-y-1 border-b border-line p-5">
+        <h3 className="mb-1 text-xs font-semibold text-fg-subtle">Details</h3>
+        {c.email ? <div className="group flex items-center gap-1"><a className="min-w-0 flex-1 truncate text-fg hover:underline" href={`mailto:${c.email}`}>{c.email}</a><CopyButton value={c.email} label="Copy email" /></div> : <p className="text-fg-subtle">No email yet</p>}
+        {c.phone ? <div className="group flex items-center gap-1"><a className="tnum min-w-0 flex-1 truncate text-fg hover:underline" href={`tel:${c.phone}`}>{c.phone}</a><CopyButton value={c.phone} label="Copy phone" /></div> : <p className="text-fg-subtle">No phone yet</p>}
+        <p className="pt-1 text-sm text-fg-muted">Last message {d.lastInboundAt ? `${relTime(d.lastInboundAt, now)} ago` : "none yet"}</p>
+      </div>
+      <div className="space-y-3 border-b border-line p-5">
+        <h3 className="text-xs font-semibold text-fg-subtle">Lead</h3>
+        {lead.phase === "loading" ? <Skeleton className="h-16 w-full" /> : lead.phase === "error" ? <p className="text-sm text-fg-muted">Couldn&apos;t load the lead. Reopen the panel to try again.</p> : lead.lead ? (
+          <div className="rounded-lg border border-line p-3">
+            <p className="truncate text-base font-medium text-fg">{lead.lead.title}</p>
+            <div className="mt-2"><StageControl ctl={lead} canEdit={canEditLead} block className="w-full justify-start" /></div>
+            {lead.pipeline && lead.stage && (
+              <div aria-hidden className="mt-3 flex gap-0.5">
+                {lead.pipeline.stages.filter((s) => !s.archived && s.kind === "open").sort((a, b) => a.position - b.position).map((s, i) => {
+                  const idx = lead.pipeline!.stages.filter((x) => !x.archived && x.kind === "open").sort((a, b) => a.position - b.position).findIndex((x) => x.id === lead.stage!.id);
+                  const lost = lead.stage!.kind === "lost";
+                  return <span key={s.id} style={{ "--i": i } as React.CSSProperties} className={cn("grow-x h-1 flex-1 rounded-full transition-colors duration-[var(--dur-slow)]", lost ? "bg-danger" : lead.stage!.kind === "won" || i <= idx ? "bg-accent" : "bg-line")} />;
+                })}
+              </div>
+            )}
+            <Link href={`/w/${workspaceId}/leads`} className="mt-3 inline-block text-sm font-medium text-accent-fg hover:underline">Open leads</Link>
+          </div>
+        ) : (
+          <div><p className="mb-2 text-sm text-fg-muted">No lead for this contact yet.</p><StageControl ctl={lead} canEdit={canEditLead} block className="w-full justify-start" /></div>
+        )}
+      </div>
+      <div className="space-y-4 p-5">
+        <DetectedMethods methods={c.methods} />
+        <Button variant="secondary" size="sm" asChild><Link href={`/w/${workspaceId}/contacts/${c.id}`}>Open contact</Link></Button>
+      </div>
     </div>
   );
 }

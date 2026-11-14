@@ -1,0 +1,87 @@
+- generic [active] [ref=e1]:
+  - link "Skip to content" [ref=e2] [cursor=pointer]:
+    - /url: "#main"
+  - generic [ref=e3]:
+    - complementary [ref=e4]:
+      - 'button "Switch workspace, current: Real Meta Workspace" [ref=e6]':
+        - generic [aria-hidden] [ref=e7]: RE
+        - generic [ref=e8]:
+          - generic [ref=e9]: "Switch workspace, current:"
+          - generic [ref=e10]: Real Meta Workspace
+      - text: RE
+      - navigation "Main" [ref=e15]:
+        - link "Home" [ref=e18] [cursor=pointer]:
+          - /url: /w/01a1d5cd-2a7e-738f-b9f8-52239cfc4811
+        - generic [ref=e23]:
+          - paragraph [ref=e24]: Customers
+          - link "Contacts" [ref=e26] [cursor=pointer]:
+            - /url: /w/01a1d5cd-2a7e-738f-b9f8-52239cfc4811/contacts
+          - link "Tasks" [ref=e33] [cursor=pointer]:
+            - /url: /w/01a1d5cd-2a7e-738f-b9f8-52239cfc4811/tasks
+          - link "Leads" [ref=e39] [cursor=pointer]:
+            - /url: /w/01a1d5cd-2a7e-738f-b9f8-52239cfc4811/leads
+          - link "Pipeline" [ref=e44] [cursor=pointer]:
+            - /url: /w/01a1d5cd-2a7e-738f-b9f8-52239cfc4811/pipeline
+          - link "Reports" [ref=e48] [cursor=pointer]:
+            - /url: /w/01a1d5cd-2a7e-738f-b9f8-52239cfc4811/reports
+        - generic [ref=e53]:
+          - paragraph [ref=e54]: Workspace
+          - link "Integrations" [ref=e56] [cursor=pointer]:
+            - /url: /w/01a1d5cd-2a7e-738f-b9f8-52239cfc4811/settings/integrations
+          - link "Members" [ref=e61] [cursor=pointer]:
+            - /url: /w/01a1d5cd-2a7e-738f-b9f8-52239cfc4811/members
+          - link "Audit log" [ref=e69] [cursor=pointer]:
+            - /url: /w/01a1d5cd-2a7e-738f-b9f8-52239cfc4811/audit-log
+          - link "Settings" [ref=e75] [cursor=pointer]:
+            - /url: /w/01a1d5cd-2a7e-738f-b9f8-52239cfc4811/settings
+        - group [ref=e80]:
+          - generic "Coming soon" [ref=e81] [cursor=pointer]
+      - generic [ref=e84]:
+        - generic [aria-hidden] [ref=e86]: MT
+        - generic [ref=e87]:
+          - generic [ref=e88]: Meta Real Test
+          - generic [ref=e89]: Owner
+    - generic [ref=e90]:
+      - banner [ref=e91]:
+        - button "Search or jump to Ctrl K" [ref=e92]:
+          - generic [ref=e96]: Search or jump to
+          - generic [ref=e97]: Ctrl K
+        - link "Notifications" [ref=e98] [cursor=pointer]:
+          - /url: /w/01a1d5cd-2a7e-738f-b9f8-52239cfc4811/notifications
+        - status [ref=e102]
+        - button "Account menu" [ref=e103]:
+          - generic [aria-hidden] [ref=e105]: MT
+      - main [ref=e106]:
+        - generic [ref=e108]:
+          - navigation "Settings sections" [ref=e109]:
+            - link "General" [ref=e110] [cursor=pointer]:
+              - /url: /w/01a1d5cd-2a7e-738f-b9f8-52239cfc4811/settings
+            - link "Contacts" [ref=e111] [cursor=pointer]:
+              - /url: /w/01a1d5cd-2a7e-738f-b9f8-52239cfc4811/settings/contacts
+            - link "Pipelines" [ref=e112] [cursor=pointer]:
+              - /url: /w/01a1d5cd-2a7e-738f-b9f8-52239cfc4811/settings/pipelines
+            - link "Notifications" [ref=e113] [cursor=pointer]:
+              - /url: /w/01a1d5cd-2a7e-738f-b9f8-52239cfc4811/settings/notifications
+          - generic [ref=e114]:
+            - generic [ref=e116]:
+              - heading "Integrations" [level=1] [ref=e117]
+              - paragraph [ref=e118]: Connect Facebook Pages and linked Instagram accounts to this workspace.
+            - generic [ref=e119]:
+              - alert [ref=e120]:
+                - generic [ref=e123]: Meta could not complete the login. Nothing was connected. Try again.
+              - generic [ref=e124]:
+                - heading "Connected accounts" [level=2] [ref=e125]
+                - button "Connect another" [ref=e126]
+              - list [ref=e129]:
+                - listitem [ref=e130]:
+                  - generic [ref=e132]:
+                    - generic [ref=e133]:
+                      - generic [ref=e134]:
+                        - generic [ref=e135]: Testingdemo
+                        - generic [ref=e136]: Messenger
+                        - generic [ref=e137]: Connected
+                      - paragraph [ref=e138]: "ID 1159034060634693 · Last token check: Never"
+                    - generic [ref=e139]:
+                      - button "Check token" [ref=e140]
+                      - button "Disconnect" [ref=e146]
+  - button "Open Next.js Dev Tools" [ref=e155] [cursor=pointer]

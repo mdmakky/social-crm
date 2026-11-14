@@ -1,0 +1,109 @@
+- generic [active] [ref=f2e1]:
+  - link "Skip to content" [ref=f2e2] [cursor=pointer]:
+    - /url: "#main"
+  - generic [ref=f2e3]:
+    - complementary [ref=f2e4]:
+      - generic [ref=f2e5]: Social CRM
+      - text: MW
+      - 'button "Switch workspace, current: Mock Workspace Owner" [ref=f2e13]':
+        - generic [aria-hidden] [ref=f2e15]: MW
+        - generic [ref=f2e16]:
+          - generic [ref=f2e17]: "Switch workspace, current:"
+          - generic [ref=f2e18]: Mock Workspace
+          - generic [ref=f2e19]: Owner
+      - navigation "Main" [ref=f2e24]:
+        - link "Home" [ref=f2e27] [cursor=pointer]:
+          - /url: /w/01a1d55d-943d-7af0-b08d-f8d5398be94a
+        - generic [ref=f2e32]:
+          - paragraph [ref=f2e33]: Customers
+          - link "Contacts" [ref=f2e35] [cursor=pointer]:
+            - /url: /w/01a1d55d-943d-7af0-b08d-f8d5398be94a/contacts
+          - link "Tasks" [ref=f2e42] [cursor=pointer]:
+            - /url: /w/01a1d55d-943d-7af0-b08d-f8d5398be94a/tasks
+          - link "Leads" [ref=f2e48] [cursor=pointer]:
+            - /url: /w/01a1d55d-943d-7af0-b08d-f8d5398be94a/leads
+          - link "Pipeline" [ref=f2e53] [cursor=pointer]:
+            - /url: /w/01a1d55d-943d-7af0-b08d-f8d5398be94a/pipeline
+          - link "Reports" [ref=f2e57] [cursor=pointer]:
+            - /url: /w/01a1d55d-943d-7af0-b08d-f8d5398be94a/reports
+        - generic [ref=f2e62]:
+          - paragraph [ref=f2e63]: Workspace
+          - link "Integrations" [ref=f2e65] [cursor=pointer]:
+            - /url: /w/01a1d55d-943d-7af0-b08d-f8d5398be94a/settings/integrations
+          - link "Members" [ref=f2e70] [cursor=pointer]:
+            - /url: /w/01a1d55d-943d-7af0-b08d-f8d5398be94a/members
+          - link "Audit log" [ref=f2e78] [cursor=pointer]:
+            - /url: /w/01a1d55d-943d-7af0-b08d-f8d5398be94a/audit-log
+          - link "Settings" [ref=f2e84] [cursor=pointer]:
+            - /url: /w/01a1d55d-943d-7af0-b08d-f8d5398be94a/settings
+        - group [ref=f2e89]:
+          - generic "Coming soon" [ref=f2e90] [cursor=pointer]
+    - generic [ref=f2e93]:
+      - banner [ref=f2e94]:
+        - button "Search or jump to ⌘K" [ref=f2e95]:
+          - generic [ref=f2e99]: Search or jump to
+          - generic [ref=f2e100]: ⌘K
+        - link "Notifications" [ref=f2e101] [cursor=pointer]:
+          - /url: /w/01a1d55d-943d-7af0-b08d-f8d5398be94a/notifications
+        - status [ref=f2e105]
+        - button "Account menu" [ref=f2e106]:
+          - generic [aria-hidden] [ref=f2e108]: MO
+      - main [ref=f2e109]:
+        - generic [ref=f2e111]:
+          - navigation "Settings sections" [ref=f2e112]:
+            - link "General" [ref=f2e113] [cursor=pointer]:
+              - /url: /w/01a1d55d-943d-7af0-b08d-f8d5398be94a/settings
+            - link "Contacts" [ref=f2e114] [cursor=pointer]:
+              - /url: /w/01a1d55d-943d-7af0-b08d-f8d5398be94a/settings/contacts
+            - link "Pipelines" [ref=f2e115] [cursor=pointer]:
+              - /url: /w/01a1d55d-943d-7af0-b08d-f8d5398be94a/settings/pipelines
+            - link "Notifications" [ref=f2e116] [cursor=pointer]:
+              - /url: /w/01a1d55d-943d-7af0-b08d-f8d5398be94a/settings/notifications
+          - generic [ref=f2e117]:
+            - generic [ref=f2e119]:
+              - heading "Integrations" [level=1] [ref=f2e120]
+              - paragraph [ref=f2e121]: Connect Facebook Pages and linked Instagram accounts to this workspace.
+            - generic [ref=f2e122]:
+              - generic [ref=f2e123]: "Mock mode: no real Meta connection"
+              - generic [ref=f2e163]:
+                - heading "Connection result" [level=2] [ref=f2e166]
+                - list [ref=f2e167]:
+                  - listitem [ref=f2e168]:
+                    - generic [ref=f2e169]: Mock Page
+                    - generic [ref=f2e170]: Messenger
+                    - generic [ref=f2e171]: Webhook subscribed
+                  - listitem [ref=f2e172]:
+                    - generic [ref=f2e173]: Mock Page (Instagram)
+                    - generic [ref=f2e174]: Instagram
+                    - generic [ref=f2e175]: Instagram webhook fields must be enabled in the Meta app dashboard (UNVERIFIED)
+              - generic [ref=f2e141]:
+                - heading "Connected accounts" [level=2] [ref=f2e142]
+                - button "Connect another" [ref=f2e176]
+              - list [ref=f2e179]:
+                - listitem [ref=f2e180]:
+                  - generic [ref=f2e182]:
+                    - generic [ref=f2e183]:
+                      - generic [ref=f2e184]:
+                        - generic [ref=f2e185]: Mock Page
+                        - generic [ref=f2e186]: Messenger
+                        - generic [ref=f2e187]: Connected
+                      - paragraph [ref=f2e188]: "ID 100000000000001 · Last token check: Never"
+                    - generic [ref=f2e189]:
+                      - button "Check token" [ref=f2e190]
+                      - button "Disconnect" [ref=f2e196]
+                - listitem [ref=f2e200]:
+                  - generic [ref=f2e202]:
+                    - generic [ref=f2e203]:
+                      - generic [ref=f2e204]:
+                        - generic [ref=f2e205]: Mock Page (Instagram)
+                        - generic [ref=f2e206]: Instagram
+                        - generic [ref=f2e207]: Connected
+                      - paragraph [ref=f2e208]: "ID 170000000000001 · Last token check: Never"
+                    - generic [ref=f2e209]:
+                      - button "Check token" [ref=f2e210]
+                      - button "Disconnect" [ref=f2e216]
+            - status [ref=f2e220]:
+              - generic [ref=f2e224]: Connected
+              - button "Dismiss" [ref=f2e225]
+  - button "Open Next.js Dev Tools" [ref=f2e158] [cursor=pointer]
+  - alert [ref=f2e162]: Integrations
