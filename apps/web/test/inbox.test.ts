@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DELIVERY, dayLabel, isHttps, relTime, windowMinutesLeft } from "@/lib/inbox";
+import { DELIVERY, canDecideDelivery, dayLabel, failureText, isSendKey, isHttps, relTime, windowMinutesLeft } from "@/lib/inbox";
 
 const NOW = new Date("2026-11-13T12:00:00").getTime();
 const ago = (ms: number) => new Date(NOW - ms).toISOString();
@@ -31,5 +31,31 @@ describe("inbox helpers", () => {
     expect(windowMinutesLeft({ replyWindow: "open", lastInboundAt: last }, NOW)).toBe(60);
     expect(windowMinutesLeft({ replyWindow: "closed", lastInboundAt: last }, NOW)).toBeNull();
     expect(windowMinutesLeft({ replyWindow: "none", lastInboundAt: null }, NOW)).toBeNull();
+  });
+});
+
+describe("composer helpers", () => {
+  const key = (o: Partial<Parameters<typeof isSendKey>[0]> = {}) => ({ key: "Enter", shiftKey: false, ...o });
+  it("Enter sends; Shift+Enter, Alt+Enter and other keys do not", () => {
+    expect(isSendKey(key())).toBe(true);
+    expect(isSendKey(key({ shiftKey: true }))).toBe(false);
+    expect(isSendKey(key({ altKey: true }))).toBe(false);
+    expect(isSendKey(key({ key: "a" }))).toBe(false);
+  });
+  it("Enter that confirms an IME composition (Bengali, Japanese) does not send", () => {
+    expect(isSendKey(key({ isComposing: true }))).toBe(false);
+  });
+  it("failure reasons are sentences, never raw codes or Meta text", () => {
+    for (const c of ["recipient_unavailable", "rate_limited", "token_invalid", "token_unavailable", "permission_denied", "invalid_request", "marked_not_sent", "meta_error_999", null]) {
+      expect(failureText(c)).toMatch(/\.$/);
+      expect(failureText(c)).not.toMatch(/meta_error|_/);
+    }
+    expect(failureText("token_invalid")).toMatch(/Reconnect/);
+  });
+  it("an unknown message can be decided only after 10 minutes", () => {
+    const m = (state: "unknown" | "sent", minsAgo: number) => ({ deliveryState: state, occurredAt: ago(minsAgo * 60_000) });
+    expect(canDecideDelivery(m("unknown", 9), NOW)).toBe(false);
+    expect(canDecideDelivery(m("unknown", 10), NOW)).toBe(true);
+    expect(canDecideDelivery(m("sent", 60), NOW)).toBe(false);
   });
 });

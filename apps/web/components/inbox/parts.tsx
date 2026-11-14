@@ -1,8 +1,8 @@
 import { Camera, MessageCircle } from "lucide-react";
 import type { ConversationItem, MessageDto } from "@crm/contracts";
 import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/cn";
-import { DELIVERY, PLATFORM_LABEL, isHttps } from "@/lib/inbox";
+import { Button } from "@/components/ui/button";
+import { DELIVERY, PLATFORM_LABEL, canDecideDelivery, failureText, isHttps } from "@/lib/inbox";
 
 /** Icon + text, never colour alone: speech bubble (Messenger) vs camera outline (Instagram) differ in shape. */
 export function ChannelBadge({ platform, account }: { platform: ConversationItem["platform"]; account?: string | null }) {
@@ -16,7 +16,7 @@ export function ChannelMark({ platform }: { platform: ConversationItem["platform
   return <span aria-hidden className="absolute -bottom-0.5 -right-0.5 inline-flex size-4 items-center justify-center rounded-full border border-surface bg-accent-subtle text-accent-fg"><Icon className="size-2.5" /></span>;
 }
 
-export function DeliveryStatus({ m }: { m: MessageDto }) {
+export function DeliveryStatus({ m, now, onDecide, deciding }: { m: MessageDto; now?: number; onDecide?: (id: string, decision: "sent" | "not_sent") => void; deciding?: boolean }) {
   const d = DELIVERY[m.deliveryState];
   if (!d || m.direction === "in") return null;
   if (m.deliveryState === "unknown") {
@@ -24,11 +24,17 @@ export function DeliveryStatus({ m }: { m: MessageDto }) {
       <div className="mt-1 max-w-[34rem] rounded-control border border-dashed border-warning-fg/40 bg-warning-bg px-3 py-2 text-sm text-warning-fg">
         <p className="font-medium">Delivery unknown</p>
         <p>We could not confirm that Meta received this message. Check the conversation in the Facebook or Instagram app before sending it again. It is never retried automatically.</p>
+        {onDecide && (now !== undefined && canDecideDelivery(m, now) ? (
+          <div className="mt-2 flex flex-wrap gap-2">
+            <Button size="sm" variant="secondary" disabled={deciding} onClick={() => onDecide(m.id, "sent")}>It was delivered</Button>
+            <Button size="sm" variant="secondary" disabled={deciding} onClick={() => onDecide(m.id, "not_sent")}>It was not delivered</Button>
+          </div>
+        ) : <p className="mt-1 text-xs">You can mark it as delivered or not delivered 10 minutes after it was sent.</p>)}
       </div>
     );
   }
-  const detail = m.deliveryState === "failed" && m.failureCode ? ` (${m.failureCode})` : "";
-  return <p className={cn("mt-0.5 text-xs", d.tone === "danger" ? "text-danger-fg" : "text-fg-subtle")}>{d.label}{detail}</p>;
+  if (m.deliveryState === "failed") return <p role="alert" className="mt-0.5 text-xs text-danger-fg">Not sent. {failureText(m.failureCode)}</p>;
+  return <p className="mt-0.5 text-xs text-fg-subtle">{d.label}{m.deliveryState === "sending" ? "…" : ""}</p>;
 }
 
 export function Attachments({ items }: { items: MessageDto["attachments"] }) {

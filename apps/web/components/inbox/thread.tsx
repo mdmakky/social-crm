@@ -2,7 +2,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { ArrowDown, ChevronLeft, PanelRight, Send } from "lucide-react";
-import { endpoints, type ConversationDetail, type MessageDto, type UpdateConversationBody } from "@crm/contracts";
+import { endpoints, MAX_REPLY_LENGTH, type ConversationDetail, type MessageDto, type UpdateConversationBody } from "@crm/contracts";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/form-controls";
@@ -13,7 +13,7 @@ import { Alert, ErrorState } from "@/components/ui/states";
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/cn";
 import { browserApi, errorMessage } from "@/lib/client-api";
-import { dayLabel, relTime, sameDay, useNow, windowMinutesLeft } from "@/lib/inbox";
+import { dayLabel, isSendKey, relTime, sameDay, useNow, windowMinutesLeft } from "@/lib/inbox";
 import { notifyInboxChanged, useInbox } from "./context";
 import { Attachments, ChannelBadge, DeliveryStatus } from "./parts";
 
@@ -163,6 +163,52 @@ export function Thread({ conversationId }: { conversationId: string }) {
     notifyInboxChanged();
   }
 
+  // --- composer ---
+  // One client id per draft: a repeat of the SAME request (double click, network retry) cannot send twice, because the server returns the stored message for a known id.
+  const [draft, setDraft] = React.useState("");
+  const [submitting, setSubmitting] = React.useState(false);
+  const [deciding, setDeciding] = React.useState(false);
+  const clientId = React.useRef<string | null>(null);
+  const inFlight = React.useRef(false);
+  const composerRef = React.useRef<HTMLTextAreaElement>(null);
+  const merge = (msg: MessageDto) => {
+    setMsgs((old) => { const map = new Map(old.map((x) => [x.id, x])); map.set(msg.id, msg); return [...map.values()].sort(byId); });
+    maxSeq.current = Math.max(maxSeq.current, msg.seq);
+    stick.current = true;
+  };
+  async function submit() {
+    const text = draft.trim();
+    if (!text || inFlight.current || !detail) return;
+    inFlight.current = true; // a ref, not state: two clicks in the same frame still see it
+    setSubmitting(true);
+    clientId.current ??= crypto.randomUUID();
+    const r = await browserApi.call(endpoints.sendMessage, { params, body: { clientMsgId: clientId.current, body: text } });
+    inFlight.current = false;
+    setSubmitting(false);
+    if (!r.ok) {
+      // Keep the draft AND the client id: pressing Send again is a retry of the same request, which the server dedupes.
+      const st = r.error.status;
+      toast(st === 409 || st === 422 ? errorMessage(r.error) : r.error.kind === "network" || r.error.kind === "timeout" ? "No answer from the server. Your message may have been sent: check the conversation before sending it again." : errorMessage(r.error), "error");
+      if (st === 409 || st === 422) { clientId.current = null; void refresh(false); }
+      return;
+    }
+    clientId.current = null;
+    merge(r.data.message);
+    const st = r.data.message.deliveryState;
+    if (st === "failed") setDraft((d) => (d === "" ? text : d)); // the text is not lost: edit and send again as a new message
+    else setDraft("");
+    if (st === "unknown") toast("Meta did not confirm this message. See the message below before sending it again.", "error");
+    void refresh(false);
+    composerRef.current?.focus();
+  }
+  async function decide(messageId: string, decision: "sent" | "not_sent") {
+    setDeciding(true);
+    const r = await browserApi.call(endpoints.decideDelivery, { params: { workspaceId, conversationId, messageId }, body: { decision } });
+    setDeciding(false);
+    if (!r.ok) { toast(errorMessage(r.error), "error"); return; }
+    merge(r.data.message);
+  }
+
   const toggleCtx = () => {
     if (!lg) { setSheet(true); return; }
     setCtxOpen((v) => { try { window.localStorage.setItem("crm-inbox-ctx", v ? "0" : "1"); } catch { /* storage unavailable: the choice just is not remembered */ } return !v; });
@@ -173,6 +219,7 @@ export function Thread({ conversationId }: { conversationId: string }) {
   if (!detail) return <ThreadSkeleton />;
 
   const left = windowMinutesLeft(detail, now);
+  const canType = detail.replyWindow === "open" && detail.platform === "messenger";
   const name = detail.contact.name;
   const assigneeOptions = [{ id: myUserId, name: "Me" }, ...(canAssignAny ? members.filter((m) => m.userId !== myUserId && m.status === "active").map((m) => ({ id: m.userId, name: m.name })) : [])];
   const current = detail.assignee;
@@ -216,7 +263,7 @@ export function Thread({ conversationId }: { conversationId: string }) {
                   {firstRead !== null && m.direction === "in" && m.seq > firstRead && !msgs.slice(0, i).some((x) => x.direction === "in" && x.seq > firstRead) && (
                     <p className="flex items-center gap-2 py-1 text-xs font-medium text-accent-fg"><span className="h-px flex-1 bg-accent/30" />New messages<span className="h-px flex-1 bg-accent/30" /></p>
                   )}
-                  <Bubble m={m} />
+                  <Bubble m={m} now={now} onDecide={canReply ? decide : undefined} deciding={deciding} />
                 </React.Fragment>
               );
             })}
@@ -233,11 +280,24 @@ export function Thread({ conversationId }: { conversationId: string }) {
               {detail.replyWindow === "closed" && <Alert tone="warning" className="mb-2">You can&apos;t reply: more than 24 hours have passed since {name}&apos;s last message. Meta only allows replies within 24 hours. You can reply as soon as {name} writes again.</Alert>}
               {detail.replyWindow === "none" && <Alert tone="info" className="mb-2">There is no reply window yet. You can reply after {name} writes first.</Alert>}
               {left !== null && left < 120 && <Alert tone="warning" className="mb-2">The 24-hour reply window closes in {Math.floor(left / 60)} h {left % 60} min. After that you can&apos;t reply until {name} writes again.</Alert>}
-              <form onSubmit={(e) => e.preventDefault()} className="flex items-end gap-2">
-                <Textarea aria-label="Reply" aria-describedby="composer-why" disabled placeholder="Write a reply" className="min-h-11 flex-1" rows={2} />
-                <Button variant="primary" disabled aria-describedby="composer-why"><Send aria-hidden />Send</Button>
+              {detail.platform !== "messenger" && <Alert tone="info" className="mb-2">Replying to Instagram conversations isn&apos;t available yet.</Alert>}
+              <form onSubmit={(e) => { e.preventDefault(); void submit(); }} className="flex items-end gap-2">
+                <Textarea
+                  ref={composerRef}
+                  aria-label="Reply"
+                  aria-describedby="composer-hint"
+                  value={draft}
+                  onChange={(e) => setDraft(e.target.value)}
+                  onKeyDown={(e) => { if (isSendKey({ key: e.key, shiftKey: e.shiftKey, altKey: e.altKey, isComposing: e.nativeEvent.isComposing })) { e.preventDefault(); void submit(); } }}
+                  disabled={!canType}
+                  maxLength={MAX_REPLY_LENGTH}
+                  placeholder={canType ? "Write a reply" : "Replies are unavailable for this conversation"}
+                  className="min-h-11 flex-1"
+                  rows={2}
+                />
+                <Button type="submit" variant="primary" loading={submitting} disabled={!canType || draft.trim() === ""}><Send aria-hidden />Send</Button>
               </form>
-              <p id="composer-why" className="mt-1.5 text-xs text-fg-subtle">Sending arrives in the next release. You can read, assign and resolve conversations now.</p>
+              <p id="composer-hint" className="mt-1.5 text-xs text-fg-subtle">Enter to send, Shift+Enter for a new line.{draft.length > MAX_REPLY_LENGTH - 200 ? ` ${draft.length}/${MAX_REPLY_LENGTH}` : ""}</p>
             </>
           )}
         </footer>
@@ -251,7 +311,7 @@ export function Thread({ conversationId }: { conversationId: string }) {
   );
 }
 
-function Bubble({ m }: { m: MessageDto }) {
+function Bubble({ m, now, onDecide, deciding }: { m: MessageDto; now: number; onDecide?: (id: string, d: "sent" | "not_sent") => void; deciding: boolean }) {
   const out = m.direction === "out";
   const who = out ? m.senderName ?? (m.senderKind === "external" ? "Sent from another app" : m.senderKind === "system" ? "System" : "You") : null;
   return (
@@ -263,7 +323,7 @@ function Bubble({ m }: { m: MessageDto }) {
           <Attachments items={m.attachments} />
           <p className="mt-1 text-xs text-fg-subtle"><time dateTime={m.occurredAt}>{hhmm(m.occurredAt)}</time></p>
         </div>
-        <DeliveryStatus m={m} />
+        <DeliveryStatus m={m} now={now} onDecide={onDecide} deciding={deciding} />
       </div>
     </div>
   );

@@ -49,3 +49,25 @@ export const DELIVERY: Record<MessageDto["deliveryState"], { label: string; tone
 
 export const PLATFORM_LABEL = { messenger: "Messenger", instagram: "Instagram" } as const;
 export const isHttps = (u: string | null): u is string => !!u && /^https:\/\//i.test(u);
+
+/** Plain-language reason for a failed send, from the stored failure code. Unknown codes get a generic line; Meta's own text is never stored or shown. */
+export function failureText(code: string | null): string {
+  switch (code) {
+    case "recipient_unavailable": return "Meta says this person can't receive messages right now (they may have blocked the Page).";
+    case "rate_limited": return "Meta is limiting this Page for the moment. Wait a little and try again.";
+    case "token_invalid": return "The Page connection has expired. Reconnect it in Settings > Integrations.";
+    case "token_unavailable": return "The Page connection can't be used. Reconnect it in Settings > Integrations.";
+    case "permission_denied": return "Meta refused the message. The Page may be missing messaging permission.";
+    case "invalid_request": return "Meta did not accept this message.";
+    case "marked_not_sent": return "You marked this message as not sent.";
+    default: return "Meta did not accept this message.";
+  }
+}
+
+/** A person may decide on an "unknown" message 10 minutes after it was sent; the server enforces the real clock. */
+export const DECIDE_AFTER_MS = 10 * 60_000;
+export const canDecideDelivery = (m: Pick<MessageDto, "deliveryState" | "occurredAt">, now: number) => m.deliveryState === "unknown" && now - new Date(m.occurredAt).getTime() >= DECIDE_AFTER_MS;
+
+/** Send on plain Enter only: Shift+Enter is a newline, and Enter that confirms an IME composition (Bengali, Japanese...) must not send. */
+export const isSendKey = (e: { key: string; shiftKey: boolean; isComposing?: boolean; ctrlKey?: boolean; metaKey?: boolean; altKey?: boolean }) =>
+  e.key === "Enter" && !e.shiftKey && !e.isComposing && !e.altKey;

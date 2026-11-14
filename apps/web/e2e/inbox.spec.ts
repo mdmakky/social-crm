@@ -59,20 +59,6 @@ test.describe.serial("Inbox (mock fixtures)", () => {
     await expect(page.getByRole("link", { name: /Jon Park/ })).toContainText("2 unread");
   });
 
-  test("composer stays disabled and nothing is sent", async () => {
-    const page = owner.page;
-    const posts: string[] = [];
-    page.on("request", (r) => { if (r.method() === "POST" && /\/conversations\//.test(r.url()) && !/\/read$/.test(r.url())) posts.push(r.url()); });
-    await page.getByRole("link", { name: /Maria Lopez/ }).click();
-    await expect(page.getByLabel("Reply")).toBeDisabled();
-    await expect(page.getByRole("button", { name: "Send" })).toBeDisabled();
-    await expect(page.getByText("Sending arrives in the next release")).toBeVisible();
-    await page.getByLabel("Reply").focus({ timeout: 1000 }).catch(() => undefined);
-    await page.keyboard.press("Control+Enter");
-    await page.waitForTimeout(500);
-    expect(posts).toEqual([]);
-  });
-
   test("delivery states are truthful: unknown and failed are never shown as sent", async () => {
     const page = owner.page;
     await page.goto(`/w/${wsInbox}/inbox`);
