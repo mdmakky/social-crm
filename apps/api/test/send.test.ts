@@ -4,7 +4,7 @@ import { Hono } from "hono";
 import { createDb, type Db } from "@crm/db";
 import { buildMessagePayload, createMockGraph, createSecretBox, mockSecret, SendError, signedFixture } from "@crm/integrations";
 import type { MetaConnectDeps } from "../src/inbox/meta-connect.ts";
-import { processPending } from "../src/inbox/process.ts";
+import { processWebhookEvent } from "../src/inbox/process.ts";
 import { failureCodeOf, recoverStuckSends } from "../src/inbox/send.ts";
 import { metaWebhookRoutes } from "../src/inbox/webhook.ts";
 import { bootstrap, type Harness, type TestUser } from "./harness.ts";
@@ -50,13 +50,18 @@ const outRows = (conv: string) => q("SELECT * FROM messages WHERE conversation_i
 const attempts = (msg: string) => q("SELECT * FROM outbound_attempts WHERE message_id=$1 ORDER BY attempt", [msg]);
 const sends = () => graph.calls.filter((c) => c.startsWith("send:"));
 const reset = (over: Parameters<typeof createMockGraph>[0] = {}) => { graph.calls.length = 0; Object.assign(graph.state, { sends: [], onSend: undefined, ...over }); };
-/** Backdates the database-owned state clock (a trigger normally keeps it), then restores the trigger. */
+/** Backdates the database-owned state clock. Triggers are skipped for this one transaction only (session_replication_role), so other test files are not affected. */
 async function age(msgId: string, minutes: number) {
-  await q("ALTER TABLE messages DISABLE TRIGGER messages_guard_trg");
-  try { await q("UPDATE messages SET state_changed_at = now() - make_interval(mins => $2) WHERE id=$1", [msgId, minutes]); } finally { await q("ALTER TABLE messages ENABLE TRIGGER messages_guard_trg"); }
+  await q("BEGIN");
+  try {
+    await q("SET LOCAL session_replication_role = replica");
+    await q("UPDATE messages SET state_changed_at = now() - make_interval(mins => $2) WHERE id=$1", [msgId, minutes]);
+    await q("COMMIT");
+  } catch (e) { await q("ROLLBACK"); throw e; }
 }
-async function drain() {
-  for (let i = 0; i < 20; i++) { const r = await processPending(workerDb); if (r.processed + r.orphan + r.failed === 0) return; }
+/** Processes only THIS account's stored events: draining everything would steal other test files' events on the shared database. */
+async function drain(ref: string) {
+  for (const e of await q("SELECT id FROM webhook_events WHERE account_ref=$1 AND status IN ('received','failed') ORDER BY received_at", [ref])) await processWebhookEvent(workerDb, e.id);
 }
 
 beforeAll(async () => {
@@ -271,7 +276,7 @@ describe("echo of our own message", () => {
   const echo = async (s: { ref: string; psid: string }, mid: string, text: string) => {
     const f = signedFixture(buildMessagePayload({ accountId: s.ref, userId: s.psid, mid, text, timestampMs: Date.now(), echo: true }), mockSecret);
     expect((await hook.request("/webhooks/meta/messenger", { method: "POST", body: new Uint8Array(f.raw), headers: { "content-type": "application/json", "x-hub-signature-256": f.signature } })).status).toBe(200);
-    await drain();
+    await drain(s.ref);
   };
 
   it("adopts the Meta id of an UNKNOWN message (no duplicate row), and ignores a later echo of an already recorded one", async () => {
