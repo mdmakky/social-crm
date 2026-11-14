@@ -1,9 +1,11 @@
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
+import { instagramUnified } from "./inbox/instagram-unified.ts";
 import { metaConnect, type MetaConnectDeps } from "./inbox/meta-connect.ts";
 import { HTTPException } from "hono/http-exception";
 import type { Db } from "@crm/db";
 import type { Auth } from "./auth.ts";
+import type { ScopedEnv } from "./routes/scope.ts";
 import { workspaceRoutes, type Vars } from "./routes/workspaces.ts";
 import { isAllowedRedirect } from "./redirects.ts";
 import type { ImportHooks } from "./routes/imports.ts";
@@ -89,8 +91,10 @@ export function createApp(auth: Auth, opts: { allowedOrigins: string[]; db: Db; 
     return c.json({ id: u.id, email: u.email, name: u.name });
   });
   const meta = metaConnect(opts.db, opts.meta); // track:inbox
+  const igUnified = instagramUnified(opts.db, opts.meta); // track:inbox
   v1.route("/", meta.callback);
-  v1.route("/workspaces", workspaceRoutes(opts.db, { ...opts.testHooks, metaScoped: meta.scoped, sendDeps: opts.meta }));
+  v1.route("/", igUnified.callback);
+  v1.route("/workspaces", workspaceRoutes(opts.db, { ...opts.testHooks, metaScoped: new Hono<ScopedEnv>().route("/", meta.scoped).route("/", igUnified.scoped), sendDeps: opts.meta }));
   app.route("/v1", v1);
   return app;
 }

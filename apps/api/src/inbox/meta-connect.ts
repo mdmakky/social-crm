@@ -14,11 +14,16 @@ import type { Vars } from "../routes/workspaces.ts";
 export const MESSENGER_FIELDS: string[] = [...MESSENGER_WEBHOOK_FIELDS];
 /** Task a person needs on the Page to send as the Page (Meta Pages API overview, "MESSAGING: Send messages as the Page"). Receiving is not documented as a task: UNVERIFIED. */
 export const REQUIRED_PAGE_TASK = "MESSAGING";
-const STATE_TTL_MS = 10 * 60_000;
+export const STATE_TTL_MS = 10 * 60_000;
 const NONCE_COOKIE = "crm_meta_nonce";
 const PENDING_COOKIE = "crm_meta_pending";
 
+/** Instagram API with Unified Login (no Facebook Page). Present only when the Instagram-compatible Facebook Login for Business configuration id is set. Uses the same Meta app and Graph client; only the token type differs. */
+export type InstagramUnifiedDeps = { configId: string; redirectUri: string };
+
 export type MetaConnectDeps = {
+  /** Direct Instagram connection (Unified Login). */
+  igUnified?: InstagramUnifiedDeps;
   graph: MetaGraph;
   box: SecretBox;
   /** Pool connected as crm_worker. The application role cannot create accounts or read secrets (migration 0018); this process sets the workspace context itself, after the user's role check. */
@@ -42,9 +47,9 @@ type Pending = { userId: string; workspaceId: string; pages: GraphPage[]; metaUs
 export const hashMetaUser = (key: Buffer, metaUserId: string) => createHmac("sha256", key).update(metaUserId).digest("hex");
 const eligibility = (p: GraphPage): { eligible: boolean; reason: string | null } =>
   p.tasks === null || p.tasks.includes(REQUIRED_PAGE_TASK) ? { eligible: true, reason: null } : { eligible: false, reason: "Your role on this Page cannot send messages as the Page. Ask a Page admin for messaging access." };
-const b64u = (b: Buffer) => b.toString("base64url");
-const sign = (key: Buffer, payload: string) => b64u(createHmac("sha256", key).update(payload).digest());
-const safeEq = (a: string, b: string) => a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b));
+export const b64u = (b: Buffer) => b.toString("base64url");
+export const sign = (key: Buffer, payload: string) => b64u(createHmac("sha256", key).update(payload).digest());
+export const safeEq = (a: string, b: string) => a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b));
 
 /** One-shot discovery result held in memory for 10 minutes, keyed by a random cookie value. shortcut: single API instance, move to the database before running several. */
 class PendingStore {
@@ -69,38 +74,39 @@ export class AccountElsewhere extends Error {}
 type Row = Record<string, unknown>;
 const rowsOf = (r: unknown) => (r as { rows: Row[] }).rows;
 
-const dto = (a: typeof schema.integrationAccounts.$inferSelect): IntegrationAccountDto => ({
-  id: a.id, platform: a.platform as IntegrationAccountDto["platform"], externalAccountId: a.externalAccountId, displayName: a.displayName, status: a.status as IntegrationAccountDto["status"],
+export const dto = (a: typeof schema.integrationAccounts.$inferSelect): IntegrationAccountDto => ({
+  id: a.id, platform: a.platform as IntegrationAccountDto["platform"], externalAccountId: a.externalAccountId, displayName: a.displayName, status: a.status as IntegrationAccountDto["status"], authMethod: a.authMethod as IntegrationAccountDto["authMethod"],
   tokenExpiresAt: a.tokenExpiresAt?.toISOString() ?? null, lastTokenCheckAt: a.lastTokenCheckAt?.toISOString() ?? null, connectedAt: a.connectedAt.toISOString(),
 });
 
 /** Creates or reconnects one account and stores a new encrypted token version (older versions are deleted). Runs inside a worker transaction with the workspace context set. */
-async function upsertAccount(tx: Tx, deps: MetaConnectDeps, a: { workspaceId: string; userId: string; platform: "messenger" | "instagram"; externalId: string; displayName: string; token: string; expiresAt: Date | null; metaUserHash: string | null; tasksUnverified: boolean }) {
+export async function upsertAccount(tx: Tx, deps: MetaConnectDeps, a: { workspaceId: string; userId: string; platform: "messenger" | "instagram"; externalId: string; displayName: string; token: string; expiresAt: Date | null; metaUserHash: string | null; tasksUnverified: boolean; authMethod?: "facebook" | "unified" }) {
+  const authMethod = a.authMethod ?? "facebook";
   const found = async () => rowsOf(await tx.execute(sql`SELECT id, workspace_id FROM integration_accounts WHERE platform = ${a.platform} AND external_account_id = ${a.externalId}`))[0];
   let row = await found();
   let reconnected = true;
   if (!row) {
     // ON CONFLICT instead of catching 23505: a caught error would abort this transaction.
     const ins = rowsOf(await tx.execute(sql`
-      INSERT INTO integration_accounts (workspace_id, platform, external_account_id, display_name, token_expires_at, connected_by, connected_meta_user_hash)
-      VALUES (${a.workspaceId}, ${a.platform}, ${a.externalId}, ${a.displayName}, ${a.expiresAt}, ${a.userId}, ${a.metaUserHash})
+      INSERT INTO integration_accounts (workspace_id, platform, external_account_id, display_name, token_expires_at, connected_by, connected_meta_user_hash, auth_method)
+      VALUES (${a.workspaceId}, ${a.platform}, ${a.externalId}, ${a.displayName}, ${a.expiresAt}, ${a.userId}, ${a.metaUserHash}, ${authMethod})
       ON CONFLICT (platform, external_account_id) DO NOTHING RETURNING id, workspace_id`))[0];
     if (ins) { row = ins; reconnected = false; } else row = await found();
   }
   if (!row || row.workspace_id !== a.workspaceId) throw new AccountElsewhere();
   const id = row.id as string;
   if (reconnected) {
-    await tx.execute(sql`UPDATE integration_accounts SET status = 'connected', display_name = ${a.displayName}, token_expires_at = ${a.expiresAt}, connected_by = ${a.userId}, connected_meta_user_hash = ${a.metaUserHash}, connected_at = now(), version = version + 1, updated_at = now() WHERE id = ${id} AND workspace_id = ${a.workspaceId}`);
+    await tx.execute(sql`UPDATE integration_accounts SET status = 'connected', display_name = ${a.displayName}, token_expires_at = ${a.expiresAt}, connected_by = ${a.userId}, connected_meta_user_hash = ${a.metaUserHash}, auth_method = ${authMethod}, connected_at = now(), version = version + 1, updated_at = now() WHERE id = ${id} AND workspace_id = ${a.workspaceId}`);
   }
   const next = Number(rowsOf(await tx.execute(sql`SELECT coalesce(max(version), 0) + 1 AS v FROM integration_secrets WHERE integration_account_id = ${id}`))[0]!.v);
   const sealed = deps.box.seal(a.token, `${a.workspaceId}:${id}`);
   await tx.execute(sql`INSERT INTO integration_secrets (workspace_id, integration_account_id, version, ciphertext, nonce, key_id) VALUES (${a.workspaceId}, ${id}, ${next}, ${sealed.ciphertext}, ${sealed.nonce}, ${sealed.keyId})`);
   await tx.execute(sql`DELETE FROM integration_secrets WHERE integration_account_id = ${id} AND version < ${next}`);
-  await tx.execute(sql`INSERT INTO integration_events (workspace_id, integration_account_id, kind, actor_user_id, data) VALUES (${a.workspaceId}, ${id}, ${reconnected ? "reconnected" : "connected"}, ${a.userId}, ${JSON.stringify({ platform: a.platform, externalAccountId: a.externalId, ...(a.tasksUnverified ? { tasksUnverified: true } : {}) })}::jsonb)`);
+  await tx.execute(sql`INSERT INTO integration_events (workspace_id, integration_account_id, kind, actor_user_id, data) VALUES (${a.workspaceId}, ${id}, ${reconnected ? "reconnected" : "connected"}, ${a.userId}, ${JSON.stringify({ platform: a.platform, authMethod, externalAccountId: a.externalId, ...(a.tasksUnverified ? { tasksUnverified: true } : {}) })}::jsonb)`);
   return { id, reconnected };
 }
 
-const eventSql = (tx: Tx, workspaceId: string, accountId: string, kind: string, actorUserId: string | null, data: Record<string, unknown>) =>
+export const eventSql = (tx: Tx, workspaceId: string, accountId: string, kind: string, actorUserId: string | null, data: Record<string, unknown>) =>
   tx.execute(sql`INSERT INTO integration_events (workspace_id, integration_account_id, kind, actor_user_id, data) VALUES (${workspaceId}, ${accountId}, ${kind}, ${actorUserId}, ${JSON.stringify(data)}::jsonb)`);
 
 export async function loadToken(tx: Tx, deps: MetaConnectDeps, workspaceId: string, accountId: string): Promise<string | null> {
@@ -122,6 +128,20 @@ const subscribe = async (deps: MetaConnectDeps, platform: string, externalId: st
     return { state: "failed", code: e instanceof GraphError ? e.code : null };
   }
 };
+
+/** Webhook subscription of one Instagram account connected through Unified Login: POST /{ig-id}/subscribed_apps with the system-user token (docs 2026-11-14). Fuller set first, then `messages` alone. */
+export const IG_UNIFIED_FIELDS = ["messages", "messaging_seen"];
+export async function subscribeInstagramAccount(deps: MetaConnectDeps, igId: string, token: string): Promise<{ state: SubState; code: number | null }> {
+  let code: number | null = null;
+  for (const fields of [IG_UNIFIED_FIELDS, ["messages"]]) {
+    try {
+      if (await deps.graph.subscribePage(igId, token, fields)) return { state: "subscribed", code: null };
+    } catch (e) {
+      code = e instanceof GraphError ? e.code : null;
+    }
+  }
+  return { state: "failed", code };
+}
 
 /** Daily-ish token health: debug_token, then record the result. Invalid token (Graph error 190 family) moves the account to reauth_required. Returns false when Graph was unreachable (state unchanged). */
 export async function checkAccountToken(deps: MetaConnectDeps, workspaceId: string, accountId: string, actorUserId: string | null): Promise<boolean> {
@@ -175,7 +195,7 @@ function scopedRoutes(db: Db, deps: MetaConnectDeps | undefined, pending: Pendin
   r.get("/integrations/meta", async (c) => {
     if (!may(c, "integration.view")) return forbidden(c);
     const rows = await withContext(db, wctx(c), (tx) => accountsOf(tx, c.get("workspaceId")));
-    return c.json({ configured: !!deps, mock: deps?.mock ?? false, accounts: rows.map(dto) });
+    return c.json({ configured: !!deps, mock: deps?.mock ?? false, instagramUnifiedConfigured: !!deps?.igUnified, accounts: rows.map(dto) });
   });
 
   r.post("/integrations/meta/connect/start", async (c) => {
@@ -303,7 +323,7 @@ function scopedRoutes(db: Db, deps: MetaConnectDeps | undefined, pending: Pendin
     if (!a || a.status === "disabled") return fail(c, 404, "not_found");
     const sub = await withContext(deps.workerDb, wctx(c), async (tx) => {
       const token = await loadToken(tx, deps, a.workspaceId, a.id);
-      const s = token ? await subscribe(deps, a.platform, a.externalAccountId, token) : { state: "failed" as SubState, code: null };
+      const s = !token ? { state: "failed" as SubState, code: null } : a.authMethod === "unified" ? await subscribeInstagramAccount(deps, a.externalAccountId, token) : await subscribe(deps, a.platform, a.externalAccountId, token);
       await eventSql(tx, a.workspaceId, a.id, "status_changed", c.get("userId"), { subscription: s.state, code: s.code });
       return s;
     });
@@ -323,13 +343,13 @@ function callbackRoutes(db: Db, deps: MetaConnectDeps | undefined, pending: Pend
     const nonceCookie = getCookie(c, NONCE_COOKIE) ?? "";
     deleteCookie(c, NONCE_COOKIE, { path: "/v1" }); // the state is single use whatever happens next
     // 1. State: signed by us, not expired, issued to this very user, and bound to this browser by the nonce cookie (CSRF / login-CSRF defence).
-    let st: { w: string; u: string; n: string; e: number } | null = null;
+    let st: { w: string; u: string; n: string; e: number; m?: string } | null = null;
     const [payload = "", sig = ""] = (q.success ? q.data.state ?? "" : "").split(".");
     if (payload && safeEq(sig, sign(deps.stateKey, payload))) {
       try { st = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")); } catch { st = null; }
     }
     const now = (deps.now ?? Date.now)();
-    if (!st || typeof st.w !== "string" || typeof st.n !== "string" || st.e < now || st.u !== c.get("userId") || !safeEq(nonceCookie, st.n)) return home(null, "invalid_state");
+    if (!st || st.m !== undefined || typeof st.w !== "string" || typeof st.n !== "string" || st.e < now || st.u !== c.get("userId") || !safeEq(nonceCookie, st.n)) return home(null, "invalid_state");
     // 2. The user must still be an owner/admin of that workspace.
     const [m] = await withContext(db, { userId: st.u, workspaceId: st.w }, (tx) => tx.select({ role: schema.memberships.role }).from(schema.memberships).where(and(eq(schema.memberships.workspaceId, st!.w), eq(schema.memberships.userId, st!.u), eq(schema.memberships.status, "active")))).catch(() => []);
     if (!m || !can(m.role, "integration.manage", {})) return home(null, "forbidden");
