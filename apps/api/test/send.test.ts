@@ -127,12 +127,11 @@ describe("sending a text reply", () => {
     expect((await call(agent, SEND(ws, s.conv), { clientMsgId: id, body: "x" })).status).toBe(409);
   });
 
-  it("refuses outside the 24 hour window, with no inbound message, for Instagram, and for a Page that needs reconnecting; nothing is stored or sent", async () => {
+  it("refuses outside the 24 hour window, with no inbound message, and for a Page that needs reconnecting; nothing is stored or sent", async () => {
     reset();
     const cases = [
       [await setup(ws, { inboundMinsAgo: 24 * 60 + 1 }), 409, "window_closed"],
       [await setup(ws, { inboundMinsAgo: null }), 409, "window_closed"],
-      [await setup(ws, { platform: "instagram" }), 422, "unsupported_channel"],
       [await setup(ws, { status: "reauth_required" }), 409, "account_not_connected"],
     ] as const;
     for (const [s, status, code] of cases) {

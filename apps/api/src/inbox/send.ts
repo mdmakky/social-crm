@@ -14,6 +14,8 @@ const rowsOf = (r: unknown) => (r as { rows: Row[] }).rows;
 const iso = (v: unknown) => (v == null ? null : new Date(v as string | Date).toISOString());
 
 /** A message that stays in "sending" longer than this lost its process (crash, redeploy) between the claim and the answer: it becomes "unknown", never "failed" and never re-sent. */
+/** Instagram send API text limit (send-message page, 2026-11-14). */
+export const IG_MAX_BYTES = 1000;
 const STUCK_AFTER = "2 minutes";
 
 /**
@@ -23,6 +25,13 @@ const STUCK_AFTER = "2 minutes";
  */
 export function failureCodeOf(e: SendError): string {
   const c = e.code;
+  const sub = e.subcode;
+  // Messenger Platform error-codes page (2026-11-14), the Instagram range 2534xxx included.
+  if (c === 10 && (sub === 2534022 || sub === 2018278 || sub === 2018065)) return "window_closed"; // "sent outside of allowed window"
+  if (sub === 2018108 || sub === 1545041 || sub === 2534014) return "recipient_unavailable";
+  if (sub === 2534041 || sub === 2534077 || sub === 2534013 || sub === 2534029 || sub === 2018028) return "channel_access";
+  if (sub === 2534037 || sub === 2018300) return "thread_owned_elsewhere";
+  if (sub === 1893063 || sub === 2534040) return "rate_limited";
   if (c === 190 || e.httpStatus === 401) return "token_invalid";
   if (c === 551 || c === 1545041) return "recipient_unavailable";
   if (c === 613 || c === 4 || c === 17 || c === 368 || e.httpStatus === 429) return "rate_limited";
@@ -81,7 +90,9 @@ export function sendRoutes(db: Db, deps?: MetaConnectDeps) {
           WHERE c.workspace_id = ${ws} AND c.id = ${conversationId}`),
       )[0];
       if (!conv) return { err: fail(c, 404, "not_found") };
-      if (conv.platform !== "messenger") return { err: fail(c, 422, "unsupported_channel", "Replying is only available for Facebook Messenger conversations.") };
+      if (conv.platform !== "messenger" && conv.platform !== "instagram") return { err: fail(c, 422, "unsupported_channel", "Replying is not available for this channel.") };
+      // Instagram's text limit is stated as 1,000 bytes (and, on the same page, "less than 1,000 characters"): the stricter reading is enforced. Messenger's limit is our own 2000 characters.
+      if (conv.platform === "instagram" && Buffer.byteLength(text, "utf8") > IG_MAX_BYTES) return { err: fail(c, 422, "too_long", `Instagram messages can be at most ${IG_MAX_BYTES} bytes (about ${Math.floor(IG_MAX_BYTES / 3)} Bengali characters or ${IG_MAX_BYTES} English letters).`) };
       if (conv.status !== "connected") return { err: fail(c, 409, "account_not_connected", "This Facebook Page connection needs attention. Reconnect it in Settings > Integrations.") };
       // Standard messaging window only. No message tag (HUMAN_AGENT or other) is ever sent.
       if (!conv.in_window) return { err: fail(c, 409, "window_closed", "More than 24 hours have passed since the contact last wrote, so Meta does not allow a reply.") };
@@ -92,7 +103,7 @@ export function sendRoutes(db: Db, deps?: MetaConnectDeps) {
       )[0]!;
       // The text is not copied into the audit trail (customer conversation content).
       await writeAudit(tx, { ...actor(c), workspaceId: ws, action: "message.send_requested", entityType: "message", entityId: row.id as string, summary: { conversationId, length: [...text].length } });
-      return { send: { messageId: row.id as string, accountId: conv.integration_account_id as string, pageId: conv.external_account_id as string, psid: conv.external_user_id as string } };
+      return { send: { channel: conv.platform as "messenger" | "instagram", messageId: row.id as string, accountId: conv.integration_account_id as string, pageId: conv.external_account_id as string, psid: conv.external_user_id as string } };
     });
     if ("err" in prep) return prep.err;
     if ("replay" in prep) return c.json({ message: prep.replay }, 200);
@@ -132,7 +143,7 @@ export function sendRoutes(db: Db, deps?: MetaConnectDeps) {
   return r;
 }
 
-type Delivery = { workspaceId: string; conversationId: string; messageId: string; accountId: string; pageId: string; psid: string; text: string };
+type Delivery = { channel: "messenger" | "instagram"; workspaceId: string; conversationId: string; messageId: string; accountId: string; pageId: string; psid: string; text: string };
 
 async function deliver(deps: MetaConnectDeps, d: Delivery): Promise<void> {
   const wctxW = { workspaceId: d.workspaceId };
@@ -141,7 +152,7 @@ async function deliver(deps: MetaConnectDeps, d: Delivery): Promise<void> {
     const got = rowsOf(await tx.execute(sql`UPDATE messages SET delivery_state = 'sending' WHERE workspace_id = ${d.workspaceId} AND id = ${d.messageId} AND delivery_state = 'pending' RETURNING id`));
     if (got.length === 0) return null; // someone else owns it: never two senders for one message
     const token = await loadToken(tx, deps, d.workspaceId, d.accountId);
-    const summary = JSON.stringify({ kind: "text", messagingType: "RESPONSE", length: [...d.text].length });
+    const summary = JSON.stringify({ kind: "text", channel: d.channel, messagingType: d.channel === "messenger" ? "RESPONSE" : null, length: [...d.text].length });
     const attempt = rowsOf(await tx.execute(sql`INSERT INTO outbound_attempts (workspace_id, message_id, attempt, request_summary) VALUES (${d.workspaceId}, ${d.messageId}, 1, ${summary}::jsonb) RETURNING id`))[0]!.id as string;
     if (!token) {
       // Nothing was sent, so this is a definite failure and safe to show as such.
@@ -156,7 +167,7 @@ async function deliver(deps: MetaConnectDeps, d: Delivery): Promise<void> {
   // 3. the one and only network call
   let result: { messageId: string } | SendError;
   try {
-    result = await deps.graph.sendText(d.pageId, claimed.token, d.psid, d.text);
+    result = await deps.graph.sendText(d.pageId, claimed.token, d.psid, d.text, d.channel);
   } catch (e) {
     result = e instanceof SendError ? e : new SendError("ambiguous", null, null, null);
   }
@@ -196,7 +207,7 @@ async function finish(tx: Tx, d: Delivery, attemptId: string, o: { outcome: "acc
  * ponytail: walks the connected accounts' workspaces (the worker role cannot see messages across workspaces); fine for tens of workspaces, move to a SECURITY DEFINER function if it grows.
  */
 export async function recoverStuckSends(workerDb: Db): Promise<number> {
-  const ws = rowsOf(await workerDb.execute(sql`SELECT DISTINCT workspace_id FROM integration_accounts WHERE platform = 'messenger' AND status <> 'disabled' LIMIT 500`));
+  const ws = rowsOf(await workerDb.execute(sql`SELECT DISTINCT workspace_id FROM integration_accounts WHERE platform IN ('messenger','instagram') AND status <> 'disabled' LIMIT 500`));
   let n = 0;
   for (const w of ws) {
     n += await withContext(workerDb, { workspaceId: w.workspace_id as string }, async (tx) => {
