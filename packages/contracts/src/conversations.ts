@@ -40,13 +40,26 @@ export type ConversationListQuery = z.input<typeof ConversationListQuery>;
 export const ConversationList = z.object({ items: z.array(ConversationItem), nextCursor: z.string().nullable(), totalUnread: z.number().int().min(0) });
 export type ConversationList = z.infer<typeof ConversationList>;
 
+/** A phone or email of a contact with where it came from. `verified` is false for anything read out of a conversation. Values are personal data: never logged. */
+export const ContactMethodDto = z.object({
+  id: Uuid,
+  kind: z.enum(["phone", "email"]),
+  value: z.string(),
+  source: z.enum(["messenger", "instagram", "manual", "import", "other"]),
+  confidence: z.number().min(0).max(1),
+  verified: z.boolean(),
+  isPrimary: z.boolean(),
+  extractedAt: z.string(),
+});
+export type ContactMethodDto = z.infer<typeof ContactMethodDto>;
+
 export const ConversationDetail = ConversationItem.extend({
   lastInboundAt: z.string().nullable(),
   contactDeliveredAt: z.string().nullable(),
   contactReadAt: z.string().nullable(),
   lastSeq: z.number().int().min(0),
   lastReadSeq: z.number().int().min(0),
-  contactSummary: z.object({ id: Uuid, name: z.string(), avatarUrl: z.string().url().nullable(), email: z.string().nullable(), phone: z.string().nullable() }),
+  contactSummary: z.object({ id: Uuid, name: z.string(), avatarUrl: z.string().url().nullable(), email: z.string().nullable(), phone: z.string().nullable(), methods: z.array(ContactMethodDto) }),
 });
 export type ConversationDetail = z.infer<typeof ConversationDetail>;
 

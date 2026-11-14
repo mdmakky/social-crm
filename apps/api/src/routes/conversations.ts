@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { sql, type SQL } from "drizzle-orm";
-import { ConversationListQuery, MarkReadBody, MessageListQuery, UpdateConversationBody, type ConversationDetail, type ConversationItem, type MessageDto } from "@crm/contracts";
+import { ConversationListQuery, MarkReadBody, MessageListQuery, UpdateConversationBody, type ContactMethodDto, type ConversationDetail, type ConversationItem, type MessageDto } from "@crm/contracts";
 import { can } from "@crm/core/permissions";
 import { withContext, type Db, type Tx } from "@crm/db";
 import { writeAudit } from "../audit.ts";
@@ -67,12 +67,18 @@ const detail = (r: Row): ConversationDetail => ({
   contactReadAt: iso(r.contact_read_at),
   lastSeq: Number(r.message_seq),
   lastReadSeq: Number(r.last_read_seq),
-  contactSummary: { id: r.contact_id as string, name: r.contact_name as string, avatarUrl: (r.contact_avatar as string | null) ?? null, email: (r.contact_email as string | null) ?? null, phone: (r.contact_phone as string | null) ?? null },
+  contactSummary: { id: r.contact_id as string, name: r.contact_name as string, avatarUrl: (r.contact_avatar as string | null) ?? null, email: (r.contact_email as string | null) ?? null, phone: (r.contact_phone as string | null) ?? null, methods: [] },
 });
 
 const loadDetail = async (tx: Tx, workspaceId: string, id: string) => {
   const r = rowsOf(await tx.execute(select(sql`c.workspace_id = ${workspaceId} AND c.id = ${id}`)))[0];
-  return r ? detail(r) : null;
+  if (!r) return null;
+  const d = detail(r);
+  // Provenance of the contact's phones and emails (one small query; at most 20 rows).
+  d.contactSummary.methods = rowsOf(
+    await tx.execute(sql`SELECT id, kind, value, source, confidence, verified, is_primary, extracted_at FROM contact_methods WHERE workspace_id = ${workspaceId} AND contact_id = ${d.contactSummary.id} ORDER BY is_primary DESC, extracted_at, id LIMIT 20`),
+  ).map((m) => ({ id: m.id as string, kind: m.kind as "phone" | "email", value: m.value as string, source: m.source as ContactMethodDto["source"], confidence: Number(m.confidence), verified: m.verified as boolean, isPrimary: m.is_primary as boolean, extractedAt: iso(m.extracted_at) ?? "" }));
+  return d;
 };
 
 export function conversationRoutes(db: Db) {

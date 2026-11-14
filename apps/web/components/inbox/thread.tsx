@@ -269,6 +269,26 @@ function Bubble({ m }: { m: MessageDto }) {
   );
 }
 
+const SOURCE_LABEL: Record<string, string> = { messenger: "Messenger", instagram: "Instagram", manual: "Added by hand", import: "Imported", other: "Other" };
+
+/** Phones and emails read out of the conversation (or added elsewhere) with where they came from. Unverified values are marked, never presented as confirmed. */
+function DetectedMethods({ methods }: { methods: ConversationDetail["contactSummary"]["methods"] }) {
+  if (methods.length === 0) return null;
+  return (
+    <section aria-label="Detected phone numbers and emails" className="space-y-1.5">
+      <h3 className="text-xs font-medium uppercase tracking-wide text-fg-subtle">Detected from conversation</h3>
+      <ul className="space-y-1.5 text-sm">
+        {methods.map((m) => (
+          <li key={m.id} className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+            <a className="min-w-0 truncate text-accent-fg underline" href={m.kind === "email" ? `mailto:${m.value}` : `tel:${m.value}`}>{m.value}</a>
+            <span className="text-xs text-fg-subtle">{SOURCE_LABEL[m.source] ?? m.source}{m.isPrimary ? " · primary" : ""} · {m.verified ? "verified" : `auto-detected ${Math.round(m.confidence * 100)}%`}</span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 function ContactPanel({ d, workspaceId, now }: { d: ConversationDetail; workspaceId: string; now: number }) {
   const c = d.contactSummary;
   return (
@@ -279,6 +299,7 @@ function ContactPanel({ d, workspaceId, now }: { d: ConversationDetail; workspac
         <dt className="text-fg-subtle">Phone</dt><dd className="min-w-0 truncate">{c.phone ? <a className="text-accent-fg underline" href={`tel:${c.phone}`}>{c.phone}</a> : <span className="text-fg-subtle">Not set</span>}</dd>
         <dt className="text-fg-subtle">Last message</dt><dd>{d.lastInboundAt ? `${relTime(d.lastInboundAt, now)} ago` : "None yet"}</dd>
       </dl>
+      <DetectedMethods methods={c.methods} />
       <Button variant="secondary" size="sm" asChild><Link href={`/w/${workspaceId}/contacts/${c.id}`}>Open contact</Link></Button>
     </div>
   );

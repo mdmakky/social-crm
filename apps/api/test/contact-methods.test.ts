@@ -171,6 +171,92 @@ describe("phone extraction from Messenger messages (mock webhook -> real worker 
   });
 });
 
+describe("email extraction (same pipeline, Slice 3)", () => {
+  const emailsOf = (cid: string) => methods(cid, "email");
+  const emailOf = async (cid: string) => (await q("SELECT email, email_normalized FROM contacts WHERE id = $1", [cid]))[0];
+
+  it("saves an address as an unverified method with provenance, fills an empty email, audits without the address", async () => {
+    const a = await account(wsA);
+    const u = digits();
+    await say(a, u, "my email: Rahim.Uddin@Example.com thanks");
+    const c = await contactOf(a.id, u);
+    const [m] = await emailsOf(c.id);
+    expect(m).toMatchObject({ kind: "email", value: "rahim.uddin@example.com", raw_value: "Rahim.Uddin@Example.com", source: "messenger", verified: false, is_primary: true });
+    expect(Number(m.confidence)).toBe(0.95);
+    expect(m.source_message_id).toBeTruthy();
+    expect(await emailOf(c.id)).toEqual({ email: "rahim.uddin@example.com", email_normalized: "rahim.uddin@example.com" });
+    const au = await audits(c.id);
+    expect(au).toHaveLength(1);
+    expect(JSON.stringify(au[0].summary)).not.toContain("example.com");
+  });
+
+  it("is idempotent across re-delivery, repeats and different case", async () => {
+    const a = await account(wsA);
+    const u = digits();
+    const mid = `${RUN}.email-mid`;
+    await say(a, u, "a@b.com", { mid });
+    await say(a, u, "a@b.com", { mid });
+    await say(a, u, "again A@B.COM");
+    const c = await contactOf(a.id, u);
+    expect(await emailsOf(c.id)).toHaveLength(1);
+    expect(await audits(c.id)).toHaveLength(1);
+  });
+
+  it("keeps several addresses separately; the first is primary and never moves", async () => {
+    const a = await account(wsA);
+    const u = digits();
+    await say(a, u, "work a@b.com home c@d.org");
+    await say(a, u, "also e@f.net");
+    const c = await contactOf(a.id, u);
+    const ms = await emailsOf(c.id);
+    expect(ms.map((m) => m.value).sort()).toEqual(["a@b.com", "c@d.org", "e@f.net"]);
+    expect(ms.filter((m) => m.is_primary).map((m) => m.value)).toEqual(["a@b.com"]);
+    expect((await emailOf(c.id)).email).toBe("a@b.com");
+  });
+
+  it("never overwrites an entered email (nor a verified method) and does not duplicate it", async () => {
+    const a = await account(wsA);
+    const u = digits();
+    await say(a, u, "hi");
+    const c = await contactOf(a.id, u);
+    await q("UPDATE contacts SET email = 'Owner@Shop.com', email_normalized = 'owner@shop.com' WHERE id = $1", [c.id]);
+    await say(a, u, "reach me at owner@shop.com or other@shop.com");
+    expect((await emailsOf(c.id)).map((m) => [m.value, m.is_primary, m.verified])).toEqual([["other@shop.com", false, false]]);
+    expect((await emailOf(c.id)).email).toBe("Owner@Shop.com");
+    await q("INSERT INTO contact_methods (workspace_id, contact_id, kind, value, source, confidence, verified, verified_at) VALUES ($1,$2,'email','vip@shop.com','manual',1,true,now())", [wsA, c.id]);
+    await say(a, u, "vip@shop.com");
+    const vip = (await emailsOf(c.id)).find((m) => m.value === "vip@shop.com");
+    expect([vip.source, vip.verified, Number(vip.confidence)]).toEqual(["manual", true, 1]);
+  });
+
+  it("a message with a phone and an email stores both; junk and echoes store nothing", async () => {
+    const a = await account(wsA);
+    const u = digits();
+    await say(a, u, "call 01712345678 or mail x@y.com");
+    await say(a, u, "icon@2x.png, a@b, @c.com");
+    await say(a, u, "reach us at team@page.com", { echo: true });
+    const c = await contactOf(a.id, u);
+    expect((await emailsOf(c.id)).map((m) => m.value)).toEqual(["x@y.com"]);
+    expect((await methods(c.id)).map((m) => m.value)).toEqual(["+8801712345678"]);
+  });
+
+  it("the conversation detail API exposes methods with provenance to members only", async () => {
+    const owner = await h.newUser("cmowner");
+    const ws = await h.workspace(owner, "CM Detail");
+    const a = await account(ws);
+    const u = digits();
+    await say(a, u, "01712345678 and a@b.com");
+    const list = await h.app.request(`/v1/workspaces/${ws}/conversations`, { headers: { cookie: owner.cookie } });
+    const conv = (await list.json()).items[0];
+    const detail = await (await h.app.request(`/v1/workspaces/${ws}/conversations/${conv.id}`, { headers: { cookie: owner.cookie } })).json();
+    const got = detail.contactSummary.methods.map((m: { kind: string; value: string; verified: boolean; source: string; isPrimary: boolean }) => [m.kind, m.value, m.verified, m.source, m.isPrimary]);
+    expect(got).toEqual(expect.arrayContaining([["phone", "+8801712345678", false, "messenger", true], ["email", "a@b.com", false, "messenger", true]]));
+    expect(detail.contactSummary.email).toBe("a@b.com");
+    const stranger = await h.app.request(`/v1/workspaces/${ws}/conversations/${conv.id}`, { headers: { cookie: userB.cookie } });
+    expect(stranger.status).toBe(404);
+  });
+});
+
 describe("contact_methods isolation and database guards", () => {
   it("is invisible across workspaces (app role) and to the worker outside its workspace context", async () => {
     const a = await account(wsA);

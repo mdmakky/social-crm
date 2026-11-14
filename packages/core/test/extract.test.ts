@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { classifyPhone, extractPhones } from "../src/extract.ts";
+import { classifyPhone, extractContactData, extractEmails, extractPhones } from "../src/extract.ts";
 
 const vals = (t: string) => extractPhones(t).map((p) => p.value);
 
@@ -63,5 +63,32 @@ describe("confidence, bounds, hostile input", () => {
   it("returns nothing for empty and non-phone text", () => {
     expect(extractPhones("")).toEqual([]);
     expect(extractPhones("hello, price?")).toEqual([]);
+  });
+});
+
+const emails = (t: string) => extractEmails(t).map((e) => e.value);
+
+describe("email extraction", () => {
+  it("finds, lower-cases and normalises addresses; strips surrounding punctuation", () => {
+    expect(emails("Mail me at Rahim.Uddin+crm@Example.COM, thanks")).toEqual(["rahim.uddin+crm@example.com"]);
+    expect(emails("(a@b.co) and <c@d.org>.")).toEqual(["a@b.co", "c@d.org"]);
+    expect(emails("my email is info@shop.com.bd.")).toEqual(["info@shop.com.bd"]);
+  });
+  it("keeps each address once and keeps what was written", () => {
+    const r = extractEmails("a@b.com A@B.COM a@b.com");
+    expect(r.map((e) => e.value)).toEqual(["a@b.com"]);
+    expect(r[0]).toMatchObject({ kind: "email", raw: "a@b.com", confidence: 0.95 });
+  });
+  it("rejects malformed addresses, asset names and non-addresses", () => {
+    for (const t of ["a@b", "@b.com", "a@.com", "a@b..com", "icon@2x.png", "logo@3x.jpg", "price@100", "a@b.c", "user@domain.123"]) expect(emails(t), t).toEqual([]);
+  });
+  it("caps results and stays fast on adversarial text", () => {
+    expect(extractEmails(Array.from({ length: 20 }, (_, i) => `u${i}@x.com`).join(" ")).length).toBe(5);
+    const t0 = performance.now();
+    extractEmails("a".repeat(5000) + "@" + "b.".repeat(2000) + "@".repeat(2000));
+    expect(performance.now() - t0).toBeLessThan(200);
+  });
+  it("combines phones and emails from one message", () => {
+    expect(extractContactData("call 01712345678 or mail a@b.com").map((m) => [m.kind, m.value])).toEqual([["phone", "+8801712345678"], ["email", "a@b.com"]]);
   });
 });

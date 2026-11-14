@@ -1,3 +1,5 @@
+import { normalizeEmail } from "./contacts.ts";
+
 /**
  * Deterministic contact-data extraction from chat text. Pure, bounded, no I/O: it is safe to run inside webhook processing.
  * Phones: Bangladeshi mobile numbers in every common written form, and international numbers only when written with an explicit +CC or 00CC prefix
@@ -64,3 +66,27 @@ export function extractPhones(text: string): ExtractedMethod[] {
   }
   return out.slice(0, MAX_PER_MESSAGE);
 }
+
+// Candidate emails: bounded local part and labels, so cost is linear. Validity is then decided by normalizeEmail (the same rule manual entry uses).
+const EMAIL = /[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9-]{1,63}(?:\.[A-Za-z0-9-]{1,63}){1,5}/g;
+// "icon@2x.png" style asset names look like emails; real addresses never end in these.
+const FILE_TLD = /^(png|jpe?g|gif|webp|svg|bmp|ico|css|js|json|html?|pdf|zip)$/i;
+
+export function extractEmails(text: string): ExtractedMethod[] {
+  const out: ExtractedMethod[] = [];
+  const seen = new Set<string>();
+  for (const m of text.slice(0, MAX_EXTRACT_TEXT).matchAll(EMAIL)) {
+    const raw = m[0].replace(/^[._%+-]+/, "");
+    const value = normalizeEmail(raw);
+    const tld = value?.split(".").pop() ?? "";
+    if (!value || tld.length < 2 || !/^[a-z]+$/.test(tld) || FILE_TLD.test(tld) || value.includes("..")) continue;
+    if (seen.has(value)) continue;
+    seen.add(value);
+    out.push({ kind: "email", value, raw: raw.slice(0, 120), confidence: 0.95 });
+    if (out.length >= MAX_PER_MESSAGE) break;
+  }
+  return out;
+}
+
+/** Everything extractable from one message, phones first. */
+export const extractContactData = (text: string): ExtractedMethod[] => [...extractPhones(text), ...extractEmails(text)];
