@@ -38,7 +38,7 @@ const RESULT: Record<string, { tone: "error" | "warning" | "info"; text: string 
   ig_connected: { tone: "info", text: "Instagram account connected directly (no Facebook Page). Its webhook subscription was accepted." },
   ig_connected_unsubscribed: { tone: "warning", text: "Instagram account connected, but Instagram did not accept the webhook subscription. New messages may not arrive until it is re-checked (see Webhook subscription below)." },
   ig_no_accounts: { tone: "warning", text: "No Instagram account was shared in the login. Connect again and select the Instagram account (it must be a Business or Creator account) in the Meta dialog." },
-  ig_partial: { tone: "warning", text: "Some Instagram accounts were connected; others are already connected to another workspace and were skipped." },
+  ig_partial: { tone: "warning", text: "Some Instagram accounts were connected; others were skipped (already connected to another workspace, could not be saved, or more than 10 were shared). Connect again to retry the rest." },
   account_unavailable: { tone: "error", text: "That Instagram account is already connected to another workspace, so it can't be connected here." },
 };
 const SUBSCRIPTION = { subscribed: "Webhook subscribed", failed: "Webhook subscription failed", dashboard_required: "Instagram webhook fields must be enabled in the Meta app dashboard (UNVERIFIED)" } as const;

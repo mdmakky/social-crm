@@ -212,6 +212,27 @@ describe("callback: connecting", () => {
     expect(resultOf(await call(owner, "GET", `${cb.pathname}${cb.search}`, undefined, { crm_ig_nonce: nonce }))).toBe("denied");
   });
 
+  it("a storage failure for one of several shared accounts is reported as partial, the others stay connected, and a retry connects the rest without duplicates", async () => {
+    const a = digits(), b = digits();
+    share({ id: a, username: "first" }, { id: b, username: "second" });
+    const orig = box.seal;
+    let n = 0;
+    box.seal = (...args: Parameters<typeof orig>) => { if (++n === 2) throw new Error("seal failed"); return orig(...args); };
+    try { expect(resultOf(await flow(owner, ws))).toBe("ig_partial"); } finally { box.seal = orig; }
+    expect((await accountRow(a)).status).toBe("connected");
+    expect(await accountRow(b)).toBeUndefined();
+    expect(resultOf(await flow(owner, ws))).toBe("ig_connected"); // retry
+    expect((await q("SELECT count(*)::int AS n FROM integration_accounts WHERE external_account_id = ANY($1::text[])", [[a, b]]))[0].n).toBe(2);
+    expect((await q("SELECT count(*)::int AS n FROM integration_secrets s JOIN integration_accounts x ON x.id=s.integration_account_id WHERE x.external_account_id = ANY($1::text[])", [[a, b]]))[0].n).toBe(2); // one token version each
+  });
+
+  it("more than 10 shared accounts: the first 10 connect and the result says some were skipped", async () => {
+    const ids = Array.from({ length: 12 }, () => digits());
+    share(...ids.map((id) => ({ id })));
+    expect(resultOf(await flow(owner, ws))).toBe("ig_partial");
+    expect((await q("SELECT count(*)::int AS n FROM integration_accounts WHERE external_account_id = ANY($1::text[])", [ids]))[0].n).toBe(10);
+  });
+
   it("a storage failure lands on the settings page with an error, never a bare 500, and leaves no account", async () => {
     const id = digits();
     share({ id });
@@ -247,6 +268,27 @@ describe("callback: connecting", () => {
     share({ id: pageIg, username: "now.direct" });
     await flow(owner, ws);
     expect(await accountRow(pageIg)).toMatchObject({ auth_method: "unified", status: "connected", display_name: "@now.direct" });
+  });
+
+  it("a rejected token flips the account to Reconnect needed; reconnecting keeps the same account, its conversations and messages, and replying works again", async () => {
+    const id = digits();
+    share({ id, username: "history" });
+    await flow(owner, ws);
+    const a = await accountRow(id);
+    const igsid = digits();
+    expect((await (async () => { const f = signedFixture(buildMessagePayload({ object: "instagram", accountId: id, userId: igsid, mid: `igu.${RUN}.hist`, text: "before expiry", timestampMs: Date.now() }), mockSecret); return hook.request("/webhooks/meta/instagram", { method: "POST", body: new Uint8Array(f.raw), headers: { "content-type": "application/json", "x-hub-signature-256": f.signature } }); })()).status).toBe(200);
+    for (const e of await q("SELECT id FROM webhook_events WHERE account_ref=$1 AND status IN ('received','failed')", [id])) await processWebhookEvent(workerDb, e.id);
+    const [c] = await q("SELECT id FROM conversations WHERE integration_account_id=$1", [a.id]);
+    graph.state.tokenInfo = new Map([[TOKEN, { isValid: false, expiresAt: null, scopes: [], errorCode: 190 }]]);
+    expect((await (await call(owner, "POST", `${MW(ws)}/accounts/${a.id}/check-token`)).json()).status).toBe("reauth_required");
+    graph.state.tokenInfo = undefined;
+    expect((await call(owner, "POST", SEND(ws, c.id), { clientMsgId: uuid(), body: "while broken" })).status).toBe(409); // refused, nothing sent
+    expect(resultOf(await flow(owner, ws))).toBe("ig_connected");
+    expect(await accountRow(id)).toMatchObject({ id: a.id, status: "connected", auth_method: "unified" });
+    expect((await q("SELECT count(*)::int AS n FROM conversations WHERE integration_account_id=$1", [a.id]))[0].n).toBe(1);
+    expect((await q("SELECT body FROM messages WHERE conversation_id=$1 AND direction='in'", [c.id])).map((m) => m.body)).toEqual(["before expiry"]);
+    graph.state.sends = ["mid.igu.after"];
+    expect((await (await call(owner, "POST", SEND(ws, c.id), { clientMsgId: uuid(), body: "back again" })).json()).message.deliveryState).toBe("sent");
   });
 
   it("disconnect removes the token and disables the account; only owners/admins, and only inside the workspace", async () => {

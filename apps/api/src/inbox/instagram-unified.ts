@@ -66,19 +66,21 @@ export function instagramUnified(db: Db, deps?: MetaConnectDeps) {
     const code = (q.data.code ?? "").replace(/#_$/, ""); // a trailing "#_" is not part of the code
     if (!code) return home(workspaceId, "error");
     // 3. code -> system-user token (no long-lived exchange: this token is not a user token) -> the accounts the person shared.
-    let token: string, expiresAt: Date | null, shared: { id: string; username: string | null }[];
+    let token: string, expiresAt: Date | null, shared: { id: string; username: string | null }[], truncated = false;
     try {
       const t = await deps.graph.exchangeCode(code, cfg.redirectUri);
       token = t.accessToken;
       // Expiry depends on the configuration (never, or a number of days). debug_token tells; failing to read it only means "unknown".
       expiresAt = await deps.graph.debugToken(token).then((i) => i.expiresAt).catch(() => null);
-      shared = (await deps.graph.listAssignedInstagramAccounts(token)).slice(0, MAX_ACCOUNTS);
+      const all = await deps.graph.listAssignedInstagramAccounts(token);
+      truncated = all.length > MAX_ACCOUNTS; // more shared than we connect in one login: say so instead of silently dropping the rest
+      shared = all.slice(0, MAX_ACCOUNTS);
     } catch {
       return home(workspaceId, "error");
     }
     if (shared.length === 0) return home(workspaceId, "ig_no_accounts");
     // 4. Store each shared account on its own (one that belongs to another workspace must not block the others), then subscribe it.
-    let connected = 0, refused = 0, unsubscribed = 0;
+    let connected = 0, refused = 0, failed = 0, unsubscribed = 0;
     for (const a of shared) {
       let accountId: string, reconnected: boolean;
       try {
@@ -87,7 +89,8 @@ export function instagramUnified(db: Db, deps?: MetaConnectDeps) {
         ));
       } catch (e) {
         if (e instanceof AccountElsewhere) refused++;
-        continue; // any other failure: this account is simply not connected
+        else failed++; // this account is not connected; the others still are, and the result says so
+        continue;
       }
       connected++;
       const sub = await subscribeInstagramAccount(deps, a.id, token);
@@ -97,8 +100,8 @@ export function instagramUnified(db: Db, deps?: MetaConnectDeps) {
         await withContext(db, { userId, workspaceId }, (tx) => writeAudit(tx, { actorUserId: userId, requestId: c.get("requestId"), workspaceId, action: reconnected ? "integration.instagram_unified.reconnected" : "integration.instagram_unified.connected", entityType: "integration_account", entityId: accountId, summary: { externalAccountId: a.id, subscription: sub.state } }));
       } catch { /* the account is connected; a failed history or audit write must not turn that into an error page */ }
     }
-    if (connected === 0) return home(workspaceId, refused > 0 ? "account_unavailable" : "error");
-    return home(workspaceId, refused > 0 ? "ig_partial" : unsubscribed > 0 ? "ig_connected_unsubscribed" : "ig_connected");
+    if (connected === 0) return home(workspaceId, failed === 0 && refused > 0 ? "account_unavailable" : "error");
+    return home(workspaceId, refused > 0 || failed > 0 || truncated ? "ig_partial" : unsubscribed > 0 ? "ig_connected_unsubscribed" : "ig_connected");
   });
 
   return { scoped, callback };
