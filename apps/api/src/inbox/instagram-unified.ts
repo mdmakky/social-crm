@@ -66,7 +66,7 @@ export function instagramUnified(db: Db, deps?: MetaConnectDeps) {
     const code = (q.data.code ?? "").replace(/#_$/, ""); // a trailing "#_" is not part of the code
     if (!code) return home(workspaceId, "error");
     // 3. code -> system-user token (no long-lived exchange: this token is not a user token) -> the accounts the person shared.
-    let token: string, expiresAt: Date | null, shared: { id: string; username: string | null }[], truncated = false;
+    let token: string, expiresAt: Date | null, shared: { id: string; username: string | null }[], truncated: boolean;
     try {
       const t = await deps.graph.exchangeCode(code, cfg.redirectUri);
       token = t.accessToken;
