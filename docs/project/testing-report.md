@@ -87,3 +87,11 @@ Mock Graph and fake fetch only; no real Meta request was made, no real message w
 - `packages/integrations/test/send.test.ts` (3): request shape (no tag, token only in header), error classification, ambiguity cases.
 - `apps/web/test/inbox.test.ts` (+4): Enter/Shift+Enter/IME, failure sentences, 10-minute decision gate.
 - Full run: web 43, integrations 27, core 98, db 143, api-client 18, design-tokens 48 all passed; API 468 passed, 14 skipped (pre-existing skips) in clean runs. The API suite shares one database across parallel files and is flaky at a ~1-in-3 rate on unrelated profile/ingress tests (pre-existing; reproduced without the new file); each file passes alone. `pnpm exec turbo run lint typecheck` green.
+
+## Instagram messaging (2026-11-14, branch feat/instagram-messaging)
+Mock Graph and fake fetch only; no real Meta request, no real message.
+- `apps/api/test/instagram.test.ts` (19): connect picker with username/picture, token sealed and never returned, fallback names, one workspace per Instagram account, role/tenant checks on disconnect; inbound DM creates an Instagram conversation, duplicate delivery, phone/email detection, bad signature, channel from signed object on either URL, unsupported media/read/reaction/postback/garbage events, Messenger regression, cross-workspace isolation; profile enrichment; outbound via the Instagram channel with attempt persisted before the call, echo adoption, UNKNOWN then echo, duplicate client ids, 24h window, reauth_required, viewer/outsider, 1000-byte limit (Bengali), error subcodes, Messenger send regression.
+- `packages/integrations` (+5): Instagram send request shape, error classification, profile fields, getInstagramAccount failure modes, webhook parsing.
+- `apps/web` (+2): per-channel limits, failure sentences.
+- Updated `inbox-ingress` test: a Messenger object on the Instagram URL is now stored as Messenger (channel from payload); removed the unreachable "unsupported channel" case from send.test.
+- Results: see the delivery report; the API suite is flaky ~1 in 3 runs on unrelated ingress/profile tests (pre-existing, shared database across parallel files); every file passes alone.

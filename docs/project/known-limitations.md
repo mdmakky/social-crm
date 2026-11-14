@@ -89,3 +89,13 @@ Updated: 2026-11-13 (Phase 0).
 - A rejected token (190) marks the message failed but does not move the account to `reauth_required` by itself; the 6-hourly token check does.
 - The "It was delivered / not delivered" buttons appear 10 minutes after the original send time (client clock vs `occurredAt`); the server enforces the real 10 minutes from the state change.
 - Existing Playwright test "composer stays disabled" was removed (behaviour changed); no new Playwright coverage by request.
+
+## Instagram messaging (2026-11-14)
+- NEVER tested against real Meta. Mock Graph and fake fetch only. C8 (Instagram webhooks reach us, and in which mode/URL) remains UNVERIFIED. See `docs/integrations/instagram-messaging.md` for what is verified from the docs and what is not.
+- Instagram webhook subscription is a manual dashboard step; the CRM cannot confirm it. "Re-check subscription" says so.
+- Text only. No attachments, reactions, story replies, or Human Agent tag. Incoming media we cannot read arrives as an "unsupported" placeholder.
+- 1000-byte limit is the stricter reading of contradictory wording in Meta's page (characters vs bytes); long Bengali replies are limited to 333 letters.
+- Read receipts: `messaging_seen` is treated as "read up to the event time" (payload has only `read.mid`). Delivery receipts do not exist for Instagram in the pages read.
+- Instagram profile enrichment needs the person's consent (they must have messaged us) and `instagram_basic`; without it the placeholder name stays.
+- Account display name is `@username` captured at connect time; it does not refresh until reconnect.
+- An Instagram-only connection (without the Messenger inbox of the same Page) is not offered; connecting the Page always connects Messenger.
