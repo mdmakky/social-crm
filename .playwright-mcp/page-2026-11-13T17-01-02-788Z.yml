@@ -1,0 +1,150 @@
+- generic [active] [ref=f7e1]:
+  - link "Skip to content" [ref=f7e2] [cursor=pointer]:
+    - /url: "#main"
+  - generic [ref=f7e3]:
+    - complementary [ref=f7e4]:
+      - 'button "Switch workspace, current: Real Meta Workspace" [ref=f7e6]':
+        - generic [aria-hidden] [ref=f7e7]: RE
+        - generic [ref=f7e8]:
+          - generic [ref=f7e9]: "Switch workspace, current:"
+          - generic [ref=f7e10]: Real Meta Workspace
+      - text: RE
+      - navigation "Main" [ref=f7e15]:
+        - link "Home" [ref=f7e18] [cursor=pointer]:
+          - /url: /w/01a1d5cd-2a7e-738f-b9f8-52239cfc4811
+        - generic [ref=f7e23]:
+          - paragraph [ref=f7e24]: Customers
+          - link "Inbox" [ref=f7e26] [cursor=pointer]:
+            - /url: /w/01a1d5cd-2a7e-738f-b9f8-52239cfc4811/inbox
+          - link "Contacts" [ref=f7e32] [cursor=pointer]:
+            - /url: /w/01a1d5cd-2a7e-738f-b9f8-52239cfc4811/contacts
+          - link "Tasks" [ref=f7e39] [cursor=pointer]:
+            - /url: /w/01a1d5cd-2a7e-738f-b9f8-52239cfc4811/tasks
+          - link "Leads" [ref=f7e45] [cursor=pointer]:
+            - /url: /w/01a1d5cd-2a7e-738f-b9f8-52239cfc4811/leads
+          - link "Pipeline" [ref=f7e50] [cursor=pointer]:
+            - /url: /w/01a1d5cd-2a7e-738f-b9f8-52239cfc4811/pipeline
+          - link "Reports" [ref=f7e54] [cursor=pointer]:
+            - /url: /w/01a1d5cd-2a7e-738f-b9f8-52239cfc4811/reports
+        - generic [ref=f7e59]:
+          - paragraph [ref=f7e60]: Workspace
+          - link "Integrations" [ref=f7e62] [cursor=pointer]:
+            - /url: /w/01a1d5cd-2a7e-738f-b9f8-52239cfc4811/settings/integrations
+          - link "Members" [ref=f7e67] [cursor=pointer]:
+            - /url: /w/01a1d5cd-2a7e-738f-b9f8-52239cfc4811/members
+          - link "Audit log" [ref=f7e75] [cursor=pointer]:
+            - /url: /w/01a1d5cd-2a7e-738f-b9f8-52239cfc4811/audit-log
+          - link "Settings" [ref=f7e81] [cursor=pointer]:
+            - /url: /w/01a1d5cd-2a7e-738f-b9f8-52239cfc4811/settings
+        - group [ref=f7e86]:
+          - generic "Coming soon" [ref=f7e87] [cursor=pointer]
+      - generic [ref=f7e90]:
+        - generic [aria-hidden] [ref=f7e92]: MT
+        - generic [ref=f7e93]:
+          - generic [ref=f7e94]: Meta Real Test
+          - generic [ref=f7e95]: Owner
+    - generic [ref=f7e96]:
+      - banner [ref=f7e97]:
+        - button "Search or jump to Ctrl K" [ref=f7e98]:
+          - generic [ref=f7e102]: Search or jump to
+          - generic [ref=f7e103]: Ctrl K
+        - link "Notifications" [ref=f7e104] [cursor=pointer]:
+          - /url: /w/01a1d5cd-2a7e-738f-b9f8-52239cfc4811/notifications
+        - status [ref=f7e108]
+        - button "Account menu" [ref=f7e109]:
+          - generic [aria-hidden] [ref=f7e111]: MT
+      - main [ref=f7e112]:
+        - generic [ref=f7e114]:
+          - navigation "Settings sections" [ref=f7e115]:
+            - link "General" [ref=f7e116] [cursor=pointer]:
+              - /url: /w/01a1d5cd-2a7e-738f-b9f8-52239cfc4811/settings
+            - link "Contacts" [ref=f7e117] [cursor=pointer]:
+              - /url: /w/01a1d5cd-2a7e-738f-b9f8-52239cfc4811/settings/contacts
+            - link "Pipelines" [ref=f7e118] [cursor=pointer]:
+              - /url: /w/01a1d5cd-2a7e-738f-b9f8-52239cfc4811/settings/pipelines
+            - link "Notifications" [ref=f7e119] [cursor=pointer]:
+              - /url: /w/01a1d5cd-2a7e-738f-b9f8-52239cfc4811/settings/notifications
+          - generic [ref=f7e120]:
+            - generic [ref=f7e122]:
+              - heading "Integrations" [level=1] [ref=f7e123]
+              - paragraph [ref=f7e124]: Connect the channels your customers write to you on.
+            - generic [ref=f7e126]:
+              - navigation "Channels" [ref=f7e127]:
+                - button "Messenger 2 Pages connected 2 Pages connected" [ref=f7e128]:
+                  - generic [ref=f7e132]:
+                    - generic [ref=f7e133]: Messenger
+                    - generic [ref=f7e134]: 2 Pages connected
+                  - generic [ref=f7e135]: 2 Pages connected
+                - button "Instagram Not connected Not connected" [ref=f7e138]:
+                  - generic [ref=f7e143]:
+                    - generic [ref=f7e144]: Instagram
+                    - generic [ref=f7e145]: Not connected
+                  - generic [ref=f7e146]: Not connected
+                - button "WhatsApp Coming soon Soon" [ref=f7e149]:
+                  - generic [ref=f7e153]:
+                    - generic [ref=f7e154]: WhatsApp
+                    - generic [ref=f7e155]: Coming soon
+                  - generic [ref=f7e156]: Soon
+                - button "Telegram Coming soon Soon" [ref=f7e157]:
+                  - generic [ref=f7e162]:
+                    - generic [ref=f7e163]: Telegram
+                    - generic [ref=f7e164]: Coming soon
+                  - generic [ref=f7e165]: Soon
+              - generic [ref=f7e167]:
+                - generic [ref=f7e168]:
+                  - generic [ref=f7e172]:
+                    - heading "Messenger" [level=2] [ref=f7e173]
+                    - paragraph [ref=f7e174]: Receive and answer messages sent to your Facebook Pages.
+                  - button "Connect another Page" [ref=f7e175]
+                - generic [ref=f7e178]:
+                  - region "Connected Pages" [ref=f7e179]:
+                    - heading "Connected Pages" [level=3] [ref=f7e180]
+                    - list [ref=f7e181]:
+                      - listitem [ref=f7e182]:
+                        - generic [ref=f7e183]:
+                          - generic [ref=f7e184]:
+                            - generic [ref=f7e185]: Testingdemo
+                            - generic [ref=f7e186]: Connected
+                          - paragraph [ref=f7e187]:
+                            - text: "ID 1159034060634693 · Last token check:"
+                            - time [ref=f7e188]: 11/13/2026, 10:55:05 PM
+                        - generic [ref=f7e189]:
+                          - button "Check token" [ref=f7e190]
+                          - button "Disconnect" [ref=f7e196]
+                      - listitem [ref=f7e200]:
+                        - generic [ref=f7e201]:
+                          - generic [ref=f7e202]:
+                            - generic [ref=f7e203]: Mock inbox (seed)
+                            - generic [ref=f7e204]: Connected
+                          - paragraph [ref=f7e205]:
+                            - text: "ID 54123259208820 · Last token check:"
+                            - time [ref=f7e206]: Never
+                        - generic [ref=f7e207]:
+                          - button "Check token" [ref=f7e208]
+                          - button "Disconnect" [ref=f7e214]
+                  - region "Webhook subscription" [ref=f7e218]:
+                    - heading "Webhook subscription" [level=3] [ref=f7e219]
+                    - paragraph [ref=f7e220]: "Requested from Meta when a Page is connected:"
+                    - list [ref=f7e221]:
+                      - listitem [ref=f7e222]:
+                        - generic [ref=f7e223]: messages
+                      - listitem [ref=f7e224]:
+                        - generic [ref=f7e225]: message_echoes
+                      - listitem [ref=f7e226]:
+                        - generic [ref=f7e227]: messaging_postbacks
+                      - listitem [ref=f7e228]:
+                        - generic [ref=f7e229]: message_reads
+                      - listitem [ref=f7e230]:
+                        - generic [ref=f7e231]: message_deliveries
+                    - generic [ref=f7e232]:
+                      - generic [ref=f7e233]: Testingdemo
+                      - button "Re-check subscription" [ref=f7e234]
+                    - generic [ref=f7e240]:
+                      - generic [ref=f7e241]: Mock inbox (seed)
+                      - button "Re-check subscription" [ref=f7e242]
+                  - region "Recent activity" [ref=f7e248]:
+                    - heading "Recent activity" [level=3] [ref=f7e249]
+                    - generic [ref=f7e250]:
+                      - paragraph [ref=f7e252]: Testingdemo
+                      - paragraph [ref=f7e255]: Mock inbox (seed)
+  - button "Open Next.js Dev Tools" [ref=f7e262] [cursor=pointer]

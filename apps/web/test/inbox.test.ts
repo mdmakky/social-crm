@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DELIVERY, canDecideDelivery, dayLabel, failureText, isSendKey, replyUsage, isHttps, relTime, windowMinutesLeft } from "@/lib/inbox";
+import { TAB_FILTERS, tabOf, continuesRun, type InboxTab, DELIVERY, canDecideDelivery, dayLabel, failureText, isSendKey, replyUsage, isHttps, relTime, windowMinutesLeft } from "@/lib/inbox";
 
 const NOW = new Date("2026-11-13T12:00:00").getTime();
 const ago = (ms: number) => new Date(NOW - ms).toISOString();
@@ -71,5 +71,23 @@ describe("per-channel reply limits", () => {
   });
   it("has sentences for the Instagram failure codes", () => {
     for (const c of ["window_closed", "channel_access", "thread_owned_elsewhere"]) expect(failureText(c)).toMatch(/\.$/);
+  });
+});
+
+describe("message runs and tabs", () => {
+  const m = (over: Partial<Parameters<typeof continuesRun>[0]> = {}) => ({ direction: "out" as const, senderKind: "user" as const, senderName: "Mr. Matrix", occurredAt: ago(10 * 60_000), ...over });
+  it("keeps one sender within 5 minutes in a run", () => {
+    expect(continuesRun(m(), m({ occurredAt: ago(8 * 60_000) }))).toBe(true);
+  });
+  it("breaks a run on a new sender, direction, long gap or day", () => {
+    expect(continuesRun(m(), m({ senderName: "Someone else", occurredAt: ago(9 * 60_000) }))).toBe(false);
+    expect(continuesRun(m(), m({ direction: "in", occurredAt: ago(9 * 60_000) }))).toBe(false);
+    expect(continuesRun(m(), m({ occurredAt: ago(3 * 60_000) }))).toBe(false);
+    expect(continuesRun(m({ occurredAt: ago(12 * 3_600_000 + 60_000) }), m({ occurredAt: ago(12 * 3_600_000 - 60_000) }))).toBe(false);
+    expect(continuesRun(m(), undefined)).toBe(false);
+  });
+  it("maps tabs to filters and back", () => {
+    for (const t of Object.keys(TAB_FILTERS) as InboxTab[]) expect(tabOf(TAB_FILTERS[t])).toBe(t);
+    expect(tabOf({ assignee: "some-user-id", unread: false })).toBeNull();
   });
 });

@@ -1,0 +1,59 @@
+- generic [active] [ref=f9e1]:
+  - link "Skip to content" [ref=f9e2] [cursor=pointer]:
+    - /url: "#main"
+  - generic [ref=f9e3]:
+    - complementary [ref=f9e4]:
+      - 'button "Switch workspace, current: Real Meta Workspace" [ref=f9e6]':
+        - generic [aria-hidden] [ref=f9e7]: RE
+        - generic [ref=f9e8]:
+          - generic [ref=f9e9]: "Switch workspace, current:"
+          - generic [ref=f9e10]: Real Meta Workspace
+      - text: RE
+      - navigation "Main" [ref=f9e15]:
+        - link "Home" [ref=f9e18] [cursor=pointer]:
+          - /url: /w/01a1d5cd-2a7e-738f-b9f8-52239cfc4811
+        - generic [ref=f9e23]:
+          - paragraph [ref=f9e24]: Customers
+          - link "Inbox" [ref=f9e26] [cursor=pointer]:
+            - /url: /w/01a1d5cd-2a7e-738f-b9f8-52239cfc4811/inbox
+          - link "Contacts" [ref=f9e32] [cursor=pointer]:
+            - /url: /w/01a1d5cd-2a7e-738f-b9f8-52239cfc4811/contacts
+          - link "Tasks" [ref=f9e39] [cursor=pointer]:
+            - /url: /w/01a1d5cd-2a7e-738f-b9f8-52239cfc4811/tasks
+          - link "Leads" [ref=f9e45] [cursor=pointer]:
+            - /url: /w/01a1d5cd-2a7e-738f-b9f8-52239cfc4811/leads
+          - link "Pipeline" [ref=f9e50] [cursor=pointer]:
+            - /url: /w/01a1d5cd-2a7e-738f-b9f8-52239cfc4811/pipeline
+          - link "Reports" [ref=f9e54] [cursor=pointer]:
+            - /url: /w/01a1d5cd-2a7e-738f-b9f8-52239cfc4811/reports
+        - generic [ref=f9e59]:
+          - paragraph [ref=f9e60]: Workspace
+          - link "Integrations" [ref=f9e62] [cursor=pointer]:
+            - /url: /w/01a1d5cd-2a7e-738f-b9f8-52239cfc4811/settings/integrations
+          - link "Members" [ref=f9e67] [cursor=pointer]:
+            - /url: /w/01a1d5cd-2a7e-738f-b9f8-52239cfc4811/members
+          - link "Audit log" [ref=f9e75] [cursor=pointer]:
+            - /url: /w/01a1d5cd-2a7e-738f-b9f8-52239cfc4811/audit-log
+          - link "Settings" [ref=f9e81] [cursor=pointer]:
+            - /url: /w/01a1d5cd-2a7e-738f-b9f8-52239cfc4811/settings
+        - group [ref=f9e86]:
+          - generic "Coming soon" [ref=f9e87] [cursor=pointer]
+      - generic [ref=f9e90]:
+        - generic [aria-hidden] [ref=f9e92]: MT
+        - generic [ref=f9e93]:
+          - generic [ref=f9e94]: Meta Real Test
+          - generic [ref=f9e95]: Owner
+    - generic [ref=f9e96]:
+      - banner [ref=f9e97]:
+        - button "Search or jump to Ctrl K" [ref=f9e98]:
+          - generic [ref=f9e102]: Search or jump to
+          - generic [ref=f9e103]: Ctrl K
+        - link "Notifications" [ref=f9e104] [cursor=pointer]:
+          - /url: /w/01a1d5cd-2a7e-738f-b9f8-52239cfc4811/notifications
+        - status [ref=f9e108]
+        - button "Account menu" [ref=f9e109]:
+          - generic [aria-hidden] [ref=f9e111]: MT
+      - main [ref=f9e112]:
+        - status "Loading" [ref=f9e114]:
+          - generic [ref=f9e149]: Loading…
+  - button "Open Next.js Dev Tools" [ref=f9e155] [cursor=pointer]

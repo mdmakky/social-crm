@@ -81,3 +81,22 @@ export function replyUsage(platform: "messenger" | "instagram", text: string, ma
   if (platform === "instagram") { const used = new TextEncoder().encode(text).length; return { used, max: IG_MAX_BYTES, unit: "bytes", over: used > IG_MAX_BYTES }; }
   return { used: text.length, max: maxChars, unit: "characters", over: text.length > maxChars };
 }
+
+/** True when `next` continues the same run as `m`: same sender, same day, less than 5 minutes apart. A run shows its sender and time once, under its last bubble. */
+export const RUN_GAP_MS = 5 * 60_000;
+export function continuesRun(m: Pick<MessageDto, "direction" | "senderKind" | "senderName" | "occurredAt">, next: Pick<MessageDto, "direction" | "senderKind" | "senderName" | "occurredAt"> | undefined): boolean {
+  if (!next) return false;
+  return m.direction === next.direction && m.senderKind === next.senderKind && (m.senderName ?? null) === (next.senderName ?? null)
+    && sameDay(m.occurredAt, next.occurredAt) && Math.abs(new Date(next.occurredAt).getTime() - new Date(m.occurredAt).getTime()) < RUN_GAP_MS;
+}
+
+/** List tabs as filters. Counts are shown only where the API returns one (unread). */
+export type InboxTab = "all" | "unread" | "mine" | "unassigned";
+export const TAB_FILTERS: Record<InboxTab, { assignee: string; unread: boolean }> = {
+  all: { assignee: "", unread: false },
+  unread: { assignee: "", unread: true },
+  mine: { assignee: "me", unread: false },
+  unassigned: { assignee: "unassigned", unread: false },
+};
+export const tabOf = (f: { assignee: string; unread: boolean }): InboxTab | null =>
+  (Object.keys(TAB_FILTERS) as InboxTab[]).find((t) => TAB_FILTERS[t].assignee === f.assignee && TAB_FILTERS[t].unread === f.unread) ?? null;

@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Inbox option C: People (one timeline per person)</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Noto+Sans+Bengali:wght@400;500&display=swap">
+<link rel="stylesheet" href="base.css">
+<style>
+/* C: one row per PERSON. Messenger + Instagram merge into one timeline; the reply box picks the channel. Profile is a CRM record. */
+.rail{width:300px;flex:none;background:var(--surface);border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+.rh{padding:18px 16px 12px;display:flex;align-items:center;gap:8px}
+.rh h1{margin:0;font-size:18px;font-weight:600;flex:1}
+.rs{margin:0 12px 8px;display:flex;align-items:center;gap:8px;height:34px;padding:0 10px;border-radius:99px;background:var(--canvas);color:var(--fg-3)}
+.rs input{border:0;outline:0;background:none;flex:1;min-width:0;color:var(--fg)}
+.fl{display:flex;flex-wrap:wrap;gap:6px;padding:0 12px 10px;overflow:auto}
+.fl button{border:0;background:var(--canvas);color:var(--fg-2);height:26px;padding:0 10px;border-radius:99px;font-size:12px;font-weight:500;white-space:nowrap}
+.fl button.on{background:var(--fg);color:#fff}
+.ppl{flex:1;overflow:auto;padding:0 8px 12px}
+.p{display:flex;gap:12px;align-items:center;padding:10px;border-radius:var(--r-lg);cursor:pointer;position:relative}
+.p:hover{background:var(--hover)}.p.on{background:var(--accent-subtle)}
+.p .t{flex:1;min-width:0}
+.p .l1{display:flex;align-items:center;gap:6px}
+.p b{font-weight:500;font-size:14px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.p.un b{font-weight:600}
+.p time{font-size:12px;color:var(--fg-3)}
+.p .pv{font-size:13px;color:var(--fg-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px;line-height:1.4}
+.p.un .pv{color:var(--fg)}
+.chs{display:inline-flex}
+.chs .c{width:16px;height:16px;border-radius:50%;color:#fff;display:grid;place-items:center;border:2px solid #fff;margin-left:-4px}
+.chs .c:first-child{margin-left:0}.chs .c .i{width:8px;height:8px;stroke-width:2.4}
+.c.m{background:var(--messenger)}.c.ig{background:var(--instagram)}
+.p.on .chs .c{border-color:var(--accent-subtle)}
+.badge{min-width:18px;height:18px;border-radius:99px;background:var(--accent);color:#fff;font-size:11px;font-weight:600;display:grid;place-items:center;padding:0 5px}
+.stage{flex:1;min-width:0;display:flex;flex-direction:column;background:var(--canvas)}
+.sh{height:60px;flex:none;display:flex;align-items:center;gap:12px;padding:0 24px;background:var(--canvas)}
+.sh b{font-size:16px;font-weight:600}
+.sh .sp{flex:1}
+.sh .chip{background:#fff;border:1px solid var(--line)}
+.tl{flex:1;overflow:auto;padding:4px 24px 12px}
+.in-col{max-width:680px;margin:0 auto;display:flex;flex-direction:column;gap:6px}
+.sep{display:flex;align-items:center;gap:10px;margin:18px 0 8px;font-size:12px;font-weight:500;color:var(--fg-3)}
+.sep::before,.sep::after{content:"";flex:1;height:1px;background:var(--line)}
+.sep span{display:inline-flex;align-items:center;gap:6px;background:#fff;border:1px solid var(--line);border-radius:99px;padding:2px 10px 2px 4px}
+.sep .c{width:16px;height:16px;border-radius:50%;color:#fff;display:grid;place-items:center}.sep .c .i{width:9px;height:9px;stroke-width:2.4}
+.mr{display:flex;gap:8px;align-items:flex-end}
+.mr.out{flex-direction:row-reverse}
+.bb{max-width:78%;padding:9px 14px;border-radius:18px;font-size:14px;line-height:1.6}
+.in .bb{background:#fff;border:1px solid var(--line)}
+.out .bb{background:#E7E8FD;color:#1D1A5E}
+.mr time{font-size:11px;color:var(--fg-3);padding-bottom:4px;white-space:nowrap}
+.by{font-size:11px;color:var(--fg-3);text-align:right;margin:0 2px 6px}
+.ev{align-self:center;font-size:12px;color:var(--fg-3);background:none;display:flex;align-items:center;gap:6px;margin:6px 0}
+.ev .i{color:var(--accent)}
+.cmp{padding:0 24px 20px}
+.cb{max-width:680px;margin:0 auto;background:#fff;border:1px solid var(--line-2);border-radius:20px;padding:10px 10px 10px 18px;display:flex;gap:10px;align-items:flex-end}
+.cb:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-subtle)}
+.cb textarea{flex:1;border:0;outline:0;resize:none;background:none;min-height:40px;padding:8px 0;font-size:14px;line-height:1.6}
+.via{height:32px;border-radius:99px;border:1px solid var(--line);background:var(--canvas);padding:0 10px 0 6px;display:flex;align-items:center;gap:6px;font-size:12px;font-weight:500;color:var(--fg-2);align-self:flex-end;margin-bottom:2px}
+.via .c{width:18px;height:18px;border-radius:50%;color:#fff;display:grid;place-items:center;background:var(--instagram)}.via .c .i{width:10px;height:10px;stroke-width:2.4}
+.snd{width:40px;height:40px;border-radius:50%;border:0;background:var(--accent);color:#fff;display:grid;place-items:center}
+.cn{max-width:680px;margin:6px auto 0;text-align:center;font-size:12px;color:var(--fg-3)}
+.rec{width:340px;flex:none;background:var(--surface);border-left:1px solid var(--line);overflow:auto}
+.rc{padding:24px 24px 16px;text-align:center;border-bottom:1px solid var(--line)}
+.rc .avatar{margin:0 auto 10px}
+.rc b{font-size:17px;font-weight:600;display:block}
+.rc .acts{display:flex;gap:8px;justify-content:center;margin-top:14px}
+.sc{padding:16px 24px;border-bottom:1px solid var(--line)}
+.sc h4{margin:0 0 10px;font-size:13px;font-weight:600;display:flex;align-items:center}
+.sc h4 .note{margin-left:auto;font-weight:400}
+.pr{display:grid;grid-template-columns:84px 1fr;gap:8px;font-size:13px;padding:5px 0;align-items:center}
+.pr dt{color:var(--fg-3)}.pr dd{margin:0;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pr dd em{font-style:normal;font-size:11px;color:var(--fg-3);margin-left:6px}
+.stp{display:flex;align-items:center;gap:0;margin:4px 0 8px}
+.stp i{flex:1;height:4px;background:var(--line)}.stp i.f{background:var(--accent)}
+.stp s{width:10px;height:10px;border-radius:50%;background:var(--line);flex:none;text-decoration:none}.stp s.f{background:var(--accent)}
+.stl{display:flex;justify-content:space-between;font-size:11px;color:var(--fg-3)}.stl .on{color:var(--accent);font-weight:600}
+.tk{display:flex;gap:10px;font-size:13px;padding:5px 0}.tk input{accent-color:var(--accent);margin-top:2px}.tk small{display:block;color:var(--fg-3);font-size:12px}
+.hist{display:flex;gap:10px;font-size:12px;color:var(--fg-2);padding:5px 0}.hist .i{color:var(--fg-3);margin-top:2px}
+@media (max-width:1280px){.rec{display:none}}
+</style></head>
+<body>
+<div class="app"><aside class="side" id="side"></aside>
+<div class="main"><header class="top" id="top"></header>
+<div class="page">
+
+<section class="rail" aria-label="People">
+  <div class="rh"><h1>Inbox</h1><button class="btn icon ghost" id="f1" aria-label="Filters"></button></div>
+  <label class="rs"><span id="s1"></span><input placeholder="Search people or messages" aria-label="Search"></label>
+  <div class="fl"><button class="on">Everyone</button><button>Unread · 2</button><button>Mine</button><button>Unassigned</button></div>
+  <div class="ppl" id="ppl"></div>
+</section>
+
+<section class="stage" aria-label="Conversation with Md. Arafatuzzaman">
+  <div class="sh"><b>Md. Arafatuzzaman</b><span class="chip" id="c1"></span><span class="chip" id="c2"></span><div class="sp"></div>
+    <button class="btn" id="b1">Open</button><button class="btn" id="b2"></button><button class="btn icon ghost" id="b3" aria-label="More"></button></div>
+  <div class="tl bn"><div class="in-col">
+    <div class="sep"><span><i class="c" style="background:var(--messenger)" id="sm"></i>Messenger · Today</span></div>
+    <div class="mr out"><div class="bb">আমাদের একজন সহকর্মী শীঘ্রই 01760345030 এই নম্বরে যোগাযোগ করবেন।</div><time>13:15</time></div>
+    <div class="by">Sent from Meta app</div>
+    <div class="mr out"><div class="bb">Apnar Email ta amader k pathan</div><time>15:26</time></div>
+    <div class="by">Mr. Matrix</div>
+    <div class="mr in"><div class="bb">makky.cse@gmail.com</div><time>15:26</time></div>
+    <div class="ev" id="e1"></div>
+    <div class="mr out"><div class="bb">thank you will get your service soon</div><time>15:27</time></div>
+    <div class="by">Mr. Matrix</div>
+    <div class="mr out"><div class="bb">আমাদের একজন সহকর্মীকে যুক্ত করছি — উনি অর্ডার, ডেলিভারি আর পেমেন্ট নিয়ে আপনাকে সঠিক তথ্য দেবেন। একটু অপেক্ষা করুন 🙏</div><time>15:44</time></div>
+    <div class="by">Sent from Meta app · Sent</div>
+    <div class="sep"><span><i class="c" style="background:var(--instagram)" id="si"></i>Instagram · 7m ago</span></div>
+    <div class="mr out"><div class="bb">hey</div><time>20:45</time></div>
+    <div class="by">Mr. Matrix · Sent</div>
+  </div></div>
+  <div class="cmp"><div class="cb"><textarea class="bn" rows="1" placeholder="Reply to Arafatuzzaman…" aria-label="Reply"></textarea>
+    <button class="via" aria-label="Reply channel"><span class="c" id="v1"></span>Instagram <span id="v2"></span></button>
+    <button class="snd" aria-label="Send" id="sn"></button></div>
+    <div class="cn">Enter to send · Shift+Enter for a new line · Replies go to the channel you pick</div></div>
+</section>
+
+<aside class="rec" aria-label="Contact record">
+  <div class="rc"><div class="avatar s56">MA</div><b>Md. Arafatuzzaman</b><span class="note">Customer since this week</span>
+    <div class="acts"><button class="btn" id="k1">Email</button><button class="btn" id="k2">Call</button><button class="btn" id="k3">Add task</button></div></div>
+  <div class="sc"><h4>Properties</h4><dl style="margin:0">
+    <div class="pr"><dt>Email</dt><dd>makky.cse@gmail.com<em>from chat</em></dd></div>
+    <div class="pr"><dt>Phone</dt><dd class="tnum">+880 1760 345030<em>from chat</em></dd></div>
+    <div class="pr"><dt>Channels</dt><dd>Messenger, Instagram</dd></div>
+    <div class="pr"><dt>Owner</dt><dd>Unassigned</dd></div></dl></div>
+  <div class="sc"><h4>Lead · Service enquiry <span class="note">Qualified</span></h4>
+    <div class="stp"><s class="f"></s><i class="f"></i><s class="f"></s><i class="f"></i><s class="f"></s><i></i><s></s></div>
+    <div class="stl"><span>New</span><span>Contacted</span><span class="on">Qualified</span><span>Won</span></div></div>
+  <div class="sc"><h4>Tasks <span class="note">2 open</span></h4>
+    <label class="tk"><input type="checkbox"><span>Send service details by email<small>Due tomorrow</small></span></label>
+    <label class="tk"><input type="checkbox"><span>Confirm delivery address<small>No due date</small></span></label></div>
+  <div class="sc" style="border:0"><h4>Activity</h4>
+    <div class="hist" id="h1"><span>Email and phone detected in Messenger</span></div>
+    <div class="hist" id="h2"><span>Instagram conversation linked to this person</span></div></div>
+</aside>
+</div></div></div>
+<div class="demo">Option C · demo data · <a href="index.html">all options</a></div>
+<script src="base.js"></script>
+<script>
+const $=id=>document.getElementById(id);
+$('f1').innerHTML=I('filter');$('s1').innerHTML=I('search');
+$('c1').innerHTML=I('msg','sm')+'Messenger';$('c2').innerHTML=I('cam','sm')+'Instagram';
+$('b2').innerHTML=I('ccheck','sm')+'Mark done';$('b3').innerHTML=I('more');
+$('sm').innerHTML=I('msg');$('si').innerHTML=I('cam');$('v1').innerHTML=I('cam');$('v2').innerHTML=I('down','sm');$('sn').innerHTML=I('send');
+$('k1').innerHTML=I('mail','sm')+'Email';$('k2').innerHTML=I('phone','sm')+'Call';$('k3').innerHTML=I('plus','sm')+'Task';
+$('e1').innerHTML=I('check','sm')+'Email saved to contact';
+$('h1').insertAdjacentHTML('afterbegin',I('mail','sm'));$('h2').insertAdjacentHTML('afterbegin',I('msg','sm'));
+const ch=a=>`<span class="chs">${a.map(x=>`<span class="c ${x}">${I(x=='ig'?'cam':'msg')}</span>`).join('')}</span>`;
+const P=[['Md. Arafatuzzaman','7m','<i style="font-style:normal">You:</i> hey',['m','ig'],0,'MA','',1],
+['Sadia Rahman','24m','Is the blue one still available?',['m'],1,'SR','t2'],
+['Imran Hossain','1h','Price for 3 units to Chattogram?',['m'],1,'IH','t3'],
+['Nusrat Jahan','Mon','Thanks! Received it today.',['ig'],0,'NJ','t5'],
+['Tanvir Ahmed','Sun','You: We can deliver on Thursday.',['m'],0,'TA','t4']];
+$('ppl').innerHTML=P.map(p=>`<div class="p ${p[7]?'on':''} ${p[4]?'un':''}" tabindex="0"><div class="avatar s40 ${p[6]}">${p[5]}</div><div class="t"><div class="l1"><b>${p[0]}</b>${ch(p[3])}<time>${p[1]}</time></div><div class="pv bn">${p[2]}</div></div>${p[4]?'<span class="badge">1</span>':''}</div>`).join('');
+document.querySelectorAll('.p').forEach(r=>r.onclick=()=>{document.querySelectorAll('.p').forEach(x=>x.classList.remove('on'));r.classList.add('on')});
+</script></body></html>

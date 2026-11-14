@@ -1,0 +1,83 @@
+- generic [active] [ref=e1]:
+  - button "Open Next.js Dev Tools" [ref=e35] [cursor=pointer]
+  - alert [ref=e47]
+  - link "Skip to content" [ref=e68] [cursor=pointer]:
+    - /url: "#main"
+  - generic [ref=e69]:
+    - complementary [ref=e70]:
+      - 'button "Switch workspace, current: Real Meta Workspace" [ref=e72]':
+        - generic [aria-hidden] [ref=e73]: RE
+        - generic [ref=e74]:
+          - generic [ref=e75]: "Switch workspace, current:"
+          - generic [ref=e76]: Real Meta Workspace
+      - text: RE
+      - navigation "Main" [ref=e81]:
+        - link "Home" [ref=e84] [cursor=pointer]:
+          - /url: /w/01a1d5cd-2a7e-738f-b9f8-52239cfc4811
+        - generic [ref=e89]:
+          - paragraph [ref=e90]: Customers
+          - link "Contacts" [ref=e92] [cursor=pointer]:
+            - /url: /w/01a1d5cd-2a7e-738f-b9f8-52239cfc4811/contacts
+          - link "Tasks" [ref=e99] [cursor=pointer]:
+            - /url: /w/01a1d5cd-2a7e-738f-b9f8-52239cfc4811/tasks
+          - link "Leads" [ref=e105] [cursor=pointer]:
+            - /url: /w/01a1d5cd-2a7e-738f-b9f8-52239cfc4811/leads
+          - link "Pipeline" [ref=e110] [cursor=pointer]:
+            - /url: /w/01a1d5cd-2a7e-738f-b9f8-52239cfc4811/pipeline
+          - link "Reports" [ref=e114] [cursor=pointer]:
+            - /url: /w/01a1d5cd-2a7e-738f-b9f8-52239cfc4811/reports
+        - generic [ref=e119]:
+          - paragraph [ref=e120]: Workspace
+          - link "Integrations" [ref=e122] [cursor=pointer]:
+            - /url: /w/01a1d5cd-2a7e-738f-b9f8-52239cfc4811/settings/integrations
+          - link "Members" [ref=e127] [cursor=pointer]:
+            - /url: /w/01a1d5cd-2a7e-738f-b9f8-52239cfc4811/members
+          - link "Audit log" [ref=e135] [cursor=pointer]:
+            - /url: /w/01a1d5cd-2a7e-738f-b9f8-52239cfc4811/audit-log
+          - link "Settings" [ref=e141] [cursor=pointer]:
+            - /url: /w/01a1d5cd-2a7e-738f-b9f8-52239cfc4811/settings
+        - group [ref=e146]:
+          - generic "Coming soon" [ref=e147] [cursor=pointer]
+      - generic [ref=e150]:
+        - generic [aria-hidden] [ref=e152]: MT
+        - generic [ref=e153]:
+          - generic [ref=e154]: Meta Real Test
+          - generic [ref=e155]: Owner
+    - generic [ref=e156]:
+      - banner [ref=e157]:
+        - button "Search or jump to ⌘K" [ref=e158]:
+          - generic [ref=e162]: Search or jump to
+          - generic [ref=e163]: ⌘K
+        - link "Notifications" [ref=e164] [cursor=pointer]:
+          - /url: /w/01a1d5cd-2a7e-738f-b9f8-52239cfc4811/notifications
+        - status [ref=e168]
+        - button "Account menu" [ref=e169]:
+          - generic [aria-hidden] [ref=e171]: MT
+      - main [ref=e172]:
+        - generic [ref=e173]:
+          - generic [ref=e175]:
+            - heading "Real Meta Workspace" [level=1] [ref=e176]
+            - paragraph [ref=e177]: 1 member · UTC · Created Nov 13, 2026
+          - paragraph [ref=e178]:
+            - text: You are up to date.
+            - generic [ref=e179]: 0 contacts, 0 open deals.
+          - generic [ref=e180]:
+            - generic [ref=e181]:
+              - generic [ref=e182]:
+                - heading "Your next tasks" [level=2] [ref=e183]
+                - link "All tasks" [ref=e184] [cursor=pointer]:
+                  - /url: /w/01a1d5cd-2a7e-738f-b9f8-52239cfc4811/tasks
+              - generic [ref=e187]:
+                - heading "Nothing assigned to you" [level=3] [ref=e192]
+                - paragraph [ref=e193]: Add your first contact, then create follow-ups for it.
+                - link "Go to contacts" [ref=e195] [cursor=pointer]:
+                  - /url: /w/01a1d5cd-2a7e-738f-b9f8-52239cfc4811/contacts
+            - generic [ref=e196]:
+              - heading "Recent activity" [level=2] [ref=e197]
+              - list [ref=e198]:
+                - listitem [ref=e199]:
+                  - generic [aria-hidden] [ref=e201]: MT
+                  - generic [ref=e202]:
+                    - paragraph [ref=e203]: Meta Real Test created the workspace
+                    - paragraph [ref=e204]:
+                      - time [ref=e205]: Nov 13, 4:45 PM

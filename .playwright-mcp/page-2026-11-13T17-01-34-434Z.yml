@@ -1,0 +1,264 @@
+- generic [ref=f8e1]:
+  - link "Skip to content" [ref=f8e2] [cursor=pointer]:
+    - /url: "#main"
+  - generic [ref=f8e3]:
+    - complementary [ref=f8e83]:
+      - 'button "Switch workspace, current: Real Meta Workspace" [ref=f8e85]':
+        - generic [aria-hidden] [ref=f8e86]: RE
+        - generic [ref=f8e87]:
+          - generic [ref=f8e88]: "Switch workspace, current:"
+          - generic [ref=f8e89]: Real Meta Workspace
+      - text: RE
+      - navigation "Main" [ref=f8e94]:
+        - link "Home" [ref=f8e97] [cursor=pointer]:
+          - /url: /w/01a1d5cd-2a7e-738f-b9f8-52239cfc4811
+        - generic [ref=f8e102]:
+          - paragraph [ref=f8e103]: Customers
+          - link "Inbox" [ref=f8e105] [cursor=pointer]:
+            - /url: /w/01a1d5cd-2a7e-738f-b9f8-52239cfc4811/inbox
+          - link "Contacts" [ref=f8e111] [cursor=pointer]:
+            - /url: /w/01a1d5cd-2a7e-738f-b9f8-52239cfc4811/contacts
+          - link "Tasks" [ref=f8e118] [cursor=pointer]:
+            - /url: /w/01a1d5cd-2a7e-738f-b9f8-52239cfc4811/tasks
+          - link "Leads" [ref=f8e124] [cursor=pointer]:
+            - /url: /w/01a1d5cd-2a7e-738f-b9f8-52239cfc4811/leads
+          - link "Pipeline" [ref=f8e129] [cursor=pointer]:
+            - /url: /w/01a1d5cd-2a7e-738f-b9f8-52239cfc4811/pipeline
+          - link "Reports" [ref=f8e133] [cursor=pointer]:
+            - /url: /w/01a1d5cd-2a7e-738f-b9f8-52239cfc4811/reports
+        - generic [ref=f8e138]:
+          - paragraph [ref=f8e139]: Workspace
+          - link "Integrations" [ref=f8e141] [cursor=pointer]:
+            - /url: /w/01a1d5cd-2a7e-738f-b9f8-52239cfc4811/settings/integrations
+          - link "Members" [ref=f8e146] [cursor=pointer]:
+            - /url: /w/01a1d5cd-2a7e-738f-b9f8-52239cfc4811/members
+          - link "Audit log" [ref=f8e154] [cursor=pointer]:
+            - /url: /w/01a1d5cd-2a7e-738f-b9f8-52239cfc4811/audit-log
+          - link "Settings" [ref=f8e160] [cursor=pointer]:
+            - /url: /w/01a1d5cd-2a7e-738f-b9f8-52239cfc4811/settings
+        - group [ref=f8e165]:
+          - generic "Coming soon" [ref=f8e166] [cursor=pointer]
+      - generic [ref=f8e169]:
+        - generic [aria-hidden] [ref=f8e171]: MT
+        - generic [ref=f8e172]:
+          - generic [ref=f8e173]: Meta Real Test
+          - generic [ref=f8e174]: Owner
+    - generic [ref=f8e4]:
+      - banner [ref=f8e5]:
+        - button "Search or jump to ⌘K" [ref=f8e175]:
+          - generic [ref=f8e179]: Search or jump to
+          - generic [ref=f8e180]: ⌘K
+        - link "Notifications" [ref=f8e18] [cursor=pointer]:
+          - /url: /w/01a1d5cd-2a7e-738f-b9f8-52239cfc4811/notifications
+        - status [ref=f8e22]
+        - button "Account menu" [ref=f8e23]:
+          - generic [aria-hidden] [ref=f8e25]: MT
+      - main [ref=f8e26]:
+        - generic [ref=f8e28]:
+          - region "Conversations" [ref=f8e29]:
+            - generic [ref=f8e30]:
+              - generic [ref=f8e31]:
+                - heading "Inbox" [level=1] [ref=f8e32]
+                - generic [ref=f8e181]: 16 unread
+              - textbox "Search conversations" [ref=f8e34]:
+                - /placeholder: Search name or message
+              - generic [ref=f8e35]:
+                - combobox "Status" [ref=f8e37]:
+                  - option "Open" [selected]
+                  - option "Pending"
+                  - option "Resolved"
+                  - option "All statuses"
+                - combobox "Assignee" [ref=f8e39]:
+                  - option "Anyone" [selected]
+                  - option "Me"
+                  - option "Unassigned"
+                - button "Unread" [ref=f8e40]
+            - list [ref=f8e182]:
+              - listitem [ref=f8e183]:
+                - link "Maria Lopez 4m Great. Can you deliver to Dhaka by Friday? 2 unread via Messenger, unassigned" [ref=f8e184] [cursor=pointer]:
+                  - /url: /w/01a1d5cd-2a7e-738f-b9f8-52239cfc4811/inbox/01a1d5da-6546-74b3-b600-da2e6d962bae
+                  - generic [aria-hidden] [ref=f8e187]: ML
+                  - generic [ref=f8e191]:
+                    - generic [ref=f8e192]:
+                      - generic [ref=f8e193]: Maria Lopez
+                      - time [ref=f8e194]: 4m
+                    - generic [ref=f8e195]:
+                      - generic [ref=f8e196]: Great. Can you deliver to Dhaka by Friday?
+                      - generic [ref=f8e197]:
+                        - generic [aria-hidden] [ref=f8e198]: "2"
+                        - generic [ref=f8e199]: 2 unread
+                    - generic [ref=f8e200]: via Messenger, unassigned
+              - listitem [ref=f8e201]:
+                - 'link "Priya Nair 7m I need help with order #4821 3 unread via Messenger, unassigned" [ref=f8e202] [cursor=pointer]':
+                  - /url: /w/01a1d5cd-2a7e-738f-b9f8-52239cfc4811/inbox/01a1d5da-6556-7be7-8b65-e44f46e95d20
+                  - generic [aria-hidden] [ref=f8e205]: PN
+                  - generic [ref=f8e209]:
+                    - generic [ref=f8e210]:
+                      - generic [ref=f8e211]: Priya Nair
+                      - time [ref=f8e212]: 7m
+                    - generic [ref=f8e213]:
+                      - generic [ref=f8e214]: "I need help with order #4821"
+                      - generic [ref=f8e215]:
+                        - generic [aria-hidden] [ref=f8e216]: "3"
+                        - generic [ref=f8e217]: 3 unread
+                    - generic [ref=f8e218]: via Messenger, unassigned
+              - listitem [ref=f8e219]:
+                - link "Fatima Zahra 13m Attachment 1 unread via Messenger, unassigned" [ref=f8e220] [cursor=pointer]:
+                  - /url: /w/01a1d5cd-2a7e-738f-b9f8-52239cfc4811/inbox/01a1d5da-656a-7bf7-b1af-3e1cf75e36f7
+                  - generic [aria-hidden] [ref=f8e223]: FZ
+                  - generic [ref=f8e227]:
+                    - generic [ref=f8e228]:
+                      - generic [ref=f8e229]: Fatima Zahra
+                      - time [ref=f8e230]: 13m
+                    - generic [ref=f8e231]:
+                      - generic [ref=f8e232]: Attachment
+                      - generic [ref=f8e233]:
+                        - generic [aria-hidden] [ref=f8e234]: "1"
+                        - generic [ref=f8e235]: 1 unread
+                    - generic [ref=f8e236]: via Messenger, unassigned
+              - listitem [ref=f8e237]:
+                - link "Omar Haddad 16m Voice note 1 unread via Messenger, unassigned" [ref=f8e238] [cursor=pointer]:
+                  - /url: /w/01a1d5cd-2a7e-738f-b9f8-52239cfc4811/inbox/01a1d5da-6562-7044-918b-21c99d43dcbd
+                  - generic [aria-hidden] [ref=f8e241]: OH
+                  - generic [ref=f8e245]:
+                    - generic [ref=f8e246]:
+                      - generic [ref=f8e247]: Omar Haddad
+                      - time [ref=f8e248]: 16m
+                    - generic [ref=f8e249]:
+                      - generic [ref=f8e250]: Voice note
+                      - generic [ref=f8e251]:
+                        - generic [aria-hidden] [ref=f8e252]: "1"
+                        - generic [ref=f8e253]: 1 unread
+                    - generic [ref=f8e254]: via Messenger, unassigned
+              - listitem [ref=f8e255]:
+                - 'link "Lena Fischer 19m You: Sure, what is the new address? 1 unread via Messenger, unassigned" [ref=f8e256] [cursor=pointer]':
+                  - /url: /w/01a1d5cd-2a7e-738f-b9f8-52239cfc4811/inbox/01a1d5da-655d-79a1-ac3c-f5579b04e928
+                  - generic [aria-hidden] [ref=f8e259]: LF
+                  - generic [ref=f8e263]:
+                    - generic [ref=f8e264]:
+                      - generic [ref=f8e265]: Lena Fischer
+                      - time [ref=f8e266]: 19m
+                    - generic [ref=f8e267]:
+                      - generic [ref=f8e268]: "You: Sure, what is the new address?"
+                      - generic [ref=f8e269]:
+                        - generic [aria-hidden] [ref=f8e270]: "1"
+                        - generic [ref=f8e271]: 1 unread
+                    - generic [ref=f8e272]: via Messenger, unassigned
+              - listitem [ref=f8e273]:
+                - link "Jon Park 55m One more question about the warranty. 2 unread via Messenger, unassigned" [ref=f8e274] [cursor=pointer]:
+                  - /url: /w/01a1d5cd-2a7e-738f-b9f8-52239cfc4811/inbox/01a1d5da-654d-7589-975a-eb59936d772f
+                  - generic [aria-hidden] [ref=f8e277]: JP
+                  - generic [ref=f8e281]:
+                    - generic [ref=f8e282]:
+                      - generic [ref=f8e283]: Jon Park
+                      - time [ref=f8e284]: 55m
+                    - generic [ref=f8e285]:
+                      - generic [ref=f8e286]: One more question about the warranty.
+                      - generic [ref=f8e287]:
+                        - generic [aria-hidden] [ref=f8e288]: "2"
+                        - generic [ref=f8e289]: 2 unread
+                    - generic [ref=f8e290]: via Messenger, unassigned
+              - listitem [ref=f8e291]:
+                - 'link "Sofia Rossi 1h You: Let me check with the team. 1 unread via Messenger, unassigned" [ref=f8e292] [cursor=pointer]':
+                  - /url: /w/01a1d5cd-2a7e-738f-b9f8-52239cfc4811/inbox/01a1d5da-6564-79ef-bd70-afb0a20c7932
+                  - generic [aria-hidden] [ref=f8e295]: SR
+                  - generic [ref=f8e299]:
+                    - generic [ref=f8e300]:
+                      - generic [ref=f8e301]: Sofia Rossi
+                      - time [ref=f8e302]: 1h
+                    - generic [ref=f8e303]:
+                      - generic [ref=f8e304]: "You: Let me check with the team."
+                      - generic [ref=f8e305]:
+                        - generic [aria-hidden] [ref=f8e306]: "1"
+                        - generic [ref=f8e307]: 1 unread
+                    - generic [ref=f8e308]: via Messenger, unassigned
+              - listitem [ref=f8e309]:
+                - 'link "Daniel Kim 4h You: Hi Daniel, thanks for your interest. How can we help? via Messenger, unassigned" [ref=f8e310] [cursor=pointer]':
+                  - /url: /w/01a1d5cd-2a7e-738f-b9f8-52239cfc4811/inbox/01a1d5da-6567-7c5a-b500-06c00ea56314
+                  - generic [aria-hidden] [ref=f8e313]: DK
+                  - generic [ref=f8e317]:
+                    - generic [ref=f8e318]:
+                      - generic [ref=f8e319]: Daniel Kim
+                      - time [ref=f8e320]: 4h
+                    - generic [ref=f8e321]: "You: Hi Daniel, thanks for your interest. How can we help?"
+                    - generic [ref=f8e323]: via Messenger, unassigned
+              - listitem [ref=f8e324]:
+                - link "Carlos Mendes 1d Do you ship internationally? 1 unread via Messenger, unassigned" [ref=f8e325] [cursor=pointer]:
+                  - /url: /w/01a1d5cd-2a7e-738f-b9f8-52239cfc4811/inbox/01a1d5da-6554-74e4-96d0-9b9ac6c5da48
+                  - generic [aria-hidden] [ref=f8e328]: CM
+                  - generic [ref=f8e332]:
+                    - generic [ref=f8e333]:
+                      - generic [ref=f8e334]: Carlos Mendes
+                      - time [ref=f8e335]: 1d
+                    - generic [ref=f8e336]:
+                      - generic [ref=f8e337]: Do you ship internationally?
+                      - generic [ref=f8e338]:
+                        - generic [aria-hidden] [ref=f8e339]: "1"
+                        - generic [ref=f8e340]: 1 unread
+                    - generic [ref=f8e341]: via Messenger, unassigned
+            - status [ref=f8e73]: 9 conversations, 16 unread
+          - generic [ref=f8e343]:
+            - region "Conversation with Maria Lopez" [ref=f8e344]:
+              - generic [ref=f8e345]:
+                - generic [aria-hidden] [ref=f8e347]: ML
+                - generic [ref=f8e348]:
+                  - heading [active] [level=2] [ref=f8e349]:
+                    - link "Maria Lopez" [ref=f8e350] [cursor=pointer]:
+                      - /url: /w/01a1d5cd-2a7e-738f-b9f8-52239cfc4811/contacts/01a1d5da-6544-71c3-88c4-13b81ae6e12a
+                  - generic [ref=f8e351]:
+                    - text: Messenger
+                    - generic [ref=f8e354]: · Mock inbox (seed)
+                - generic [ref=f8e355]:
+                  - combobox "Status" [ref=f8e357]:
+                    - option "Open" [selected]
+                    - option "Pending"
+                    - option "Resolved"
+                  - combobox "Assignee" [ref=f8e359]:
+                    - option "Unassigned" [selected]
+                    - option "Me"
+                  - button "Contact" [expanded] [ref=f8e360]
+              - log "Messages with Maria Lopez" [ref=f8e364]:
+                - paragraph [ref=f8e365]: Today
+                - paragraph [ref=f8e366]: New messages
+                - generic [ref=f8e371]:
+                  - paragraph [ref=f8e372]: Hi, is the blue one available in size 38?
+                  - paragraph [ref=f8e373]:
+                    - time [ref=f8e374]: 22:18
+                - generic [ref=f8e376]:
+                  - generic [ref=f8e377]:
+                    - paragraph [ref=f8e378]: Meta Real Test
+                    - paragraph [ref=f8e379]: Hi Maria! Yes, we have 3 in stock.
+                    - paragraph [ref=f8e380]:
+                      - time [ref=f8e381]: 22:20
+                  - paragraph [ref=f8e382]: Sent
+                - generic [ref=f8e385]:
+                  - paragraph [ref=f8e386]: Great. Can you deliver to Dhaka by Friday?
+                  - paragraph [ref=f8e387]:
+                    - time [ref=f8e388]: 22:57
+              - status [ref=f8e389]
+              - generic [ref=f8e390]:
+                - generic [ref=f8e391]:
+                  - textbox "Reply" [disabled] [ref=f8e392]:
+                    - /placeholder: Write a reply
+                  - button "Send" [disabled]
+                - paragraph [ref=f8e393]: Sending arrives in the next release. You can read, assign and resolve conversations now.
+            - complementary "Contact" [ref=f8e394]:
+              - generic [ref=f8e395]:
+                - generic [ref=f8e396]:
+                  - generic [aria-hidden] [ref=f8e398]: ML
+                  - generic [ref=f8e399]:
+                    - paragraph [ref=f8e400]: Maria Lopez
+                    - generic [ref=f8e401]:
+                      - text: Messenger
+                      - generic [ref=f8e404]: · Mock inbox (seed)
+                - generic [ref=f8e405]:
+                  - term [ref=f8e406]: Email
+                  - definition [ref=f8e407]: Not set
+                  - term [ref=f8e408]: Phone
+                  - definition [ref=f8e409]: Not set
+                  - term [ref=f8e410]: Last message
+                  - definition [ref=f8e411]: 4m ago
+                - link "Open contact" [ref=f8e412] [cursor=pointer]:
+                  - /url: /w/01a1d5cd-2a7e-738f-b9f8-52239cfc4811/contacts/01a1d5da-6544-71c3-88c4-13b81ae6e12a
+  - button "Open Next.js Dev Tools" [ref=f8e79] [cursor=pointer]
+  - alert [ref=f8e413]: Inbox

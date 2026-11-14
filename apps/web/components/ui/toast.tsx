@@ -4,17 +4,18 @@ import { CheckCircle2, AlertTriangle, X } from "lucide-react";
 import { cn } from "@/lib/cn";
 
 type Tone = "success" | "error";
-type Item = { id: number; text: string; tone: Tone };
-const Ctx = React.createContext<(text: string, tone?: Tone) => void>(() => {});
+type Action = { label: string; onClick: () => void };
+type Item = { id: number; text: string; tone: Tone; action?: Action };
+const Ctx = React.createContext<(text: string, tone?: Tone, action?: Action) => void>(() => {});
 export const useToast = () => React.useContext(Ctx);
 
 /** Polite live region: success toasts are announced without stealing focus; errors use role=alert. Auto-dismiss after 5 s (errors 8 s). */
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = React.useState<Item[]>([]);
   const n = React.useRef(0);
-  const push = React.useCallback((text: string, tone: Tone = "success") => {
+  const push = React.useCallback((text: string, tone: Tone = "success", action?: Action) => {
     const id = ++n.current;
-    setItems((x) => [...x.slice(-3), { id, text, tone }]);
+    setItems((x) => [...x.slice(-3), { id, text, tone, action }]);
     setTimeout(() => setItems((x) => x.filter((i) => i.id !== id)), tone === "error" ? 8000 : 5000);
   }, []);
   return (
@@ -25,6 +26,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
           <div key={i.id} role={i.tone === "error" ? "alert" : "status"} className={cn("toast pointer-events-auto flex max-w-md items-start gap-2 rounded-card border bg-surface px-3 py-2 text-base shadow-popover", i.tone === "error" ? "border-danger-bg text-danger-fg" : "border-line text-fg")}>
             {i.tone === "error" ? <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden /> : <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-success-fg" aria-hidden />}
             <span>{i.text}</span>
+            {i.action && <button type="button" className="press -my-0.5 ml-1 rounded-control border border-line px-2 py-0.5 text-sm font-medium hover:bg-hover" onClick={() => { i.action!.onClick(); setItems((x) => x.filter((y) => y.id !== i.id)); }}>{i.action.label}</button>}
             <button type="button" aria-label="Dismiss" className="-mr-1 ml-1 rounded p-0.5 text-fg-subtle hover:bg-hover" onClick={() => setItems((x) => x.filter((y) => y.id !== i.id))}><X className="size-3.5" aria-hidden /></button>
           </div>
         ))}
