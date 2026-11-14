@@ -371,6 +371,29 @@ describe("messaging through a directly connected account", () => {
     expect(await outRows(s.conv)).toHaveLength(1);
   });
 
+  it("the echo of a message we already recorded as sent has a DIFFERENT id (as seen on a real account) and must not become a second bubble", async () => {
+    const s = await conv();
+    graph.calls.length = 0;
+    graph.state.sends = ["send.response.id.A", "send.response.id.B"];
+    const echo = async (mid: string, text: string) => { expect((await post(buildMessagePayload({ object: "instagram", accountId: s.id, userId: s.igsid, mid, text, timestampMs: Date.now(), echo: true }))).status).toBe(200); await drain(s.id); };
+    await call(owner, "POST", SEND(ws, s.conv), { clientMsgId: uuid(), body: "hi there" });
+    await echo("echo.webhook.id.A", "hi there"); // different id, same text
+    await echo("echo.webhook.id.A", "hi there"); // re-delivered by Meta
+    expect(await outRows(s.conv)).toHaveLength(1);
+    // a second identical reply produces its own echo: still exactly two rows, none "external"
+    await call(owner, "POST", SEND(ws, s.conv), { clientMsgId: uuid(), body: "hi there" });
+    await echo("echo.webhook.id.B", "hi there");
+    await echo("echo.webhook.id.B", "hi there");
+    expect((await outRows(s.conv)).map((r) => r.sender_kind)).toEqual(["user", "user"]);
+    // a message typed in the Instagram app (different text) is still shown, and survives its own re-delivery
+    await echo("echo.native.1", "typed in the app");
+    await echo("echo.native.1", "typed in the app");
+    expect((await outRows(s.conv)).map((r) => [r.sender_kind, r.body])).toEqual([["user", "hi there"], ["user", "hi there"], ["external", "typed in the app"]]);
+    // documented limit: an app-typed message with the SAME text as a CRM reply inside the 10 minute window is indistinguishable from our echo and is not shown separately
+    await echo("echo.native.2", "hi there");
+    expect((await outRows(s.conv)).filter((r) => r.sender_kind === "external").map((r) => r.body)).toEqual(["typed in the app"]);
+  });
+
   it("a timeout is UNKNOWN and never re-sent (an echo can adopt it); a refusal is a definite failure; window and 1000-byte limit apply; roles and tenants are enforced", async () => {
     const s = await conv();
     graph.calls.length = 0;

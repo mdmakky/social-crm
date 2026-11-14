@@ -104,6 +104,20 @@ async function applyEvent(tx: Tx, ctx: Ctx, ev: MetaEvent): Promise<void> {
     }
     // Pre-check under the per-thread lock: the seq trigger runs before ON CONFLICT is evaluated, so a duplicate insert would burn a sequence number. The unique index stays as the backstop.
     if (rowsOf(await tx.execute(sql`SELECT 1 FROM messages WHERE integration_account_id = ${ctx.accountId} AND external_id = ${ev.mid}`)).length > 0) return;
+    // Instagram: the id Meta returns from the send call is NOT the id on the echo webhook (observed on a real Unified Login account: 167 vs 164 characters, different values), so the echo of a message we
+    // already recorded as sent would be stored as a second bubble ("Sent from another app"). Meta gives no other link, so an echo is treated as ours when this conversation has more recently
+    // CRM-sent messages with exactly that text than echoes stored for it. Cost: a message typed in the Instagram app with the same text as a CRM reply within 10 minutes is not shown separately.
+    // Idempotent: a re-delivered echo gives the same answer, because suppressed echoes are never stored.
+    if (ctx.platform === "instagram" && ev.isEcho && ev.text) {
+      const c = rowsOf(
+        await tx.execute(sql`
+          SELECT (SELECT count(*) FROM messages WHERE workspace_id = ${ctx.workspaceId} AND conversation_id = ${conv.id} AND direction = 'out' AND sender_kind = 'user' AND body = ${ev.text}
+                    AND delivery_state IN ('sent','sending','unknown') AND created_at > now() - interval '10 minutes') AS ours,
+                 (SELECT count(*) FROM messages WHERE workspace_id = ${ctx.workspaceId} AND conversation_id = ${conv.id} AND direction = 'out' AND sender_kind = 'external' AND body = ${ev.text}
+                    AND created_at > now() - interval '10 minutes') AS echoes`),
+      )[0]!;
+      if (Number(c.ours) > Number(c.echoes)) return;
+    }
     const inserted = rowsOf(
       await tx.execute(sql`
         INSERT INTO messages (workspace_id, conversation_id, integration_account_id, direction, external_id, sender_kind, body, attachments, delivery_state, occurred_at, sent_at)
