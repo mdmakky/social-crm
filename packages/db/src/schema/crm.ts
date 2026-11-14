@@ -200,6 +200,8 @@ export const contactMethods = pgTable(
     verifiedBy: text("verified_by"),
     isPrimary: boolean("is_primary").notNull().default(false),
     extractedAt: timestamp("extracted_at", { withTimezone: true }).notNull().defaultNow(),
+    correctedAt: timestamp("corrected_at", { withTimezone: true }),
+    correctedBy: text("corrected_by"),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },

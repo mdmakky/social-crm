@@ -20,9 +20,11 @@ let seq = 0;
 const digits = () => `9${Math.floor(Math.random() * 1e12).toString().padStart(12, "0")}`;
 const q = async (text: string, params: unknown[] = []) => (await h.admin.query(text, params)).rows;
 
+const createdAccounts: string[] = [];
 async function account(workspaceId: string, platform = "messenger") {
   const ref = digits();
   const [{ id }] = await q("INSERT INTO integration_accounts (workspace_id, platform, external_account_id, status) VALUES ($1,$2,$3,'connected') RETURNING id", [workspaceId, platform, ref]);
+  createdAccounts.push(id as string);
   return { ref, id: id as string, platform };
 }
 async function drain() {
@@ -53,6 +55,8 @@ beforeAll(async () => {
   [wsA, wsB] = [await h.workspace(a, "CM A"), await h.workspace(userB, "CM B")];
 });
 afterAll(async () => {
+  // these accounts have no real token: mark them checked so the shared due-token job (meta-connect tests, LIMIT 100) is not crowded by them
+  if (createdAccounts.length) await q("UPDATE integration_accounts SET last_token_check_at = now(), status = 'disabled' WHERE id = ANY($1::uuid[])", [createdAccounts]);
   await ingestDb.$client.end();
   await workerDb.$client.end();
   await h.close();
@@ -267,8 +271,10 @@ describe("contact_methods isolation and database guards", () => {
     expect((asB as { rows: unknown[] }).rows).toHaveLength(0);
     const workerB = await withContext(workerDb, { workspaceId: wsB }, (tx) => tx.execute(sql`SELECT * FROM contact_methods WHERE contact_id = ${c.id}`));
     expect((workerB as { rows: unknown[] }).rows).toHaveLength(0);
-    // the app role is read-only here
-    await expect(withContext(h.db, { userId: userB.id, workspaceId: wsB }, (tx) => tx.execute(sql`DELETE FROM contact_methods`))).rejects.toThrow();
+    // the app role can never insert, and its delete/update reach only detected rows of its own workspace (migration 0023)
+    const deleted = await withContext(h.db, { userId: userB.id, workspaceId: wsB }, async (tx) => (await tx.execute(sql`DELETE FROM contact_methods WHERE contact_id = ${c.id}`)).rowCount);
+    expect(deleted).toBe(0);
+    expect(await methods(c.id)).toHaveLength(1);
   });
 
   it("the worker cannot write a verified method, a foreign workspace, or replace an entered phone/email", async () => {

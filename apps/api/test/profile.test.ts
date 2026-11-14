@@ -23,6 +23,7 @@ const q = async (text: string, params: unknown[] = []) => (await h.admin.query(t
 const PIC = "https://scontent.xx.fbcdn.net/v/pic.jpg?sig=1";
 
 /** Connected Messenger account with an encrypted Page token, like a real connect leaves it. */
+const createdAccounts: string[] = [];
 async function account(workspaceId: string, opts: { token?: string | null } = {}) {
   const ref = digits();
   const [{ id }] = await q("INSERT INTO integration_accounts (workspace_id, platform, external_account_id, status) VALUES ($1,'messenger',$2,'connected') RETURNING id", [workspaceId, ref]);
@@ -30,6 +31,7 @@ async function account(workspaceId: string, opts: { token?: string | null } = {}
     const s = box.seal(opts.token ?? "page-token-secret", `${workspaceId}:${id}`);
     await q("INSERT INTO integration_secrets (workspace_id, integration_account_id, version, ciphertext, nonce, key_id) VALUES ($1,$2,1,$3,$4,$5)", [workspaceId, id, s.ciphertext, s.nonce, s.keyId]);
   }
+  createdAccounts.push(id as string);
   return { ref, id: id as string };
 }
 async function drain() {
@@ -47,7 +49,7 @@ async function incoming(acct: { ref: string }, user: string, mid = "m1") {
 }
 const identity = async (acctId: string, user: string) =>
   (await q("SELECT pi.*, c.name AS contact_name, c.version AS contact_version FROM platform_identities pi JOIN contacts c ON c.id = pi.contact_id WHERE pi.integration_account_id = $1 AND pi.external_user_id = $2", [acctId, user]))[0]!;
-const enricher = (graph: ReturnType<typeof createMockGraph>, over: Record<string, unknown> = {}) => createProfileEnricher({ workerDb, graph, box, ...over });
+const enricher = (graph: ReturnType<typeof createMockGraph>, over: Record<string, unknown> = {}) => createProfileEnricher({ workerDb, graph, box, budget: 500, ...over }) // big budget: other test files' pending identities share this database;
 const profiles = (m: Record<string, UserProfile | null | GraphError>) => createMockGraph({ profiles: new Map(Object.entries(m)) });
 
 beforeAll(async () => {
@@ -59,6 +61,8 @@ beforeAll(async () => {
   [wsA, wsB] = [await h.workspace(a, "Prof A"), await h.workspace(b, "Prof B")];
 });
 afterAll(async () => {
+  // these accounts have no real token: mark them checked so the shared due-token job (meta-connect tests, LIMIT 100) is not crowded by them
+  if (createdAccounts.length) await q("UPDATE integration_accounts SET last_token_check_at = now(), status = 'disabled' WHERE id = ANY($1::uuid[])", [createdAccounts]);
   await ingestDb.$client.end();
   await workerDb.$client.end();
   await h.close();

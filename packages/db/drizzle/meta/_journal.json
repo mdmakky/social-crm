@@ -162,6 +162,13 @@
       "when": 1794583324233,
       "tag": "0022_contact_methods",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1794584324233,
+      "tag": "0023_contact_method_corrections",
+      "breakpoints": true
     }
   ]
 }

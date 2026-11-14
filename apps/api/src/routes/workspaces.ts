@@ -8,6 +8,7 @@ import { ensureDefaultPipeline, ensureDefaultStages } from "../crm-service.ts";
 import type { ScopedEnv } from "./scope.ts";
 import { contactRoutes } from "./contacts.ts";
 import { conversationRoutes } from "./conversations.ts";
+import { contactMethodRoutes } from "./contact-methods.ts";
 import { crmConfigRoutes } from "./crm-config.ts";
 import { searchRoutes } from "../search/routes.ts"; // track:search
 import type { SearchProvider } from "../search/types.ts"; // track:search
@@ -185,6 +186,7 @@ export function workspaceRoutes(db: Db, hooks: { import?: ImportHooks; extraSear
   scoped.route("/", taskRoutes(db));
   scoped.route("/", notificationRoutes(db)); // track:notifications
   scoped.route("/", conversationRoutes(db)); // track:inbox
+  scoped.route("/", contactMethodRoutes(db));
   if (hooks.metaScoped) scoped.route("/", hooks.metaScoped); // track:inbox
   r.route("/:id", scoped as unknown as Hono<{ Variables: Vars }>);
   return r;

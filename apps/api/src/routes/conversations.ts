@@ -76,8 +76,8 @@ const loadDetail = async (tx: Tx, workspaceId: string, id: string) => {
   const d = detail(r);
   // Provenance of the contact's phones and emails (one small query; at most 20 rows).
   d.contactSummary.methods = rowsOf(
-    await tx.execute(sql`SELECT id, kind, value, source, confidence, verified, is_primary, extracted_at FROM contact_methods WHERE workspace_id = ${workspaceId} AND contact_id = ${d.contactSummary.id} ORDER BY is_primary DESC, extracted_at, id LIMIT 20`),
-  ).map((m) => ({ id: m.id as string, kind: m.kind as "phone" | "email", value: m.value as string, source: m.source as ContactMethodDto["source"], confidence: Number(m.confidence), verified: m.verified as boolean, isPrimary: m.is_primary as boolean, extractedAt: iso(m.extracted_at) ?? "" }));
+    await tx.execute(sql`SELECT id, kind, value, source, confidence, verified, is_primary, extracted_at, corrected_at FROM contact_methods WHERE workspace_id = ${workspaceId} AND contact_id = ${d.contactSummary.id} ORDER BY is_primary DESC, extracted_at, id LIMIT 20`),
+  ).map((m) => ({ id: m.id as string, kind: m.kind as "phone" | "email", value: m.value as string, source: m.source as ContactMethodDto["source"], confidence: Number(m.confidence), verified: m.verified as boolean, isPrimary: m.is_primary as boolean, extractedAt: iso(m.extracted_at) ?? "", correctedAt: iso(m.corrected_at) }));
   return d;
 };
 

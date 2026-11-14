@@ -50,6 +50,8 @@ export const ContactMethodDto = z.object({
   verified: z.boolean(),
   isPrimary: z.boolean(),
   extractedAt: z.string(),
+  /** Set when a person corrected a detected value. */
+  correctedAt: z.string().nullable(),
 });
 export type ContactMethodDto = z.infer<typeof ContactMethodDto>;
 
