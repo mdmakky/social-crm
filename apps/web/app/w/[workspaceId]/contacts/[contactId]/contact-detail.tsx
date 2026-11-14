@@ -6,6 +6,7 @@ import { ArrowLeft, Check, ChevronDown, Clock, MessageSquare, MoreHorizontal, Pe
 import { endpoints, type ActivityItem, type ContactDetail, type CustomField, type DuplicateCandidate, type LifecycleStage, type Member, type Note, type Role, type LeadDto, type PipelineDto, type Tag, type Task } from "@crm/contracts";
 import { can } from "@crm/core/permissions";
 import { CustomFieldInput } from "@/components/contacts/custom-field-input";
+import { DetectedMethodsPanel } from "@/components/contacts/detected-methods";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge, hueOf, Status } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -98,6 +99,7 @@ export function ContactDetailView(props: Props) {
         <div className="grid gap-4 lg:col-span-2">
           <div className={GROUP}>
           <DetailsPanel key={c.version} c={c} carry={carry} onCarryUsed={() => setCarry(null)} onCarry={setCarry} saved={savedVersion === c.version} onSaved={(d, viaSave) => { setC(d); if (viaSave) setSavedVersion(d.version); void refreshActivity(); }} stages={stages} members={members} fields={fields} canEdit={perms.edit} workspaceId={workspaceId} myUserId={myUserId} />
+          <DetectedMethodsPanel workspaceId={workspaceId} contactId={c.id} canEdit={perms.edit} timeZone={timeZone} onPrimaryChanged={() => { void browserApi.call(endpoints.getContact, { params: { workspaceId, contactId: c.id } }).then((r) => { if (r.ok) setC(r.data); }); }} />
           <TagsPanel c={c} allTags={allTags} canEdit={perms.edit} workspaceId={workspaceId} onChanged={(d, t) => { setC(d); if (t) setAllTags(t); void refreshActivity(); }} />
           </div>
           <div className={GROUP}>
