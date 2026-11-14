@@ -38,8 +38,9 @@ export function instagramUnified(db: Db, deps?: MetaConnectDeps) {
       return c.json({ authUrl: back.toString() });
     }
     const url = new URL(`https://www.facebook.com/${deps.graphVersion}/dialog/oauth`);
+    // Same parameters as the Login URL the Meta dashboard generates for this configuration (checked against the dashboard on 2026-11-14), minus `display=popup` because this is a full-page redirect.
     // prompt=login shows both the Facebook and the Instagram sign-in options (Unified Login get-started page).
-    for (const [k, v] of Object.entries({ client_id: deps.appId, config_id: deps.igUnified.configId, redirect_uri: deps.igUnified.redirectUri, response_type: "code", state, prompt: "login" })) url.searchParams.set(k, v);
+    for (const [k, v] of Object.entries({ client_id: deps.appId, config_id: deps.igUnified.configId, redirect_uri: deps.igUnified.redirectUri, response_type: "code", override_default_response_type: "true", state, prompt: "login" })) url.searchParams.set(k, v);
     return c.json({ authUrl: url.toString() });
   });
 

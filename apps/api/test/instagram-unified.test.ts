@@ -76,7 +76,8 @@ describe("start: login URL and permissions", () => {
       expect(res.status).toBe(200);
       const url = new URL((await res.json()).authUrl);
       expect(`${url.origin}${url.pathname}`).toBe("https://www.facebook.com/v25.0/dialog/oauth");
-      expect(Object.fromEntries(url.searchParams)).toMatchObject({ client_id: "123456", config_id: "777000111", redirect_uri: REDIRECT, response_type: "code", prompt: "login" });
+      expect(Object.fromEntries(url.searchParams)).toMatchObject({ client_id: "123456", config_id: "777000111", redirect_uri: REDIRECT, response_type: "code", override_default_response_type: "true", prompt: "login" });
+      expect(url.searchParams.has("display")).toBe(false);
       expect(url.searchParams.get("state")).toMatch(/^[\w-]+\.[\w-]+$/);
       expect(url.searchParams.has("scope")).toBe(false); // permissions come from the configuration
       expect(url.toString()).not.toMatch(/secret|token/i);
