@@ -35,7 +35,24 @@ export class GraphError extends Error {
   }
 }
 
+/**
+ * Outcome of a Send API call that did NOT return a message id.
+ * `rejected`: Meta answered with a 4xx error body, so the message was refused and nothing was delivered (safe to show as failed).
+ * `ambiguous`: timeout, network failure, 5xx, or a reply we could not read. The request may have reached Meta, so the message might have been delivered. Never retried automatically.
+ */
+export class SendError extends Error {
+  constructor(readonly outcome: "rejected" | "ambiguous", readonly httpStatus: number | null, readonly code: number | null, readonly subcode: number | null) {
+    super(`send_${outcome}_${code ?? httpStatus ?? "none"}`); // no response text: it could echo the message or the recipient
+  }
+}
+
 export interface MetaGraph {
+  /**
+   * Messenger Send API (text only, standard messaging): POST /{version}/{PAGE_ID}/messages with the Page token, `messaging_type: "RESPONSE"`.
+   * Meta documents no idempotency key (checked 2026-11-14), so a second call can deliver a second copy: callers must never repeat a call whose result is ambiguous.
+   * Throws SendError; returns Meta's message id on success.
+   */
+  sendText(pageId: string, pageToken: string, psid: string, text: string): Promise<{ messageId: string }>;
   /** Authorization-code exchange (redirect_uri must equal the one used for the dialog). */
   exchangeCode(code: string, redirectUri: string): Promise<{ accessToken: string; expiresInSec: number | null }>;
   exchangeLongLived(userToken: string): Promise<{ accessToken: string; expiresInSec: number | null }>;
@@ -123,6 +140,28 @@ export function createMetaGraph(cfg: { appId: string; appSecret: string; version
       const j = await call(`/${encodeURIComponent(pageId)}/subscribed_apps`, { method: "DELETE", token: pageToken || appToken });
       return j.success === true;
     },
+    async sendText(pageId, pageToken, psid, text) {
+      let res: Response;
+      try {
+        res = await f(`${base}/${encodeURIComponent(pageId)}/messages`, {
+          method: "POST",
+          headers: { authorization: `Bearer ${pageToken}`, "content-type": "application/json" },
+          body: JSON.stringify({ recipient: { id: psid }, messaging_type: "RESPONSE", message: { text } }),
+          signal: AbortSignal.timeout(15_000),
+        });
+      } catch {
+        throw new SendError("ambiguous", null, null, null); // timeout or connection lost after the request may have been written
+      }
+      const json = (await res.json().catch(() => null)) as { error?: { code?: unknown; error_subcode?: unknown }; message_id?: unknown } | null;
+      if (res.ok && !json?.error) {
+        if (typeof json?.message_id === "string" && json.message_id) return { messageId: json.message_id };
+        throw new SendError("ambiguous", res.status, null, null); // 2xx without an id: accepted or not, we cannot tell
+      }
+      const code = typeof json?.error?.code === "number" ? json.error.code : null;
+      const sub = typeof json?.error?.error_subcode === "number" ? json.error.error_subcode : null;
+      // A 4xx with a readable Graph error is a refusal. A 5xx (or an unreadable body) may hide a request that was processed.
+      throw new SendError(res.status >= 400 && res.status < 500 && code !== null ? "rejected" : "ambiguous", res.status, code, sub);
+    },
     async getUserProfile(psid, pageToken) {
       const j = await call(`/${encodeURIComponent(psid)}`, { token: pageToken, query: { fields: "name,profile_pic" } });
       const name = cleanProfileName(j.name);
@@ -138,7 +177,7 @@ export function createMetaGraph(cfg: { appId: string; appSecret: string; version
 }
 
 /** MOCK ONLY: in-memory Graph for tests and mock mode. Behaviour is whatever the test configures; it proves our code, not Meta's. */
-export function createMockGraph(state: { pages?: GraphPage[]; validCodes?: Set<string>; tokenInfo?: Map<string, TokenInfo>; failSubscribe?: boolean; metaUserId?: string | null; profiles?: Map<string, UserProfile | null | GraphError> } = {}): MetaGraph & { calls: string[]; state: typeof state } {
+export function createMockGraph(state: { pages?: GraphPage[]; validCodes?: Set<string>; tokenInfo?: Map<string, TokenInfo>; failSubscribe?: boolean; metaUserId?: string | null; profiles?: Map<string, UserProfile | null | GraphError>; /** next sendText results, consumed in order; default is success with a generated id */ sends?: (string | SendError)[]; /** runs inside sendText before it answers (tests use it to race an echo) */ onSend?: () => Promise<void> } = {}): MetaGraph & { calls: string[]; state: typeof state } {
   const calls: string[] = [];
   const codes = state.validCodes ?? new Set(["good-code"]);
   return {
@@ -169,6 +208,13 @@ export function createMockGraph(state: { pages?: GraphPage[]; validCodes?: Set<s
     async unsubscribePage(pageId) {
       calls.push(`unsubscribe:${pageId}`);
       return true;
+    },
+    async sendText(pageId, _token, psid, text) {
+      calls.push(`send:${pageId}:${psid}:${text}`);
+      await state.onSend?.();
+      const next = state.sends?.shift();
+      if (next instanceof SendError) throw next;
+      return { messageId: next ?? `mock.mid.${calls.length}.${Math.random().toString(36).slice(2, 10)}` };
     },
     async getUserProfile(psid) {
       calls.push(`profile:${psid}`);

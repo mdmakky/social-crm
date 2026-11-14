@@ -90,7 +90,7 @@ export function createApp(auth: Auth, opts: { allowedOrigins: string[]; db: Db; 
   });
   const meta = metaConnect(opts.db, opts.meta); // track:inbox
   v1.route("/", meta.callback);
-  v1.route("/workspaces", workspaceRoutes(opts.db, { ...opts.testHooks, metaScoped: meta.scoped }));
+  v1.route("/workspaces", workspaceRoutes(opts.db, { ...opts.testHooks, metaScoped: meta.scoped, sendDeps: opts.meta }));
   app.route("/v1", v1);
   return app;
 }

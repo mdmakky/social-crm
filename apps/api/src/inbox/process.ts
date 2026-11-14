@@ -89,6 +89,19 @@ async function applyEvent(tx: Tx, ctx: Ctx, ev: MetaEvent): Promise<void> {
     const conv = await ensureConversation(tx, ctx, userId);
     const at = msToIso(ev.timestampMs);
     const inbound = !ev.isEcho;
+    // An echo of a message sent from this CRM carries the Meta id: attach it to our own row (sending/unknown -> sent) instead of storing a second copy.
+    // Matching is by conversation, exact text and recency (Meta gives no way to tie an echo to our request). FOR UPDATE waits for a send that is finishing at this moment.
+    if (ev.isEcho && ev.text) {
+      const adopted = rowsOf(
+        await tx.execute(sql`
+          UPDATE messages SET external_id = ${ev.mid}, delivery_state = 'sent', sent_at = ${at}
+          WHERE id = (SELECT id FROM messages WHERE workspace_id = ${ctx.workspaceId} AND conversation_id = ${conv.id} AND direction = 'out' AND sender_kind = 'user'
+                        AND external_id IS NULL AND delivery_state IN ('sending','unknown') AND body = ${ev.text} AND created_at > now() - interval '30 minutes'
+                      ORDER BY seq LIMIT 1 FOR UPDATE)
+          RETURNING id`),
+      );
+      if (adopted.length > 0) return;
+    }
     // Pre-check under the per-thread lock: the seq trigger runs before ON CONFLICT is evaluated, so a duplicate insert would burn a sequence number. The unique index stays as the backstop.
     if (rowsOf(await tx.execute(sql`SELECT 1 FROM messages WHERE integration_account_id = ${ctx.accountId} AND external_id = ${ev.mid}`)).length > 0) return;
     const inserted = rowsOf(
@@ -172,10 +185,11 @@ export async function purgeRawBodies(db: Db): Promise<number> {
 export type InboxWorker = { stop(): Promise<void>; tick(): Promise<void> };
 
 /** In-process worker (same pattern as the event dispatcher, decision D7). Event driven: ingress calls tick() after it stores an event; the interval is only a slow safety net (and keeps purge and token checks running). Purge runs at start and then every purgeEveryMs. */
-export function startInboxWorker(db: Db, opts: { intervalMs: number; enrich?: () => Promise<unknown>; purgeEveryMs?: number; onError?: (e: unknown) => void; periodic?: { everyMs: number; run: () => Promise<unknown> } }): InboxWorker {
+export function startInboxWorker(db: Db, opts: { intervalMs: number; recover?: () => Promise<unknown>; enrich?: () => Promise<unknown>; purgeEveryMs?: number; onError?: (e: unknown) => void; periodic?: { everyMs: number; run: () => Promise<unknown> } }): InboxWorker {
   const purgeEvery = opts.purgeEveryMs ?? 6 * 3_600_000;
   let lastPurge = 0;
   let lastPeriodic = 0;
+  let lastRecover = 0;
   let running: Promise<void> | null = null;
   let stopped = false;
   // tick() is also the "something was stored" signal (event driven): a request that arrives while a run is in progress sets `again`, so the event
@@ -211,6 +225,10 @@ export function startInboxWorker(db: Db, opts: { intervalMs: number; enrich?: ()
           if (Date.now() - lastPurge >= purgeEvery) {
             await purgeRawBodies(db);
             lastPurge = Date.now();
+          }
+          if (opts.recover && Date.now() - lastRecover >= 60_000) {
+            lastRecover = Date.now();
+            await opts.recover();
           }
           if (opts.periodic && Date.now() - lastPeriodic >= opts.periodic.everyMs) {
             lastPeriodic = Date.now();

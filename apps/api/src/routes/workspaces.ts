@@ -8,6 +8,8 @@ import { ensureDefaultPipeline, ensureDefaultStages } from "../crm-service.ts";
 import type { ScopedEnv } from "./scope.ts";
 import { contactRoutes } from "./contacts.ts";
 import { conversationRoutes } from "./conversations.ts";
+import type { MetaConnectDeps } from "../inbox/meta-connect.ts";
+import { sendRoutes } from "../inbox/send.ts";
 import { contactMethodRoutes } from "./contact-methods.ts";
 import { crmConfigRoutes } from "./crm-config.ts";
 import { searchRoutes } from "../search/routes.ts"; // track:search
@@ -40,7 +42,7 @@ async function roleIn(tx: Tx, workspaceId: string, userId: string): Promise<Role
   return m?.role ?? null;
 }
 
-export function workspaceRoutes(db: Db, hooks: { import?: ImportHooks; extraSearchProviders?: SearchProvider[]; metaScoped?: Hono<ScopedEnv> } = {}) {
+export function workspaceRoutes(db: Db, hooks: { import?: ImportHooks; extraSearchProviders?: SearchProvider[]; metaScoped?: Hono<ScopedEnv>; sendDeps?: MetaConnectDeps } = {}) {
   const r = new Hono<{ Variables: Vars }>();
   const audit = (c: Ctx) => ({ actorUserId: c.get("userId"), requestId: c.get("requestId"), ip: c.req.header("x-forwarded-for")?.split(",")[0]?.trim() });
 
@@ -187,6 +189,7 @@ export function workspaceRoutes(db: Db, hooks: { import?: ImportHooks; extraSear
   scoped.route("/", notificationRoutes(db)); // track:notifications
   scoped.route("/", conversationRoutes(db)); // track:inbox
   scoped.route("/", contactMethodRoutes(db));
+  scoped.route("/", sendRoutes(db, hooks.sendDeps)); // track:inbox
   if (hooks.metaScoped) scoped.route("/", hooks.metaScoped); // track:inbox
   r.route("/:id", scoped as unknown as Hono<{ Variables: Vars }>);
   return r;

@@ -8,6 +8,7 @@ import { startDispatcher } from "./events.ts";
 import { notificationsConsumer } from "./notifications/index.ts";
 import { metaWebhookRoutes } from "./inbox/webhook.ts";
 import { startInboxWorker } from "./inbox/process.ts";
+import { recoverStuckSends } from "./inbox/send.ts";
 import { createShutdown } from "./shutdown.ts";
 import { runTokenChecks, type MetaConnectDeps } from "./inbox/meta-connect.ts";
 import { createProfileEnricher } from "./inbox/profile.ts";
@@ -80,7 +81,7 @@ if (env.DATABASE_URL_INGEST && env.META_APP_SECRET && env.META_VERIFY_TOKEN) {
   app.route("/webhooks/meta", metaWebhookRoutes({ appSecrets: [env.META_APP_SECRET, ...(env.META_APP_SECRET_PREVIOUS ? [env.META_APP_SECRET_PREVIOUS] : [])], verifyToken: env.META_VERIFY_TOKEN, ingestDb: (ingestDb = createDb(env.DATABASE_URL_INGEST)), onStored: () => void inboxWorker?.tick() }));
   console.log("meta webhook ingress mounted at /webhooks/meta/{messenger,instagram}");
 }
-inboxWorker = workerDb ? startInboxWorker(workerDb, { intervalMs: env.INBOX_WORKER_INTERVAL_MS, enrich: meta ? createProfileEnricher({ workerDb, graph: meta.graph, box: meta.box }) : undefined, periodic: meta ? { everyMs: 6 * 3_600_000, run: () => runTokenChecks(meta!) } : undefined, onError: (e) => console.error(JSON.stringify({ msg: "inbox worker error", error: (e as Error).name })) }) : null;
+inboxWorker = workerDb ? startInboxWorker(workerDb, { intervalMs: env.INBOX_WORKER_INTERVAL_MS, recover: () => recoverStuckSends(workerDb), enrich: meta ? createProfileEnricher({ workerDb, graph: meta.graph, box: meta.box }) : undefined, periodic: meta ? { everyMs: 6 * 3_600_000, run: () => runTokenChecks(meta!) } : undefined, onError: (e) => console.error(JSON.stringify({ msg: "inbox worker error", error: (e as Error).name })) }) : null;
 // Activity tracking: any request except the health ping marks the system active. While idle the event dispatcher polls slowly (an idle free database can sleep) and wakes when a request arrives.
 const ACTIVE_WINDOW_MS = 120_000;
 let lastActivity = Date.now();

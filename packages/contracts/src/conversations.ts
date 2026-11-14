@@ -92,7 +92,23 @@ export const UpdateConversationBody = z
   .refine((v) => v.status !== undefined || v.assigneeUserId !== undefined, { message: "Nothing to change" });
 export type UpdateConversationBody = z.infer<typeof UpdateConversationBody>;
 
+/** Messenger text limit applied by us (Meta's own limit is not stated in the pages we could read, so this is conservative). */
+export const MAX_REPLY_LENGTH = 2000;
+export const SendMessageBody = z.object({
+  /** Client-generated id of this attempt. The same id never sends twice: a repeat returns the stored message. */
+  clientMsgId: Uuid,
+  body: z.string().trim().min(1, "Write a message first").max(MAX_REPLY_LENGTH, `Messages can be at most ${MAX_REPLY_LENGTH} characters`),
+});
+export type SendMessageBody = z.infer<typeof SendMessageBody>;
+export const SendMessageResult = z.object({ message: MessageDto });
+export type SendMessageResult = z.infer<typeof SendMessageResult>;
+/** A person's call on a message stuck in "unknown" for 10+ minutes: it did arrive ("sent") or it did not ("not_sent"). */
+export const DecideDeliveryBody = z.object({ decision: z.enum(["sent", "not_sent"]) });
+export type DecideDeliveryBody = z.infer<typeof DecideDeliveryBody>;
+
 export const conversationEndpoints = {
+  sendMessage: endpoint({ method: "POST", path: `${W}/conversations/:conversationId/messages`, body: SendMessageBody, response: SendMessageResult }),
+  decideDelivery: endpoint({ method: "POST", path: `${W}/conversations/:conversationId/messages/:messageId/delivery`, body: DecideDeliveryBody, response: SendMessageResult }),
   listConversations: endpoint({ method: "GET", path: `${W}/conversations`, query: ConversationListQuery, response: ConversationList }),
   getConversation: endpoint({ method: "GET", path: `${W}/conversations/:conversationId`, response: ConversationDetail }),
   listConversationMessages: endpoint({ method: "GET", path: `${W}/conversations/:conversationId/messages`, query: MessageListQuery, response: MessageList }),
