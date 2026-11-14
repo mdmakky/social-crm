@@ -16,6 +16,8 @@ export const IntegrationAccountDto = z.object({
   externalAccountId: z.string(),
   displayName: z.string().nullable(),
   status: IntegrationStatus,
+  /** "facebook": connected through a Facebook Page. "unified": connected directly with Instagram (Unified Login, no Page). */
+  authMethod: z.enum(["facebook", "unified"]),
   tokenExpiresAt: z.string().nullable(),
   lastTokenCheckAt: z.string().nullable(),
   connectedAt: z.string(),
@@ -23,7 +25,7 @@ export const IntegrationAccountDto = z.object({
 export type IntegrationAccountDto = z.infer<typeof IntegrationAccountDto>;
 
 /** `configured` is false until the Meta app settings and the encryption key are present on the server; connect endpoints then answer 503. */
-export const MetaIntegrationState = z.object({ configured: z.boolean(), mock: z.boolean(), accounts: z.array(IntegrationAccountDto) });
+export const MetaIntegrationState = z.object({ configured: z.boolean(), mock: z.boolean(), instagramUnifiedConfigured: z.boolean(), accounts: z.array(IntegrationAccountDto) });
 export type MetaIntegrationState = z.infer<typeof MetaIntegrationState>;
 
 export const MetaConnectStart = z.object({ authUrl: z.string().url() });
@@ -48,6 +50,7 @@ export const MetaCallbackQuery = z.object({ code: z.string().max(2000).optional(
 
 export const inboxEndpoints = {
   getMetaIntegration: endpoint({ method: "GET", path: `${W}/integrations/meta`, response: MetaIntegrationState }),
+  startInstagramUnified: endpoint({ method: "POST", path: `${W}/integrations/instagram/connect/start`, response: MetaConnectStart }),
   startMetaConnect: endpoint({ method: "POST", path: `${W}/integrations/meta/connect/start`, response: MetaConnectStart }),
   listMetaPending: endpoint({ method: "GET", path: `${W}/integrations/meta/pending`, response: MetaPendingList }),
   connectMetaPage: endpoint({ method: "POST", path: `${W}/integrations/meta/connect`, body: ConnectMetaBody, response: ConnectMetaResult }),
@@ -58,4 +61,6 @@ export const inboxEndpoints = {
   resubscribeMetaAccount: endpoint({ method: "POST", path: `${W}/integrations/meta/accounts/:accountId/resubscribe`, response: SubscribeResult }),
   /** Browser redirect target after the Meta dialog; answers with a 302 to the web app, never JSON. Declared so the drift guard knows the route. */
   metaOAuthCallback: endpoint({ method: "GET", path: "/v1/integrations/meta/callback", query: MetaCallbackQuery, response: z.undefined() }),
+  /** Browser redirect target after the Instagram (Unified Login) dialog; same behaviour as the Meta callback. */
+  instagramUnifiedCallback: endpoint({ method: "GET", path: "/v1/integrations/instagram/callback", query: MetaCallbackQuery, response: z.undefined() }),
 } as const;

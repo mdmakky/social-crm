@@ -41,6 +41,9 @@ const env = z
     META_GRAPH_VERSION: z.string().regex(/^v[0-9]{2}\.0$/).default("v25.0"),
     META_OAUTH_REDIRECT_URI: z.string().url().optional(),
     META_MOCK: z.enum(["0", "1"]).default("0"),
+    // Direct Instagram connection (Unified Login, no Facebook Page): the id of a Facebook Login for Business configuration marked "Instagram Login Compatible" (App Dashboard > Facebook Login for Business > Configurations), and its redirect URL.
+    META_IG_CONFIG_ID: z.string().regex(/^[0-9]{5,30}$/).optional(),
+    META_IG_OAUTH_REDIRECT_URI: z.string().url().optional(),
     SECRETS_ENCRYPTION_KEY: z.string().optional(),
     SECRETS_KEY_ID: z.string().min(1).max(64).default("dev1"),
     META_PUBLIC_BASE_URL: z.string().url().optional(), // public https base of this API, used in the data-deletion status link
@@ -69,6 +72,7 @@ if (workerDb && env.SECRETS_ENCRYPTION_KEY && env.META_APP_SECRET && ((env.META_
     stateKey: createHmac("sha256", env.META_APP_SECRET).update("crm-oauth-state-v1").digest(),
     userHashKey: createHmac("sha256", Buffer.from(env.SECRETS_ENCRYPTION_KEY, "base64")).update("crm-meta-user-v1").digest(), mock: env.META_MOCK === "1", secureCookies: env.WEB_ORIGIN.startsWith("https://"),
   };
+  if (env.META_IG_CONFIG_ID || env.META_MOCK === "1") meta.igUnified = { configId: env.META_IG_CONFIG_ID ?? "0", redirectUri: env.META_IG_OAUTH_REDIRECT_URI ?? `${env.WEB_ORIGIN}/v1/integrations/instagram/callback` };
   console.log(`meta connect enabled (${meta.mock ? "MOCK graph" : "real graph " + env.META_GRAPH_VERSION})`);
 }
 let ingestDb: ReturnType<typeof createDb> | null = null;

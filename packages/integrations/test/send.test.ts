@@ -66,3 +66,28 @@ describe("Instagram channel (real client, fake fetch)", () => {
     expect(await graphWith(() => json({ username: "bad name!", profile_picture_url: "http://evil/x.jpg" })).g.getInstagramAccount("1784", "t")).toBeNull();
   });
 });
+
+describe("Unified Login (Instagram without a Page): real client, fake fetch", () => {
+  it("sends to /{ig-id}/messages (not me/messages: `me` is the system user) with the token in the header and no messaging_type", async () => {
+    const { g, seen } = graphWith(() => json({ recipient_id: "55", message_id: "ig_u_1" }));
+    expect(await g.sendText("17841", "SUAT-TOKEN", "55", "Hi", "instagram_unified")).toEqual({ messageId: "ig_u_1" });
+    const r = seen[0]!;
+    expect(r.url.host).toBe("graph.facebook.com");
+    expect(r.url.pathname).toBe("/v25.0/17841/messages");
+    expect(JSON.parse(r.init.body as string)).toEqual({ recipient: { id: "55" }, message: { text: "Hi" } });
+    expect((r.init.headers as Record<string, string>).authorization).toBe("Bearer SUAT-TOKEN");
+    expect(r.url.toString()).not.toContain("SUAT-TOKEN");
+  });
+  it("lists the shared Instagram accounts with id and username, dropping malformed entries", async () => {
+    const { g, seen } = graphWith(() => json({ data: [{ id: "17841", username: "shop.bd" }, { id: "no-digits", username: "x" }, { id: "17842", username: "bad name!" }, { id: "17843" }] }));
+    expect(await g.listAssignedInstagramAccounts("TOK")).toEqual([{ id: "17841", username: "shop.bd" }, { id: "17842", username: null }, { id: "17843", username: null }]);
+    expect(seen[0]!.url.pathname).toBe("/v25.0/me/assigned_instagram_accounts");
+    expect(seen[0]!.url.searchParams.get("fields")).toBe("id,username");
+    expect((seen[0]!.init.headers as Record<string, string>).authorization).toBe("Bearer TOK");
+    expect(await g.listAssignedInstagramAccounts("TOK").catch(() => "x")).toBeTruthy();
+  });
+  it("an auth error while listing is a GraphError of kind auth", async () => {
+    const e = (await graphWith(() => json({ error: { code: 190 } }, 400)).g.listAssignedInstagramAccounts("t").then(() => null, (x) => x)) as { kind: string };
+    expect(e.kind).toBe("auth");
+  });
+});

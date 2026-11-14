@@ -36,11 +36,15 @@ export const integrationAccounts = pgTable(
     /** Keyed hash (HMAC) of the app-scoped Meta user id of the person who authorised this account. Lets the deauthorization and data-deletion callbacks find the connections of that person without storing the raw id. */
     connectedMetaUserHash: text("connected_meta_user_hash"),
     connectedAt: ts("connected_at").notNull().defaultNow(),
+    /** How the account was authorised: 'facebook' (Page token) or 'unified' (Instagram API with Unified Login: system-user token, no Page). Only Instagram accounts can use 'unified'. */
+    authMethod: text("auth_method").notNull().default("facebook"),
     version: integer("version").notNull().default(1),
     createdAt: ts("created_at").notNull().defaultNow(),
     updatedAt: ts("updated_at").notNull().defaultNow(),
   },
   (t) => [
+    check("integration_accounts_auth_method", sql`${t.authMethod} IN ('facebook','unified')`),
+    check("integration_accounts_auth_method_platform", sql`${t.authMethod} = 'facebook' OR ${t.platform} = 'instagram'`),
     unique("integration_accounts_ws_id").on(t.workspaceId, t.id),
     unique("integration_accounts_platform_external").on(t.platform, t.externalAccountId),
     check("integration_accounts_platform", sql`${t.platform} IN ('messenger','instagram')`),

@@ -99,3 +99,14 @@ Updated: 2026-11-13 (Phase 0).
 - Instagram profile enrichment needs the person's consent (they must have messaged us) and `instagram_basic`; without it the placeholder name stays.
 - Account display name is `@username` captured at connect time; it does not refresh until reconnect.
 - An Instagram-only connection (without the Messenger inbox of the same Page) is not offered; connecting the Page always connects Messenger.
+
+## Direct Instagram connection, Unified Login (2026-11-14)
+- NEVER run against real Meta (mocks and fake fetch only). Unknowns are listed in `docs/integrations/instagram-messaging.md`, Method C.
+- Receiving DMs while the app is in Development mode may not work (Meta says the app must be Live to receive notifications for app users); sending is unaffected.
+- No automatic refresh of system-user tokens; if the configuration makes them expire, the account needs a reconnect.
+- Webhook field names and the message body for this variant are partly inferred from Meta's migration guide.
+- Display name (`@username`) is captured at connect time; no account type is shown.
+- The earlier branch `feat/instagram-login` (Instagram Login with a separate Instagram app) cannot work on this app and must not be merged.
+- Unified Login DM webhook shape (`messaging[]` vs `changes[]`), the send URL/auth for this variant, and `debug_token` expiry for system-user tokens are inferred, not stated by Meta's pages (see the verification pass in `docs/integrations/instagram-messaging.md`).
+- Only the first 25 shared accounts are read and at most 10 are connected per login; the result says "some skipped".
+- A token that is still valid but whose Instagram account was removed from the business portfolio is not detected by Check token; sends then fail with a channel-access error until reconnected.

@@ -82,7 +82,7 @@ export function sendRoutes(db: Db, deps?: MetaConnectDeps) {
       }
       const conv = rowsOf(
         await tx.execute(sql`
-          SELECT c.integration_account_id, a.platform, a.status, a.external_account_id, pi.external_user_id,
+          SELECT c.integration_account_id, a.platform, a.auth_method, a.status, a.external_account_id, pi.external_user_id,
                  (c.last_inbound_at IS NOT NULL AND now() - c.last_inbound_at < interval '24 hours') AS in_window
           FROM conversations c
           JOIN integration_accounts a ON a.workspace_id = c.workspace_id AND a.id = c.integration_account_id
@@ -103,7 +103,7 @@ export function sendRoutes(db: Db, deps?: MetaConnectDeps) {
       )[0]!;
       // The text is not copied into the audit trail (customer conversation content).
       await writeAudit(tx, { ...actor(c), workspaceId: ws, action: "message.send_requested", entityType: "message", entityId: row.id as string, summary: { conversationId, length: [...text].length } });
-      return { send: { channel: conv.platform as "messenger" | "instagram", messageId: row.id as string, accountId: conv.integration_account_id as string, pageId: conv.external_account_id as string, psid: conv.external_user_id as string } };
+      return { send: { method: (conv.auth_method as string) === "unified" ? "unified" as const : "facebook" as const, channel: conv.platform as "messenger" | "instagram", messageId: row.id as string, accountId: conv.integration_account_id as string, pageId: conv.external_account_id as string, psid: conv.external_user_id as string } };
     });
     if ("err" in prep) return prep.err;
     if ("replay" in prep) return c.json({ message: prep.replay }, 200);
@@ -143,7 +143,7 @@ export function sendRoutes(db: Db, deps?: MetaConnectDeps) {
   return r;
 }
 
-type Delivery = { channel: "messenger" | "instagram"; workspaceId: string; conversationId: string; messageId: string; accountId: string; pageId: string; psid: string; text: string };
+type Delivery = { method: "facebook" | "unified"; channel: "messenger" | "instagram"; workspaceId: string; conversationId: string; messageId: string; accountId: string; pageId: string; psid: string; text: string };
 
 async function deliver(deps: MetaConnectDeps, d: Delivery): Promise<void> {
   const wctxW = { workspaceId: d.workspaceId };
@@ -152,7 +152,7 @@ async function deliver(deps: MetaConnectDeps, d: Delivery): Promise<void> {
     const got = rowsOf(await tx.execute(sql`UPDATE messages SET delivery_state = 'sending' WHERE workspace_id = ${d.workspaceId} AND id = ${d.messageId} AND delivery_state = 'pending' RETURNING id`));
     if (got.length === 0) return null; // someone else owns it: never two senders for one message
     const token = await loadToken(tx, deps, d.workspaceId, d.accountId);
-    const summary = JSON.stringify({ kind: "text", channel: d.channel, messagingType: d.channel === "messenger" ? "RESPONSE" : null, length: [...d.text].length });
+    const summary = JSON.stringify({ kind: "text", channel: d.channel, method: d.method, messagingType: d.channel === "messenger" ? "RESPONSE" : null, length: [...d.text].length });
     const attempt = rowsOf(await tx.execute(sql`INSERT INTO outbound_attempts (workspace_id, message_id, attempt, request_summary) VALUES (${d.workspaceId}, ${d.messageId}, 1, ${summary}::jsonb) RETURNING id`))[0]!.id as string;
     if (!token) {
       // Nothing was sent, so this is a definite failure and safe to show as such.
@@ -167,7 +167,7 @@ async function deliver(deps: MetaConnectDeps, d: Delivery): Promise<void> {
   // 3. the one and only network call
   let result: { messageId: string } | SendError;
   try {
-    result = await deps.graph.sendText(d.pageId, claimed.token, d.psid, d.text, d.channel);
+    result = await deps.graph.sendText(d.pageId, claimed.token, d.psid, d.text, d.method === "unified" ? "instagram_unified" : d.channel); // pageId holds the Instagram account id for Instagram accounts
   } catch (e) {
     result = e instanceof SendError ? e : new SendError("ambiguous", null, null, null);
   }

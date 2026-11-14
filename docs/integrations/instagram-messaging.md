@@ -35,3 +35,94 @@ UNVERIFIED / contradictory (decide by testing, do not assume):
 3. From a *different* Instagram account that has a role on the app, send a DM to the connected account. Expect within seconds: a conversation with the Instagram badge in the Inbox, name replaced by the person's name/username and picture after enrichment. If nothing arrives: Webhooks step 4 (subscription) is the first suspect; look at `webhook_events` for platform `instagram`.
 4. Reply from the Inbox ("Test IG 1", Enter). Expect Sent and the text in the Instagram DM. One bubble after the echo. Double-click Send: one copy.
 5. Record: date, `messages.external_id`, `outbound_attempts.outcome='accepted'`, screenshot. Only then mark C8 and Instagram messaging verified.
+
+
+---
+
+# Method C: Instagram API with Unified Login (no Facebook Page)
+
+Status 2026-11-14: code complete and tested with mocks and a fake `fetch`. **Never run against real Meta.** Branch `feat/instagram-unified-login`.
+
+**Why this and not "Instagram Login".** Instagram API with Instagram Login (separate Instagram App ID/secret, `graph.instagram.com`) is **not available for newer apps**: the dashboard of this app says so ("Your app uses API setup with Unified login instead"), and Meta's migration guide says "Newly created apps can't set up the Instagram API with Instagram Login". An earlier branch (`feat/instagram-login`) built that variant; it cannot work on this app and is NOT to be merged.
+
+## How it differs from Method A (Page-based)
+| | Method A: Page-based | Method C: Unified Login |
+|---|---|---|
+| Facebook Page needed | yes | **no** ("Your clients don't need a Facebook Page": unified-login page) |
+| Business portfolio | not required | required (the person picks one in the dialog) |
+| Login | Facebook Login for Business, configuration with Pages | Facebook Login for Business, configuration labelled **Instagram Login Compatible** (Instagram account only) |
+| App id / secret | Meta app | the same Meta app |
+| Token | Page token | system-user token (SUAT/BISUT), belongs to the business portfolio; expiry depends on the configuration (default shown in the dashboard: never) |
+| Account discovery | `me/accounts` | `me/assigned_instagram_accounts` |
+| Send | `me/messages` | `POST /{ig-id}/messages` (`me` would be the system user) |
+| Permissions | `instagram_basic`, `instagram_manage_messages`, `pages_*` | `instagram_basic`, `instagram_manage_messages` (from the configuration, no scope parameter) |
+| Webhook subscription | dashboard (a Page call is not documented to cover Instagram) | per account: `POST /{ig-id}/subscribed_apps` with the token, plus the dashboard callback |
+| Stored as | `auth_method='facebook'` | `auth_method='unified'` |
+Both give the same `platform='instagram'` account, webhooks, conversations, messages and Inbox. The account id from `assigned_instagram_accounts` equals the webhook `entry.id` (migration guide step 7), so routing is unchanged. One Instagram account can be connected once, in one workspace.
+
+## Verified from the official pages (read 2026-11-14, developers.facebook.com/documentation/instagram-platform/...)
+- Unified Login page and overview: Facebook Page "Not required", Business portfolio "Required"; Business and Creator accounts are eligible; personal accounts are not (error `(#10) ... instagram account type is not business or creator`).
+- Dialog: `https://www.facebook.com/dialog/oauth?client_id=<META_APP_ID>&config_id=<CONFIG_ID>&redirect_uri=...&response_type=code` (`prompt=login` shows both the Facebook and Instagram sign-in options). The person chooses the business portfolio and the Instagram account to share. If messaging is used, the person must also turn on "Allow access to messages" in Instagram.
+- "Your app doesn't receive an access token directly from the login flow": the server exchanges the code at `https://graph.facebook.com/v27.0/oauth/access_token?client_id&client_secret&code` with the **Meta** app id/secret and receives the system-user token.
+- Accounts: `GET /me/assigned_instagram_accounts?fields=id,username` (needs `instagram_basic`).
+- Send to `graph.facebook.com/{ig-user-id}/messages` with that token; permissions `instagram_manage_messages`; 24-hour window; Human Agent tag exists (not used). Message ids differ in format from the Instagram Login ones.
+- Per-account subscription `POST /{INSTAGRAM_ACCOUNT_ID}/subscribed_apps?subscribed_fields=...` with the token; payload `object: "instagram"`, `entry[].id` = the Instagram professional account id; signature `X-Hub-Signature-256` with the App Secret.
+- The token stops working if the client removes the app from the business portfolio or moves the Instagram account to another portfolio.
+- Development mode: add the Instagram account as an **Instagram Tester** (up to 50, accepted in Instagram on the web); Standard Access is enough for people with a role on the app; "Test users aren't supported".
+
+## UNVERIFIED (decide by the hosted test; documented as unknown, not assumed)
+1. **Webhooks in Development mode.** Meta: "Your app must be published or Live to receive notifications for app users". Whether role holders/testers receive Instagram webhooks while unpublished is NOT stated. If DMs do not arrive, this is the first suspect; sending is unaffected.
+2. **Where the webhook callback is configured**: the migration guide says "the callback URL set for the Instagram object on your Meta app"; the setup page says "Configure webhooks on the API setup with Unified login tab". Both quoted from Meta; use the one your dashboard shows (the screenshot shows step "3. Configure webhooks" on that tab).
+3. Message request body for Unified Login (the page returned no content; the guide says "most request bodies stay the same", so the same text body is used) and message-related error codes (Page-API subcodes are mapped but may differ).
+4. Token expiry/refresh: depends on the configuration ("Never" is the dashboard default). Refreshing an expiring token needs Meta's Business Integration System User token management API and `business_management`; **not built**. If you choose a configuration that expires, the account moves to "Reconnect needed" at the 6-hourly token check after expiry.
+5. Whether the same app can run Page-based Facebook Login and this configuration side by side: not stated; the shared redirect-URL list in the dashboard already lists both kinds of URLs on one screen, so it is expected to work.
+6. Webhook fields: Meta's Unified field list is verified (see the verification pass); the server subscribes `messages,messaging_seen` and falls back to `messages` alone. Whether our parser matches the real DM payload shape is item 'webhook shape' below.
+7. Whether the sender profile call (`name, username, profile_pic` on `graph.facebook.com/{igsid}`) works with this token; if not, names stay "Instagram user ####".
+8. `graph.facebook.com` unified-login webhook signatures: assumed to use the Meta app secret already configured.
+
+## Dashboard setup you must do (nothing is changed by the code)
+App Dashboard > **Use cases** > **Manage messaging & content on Instagram** (Customize) > **API setup with Unified login**:
+1. **1. Configure your app**: click **Create new configuration**; choose the Instagram account asset and permissions `instagram_basic` and `instagram_manage_messages` only; save. It must be labelled "Instagram Login Compatible" (otherwise people will not see the Instagram sign-in). Copy its **Configuration ID**.
+2. Same section, **Register a new redirect URL**: `https://social-crm-web.vercel.app/v1/integrations/instagram/callback` > Save. (The dropdown above it can stay on the existing `.../integrations/meta/callback`.)
+3. **2. Generate access tokens**: add your Creator account as an **Instagram Tester** (Roles tab), then accept the invitation in Instagram on the web (instagram.com > Settings > Website permissions / Apps and websites > Tester invites). Per Meta the account must be public.
+4. **3. Configure webhooks**: callback URL `https://social-crm-api-7om7.onrender.com/webhooks/meta/instagram`, verify token = your existing `META_VERIFY_TOKEN`; subscribe `messages` (and `messaging_seen`). The screenshot already shows this step ticked; check the callback URL is the Instagram one.
+5. In the Instagram app on the Creator account: Settings > Messages and story replies > Message controls > Connected tools > **Allow access to messages**.
+6. Render > Environment: add `META_IG_CONFIG_ID` = the Configuration ID from step 1. (`META_IG_OAUTH_REDIRECT_URI` only if you registered a different URL.) No new secret: the existing Meta app id/secret are used. Redeploy the API.
+Until `META_IG_CONFIG_ID` exists the "Connect Instagram" button is disabled with the reason.
+
+## Test with your Creator account (no Page)
+1. Do the dashboard setup and deploy this branch (code + the env var). The migration adds one column (below).
+2. Settings > Integrations > Instagram > **Connect Instagram** (right-hand card). Choose Instagram sign-in, pick the business portfolio and the Creator account, allow. Expect "Instagram account connected directly", row `@username`, "Direct · no Page", Connected. If it says the subscription was not accepted, press **Re-check subscription**.
+3. **Check token**: valid. Expiry shows if the configuration has one.
+4. From another Instagram account that has a role on the app, DM the Creator account. Expect the conversation (Instagram badge). If nothing arrives: unverified item 1, then the callback URL/verify token (dashboard), then `webhook_events` rows with platform `instagram`.
+5. Reply "Test direct 1" with Enter: Sent, text in the Instagram DM, one bubble after the echo; double-click Send: one copy.
+6. Record the date, `messages.external_id`, `outbound_attempts.outcome='accepted'` and a screenshot before marking Method C verified.
+
+## Pre-merge verification pass (2026-11-14, second read of Meta's pages)
+Officially stated (quotes in the pages named above): `GET /me/assigned_instagram_accounts` returns `data[]` with `id` and `username` plus cursor `paging`, needs `instagram_basic`; `/me` with this token is the system user, "always use the Instagram account ID"; Unified webhook fields are `comments, live_comments, mentions, message_reactions, messages, messaging_postbacks, messaging_referral, messaging_seen, story_insights` (there is **no `message_echoes`** field here: an echo is `message.is_echo` inside `messages`; the code subscribes only `messages,messaging_seen`); subscribe `POST /{ig-account-id}/subscribed_apps` with the system-user token; "Instagram User access tokens and graph.instagram.com don't work with Unified Login"; tokens default to "never expire", and a configuration can be set to expire (a 60-day option, `set_token_expires_in_60_days`, exists in the token API); if a token stops working Meta says to "ask your client to connect again".
+**Not stated by Meta's pages (so NOT verified, implemented by inference):**
+- The send URL, auth style and body for Unified Login. The migration guide names `/{ig-user-id}/messages`; the page itself returned no content. The code uses `POST graph.facebook.com/{ver}/{ig-id}/messages` with `Authorization: Bearer` and the text body `{recipient:{id}, message:{text}}`.
+- Whether the DM webhook for Unified Login arrives as `entry[].messaging[]` (what the code parses) or under `entry[].changes[]` (the shape Meta shows for comments/mentions). If DMs are not shown in the Inbox but `webhook_events` rows with platform `instagram` exist, inspect `raw_body` (kept 30 days): a `changes` shape would need a parser change.
+- Whether `debug_token` reports expiry for these tokens (the code reads it best-effort; unreadable means "unknown", not "never").
+- Whether the code exchange returns `expires_in` (the code does not depend on it).
+- Pagination: only the first 25 shared accounts are read (cursor paging exists, not followed); a login connects at most 10 and reports "some skipped" otherwise.
+- `account_type` is not returned by this endpoint, so none is shown.
+**Token refresh is documented by Meta but not built:** `POST /{client_business_id}/system_user_access_tokens` (needs `business_management`, `appsecret_proof`, the client business id from `GET /me?fields=client_business_id`). It is not safely buildable without a real token to test against. **Safe reconnect strategy (implemented):** a rejected token fails a send as "Not sent" (definite 4xx, never UNKNOWN) and the next token check (every 6 hours or the Check token button) moves the account to "Reconnect needed"; sends are refused with a clear message meanwhile; pressing Reconnect re-runs the login, keeps the same account row and therefore every conversation and message, and stores a new token. If your configuration uses an expiring token, plan a reconnect before the expiry date.
+
+## Production / App Review
+Not requested by this work. For accounts you do not own, `instagram_manage_messages` needs Advanced Access (App Review, Business Verification) and the app must be Live to receive webhooks. Existing Advanced Access to `instagram_*` permissions carries over (migration guide).
+
+## Migration 0024 and rollback
+`0024_instagram_unified_login.sql` adds `integration_accounts.auth_method text NOT NULL DEFAULT 'facebook'`, two CHECK constraints (`facebook`|`unified`; `unified` only for `platform='instagram'`) and `GRANT UPDATE (auth_method) ... TO crm_worker`. A constant default makes this a metadata-only change on Postgres 11+; existing rows are `facebook`. Old code ignores the column, so the migration may run before the API deploy.
+Rollback: disconnect (or delete the secrets of) every account with `auth_method='unified'` first (their tokens are not Page tokens), then as `crm_migrator`: `ALTER TABLE integration_accounts DROP CONSTRAINT integration_accounts_auth_method_platform, DROP CONSTRAINT integration_accounts_auth_method, DROP COLUMN auth_method;` and remove journal entry 24.
+
+## Troubleshooting
+- Button disabled "not configured": `META_IG_CONFIG_ID` missing on Render.
+- Dialog error about redirect URI: the URL is not registered in step 2 or differs (host, trailing slash); `META_IG_OAUTH_REDIRECT_URI` must match.
+- The Instagram option is missing in the dialog: the configuration is not "Instagram Login Compatible".
+- Returned with "no Instagram account was shared": connect again and select the account; it must be Business or Creator, not personal.
+- "Login link expired": start again from the same browser (the state is bound to it, valid 10 minutes).
+- Connected but no messages: unverified item 1; then Re-check subscription; then the dashboard callback.
+- "Reconnect needed": the token was revoked, the app was removed from the portfolio, or an expiring configuration expired. Reconnect.
+- Cannot send: the person must have written within 24 hours; the text limit is 1000 bytes.
+- Secrets in URLs: the code exchange is a documented GET that carries the Meta app secret in the query string (existing behaviour of the Facebook flow); the code never logs URLs or error text.
