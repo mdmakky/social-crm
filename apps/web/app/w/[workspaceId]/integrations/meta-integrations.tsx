@@ -209,18 +209,18 @@ function Inner({ workspaceId, canManage, initial, result, channel: initialChanne
                 {pending === "loading" && <section aria-busy="true" aria-label="Loading your Pages" className="flex flex-col gap-3 border-b border-line-card p-4"><Skeleton className="h-5 w-48" /><Skeleton className="h-10" /><Skeleton className="h-10" /></section>}
                 {pending && pending !== "loading" && (
                   <section className="border-b border-line-card">
-                    <PanelHeader title="Choose a Page to connect" description="Pick one Facebook Page. Its Messenger inbox is connected; you can add its linked Instagram account too." />
+                    <PanelHeader title="Choose a Page to connect" description="Pick one Facebook Page. Its Messenger inbox is connected; tick the box to add its linked Instagram professional account too." />
                     <fieldset className="flex flex-col gap-2 p-4">
                       <legend className="sr-only">Facebook Pages</legend>
                       {pending.pages.map((g) => (
                         <label key={g.pageId} className="flex min-h-11 cursor-pointer items-center gap-3 rounded-control border border-line-card px-3 py-2 has-[:disabled]:opacity-60">
-                          <input type="radio" name="page" value={g.pageId} disabled={!g.eligible} checked={pick.pageId === g.pageId} onChange={() => setPick({ pageId: g.pageId, ig: false })} />
-                          <span className="min-w-0 flex-1"><span className="block truncate font-medium">{g.name}</span><span className="block text-sm text-fg-muted">ID {g.pageId}{g.connected ? " · already connected" : ""}</span>{!g.eligible && g.ineligibleReason && <span className="block text-sm text-warning-fg">{g.ineligibleReason}</span>}</span>
+                          <input type="radio" name="page" value={g.pageId} disabled={!g.eligible} checked={pick.pageId === g.pageId} onChange={() => setPick({ pageId: g.pageId, ig: active.platform === "instagram" && !!g.instagramAccountId })} />
+                          <span className="min-w-0 flex-1"><span className="block truncate font-medium">{g.name}</span><span className="block text-sm text-fg-muted">ID {g.pageId}{g.connected ? " · already connected" : ""}</span>{g.instagramAccountId && <span className="block text-sm text-fg-muted">Instagram: {g.instagram?.username ? `@${g.instagram.username}` : `ID ${g.instagramAccountId}`}{g.instagramConnected ? " · already connected" : ""}</span>}{!g.instagramAccountId && active.platform === "instagram" && <span className="block text-sm text-fg-subtle">No Instagram professional account is linked to this Page.</span>}{!g.eligible && g.ineligibleReason && <span className="block text-sm text-warning-fg">{g.ineligibleReason}</span>}</span>
                         </label>
                       ))}
                       {(() => {
                         const sel = pending.pages.find((g) => g.pageId === pick.pageId);
-                        return sel?.instagramAccountId ? <Checkbox label="Also connect the linked Instagram account" checked={pick.ig} onChange={(e) => setPick({ ...pick, ig: e.target.checked })} /> : null;
+                        return sel?.instagramAccountId ? <Checkbox label={`Also connect the linked Instagram account${sel.instagram?.username ? ` (@${sel.instagram.username})` : ""}`} checked={pick.ig} onChange={(e) => setPick({ ...pick, ig: e.target.checked })} /> : null;
                       })()}
                       <div><Button variant="primary" disabled={!pick.pageId} loading={busy === "pick"} onClick={() => void connectSelected()}>Connect Page</Button></div>
                     </fieldset>

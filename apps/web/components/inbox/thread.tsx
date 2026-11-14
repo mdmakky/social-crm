@@ -13,7 +13,7 @@ import { Alert, ErrorState } from "@/components/ui/states";
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/cn";
 import { browserApi, errorMessage } from "@/lib/client-api";
-import { dayLabel, isSendKey, relTime, sameDay, useNow, windowMinutesLeft } from "@/lib/inbox";
+import { dayLabel, isSendKey, relTime, replyUsage, sameDay, useNow, windowMinutesLeft } from "@/lib/inbox";
 import { notifyInboxChanged, useInbox } from "./context";
 import { Attachments, ChannelBadge, DeliveryStatus } from "./parts";
 
@@ -178,7 +178,7 @@ export function Thread({ conversationId }: { conversationId: string }) {
   };
   async function submit() {
     const text = draft.trim();
-    if (!text || inFlight.current || !detail) return;
+    if (!text || inFlight.current || !detail || replyUsage(detail.platform, text, MAX_REPLY_LENGTH).over) return;
     inFlight.current = true; // a ref, not state: two clicks in the same frame still see it
     setSubmitting(true);
     clientId.current ??= crypto.randomUUID();
@@ -219,7 +219,8 @@ export function Thread({ conversationId }: { conversationId: string }) {
   if (!detail) return <ThreadSkeleton />;
 
   const left = windowMinutesLeft(detail, now);
-  const canType = detail.replyWindow === "open" && detail.platform === "messenger";
+  const canType = detail.replyWindow === "open";
+  const usage = replyUsage(detail.platform, draft, MAX_REPLY_LENGTH);
   const name = detail.contact.name;
   const assigneeOptions = [{ id: myUserId, name: "Me" }, ...(canAssignAny ? members.filter((m) => m.userId !== myUserId && m.status === "active").map((m) => ({ id: m.userId, name: m.name })) : [])];
   const current = detail.assignee;
@@ -280,7 +281,6 @@ export function Thread({ conversationId }: { conversationId: string }) {
               {detail.replyWindow === "closed" && <Alert tone="warning" className="mb-2">You can&apos;t reply: more than 24 hours have passed since {name}&apos;s last message. Meta only allows replies within 24 hours. You can reply as soon as {name} writes again.</Alert>}
               {detail.replyWindow === "none" && <Alert tone="info" className="mb-2">There is no reply window yet. You can reply after {name} writes first.</Alert>}
               {left !== null && left < 120 && <Alert tone="warning" className="mb-2">The 24-hour reply window closes in {Math.floor(left / 60)} h {left % 60} min. After that you can&apos;t reply until {name} writes again.</Alert>}
-              {detail.platform !== "messenger" && <Alert tone="info" className="mb-2">Replying to Instagram conversations isn&apos;t available yet.</Alert>}
               <form onSubmit={(e) => { e.preventDefault(); void submit(); }} className="flex items-end gap-2">
                 <Textarea
                   ref={composerRef}
@@ -290,14 +290,13 @@ export function Thread({ conversationId }: { conversationId: string }) {
                   onChange={(e) => setDraft(e.target.value)}
                   onKeyDown={(e) => { if (isSendKey({ key: e.key, shiftKey: e.shiftKey, altKey: e.altKey, isComposing: e.nativeEvent.isComposing })) { e.preventDefault(); void submit(); } }}
                   disabled={!canType}
-                  maxLength={MAX_REPLY_LENGTH}
                   placeholder={canType ? "Write a reply" : "Replies are unavailable for this conversation"}
                   className="min-h-11 flex-1"
                   rows={2}
                 />
-                <Button type="submit" variant="primary" loading={submitting} disabled={!canType || draft.trim() === ""}><Send aria-hidden />Send</Button>
+                <Button type="submit" variant="primary" loading={submitting} disabled={!canType || draft.trim() === "" || usage.over}><Send aria-hidden />Send</Button>
               </form>
-              <p id="composer-hint" className="mt-1.5 text-xs text-fg-subtle">Enter to send, Shift+Enter for a new line.{draft.length > MAX_REPLY_LENGTH - 200 ? ` ${draft.length}/${MAX_REPLY_LENGTH}` : ""}</p>
+              <p id="composer-hint" className="mt-1.5 text-xs text-fg-subtle">Enter to send, Shift+Enter for a new line.{usage.used > usage.max * 0.8 ? ` ${usage.used}/${usage.max} ${usage.unit}` : ""}{usage.over ? <span className="text-danger-fg"> Too long for {detail.platform === "instagram" ? "Instagram" : "Messenger"}: shorten it to send.</span> : null}</p>
             </>
           )}
         </footer>

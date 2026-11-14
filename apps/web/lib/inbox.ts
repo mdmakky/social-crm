@@ -59,6 +59,9 @@ export function failureText(code: string | null): string {
     case "token_unavailable": return "The Page connection can't be used. Reconnect it in Settings > Integrations.";
     case "permission_denied": return "Meta refused the message. The Page may be missing messaging permission.";
     case "invalid_request": return "Meta did not accept this message.";
+    case "window_closed": return "Meta says the 24-hour reply window has closed. You can reply after the person writes again.";
+    case "channel_access": return "Meta blocked this send. Check that the Instagram account still allows access to messages for connected tools, then reconnect it in Settings > Integrations.";
+    case "thread_owned_elsewhere": return "Another app is handling this conversation, so Meta refused the reply.";
     case "marked_not_sent": return "You marked this message as not sent.";
     default: return "Meta did not accept this message.";
   }
@@ -71,3 +74,10 @@ export const canDecideDelivery = (m: Pick<MessageDto, "deliveryState" | "occurre
 /** Send on plain Enter only: Shift+Enter is a newline, and Enter that confirms an IME composition (Bengali, Japanese...) must not send. */
 export const isSendKey = (e: { key: string; shiftKey: boolean; isComposing?: boolean; ctrlKey?: boolean; metaKey?: boolean; altKey?: boolean }) =>
   e.key === "Enter" && !e.shiftKey && !e.isComposing && !e.altKey;
+
+/** Reply size limit per channel. Instagram is counted in UTF-8 bytes (Meta states 1,000 bytes; Bengali takes 3 bytes per letter), Messenger in characters (our own cap). */
+export const IG_MAX_BYTES = 1000;
+export function replyUsage(platform: "messenger" | "instagram", text: string, maxChars: number): { used: number; max: number; unit: "bytes" | "characters"; over: boolean } {
+  if (platform === "instagram") { const used = new TextEncoder().encode(text).length; return { used, max: IG_MAX_BYTES, unit: "bytes", over: used > IG_MAX_BYTES }; }
+  return { used: text.length, max: maxChars, unit: "characters", over: text.length > maxChars };
+}

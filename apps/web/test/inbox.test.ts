@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DELIVERY, canDecideDelivery, dayLabel, failureText, isSendKey, isHttps, relTime, windowMinutesLeft } from "@/lib/inbox";
+import { DELIVERY, canDecideDelivery, dayLabel, failureText, isSendKey, replyUsage, isHttps, relTime, windowMinutesLeft } from "@/lib/inbox";
 
 const NOW = new Date("2026-11-13T12:00:00").getTime();
 const ago = (ms: number) => new Date(NOW - ms).toISOString();
@@ -57,5 +57,19 @@ describe("composer helpers", () => {
     expect(canDecideDelivery(m("unknown", 9), NOW)).toBe(false);
     expect(canDecideDelivery(m("unknown", 10), NOW)).toBe(true);
     expect(canDecideDelivery(m("sent", 60), NOW)).toBe(false);
+  });
+});
+
+describe("per-channel reply limits", () => {
+  it("counts Instagram in UTF-8 bytes (Bengali = 3 bytes) and Messenger in characters", () => {
+    expect(replyUsage("instagram", "a".repeat(1000), 2000)).toMatchObject({ used: 1000, unit: "bytes", over: false });
+    expect(replyUsage("instagram", "a".repeat(1001), 2000).over).toBe(true);
+    expect(replyUsage("instagram", "ক".repeat(334), 2000)).toMatchObject({ used: 1002, over: true });
+    expect(replyUsage("instagram", "ক".repeat(333), 2000).over).toBe(false);
+    expect(replyUsage("messenger", "ক".repeat(1500), 2000)).toMatchObject({ used: 1500, unit: "characters", over: false });
+    expect(replyUsage("messenger", "a".repeat(2001), 2000).over).toBe(true);
+  });
+  it("has sentences for the Instagram failure codes", () => {
+    for (const c of ["window_closed", "channel_access", "thread_owned_elsewhere"]) expect(failureText(c)).toMatch(/\.$/);
   });
 });
