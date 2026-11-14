@@ -323,6 +323,10 @@ export function contactRoutes(db: Db) {
       const [n] = await tx.select().from(schema.notes).where(and(eq(schema.notes.workspaceId, workspaceId), eq(schema.notes.contactId, id), eq(schema.notes.id, noteId), isNull(schema.notes.deletedAt)));
       if (!n) return fail(c, 404, "not_found");
       if (!can(c.get("role"), "note.edit", { isOwn: n.authorUserId === userId })) return forbidden(c);
+      // Own notes are covered by the contact timeline. Changing or removing SOMEONE ELSE'S note (owner/admin only) is a privileged action over another person's content, so it also
+      // goes to the audit log, with actor and references but never the note text (decision: docs/project/decisions.md D-notes-audit).
+      const byOther = n.authorUserId !== userId;
+      if (byOther) await writeAudit(tx, { ...actor(c), workspaceId, action: mode === "delete" ? "note.deleted_by_other" : "note.edited_by_other", entityType: "note", entityId: noteId, summary: { contactId: id, authorUserId: n.authorUserId } });
       if (mode === "delete") {
         await tx.update(schema.notes).set({ deletedAt: new Date() }).where(and(eq(schema.notes.workspaceId, workspaceId), eq(schema.notes.id, noteId)));
         await recordActivity(tx, { workspaceId, contactId: id, kind: "note.deleted", actorUserId: userId, data: { noteId } });
