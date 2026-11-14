@@ -30,3 +30,23 @@ export function signedFixture(payload: unknown, secret: string = mockSecret): { 
   const raw = Buffer.from(JSON.stringify(payload));
   return { raw, signature: signMetaBody(raw, secret) };
 }
+
+/**
+ * MOCK ONLY: WhatsApp webhook bodies built from the field lists on Meta's messages-webhook reference pages. They are NOT captured from a real WhatsApp account, so they prove our parser
+ * against the documented shape, not against Meta. `wabaId` goes in entry[].id (it is not the routing key); the phone number id goes in value.metadata.
+ */
+export type WaMessageFixture = Record<string, unknown>;
+export function buildWhatsAppChange(a: { phoneNumberId: string; messages?: WaMessageFixture[]; statuses?: Record<string, unknown>[]; contacts?: unknown[]; field?: string }) {
+  return {
+    field: a.field ?? "messages",
+    value: {
+      messaging_product: "whatsapp",
+      metadata: { display_phone_number: "15550783881", phone_number_id: a.phoneNumberId },
+      ...(a.contacts ? { contacts: a.contacts } : {}),
+      ...(a.messages ? { messages: a.messages } : {}),
+      ...(a.statuses ? { statuses: a.statuses } : {}),
+    },
+  };
+}
+export const buildWhatsAppBody = (wabaId: string, changes: ReturnType<typeof buildWhatsAppChange>[]) => ({ object: "whatsapp_business_account", entry: [{ id: wabaId, changes }] });
+export const waText = (from: string, id: string, body: string, atSeconds = Math.floor(Date.now() / 1000)): WaMessageFixture => ({ from, id, timestamp: String(atSeconds), type: "text", text: { body } });

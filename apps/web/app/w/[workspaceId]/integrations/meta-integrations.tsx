@@ -20,7 +20,7 @@ type Channel = { key: ChannelKey; label: string; blurb: string; icon: LucideIcon
 export const CHANNELS: Channel[] = [
   { key: "messenger", label: "Messenger", blurb: "Receive and answer messages sent to your Facebook Pages.", icon: MessageCircle, platform: "messenger" },
   { key: "instagram", label: "Instagram", blurb: "Receive and answer direct messages sent to your Instagram professional account.", icon: Camera, platform: "instagram" },
-  { key: "whatsapp", label: "WhatsApp", blurb: "Business messaging on WhatsApp.", icon: Phone, soon: "Not available yet. WhatsApp needs a Business portfolio and a verified phone number, and is planned after Messenger and Instagram." },
+  { key: "whatsapp", label: "WhatsApp", blurb: "Business messaging on WhatsApp.", icon: Phone, soon: "Not available yet. The receiving side (webhook) for WhatsApp is built, but you cannot connect a WhatsApp number or send messages from here yet. Connecting comes first, then replying." },
   { key: "telegram", label: "Telegram", blurb: "Bot messaging on Telegram.", icon: Send, soon: "Not available yet. It will connect through a Telegram bot that you create." },
 ];
 const isChannel = (v: string | undefined): v is ChannelKey => CHANNELS.some((c) => c.key === v);

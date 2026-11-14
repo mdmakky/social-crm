@@ -10,7 +10,7 @@ const workspaceId = () => uuid("workspace_id").notNull().references(() => worksp
 const ts = (n: string) => timestamp(n, { withTimezone: true });
 const bytea = customType<{ data: Buffer; driverData: Buffer }>({ dataType: () => "bytea" });
 
-export const INBOX_PLATFORMS = ["messenger", "instagram"] as const;
+export const INBOX_PLATFORMS = ["messenger", "instagram", "whatsapp"] as const;
 export const INTEGRATION_STATUSES = ["connected", "reauth_required", "disabled"] as const;
 export const CONVERSATION_STATUSES = ["open", "pending", "resolved"] as const;
 export const DELIVERY_STATES = ["received", "pending", "sending", "sent", "failed", "unknown"] as const;
@@ -47,7 +47,7 @@ export const integrationAccounts = pgTable(
     check("integration_accounts_auth_method_platform", sql`${t.authMethod} = 'facebook' OR ${t.platform} = 'instagram'`),
     unique("integration_accounts_ws_id").on(t.workspaceId, t.id),
     unique("integration_accounts_platform_external").on(t.platform, t.externalAccountId),
-    check("integration_accounts_platform", sql`${t.platform} IN ('messenger','instagram')`),
+    check("integration_accounts_platform", sql`${t.platform} IN ('messenger','instagram','whatsapp')`),
     check("integration_accounts_status", sql`${t.status} IN ('connected','reauth_required','disabled')`),
     // Page and Instagram account ids are numeric strings (to be reconfirmed with the real app). Digits only: no whitespace, zero-padding variants or look-alike characters can create a second key for the same account.
     check("integration_accounts_external_id", sql`${t.externalAccountId} ~ '^[1-9][0-9]{0,99}$'`),
@@ -245,7 +245,7 @@ export const webhookEvents = pgTable(
     bodyPurgedAt: ts("body_purged_at"),
   },
   (t) => [
-    check("webhook_events_platform", sql`${t.platform} IN ('messenger','instagram')`),
+    check("webhook_events_platform", sql`${t.platform} IN ('messenger','instagram','whatsapp')`),
     check("webhook_events_status", sql`${t.status} IN ('received','processed','failed','orphan','rejected')`),
     // an event that failed signature verification can only ever be "rejected" and never carries a body
     check("webhook_events_signature", sql`${t.signatureValid} OR (${t.status} = 'rejected' AND ${t.rawBody} IS NULL)`),
@@ -299,5 +299,33 @@ export const integrationEvents = pgTable(
     foreignKey({ columns: [t.workspaceId, t.integrationAccountId], foreignColumns: [integrationAccounts.workspaceId, integrationAccounts.id] }),
     check("integration_events_kind", sql`${t.kind} IN ('connected','reconnected','disconnected','token_checked','status_changed','delivery_decision')`),
     index("integration_events_account_idx").on(t.workspaceId, t.integrationAccountId, t.createdAt.desc()),
+  ],
+);
+
+/**
+ * What only a WhatsApp account has, 1:1 with its integration account (platform = 'whatsapp', external_account_id = the phone number id). Written by the worker role, read by members.
+ * The WABA id is not the routing key: one WABA can own several phone numbers, and webhooks are routed by the phone number id.
+ */
+export const whatsappAccounts = pgTable(
+  "whatsapp_accounts",
+  {
+    id: id(),
+    workspaceId: workspaceId(),
+    integrationAccountId: uuid("integration_account_id").notNull(),
+    wabaId: text("waba_id").notNull(),
+    displayPhoneNumber: text("display_phone_number"),
+    /** 'cloud_api' (a number registered with the Cloud API) or 'coexistence' (also used in the WhatsApp Business app, slice 4). */
+    mode: text("mode").notNull().default("cloud_api"),
+    createdAt: ts("created_at").notNull().defaultNow(),
+    updatedAt: ts("updated_at").notNull().defaultNow(),
+  },
+  (t) => [
+    unique("whatsapp_accounts_account").on(t.integrationAccountId),
+    unique("whatsapp_accounts_ws_id").on(t.workspaceId, t.id),
+    foreignKey({ columns: [t.workspaceId, t.integrationAccountId], foreignColumns: [integrationAccounts.workspaceId, integrationAccounts.id], name: "whatsapp_accounts_account_fk" }),
+    index("whatsapp_accounts_waba_idx").on(t.wabaId),
+    check("whatsapp_accounts_waba", sql`${t.wabaId} ~ '^[1-9][0-9]{0,99}$'`),
+    check("whatsapp_accounts_display", sql`${t.displayPhoneNumber} IS NULL OR char_length(${t.displayPhoneNumber}) <= 40`),
+    check("whatsapp_accounts_mode", sql`${t.mode} IN ('cloud_api','coexistence')`),
   ],
 );

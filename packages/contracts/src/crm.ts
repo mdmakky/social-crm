@@ -3,7 +3,7 @@ import { endpoint } from "./endpoint.ts";
 
 const uuid = z.string().uuid();
 const iso = z.string();
-export const CONTACT_SOURCES = ["manual", "import", "messenger", "instagram", "facebook_lead_ad", "web_form", "referral", "other"] as const;
+export const CONTACT_SOURCES = ["manual", "import", "messenger", "instagram", "whatsapp", "facebook_lead_ad", "web_form", "referral", "other"] as const;
 export const ContactSource = z.enum(CONTACT_SOURCES);
 export const TAG_COLORS = ["neutral", "accent", "success", "warning", "danger"] as const;
 export const TagColor = z.enum(TAG_COLORS);

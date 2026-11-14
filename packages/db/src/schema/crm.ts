@@ -209,7 +209,7 @@ export const contactMethods = pgTable(
     unique("contact_methods_unique").on(t.workspaceId, t.contactId, t.kind, t.value),
     foreignKey({ columns: [t.workspaceId, t.contactId], foreignColumns: [contacts.workspaceId, contacts.id] }).onDelete("cascade"),
     check("contact_methods_kind", sql`${t.kind} IN ('phone','email')`),
-    check("contact_methods_source", sql`${t.source} IN ('messenger','instagram','manual','import','other')`),
+    check("contact_methods_source", sql`${t.source} IN ('messenger','instagram','whatsapp','manual','import','other')`),
     check("contact_methods_confidence", sql`${t.confidence} >= 0 AND ${t.confidence} <= 1`),
     check("contact_methods_value_len", sql`length(${t.value}) BETWEEN 3 AND 254 AND (raw_value IS NULL OR length(raw_value) <= 200)`),
     index("contact_methods_contact_idx").on(t.workspaceId, t.contactId),

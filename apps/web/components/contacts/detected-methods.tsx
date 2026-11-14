@@ -11,7 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { browserApi, errorMessage } from "@/lib/client-api";
 import { formatDateTime } from "@/lib/format";
 
-const SOURCE: Record<string, string> = { messenger: "Messenger", instagram: "Instagram", manual: "Added by hand", import: "Imported", other: "Other" };
+const SOURCE: Record<string, string> = { messenger: "Messenger", instagram: "Instagram", whatsapp: "WhatsApp", manual: "Added by hand", import: "Imported", other: "Other" };
 const href = (m: ContactMethodDto) => (m.kind === "email" ? `mailto:${encodeURI(m.value)}` : `tel:${m.value.replace(/[^\d+]/g, "")}`);
 
 /**
@@ -65,7 +65,7 @@ export function DetectedMethodsPanel({ workspaceId, contactId, initial, canEdit,
           : (
             <ul className="flex flex-col divide-y divide-line-card">
               {items.map((m) => {
-                const detected = (m.source === "messenger" || m.source === "instagram") && !m.verified;
+                const detected = (m.source === "messenger" || m.source === "instagram" || m.source === "whatsapp") && !m.verified;
                 const label = `${m.kind === "email" ? "email" : "phone number"} ${m.value}`;
                 return (
                   <li key={m.id} className="flex flex-col gap-1.5 py-2.5 first:pt-0 last:pb-0">

@@ -178,7 +178,7 @@ export function ContactsView({ workspaceId, timeZone, myUserId, initial, initial
           </Select>
           <Select aria-label="Source" quiet active={!!query.source} className="w-auto" value={query.source ?? ""} onChange={(e) => set({ source: (e.target.value || undefined) as Q["source"] })}>
             <option value="">All sources</option>
-            {["manual", "import", "messenger", "instagram", "facebook_lead_ad", "web_form", "referral", "other"].map((s) => <option key={s} value={s}>{sourceLabel(s)}</option>)}
+            {["manual", "import", "messenger", "instagram", "whatsapp", "facebook_lead_ad", "web_form", "referral", "other"].map((s) => <option key={s} value={s}>{sourceLabel(s)}</option>)}
           </Select>
           {filtered && <Button variant="ghost" onClick={clearFilters}><FilterX />Clear</Button>}
         </div>

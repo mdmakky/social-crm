@@ -48,7 +48,7 @@ export function contactMethodRoutes(db: Db) {
     const m = rowsOf(await tx.execute(sql`SELECT ${COLS} FROM contact_methods WHERE workspace_id = ${workspaceId} AND contact_id = ${id} AND id = ${mid}`))[0];
     if (!m) return fail(c, 404, "not_found");
     // Entered or verified values are out of reach of this workflow.
-    if (m.verified || !["messenger", "instagram"].includes(m.source as string)) return fail(c, 409, "not_detected", "Only values detected from a conversation can be corrected or removed here.");
+    if (m.verified || !["messenger", "instagram", "whatsapp"].includes(m.source as string)) return fail(c, 409, "not_detected", "Only values detected from a conversation can be corrected or removed here.");
     return { contact, m, id, mid, workspaceId };
   };
 
