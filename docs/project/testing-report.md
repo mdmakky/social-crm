@@ -95,3 +95,9 @@ Mock Graph and fake fetch only; no real Meta request, no real message.
 - `apps/web` (+2): per-channel limits, failure sentences.
 - Updated `inbox-ingress` test: a Messenger object on the Instagram URL is now stored as Messenger (channel from payload); removed the unreachable "unsupported channel" case from send.test.
 - Results: see the delivery report; the API suite is flaky ~1 in 3 runs on unrelated ingress/profile tests (pre-existing, shared database across parallel files); every file passes alone.
+
+## Direct Instagram connection, Unified Login (2026-11-14, branch feat/instagram-unified-login)
+Mock Graph and fake fetch only. No real Meta request, no real message, no Playwright.
+- `apps/api/test/instagram-unified.test.ts` (20): login URL and role gate, 503 unconfigured; state validation (tampered, nonce, other user, expired, Facebook-flow state, Instagram state at the Facebook callback); connect (exchange order, sealed token, expiry from debug_token, subscription, audit, no token in any response), never-expiring token, several accounts / one taken / none shared / all taken, exchange failure, refused subscription, denial, storage failure, simultaneous connect from two workspaces, reconnect and method switch, disconnect and role/tenant checks; Check token, Re-check subscription; inbound DM, duplicates, bad signature; send via `/{ig-id}/messages`, dedupe, echo adoption, UNKNOWN then echo, refusal, window, 1000 bytes, roles, tenants, missing token; enrichment; Page-based Instagram regression; DB constraints and grants.
+- `packages/integrations/test/send.test.ts` (+3): unified send request, account listing, error kind.
+- Results in the delivery report.
