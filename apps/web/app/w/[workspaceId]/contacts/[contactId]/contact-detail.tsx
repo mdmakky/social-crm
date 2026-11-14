@@ -3,7 +3,7 @@ import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Check, ChevronDown, Clock, MessageSquare, MoreHorizontal, Pencil, Plus, Trash2, Workflow, X } from "lucide-react";
-import { endpoints, type ActivityItem, type ContactDetail, type CustomField, type DuplicateCandidate, type LifecycleStage, type Member, type Note, type Role, type LeadDto, type PipelineDto, type Tag, type Task } from "@crm/contracts";
+import { endpoints, type ActivityItem, type ContactDetail, type ContactMethodDto, type CustomField, type DuplicateCandidate, type LifecycleStage, type Member, type Note, type Role, type LeadDto, type PipelineDto, type Tag, type Task } from "@crm/contracts";
 import { can } from "@crm/core/permissions";
 import { CustomFieldInput } from "@/components/contacts/custom-field-input";
 import { DetectedMethodsPanel } from "@/components/contacts/detected-methods";
@@ -23,7 +23,7 @@ import { formatMoney, OUTCOME_LABEL, OUTCOME_TONE } from "@/lib/leads";
 
 type Props = {
   workspaceId: string; role: Role; timeZone: string; myUserId: string;
-  contact: ContactDetail; deals: { items: LeadDto[]; pipelines: PipelineDto[] } | null; notes: Note[]; activity: { items: ActivityItem[]; nextCursor: string | null }; tasks: Task[];
+  contact: ContactDetail; deals: { items: LeadDto[]; pipelines: PipelineDto[] } | null; notes: Note[]; methods: ContactMethodDto[] | null; activity: { items: ActivityItem[]; nextCursor: string | null }; tasks: Task[];
   allTags: Tag[]; stages: LifecycleStage[]; members: Member[]; fields: CustomField[];
   perms: { edit: boolean; delete: boolean };
 };
@@ -99,7 +99,7 @@ export function ContactDetailView(props: Props) {
         <div className="grid gap-4 lg:col-span-2">
           <div className={GROUP}>
           <DetailsPanel key={c.version} c={c} carry={carry} onCarryUsed={() => setCarry(null)} onCarry={setCarry} saved={savedVersion === c.version} onSaved={(d, viaSave) => { setC(d); if (viaSave) setSavedVersion(d.version); void refreshActivity(); }} stages={stages} members={members} fields={fields} canEdit={perms.edit} workspaceId={workspaceId} myUserId={myUserId} />
-          <DetectedMethodsPanel workspaceId={workspaceId} contactId={c.id} canEdit={perms.edit} timeZone={timeZone} onPrimaryChanged={() => { void browserApi.call(endpoints.getContact, { params: { workspaceId, contactId: c.id } }).then((r) => { if (r.ok) setC(r.data); }); }} />
+          <DetectedMethodsPanel workspaceId={workspaceId} contactId={c.id} initial={props.methods} canEdit={perms.edit} timeZone={timeZone} onPrimaryChanged={() => { void browserApi.call(endpoints.getContact, { params: { workspaceId, contactId: c.id } }).then((r) => { if (r.ok) setC(r.data); }); }} />
           <TagsPanel c={c} allTags={allTags} canEdit={perms.edit} workspaceId={workspaceId} onChanged={(d, t) => { setC(d); if (t) setAllTags(t); void refreshActivity(); }} />
           </div>
           <div className={GROUP}>

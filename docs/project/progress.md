@@ -44,3 +44,7 @@ Merge commit `50bf5b6` (feature branch `feat/leads-pipeline`, code HEAD `ef574f8
 
 ## Update 2026-11-13: UX track (Quiet Precision) applied to the web app
 Role tokens, Home dashboard, settings sub-nav, shared tabs, contacts value hierarchy, contact Deals panel and notifications restyled. Details and evidence: `docs/design/ux-track.md`. Phase status unchanged. Meta Inbox Slice 3 not started.
+
+## Update 2026-11-14: Smart Messenger CRM slices (merged to main)
+Hosted free-tier stack (Vercel web, Render API, Neon DB) is live for dev/demo; real Messenger delivery and name/profile-picture enrichment were verified on it (Meta permission: see known-limitations). Built on `feat/smart-messenger-crm`: profile enrichment (`43b75f6`), phone extraction (`d986656`), email extraction (`773d2e1`), correct/remove detected methods (`de5f4f1`), Contact Details detected section (`39e7f4e`), audit of privileged note edits/deletes (`d9a8367`), Playwright spec and docs (this merge). Migrations 0021 (profile enrichment), 0022 (contact_methods), 0023 (method corrections). Decisions D46 to D49. Hosted verification of extraction and corrections is NOT done (mock and local only). Remaining slices: duplicate detection (5), tagging rules (6), AI summary and intent (7), lead scoring and sentiment (8), follow-up suggestions (9). Send (outbound) is still not started.
+

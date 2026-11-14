@@ -66,3 +66,14 @@ Updated: 2026-11-13 (Phase 0).
 - No board yet (slice 4), no lead tags or custom fields, no task links on leads, no lead search provider or owner notification (slices 5 and 6).
 - Android emulator crashes on start on this machine, so no mobile behavior is runtime verified; see `android-verification.md`. The mobile app does not handle a 401 (no `onUnauthorized`).
 - Default pipelines are created at workspace creation and on the first admin visit to existing workspaces; before that, non-admins see an empty pipeline list.
+
+## Contact methods and detection (added 2026-11-14, branch feat/smart-messenger-crm, not merged)
+- Extraction handles Bangladeshi mobile numbers and explicit international numbers (+CC or 00CC) only. A bare national number from another country is not extracted. Landlines inside Bangladesh without +880 are not extracted.
+- Extraction applies to NEW messages only; nothing scans earlier messages.
+- There is no workflow to VERIFY a detected method yet (kept out of scope on purpose); detected values stay unverified. Correct and remove are available to owner, admin and agent.
+- Detected methods are shown in the Inbox panel and on Contact Details; they are not yet searchable (search and duplicate detection use `contacts.phone/email` only) and not part of CSV export.
+- `contacts.phone/email` filled automatically from a conversation cannot be told apart from an entered value later except through `contact_methods.is_primary` and its source.
+- Messenger profile enrichment (name, picture) needs Advanced Access to the "Business Asset User Profile Access" feature per Meta docs; it worked for the connected test Page in development mode only. Other people's Pages are UNVERIFIED until App Review. Picture URLs expire (refreshed at most weekly for active people).
+- Test suite: `apps/api` test files share one database and run in parallel; several (inbox ingress, profile, contact methods, meta-connect due-token job) drain global queues, so run the suite on a fresh isolated database (`scripts/db-create.sh`) and re-run a failing file alone before suspecting the code. `packages/db` rls-matrix and crm-rls can fail at start with a duplicate `user_email_unique` when both files start in the same millisecond (pre-existing).
+- Customer data retention: the Meta data-deletion callback disconnects accounts and erases tokens and the Meta user link, but it does not purge contacts, messages or detected methods. A retention and customer-data deletion policy is still to be decided.
+- The same number or email detected for two different contacts is stored on both (duplicate detection across contacts is the next planned slice); nothing is merged automatically.

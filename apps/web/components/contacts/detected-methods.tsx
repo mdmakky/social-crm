@@ -18,23 +18,20 @@ const href = (m: ContactMethodDto) => (m.kind === "email" ? `mailto:${encodeURI(
  * Phone numbers and emails the system read out of conversations. They are marked unverified and kept apart from the details a person entered above; the contact's own
  * fields are only ever changed by the details form. Correcting or removing is limited to detected values (the API and the database enforce it too).
  */
-export function DetectedMethodsPanel({ workspaceId, contactId, canEdit, timeZone, onPrimaryChanged }: { workspaceId: string; contactId: string; canEdit: boolean; timeZone: string; onPrimaryChanged: () => void }) {
+export function DetectedMethodsPanel({ workspaceId, contactId, initial, canEdit, timeZone, onPrimaryChanged }: { workspaceId: string; contactId: string; /** Loaded on the server with the page; null when that request failed. */ initial: ContactMethodDto[] | null; canEdit: boolean; timeZone: string; onPrimaryChanged: () => void }) {
   const p = { workspaceId, contactId };
-  const [items, setItems] = React.useState<ContactMethodDto[] | null>(null);
-  const [loadError, setLoadError] = React.useState<string | null>(null);
+  const [items, setItems] = React.useState<ContactMethodDto[] | null>(initial);
+  const [loadError, setLoadError] = React.useState<string | null>(initial === null ? "The list could not be loaded." : null);
   const [error, setError] = React.useState<string | null>(null);
   const [editing, setEditing] = React.useState<{ id: string; value: string } | null>(null);
   const [confirmId, setConfirmId] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
 
   const load = React.useCallback(async () => {
-    setLoadError(null);
     const r = await browserApi.call(endpoints.listContactMethods, { params: p });
-    if (r.ok) setItems(r.data.items);
-    else setLoadError(errorMessage(r.error));
+    if (r.ok) { setItems(r.data.items); setLoadError(null); } else setLoadError(errorMessage(r.error));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workspaceId, contactId]);
-  React.useEffect(() => { void load(); }, [load]);
 
   async function save() {
     if (!editing) return;
@@ -62,7 +59,7 @@ export function DetectedMethodsPanel({ workspaceId, contactId, canEdit, timeZone
       <PanelHeader title="Detected from conversations" description="Read automatically from messages. Not verified; the details above are only what a person entered." />
       <div className="flex flex-col gap-3 p-4">
         {error && <Alert tone="error">{error}</Alert>}
-        {loadError ? <ErrorState title="Couldn't load detected details" description={loadError} onRetry={() => void load()} />
+        {loadError ? <ErrorState title="Couldn't load detected details" description={loadError} onRetry={() => { setItems(null); setLoadError(null); void load(); }} />
           : items === null ? <div role="status" aria-label="Loading detected details" className="space-y-2"><Skeleton className="h-9 w-full" /><Skeleton className="h-9 w-2/3" /></div>
           : items.length === 0 ? <p className="text-sm text-fg-muted">Nothing detected yet. Phone numbers and emails customers write in a conversation appear here.</p>
           : (
