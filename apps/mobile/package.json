@@ -6,6 +6,8 @@
     "@better-auth/expo": "1.7.22",
     "@crm/api-client": "workspace:*",
     "@crm/contracts": "workspace:*",
+    "@crm/core": "workspace:*",
+    "@crm/design-tokens": "workspace:*",
     "better-auth": "1.7.22",
     "expo": "~58.0.25",
     "expo-constants": "~58.0.16",

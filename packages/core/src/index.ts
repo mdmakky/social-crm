@@ -6,3 +6,4 @@ export * from "./contacts.ts";
 export * from "./tasks.ts";
 export * from "./extract.ts";
 export * from "./automation.ts";
+export * from "./approvals.ts";

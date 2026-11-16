@@ -1,19 +1,14 @@
 import { useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
-import { endpoints, type MeResponse } from "@crm/contracts";
-import { createApiClient } from "@crm/api-client";
-import { API_URL, authClient } from "./src/auth-client";
-
-// Shared typed client. The Expo auth client keeps the session in SecureStore; its cookie is sent as a manual header.
-const api = createApiClient({ baseUrl: API_URL, auth: { mode: "cookie" }, credentials: "omit", headers: async () => ({ Cookie: await authClient.getCookie() }) });
+import { authClient } from "./src/auth-client";
+import { SignedIn } from "./src/signed-in";
 
 export default function App() {
   const { data: session, isPending } = authClient.useSession();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [me, setMe] = useState<MeResponse | null>(null);
   const [busy, setBusy] = useState(false);
 
   async function run(fn: () => Promise<{ error?: { message?: string } | null }>) {
@@ -24,12 +19,6 @@ export default function App() {
     setBusy(false);
   }
 
-  async function loadMe() {
-    const res = await api.call(endpoints.me);
-    if (!res.ok) return setError(`${res.error.code}: ${res.error.message}`);
-    setMe(res.data);
-  }
-
   if (isPending) return <ActivityIndicator style={styles.center} />;
 
   return (
@@ -37,16 +26,7 @@ export default function App() {
       <StatusBar style="auto" />
       <Text style={styles.title}>Social CRM</Text>
       {session ? (
-        <>
-          <Text testID="signed-in">Signed in as {session.user.email}</Text>
-          <Pressable accessibilityRole="button" style={styles.button} onPress={loadMe}>
-            <Text style={styles.buttonText}>Call /v1/me</Text>
-          </Pressable>
-          {me && <Text testID="me">API says: {me.email}</Text>}
-          <Pressable accessibilityRole="button" style={styles.button} onPress={() => run(() => authClient.signOut().then(() => ({})))}>
-            <Text style={styles.buttonText}>Sign out</Text>
-          </Pressable>
-        </>
+        <SignedIn email={session.user.email} onSignOut={() => void run(() => authClient.signOut().then(() => ({})))} />
       ) : (
         <>
           <TextInput testID="email" style={styles.input} placeholder="Email" autoCapitalize="none" keyboardType="email-address" value={email} onChangeText={setEmail} />
