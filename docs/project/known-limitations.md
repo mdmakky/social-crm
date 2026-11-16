@@ -206,3 +206,9 @@ Updated: 2026-11-13 (Phase 0).
 - Model list cache and the browse rate limit are in-process (one API instance). Capability confirmation on save uses that cache: after a restart or 10 minutes, a save keeps what is already stored but cannot grant new capabilities.
 - Prices cover input and output tokens only; per-request, image or reasoning fees are only covered through the reported `usage.cost` (the higher value is charged). Free models cost 0.
 - Not built (slice B): streaming, native tool calling, structured output, routing preferences, BYOK, audio transcription through OpenRouter, router aliases (`openrouter/auto`).
+
+## Moved out of the UI copy (UI cleanup, 2026-11-17)
+- Not tested live (shown as a badge): Messenger, Instagram and WhatsApp connections, real AI providers, OpenRouter prices and capabilities, the built-in model capability list. No recorded request to a live service exists for them; see the sections above.
+- Meta webhooks: the callback URL and fields (Instagram via a Page, WhatsApp `messages`) are set once in the Meta app dashboard; real delivery is unverified until the first real message arrives.
+- Conversions API is mock only: events are checked and recorded, nothing is sent to Meta, and a real accepted request would not mean Meta counted a conversion. Only Purchase is created today.
+- WhatsApp is receive only. Free-form replies are limited to 24 hours after the customer's last message; templates are not available.

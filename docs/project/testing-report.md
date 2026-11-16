@@ -213,3 +213,7 @@ Not covered: any real OpenRouter request, the live model list shape, real 402/40
 ## Settings information architecture (2026-11-17)
 - New `e2e/settings-nav.spec.ts` (grouped nav and aria-current at 1440, every old URL loads inside the shell, phone list to detail and back at 375 with 44px rows, agent and viewer see only what they may). Run on a fresh `set_f`: `E2E_WEB_PORT=5417 E2E_API_PORT=9991 CRM_DB_NAME=set_f E2E_META_MOCK=1 pnpm exec playwright test settings-nav`.
 - Not covered: the full e2e suite (only specs touching settings and the moved pages were run), browsers other than Chromium, a screen reader pass.
+
+## UI cleanup (2026-11-17)
+- Specs whose copy or structure assertions changed: auth-and-shell, permissions-and-members, settings-nav (new Ad measurement checks), integrations, states-and-errors, mobile, responsive-and-a11y, leads, contacts-responsive, contacts-detail, contacts-wpc-import, ai-settings, ai-openrouter, ai-agents. Unit test `test/lib.test.ts` (sidebar labels). Fresh private DB `ui_f`, ports 5517 and 9491, `E2E_META_MOCK=1`.
+- Not covered: the full e2e suite, a before-screenshot round, a screen reader pass.
