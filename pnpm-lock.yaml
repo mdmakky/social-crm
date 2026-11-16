@@ -211,6 +211,9 @@ importers:
       '@crm/integrations':
         specifier: workspace:*
         version: link:../../packages/integrations
+      '@crm/knowledge':
+        specifier: workspace:*
+        version: link:../../packages/knowledge
       '@hono/node-server':
         specifier: 2.1.8
         version: 2.1.8(hono@4.13.18)
@@ -515,6 +518,22 @@ importers:
         version: 5.1.0(@opentelemetry/api@1.10.0)(@types/node@24.19.2)(vite@8.3.8(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15))
 
   packages/integrations:
+    devDependencies:
+      '@types/node':
+        specifier: ^24.19.2
+        version: 24.19.2
+      typescript:
+        specifier: ~5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: 5.1.0
+        version: 5.1.0(@opentelemetry/api@1.10.0)(@types/node@24.19.2)(vite@8.3.8(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15))
+
+  packages/knowledge:
+    dependencies:
+      csv-parse:
+        specifier: 7.0.3
+        version: 7.0.3
     devDependencies:
       '@types/node':
         specifier: ^24.19.2
