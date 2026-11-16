@@ -225,6 +225,13 @@
       "when": 1794930284233,
       "tag": "0032_ai_agents",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1794930344233,
+      "tag": "0033_inbox_attachments",
+      "breakpoints": true
     }
   ]
 }
