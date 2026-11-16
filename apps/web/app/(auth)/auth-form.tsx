@@ -59,23 +59,23 @@ export function AuthForm({ mode, next, notice }: { mode: "login" | "register"; n
   return (
     <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
       <div>
-        <h1 className="text-lg font-semibold tracking-title text-fg">{register ? "Create your account" : "Sign in"}</h1>
-        <p className="mt-0.5 text-sm text-fg-muted">{register ? "Start with a workspace for your business." : "Sign in to continue to your workspace."}</p>
+        <h1 className="text-2xl font-bold tracking-[-0.025em] text-fg">{register ? "Create your account" : "Sign in"}</h1>
+        <p className="mt-1.5 text-md text-fg-muted">{register ? "Start with a workspace for your business." : "Sign in to continue to your workspace."}</p>
       </div>
       {notice && <Alert tone="success">{notice}</Alert>}
       {formError && <Alert tone="error">{formError}</Alert>}
       {register && (
         <Field label="Full name" error={errors.name}>
-          {(p) => <Input {...p} name="name" autoComplete="name" autoFocus />}
+          {(p) => <Input {...p} className="h-11" name="name" autoComplete="name" autoFocus />}
         </Field>
       )}
       <Field label="Email" error={errors.email}>
-        {(p) => <Input {...p} name="email" type="email" autoComplete="email" inputMode="email" autoFocus={!register} />}
+        {(p) => <Input {...p} className="h-11" name="email" type="email" autoComplete="email" inputMode="email" autoFocus={!register} />}
       </Field>
       <Field label="Password" hint={register ? `At least ${MIN} characters.` : undefined} error={errors.password} action={!register ? <Link href="/forgot-password" className="text-xs font-medium text-accent-fg underline underline-offset-2">Forgot password?</Link> : undefined}>
-        {(p) => <Input {...p} name="password" type="password" autoComplete={register ? "new-password" : "current-password"} />}
+        {(p) => <Input {...p} className="h-11" name="password" type="password" autoComplete={register ? "new-password" : "current-password"} />}
       </Field>
-      <Button type="submit" variant="primary" size="lg" loading={busy}>{register ? "Create account" : "Sign in"}</Button>
+      <Button type="submit" variant="primary" size="lg" className="h-12 text-md" loading={busy}>{register ? "Create account" : "Sign in"}</Button>
       <p className="text-center text-sm text-fg-muted">
         {register ? "Already have an account? " : "New here? "}
         <Link href={register ? "/login" : "/register"} className="font-medium text-accent-fg underline underline-offset-2">{register ? "Sign in" : "Create an account"}</Link>

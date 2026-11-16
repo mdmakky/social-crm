@@ -45,7 +45,7 @@ export function ResetPasswordForm({ token }: { token: string }) {
     return (
       <div className="flex flex-col gap-4" role="alert">
         <div>
-          <h1 className="text-lg font-semibold tracking-title text-fg">This link has expired</h1>
+          <h1 className="text-2xl font-bold tracking-[-0.025em] text-fg">This link has expired</h1>
           <p className="mt-1 text-sm text-fg-muted">Reset links expire after 30 minutes and work once. Request a new one to continue.</p>
         </div>
         <div><Button asChild variant="primary"><Link href="/forgot-password">Request a new link</Link></Button></div>
@@ -56,17 +56,17 @@ export function ResetPasswordForm({ token }: { token: string }) {
   return (
     <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
       <div>
-        <h1 className="text-lg font-semibold tracking-title text-fg">Choose a new password</h1>
-        <p className="mt-0.5 text-sm text-fg-muted">You&rsquo;ll be signed out everywhere else once it&rsquo;s changed.</p>
+        <h1 className="text-2xl font-bold tracking-[-0.025em] text-fg">Choose a new password</h1>
+        <p className="mt-1.5 text-md text-fg-muted">You&rsquo;ll be signed out everywhere else once it&rsquo;s changed.</p>
       </div>
       {formError && <Alert tone="error">{formError}</Alert>}
       <Field label="New password" hint={`At least ${PASSWORD_MIN_LENGTH} characters.`} error={errors.password}>
-        {(p) => <Input {...p} name="password" type="password" autoComplete="new-password" autoFocus />}
+        {(p) => <Input {...p} className="h-11" name="password" type="password" autoComplete="new-password" autoFocus />}
       </Field>
       <Field label="Confirm new password" error={errors.confirm}>
-        {(p) => <Input {...p} name="confirm" type="password" autoComplete="new-password" />}
+        {(p) => <Input {...p} className="h-11" name="confirm" type="password" autoComplete="new-password" />}
       </Field>
-      <Button type="submit" variant="primary" size="lg" loading={busy}>Update password</Button>
+      <Button type="submit" variant="primary" size="lg" className="h-12 text-md" loading={busy}>Update password</Button>
     </form>
   );
 }

@@ -1,0 +1,36 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Login option C: Drenched</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Noto+Sans+Bengali:wght@400;500&display=swap"><link rel="stylesheet" href="base.css">
+<style>
+/* C: the brand colour owns half the screen. Big type, three channels, one promise. The form side stays calm and large. */
+.page{display:grid;grid-template-columns:minmax(0,1fr) minmax(440px,520px);min-height:100vh}
+.p{background:var(--accent);color:#fff;padding:36px clamp(32px,5vw,72px) 40px;display:flex;flex-direction:column;position:relative;overflow:hidden}
+.p .logo i{background:#fff;color:var(--accent)}
+.p .hero{margin:auto 0;max-width:620px}
+.p h2{margin:0;font-size:clamp(40px,5.2vw,68px);line-height:1.02;letter-spacing:-.035em;font-weight:800}
+.p h2 em{font-style:normal;color:#C9C3FF}
+.p .sub{margin:20px 0 0;font-size:18px;line-height:1.5;color:#E4E1FF;max-width:480px}
+.chs{display:flex;gap:10px;flex-wrap:wrap;margin-top:32px}
+.chs span{display:inline-flex;align-items:center;gap:9px;background:#fff;color:var(--ink);font-weight:600;font-size:14px;border-radius:99px;padding:9px 16px 9px 10px}
+.chs .d{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;color:#fff}.chs .d .i{width:14px;height:14px;stroke-width:2.2}
+.trio{display:grid;grid-template-columns:repeat(3,1fr);gap:0;border-top:1px solid rgba(255,255,255,.28);margin-top:auto}
+.trio div{padding:22px 24px 0 0}.trio b{display:flex;gap:9px;align-items:center;font-size:15px;margin-bottom:6px}.trio p{margin:0;font-size:14px;color:#E4E1FF;line-height:1.45}
+.big{position:absolute;right:-150px;top:-150px;width:420px;height:420px;border-radius:50%;border:64px solid #6A5BF5;pointer-events:none;z-index:0}.p>*:not(.big){position:relative;z-index:1}.dot{margin-left:-.09em}
+.f{background:#fff;display:flex;flex-direction:column;padding:32px clamp(28px,4vw,56px)}
+.f .top{display:flex;justify-content:flex-end;font-size:13.5px;color:var(--ink2);gap:6px;align-items:center}
+.f .mid{flex:1;display:flex;align-items:center}.f .form{max-width:400px;margin:0 auto}
+.f .foot{font-size:12.5px;color:var(--ink3);display:flex;gap:16px}
+@media (max-width:980px){.page{grid-template-columns:1fr}.p{padding:24px 22px 26px}.p .hero{margin:28px 0 0}.p h2{font-size:34px}.p .sub{font-size:15px;margin-top:12px}.chs{margin-top:18px}.trio,.big{display:none}.f{padding:28px 22px}}
+@media (prefers-reduced-motion:no-preference){.p h2,.p .sub,.chs{animation:up .6s var(--ease) both}.p .sub{animation-delay:.08s}.chs{animation-delay:.16s}@keyframes up{from{transform:translateY(12px)}}}
+</style></head><body>
+<div class="page">
+<section class="p"><span id="lg"></span>
+ <div class="hero"><h2>Every message<span class="dot">.</span><br>Every lead<span class="dot">.</span><br><em>One place<span class="dot">.</span></em></h2>
+  <p class="sub">Answer customers on Messenger, Instagram and WhatsApp, and follow each one to a won deal, without switching apps.</p>
+  <div class="chs"><span><i class="d" style="background:var(--messenger)" id="k1"></i>Messenger</span><span><i class="d" style="background:var(--ig)" id="k2"></i>Instagram</span><span><i class="d" style="background:var(--wa)" id="k3"></i>WhatsApp</span></div></div>
+ <div class="trio"><div><b><span id="t1"></span>Inbox</b><p>One thread per customer, with honest delivery status.</p></div><div><b><span id="t2"></span>Leads</b><p>Turn a conversation into a deal in two taps.</p></div><div><b><span id="t3"></span>Pipeline</b><p>See every deal by stage and move it forward.</p></div></div>
+ <span class="big"></span></section>
+<section class="f"><div class="top">Need help? <a href="#">Contact support</a></div>
+ <div class="mid"><div id="form" style="width:100%"></div></div>
+ <div class="foot"><a href="#">Privacy</a><a href="#">Terms</a></div></section></div>
+<script src="base.js"></script>
+<script>$('lg').innerHTML=LOGO;$('k1').innerHTML=I('msg');$('k2').innerHTML=I('cam');$('k3').innerHTML=I('phone');$('t1').innerHTML=I('inbox');$('t2').innerHTML=I('user');$('t3').innerHTML=I('kanban');</script></body></html>
