@@ -3,10 +3,11 @@ import { AutomationAction, AUTOMATION_TRIGGERS } from "@crm/contracts";
 import { evaluateCondition, MAX_RUN_ATTEMPTS, retryDelayMs, type Condition } from "@crm/core";
 import { schema, withContext, type Db, type Tx } from "@crm/db";
 import { withSystem, type Consumer, type EventRow } from "../events.ts";
+import { prepareForAutomation, type AgentDeps, type Prepared, type PrepareFailure } from "../ai/agent-run.ts";
 import { PermanentError, runAction } from "./actions.ts";
+import { killSwitchOn } from "./kill-switch.ts";
 
-export const killSwitchOn = async (tx: Tx, workspaceId: string) =>
-  !!(await tx.select({ k: schema.automationSettings.killSwitch }).from(schema.automationSettings).where(eq(schema.automationSettings.workspaceId, workspaceId)))[0]?.k;
+export { killSwitchOn };
 
 /**
  * Trigger side: turns a domain event into runs. Idempotent: the unique (workspace, rule, idempotency key) makes a replayed event a no-op,
@@ -47,17 +48,27 @@ export type ExecuteResult = "none" | "killed" | "succeeded" | "retry" | "failed"
  * auto-run rules), so RLS applies to every effect and a failure rolls all of them back. The failure and its step are then recorded in a
  * second transaction, with exponential backoff until MAX_RUN_ATTEMPTS. No network call exists in this slice, so nothing here waits on I/O.
  */
-export async function executeNextRun(db: Db, workspaceId: string, now = new Date()): Promise<ExecuteResult> {
+export async function executeNextRun(db: Db, workspaceId: string, now = new Date(), ai?: AgentDeps["ai"]): Promise<ExecuteResult> {
   const peek = await withSystem(db, workspaceId, async (tx) => {
     if (await killSwitchOn(tx, workspaceId)) return "killed" as const;
-    const [r] = await tx.select({ id: schema.automationRuns.id, approvedBy: schema.automationRuns.approvedBy, ruleId: schema.automationRuns.ruleId }).from(schema.automationRuns).where(and(eq(schema.automationRuns.workspaceId, workspaceId), eq(schema.automationRuns.status, "pending"), lte(schema.automationRuns.nextAttemptAt, now))).orderBy(asc(schema.automationRuns.nextAttemptAt), asc(schema.automationRuns.id)).limit(1);
+    const [r] = await tx.select({ id: schema.automationRuns.id, approvedBy: schema.automationRuns.approvedBy, ruleId: schema.automationRuns.ruleId, actions: schema.automationRuns.actions, context: schema.automationRuns.context, triggerType: schema.automationRuns.triggerType, entityType: schema.automationRuns.entityType, entityId: schema.automationRuns.entityId }).from(schema.automationRuns).where(and(eq(schema.automationRuns.workspaceId, workspaceId), eq(schema.automationRuns.status, "pending"), lte(schema.automationRuns.nextAttemptAt, now))).orderBy(asc(schema.automationRuns.nextAttemptAt), asc(schema.automationRuns.id)).limit(1);
     if (!r) return null;
     const [rule] = await tx.select({ createdBy: schema.automationRules.createdBy }).from(schema.automationRules).where(and(eq(schema.automationRules.workspaceId, workspaceId), eq(schema.automationRules.id, r.ruleId)));
-    return { id: r.id, actor: r.approvedBy ?? rule!.createdBy };
+    let contactId = typeof (r.context as Record<string, unknown>).contactId === "string" ? ((r.context as Record<string, unknown>).contactId as string) : null;
+    if (!contactId && r.entityType === "lead") contactId = (await tx.select({ c: schema.leads.primaryContactId }).from(schema.leads).where(and(eq(schema.leads.workspaceId, workspaceId), eq(schema.leads.id, r.entityId))))[0]?.c ?? null;
+    return { id: r.id, actor: r.approvedBy ?? rule!.createdBy, actions: Array.isArray(r.actions) ? r.actions : [], contactId, triggerType: r.triggerType };
   });
   if (peek === "killed") return "killed";
   if (!peek) return "none";
 
+  // run_ai_agent: the model call happens HERE, outside any transaction; the action transaction below only writes the result.
+  const agentRuns = new Map<number, Prepared | PrepareFailure>();
+  if (ai && peek.contactId) {
+    for (const [idx, raw] of peek.actions.entries()) {
+      const a = AutomationAction.safeParse(raw);
+      if (a.success && a.data.type === "run_ai_agent") agentRuns.set(idx, await prepareForAutomation({ db, ai }, { workspaceId, userId: peek.actor, agentId: a.data.agentId, contactId: peek.contactId, triggerType: peek.triggerType }));
+    }
+  }
   let failure: StepError | null = null;
   try {
     const out = await withContext(db, { userId: peek.actor, workspaceId }, async (tx) => {
@@ -79,7 +90,7 @@ export async function executeNextRun(db: Db, workspaceId: string, now = new Date
         const parsed = AutomationAction.safeParse(raw);
         if (!parsed.success) throw new StepError(idx, String((raw as { type?: unknown })?.type ?? "unknown"), true, "The stored action is not valid.");
         try {
-          const detail = await runAction({ tx, workspaceId, actorUserId: peek.actor, runId: run.id, contactId }, parsed.data);
+          const detail = await runAction({ tx, workspaceId, actorUserId: peek.actor, runId: run.id, contactId, idx, agentRun: agentRuns.get(idx) ?? null }, parsed.data);
           await tx.insert(schema.automationRunSteps).values({ workspaceId, runId: run.id, attempt, idx, actionType: parsed.data.type, status: "succeeded", detail });
         } catch (e) {
           throw new StepError(idx, parsed.data.type, e instanceof PermanentError, errText(e));
@@ -106,13 +117,13 @@ export async function executeNextRun(db: Db, workspaceId: string, now = new Date
 }
 
 /** Runs due work for every workspace (bounded per call). `now` is injectable so tests can step past a backoff without sleeping. */
-export async function processRuns(db: Db, opts: { now?: Date; workspaceIds?: string[]; perWorkspace?: number } = {}): Promise<number> {
+export async function processRuns(db: Db, opts: { now?: Date; workspaceIds?: string[]; perWorkspace?: number; ai?: AgentDeps["ai"] } = {}): Promise<number> {
   const all = await withSystem(db, undefined, (tx) => tx.select({ id: schema.workspaceEventCounters.workspaceId }).from(schema.workspaceEventCounters));
   let done = 0;
   for (const ws of all) {
     if (opts.workspaceIds && !opts.workspaceIds.includes(ws.id)) continue;
     for (let i = 0; i < (opts.perWorkspace ?? 20); i++) {
-      const r = await executeNextRun(db, ws.id, opts.now);
+      const r = await executeNextRun(db, ws.id, opts.now, opts.ai);
       if (r === "none" || r === "killed") break;
       done++;
     }

@@ -8,3 +8,4 @@ export { createAnthropic } from "./providers/anthropic.ts";
 export { createOpenAiCompatible } from "./providers/openai.ts";
 export { createMockProvider } from "./providers/mock.ts";
 export * from "./prompts.ts";
+export * from "./agent.ts";

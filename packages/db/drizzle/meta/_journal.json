@@ -211,6 +211,13 @@
       "when": 1794930104233,
       "tag": "0030_ai_foundation",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1794930284233,
+      "tag": "0032_ai_agents",
+      "breakpoints": true
     }
   ]
 }
