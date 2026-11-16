@@ -123,7 +123,7 @@ export function MembersTable({ workspaceId, members, myRole, myUserId, timeZone 
         {dialog && (
           <DialogContent
             title={dialog.kind === "role" ? `Change role for ${dialog.member.name}` : `Remove ${dialog.member.name}?`}
-            description={dialog.kind === "role" ? undefined : "They will lose access to this workspace immediately. Their past activity stays in the audit log."}
+            description={dialog.kind === "role" ? undefined : "They lose access immediately. Their activity stays in the audit log."}
           >
             {error && <Alert tone="error" className="mb-3">{error}</Alert>}
             {dialog.kind === "role" && (

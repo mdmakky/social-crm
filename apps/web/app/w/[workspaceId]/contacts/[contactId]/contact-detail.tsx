@@ -113,14 +113,14 @@ export function ContactDetailView(props: Props) {
           <TasksPanel tasks={tasks} setTasks={setTasks} p={p} canEdit={perms.edit} role={role} myUserId={myUserId} members={members} timeZone={timeZone} onChanged={async () => { void refreshActivity(); const d = await browserApi.call(endpoints.getContact, { params: p }); if (d.ok) setC(d.data); }} />
           <Panel>
             <PanelHeader title="Conversations" />
-            <EmptyState icon={MessageSquare} title="Conversations are not available yet" description="The unified inbox is planned for Phase 4. Nothing is stored for this contact until then." className="py-8" />
+            <EmptyState icon={MessageSquare} title="No conversations yet" description="Messages from this contact show here." className="py-8" />
           </Panel>
           <Panel>
             <PanelHeader title="Leads" description={props.leadList?.items.length ? `${props.leadList.items.length} linked` : undefined} />
             {!props.leadList ? (
               <EmptyState icon={Workflow} title="Leads are not shown for your role" description="Ask an owner or admin for access to leads and pipelines." className="py-8" />
             ) : props.leadList.items.length === 0 ? (
-              <EmptyState icon={Workflow} title="No leads yet" description="Leads created for this contact show here. The lifecycle stage above is separate from lead stages." className="py-8" action={<Link href={`/w/${workspaceId}/leads`} className="text-sm font-medium text-accent-fg hover:underline">Open leads</Link>} />
+              <EmptyState icon={Workflow} title="No leads yet" description="Leads for this contact show here. Lifecycle stage is separate from lead stages." className="py-8" action={<Link href={`/w/${workspaceId}/leads`} className="text-sm font-medium text-accent-fg hover:underline">Open leads</Link>} />
             ) : (
               <ul>
                 {props.leadList.items.map((l) => (
@@ -152,7 +152,7 @@ function DeleteMenu({ workspaceId, contact, onDeleted }: { workspaceId: string; 
         <DropdownMenuContent align="end"><DropdownMenuItem danger onSelect={() => { setError(null); setOpen(true); }}><Trash2 aria-hidden />Delete contact</DropdownMenuItem></DropdownMenuContent>
       </DropdownMenu>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent title={`Delete ${contact.name}?`} description="The contact disappears from lists and search. The deletion is recorded in the audit log.">
+        <DialogContent title={`Delete ${contact.name}?`} description="They leave lists and search. Recorded in the audit log.">
           {error && <Alert tone="error" className="mb-3">{error}</Alert>}
           <DialogActions>
             <DialogClose asChild><Button variant="ghost">Cancel</Button></DialogClose>

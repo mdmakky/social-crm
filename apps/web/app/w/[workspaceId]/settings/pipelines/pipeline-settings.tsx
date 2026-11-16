@@ -136,12 +136,12 @@ function PipelineCard({ pl, canManage, w, run, setData }: { pl: PipelineDto; can
         </div>
       )}
       <Dialog open={archiveStage !== null} onOpenChange={(o) => !o && setArchiveStage(null)}>
-        <DialogContent title={`Archive “${archiveStage?.name ?? ""}”?`} description="Leads in this stage move to the stage you choose. The move is recorded in each lead's history.">
+        <DialogContent title={`Archive “${archiveStage?.name ?? ""}”?`} description="Its leads move to the stage you choose.">
           {archiveStage && <ArchiveStageForm stage={archiveStage} options={open.filter((s) => s.id !== archiveStage.id)} onCancel={() => setArchiveStage(null)} onConfirm={async (to) => { const ok = await run(() => browserApi.call(endpoints.archivePipelineStage, { params: { ...w, stageId: archiveStage.id }, body: { moveToStageId: to } }), "Stage archived."); if (ok) setArchiveStage(null); }} />}
         </DialogContent>
       </Dialog>
       <Dialog open={archiveOpen} onOpenChange={setArchiveOpen}>
-        <DialogContent title={`Archive “${pl.name}”?`} description="Archived pipelines stay in history but cannot receive new leads. A pipeline with open leads cannot be archived.">
+        <DialogContent title={`Archive “${pl.name}”?`} description="Archived pipelines take no new leads. Close open leads first.">
           <DialogActions><Button onClick={() => setArchiveOpen(false)}>Cancel</Button><Button variant="danger" onClick={async () => { await run(() => browserApi.call(endpoints.archivePipeline, { params: pp, body: { expectedVersion: pl.version } }), "Pipeline archived."); setArchiveOpen(false); }}>Archive</Button></DialogActions>
         </DialogContent>
       </Dialog>
@@ -218,7 +218,7 @@ function NewPipeline({ open, onOpenChange, w, run }: { open: boolean; onOpenChan
   const [err, setErr] = React.useState<string | null>(null);
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent title="New pipeline" description="It starts with a few stages plus Won and Lost; adjust them afterwards.">
+      <DialogContent title="New pipeline" description="Starts with a few stages plus Won and Lost.">
         <form className="flex flex-col gap-4" noValidate onSubmit={async (e) => { e.preventDefault(); if (!name.trim()) return setErr("Name the pipeline."); setErr(null); if (await run(() => browserApi.call(endpoints.createPipeline, { params: w, body: { name: name.trim(), kind, defaultCurrency: currency } }), "Pipeline created.")) { setName(""); onOpenChange(false); } }}>
           <Field label="Name" error={err}>{(p) => <Input {...p} value={name} onChange={(e) => setName(e.target.value)} maxLength={80} autoFocus />}</Field>
           <Field label="Type" hint="Describes what the stages are for. Everything in it is still called a lead.">{(p) => <Select {...p} value={kind} onChange={(e) => setKind(e.target.value as "lead" | "sales")}><option value="sales">Sales</option><option value="lead">Lead qualification</option></Select>}</Field>
@@ -234,7 +234,7 @@ function LostReasons({ reasons, canManage, w, run }: { reasons: LostReasonDto[];
   const [name, setName] = React.useState("");
   return (
     <Panel>
-      <PanelHeader title="Lost reasons" description="Required when a lead is marked lost. Archive a reason to stop offering it; past records keep it." />
+      <PanelHeader title="Lost reasons" description="Asked when a lead is marked lost." />
       <ul className="divide-y divide-line">
         {reasons.map((r) => (
           <li key={r.id} className="flex items-center justify-between gap-2 px-4 py-2.5">

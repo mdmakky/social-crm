@@ -26,7 +26,7 @@ test("rule for a stage: create, a move sends the event, disabled stays silent, t
 
   const rules = page.getByRole("region", { name: "Event rules" });
   const history = page.getByRole("region", { name: "Delivery history" });
-  await page.goto(`/w/${workspaceId}/integrations`);
+  await page.goto(`/w/${workspaceId}/settings/ad-measurement`);
 
   // The default rule exists (off, the dataset did not opt in) and can be deleted or edited like any other.
   await expect(rules.getByText("A lead is won")).toBeVisible();
@@ -96,7 +96,7 @@ test("rule for a stage: create, a move sends the event, disabled stays silent, t
   const vp = await ctx.newPage();
   const email = await register(vp, "Vic Viewer");
   await addMemberByEmail(workspaceId, email, "viewer");
-  await vp.goto(`/w/${workspaceId}/integrations`);
+  await vp.goto(`/w/${workspaceId}/settings/ad-measurement`);
   await expect(vp.getByRole("region", { name: "Event rules" })).toHaveCount(0);
   const dsId = (await (await a.get(`${W}/capi/datasets`)).json()).items[0].id as string;
   const body = { triggerType: "lead_created", stageId: null, eventName: "Lead", valueMode: "none", fixedValueMinor: null, currency: null, enabled: true };

@@ -36,7 +36,7 @@ export function CreateWorkspaceForm({ canCancel }: { canCancel: boolean }) {
     <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
       <div>
         <h1 className="text-lg font-semibold tracking-title text-fg">Create your workspace</h1>
-        <p className="mt-0.5 text-sm text-fg-muted">A workspace keeps one business&rsquo;s customers, conversations and settings separate from everyone else&rsquo;s. You can create more later.</p>
+        <p className="mt-0.5 text-sm text-fg-muted">One workspace per business. You can add more later.</p>
       </div>
       {formError && <Alert tone="error">{formError}</Alert>}
       <Field label="Workspace name" hint="Usually your business or brand name, for example Northwind Studio." error={error}>

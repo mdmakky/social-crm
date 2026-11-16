@@ -16,7 +16,7 @@ type Props = { workspaceId: string; stages: LifecycleStage[]; members: Member[];
 export function NewContactDialog({ open, onOpenChange, ...rest }: Props & { open: boolean; onOpenChange: (o: boolean) => void }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent title="Add contact" description="Start with what you know. You can add notes, tags and tasks afterwards." className="max-h-[90dvh] max-w-lg overflow-y-auto">
+      <DialogContent title="Add contact" description="Start with what you know." className="max-h-[90dvh] max-w-lg overflow-y-auto">
         {/* The form lives inside the content, so it remounts (and resets) every time the dialog opens. */}
         <NewContactForm {...rest} onClose={() => onOpenChange(false)} />
       </DialogContent>

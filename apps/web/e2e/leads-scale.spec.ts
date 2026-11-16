@@ -156,7 +156,7 @@ test("bulk change stage: select on the page, confirm, counts refresh, failures a
   await expect(page.getByRole("dialog").getByText(/1 not moved: 1 no longer exist/)).toBeVisible();
 });
 
-test("/pipeline redirects to /leads, the sidebar has no Pipeline, and Settings > Pipelines stays", async () => {
+test("/pipeline redirects to /leads, the sidebar has no Pipeline, and Settings > Lead stages stays", async () => {
   const { page } = owner;
   await page.goto(`/w/${workspaceId}/pipeline`);
   await expect(page).toHaveURL(new RegExp(`/w/${workspaceId}/leads$`));
@@ -164,7 +164,7 @@ test("/pipeline redirects to /leads, the sidebar has no Pipeline, and Settings >
   await expect(page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Pipeline" })).toHaveCount(0);
   await expect(page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Leads" })).toBeVisible();
   await page.goto(`/w/${workspaceId}/settings/pipelines`);
-  await expect(page.getByRole("heading", { level: 1, name: "Pipeline settings" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Lead stages" })).toBeVisible();
 });
 
 test("a viewer sees the list and chips but cannot select or bulk move", async () => {

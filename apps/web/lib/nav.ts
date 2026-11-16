@@ -1,4 +1,4 @@
-import { BarChart3, PieChart, Bot, CheckSquare, Contact, Home, Inbox, Plug, ScrollText, Settings, Users, Workflow } from "lucide-react";
+import { BarChart3, PieChart, CheckSquare, Contact, Home, Inbox, Settings } from "lucide-react";
 import type { ComponentType } from "react";
 import { can, type Action, type Role } from "@crm/core/permissions";
 
@@ -9,8 +9,6 @@ export type NavItem = {
   /** Path segment under /w/{id}. Omitted items are not built yet. */
   path?: string;
   requires?: Action;
-  /** Planned but not built. Listed under "Coming soon" as plain text, never as a link. */
-  soon?: true;
 };
 export type NavGroup = { label?: string; items: NavItem[] };
 
@@ -27,22 +25,8 @@ export const NAV: NavGroup[] = [
       { key: "reports", label: "Reports", icon: PieChart, path: "reports", requires: "lead.view" },
     ],
   },
-  {
-    label: "Automate",
-    items: [
-      { key: "automation", label: "Automation", icon: Workflow, requires: "workflow.manage", soon: true },
-      { key: "ai", label: "AI assistant", icon: Bot, requires: "ai.use", soon: true },
-    ],
-  },
-  {
-    label: "Workspace",
-    items: [
-      { key: "integrations", label: "Integrations", icon: Plug, path: "integrations", requires: "integration.view" },
-      { key: "members", label: "Members", icon: Users, path: "members" },
-      { key: "audit", label: "Audit log", icon: ScrollText, path: "audit-log", requires: "audit.view" },
-      { key: "settings", label: "Settings", icon: Settings, path: "settings" },
-    ],
-  },
+  // Integrations, Members and Audit log live only inside Settings (see components/settings/settings-nav.ts).
+  { items: [{ key: "settings", label: "Settings", icon: Settings, path: "settings" }] },
 ];
 
 const allowed = (role: Role, i: NavItem) => !i.requires || can(role, i.requires, {});
@@ -51,12 +35,8 @@ const allowed = (role: Role, i: NavItem) => !i.requires || can(role, i.requires,
 export function visibleNav(role: Role): NavGroup[] {
   return NAV.map((g) => ({ ...g, items: g.items.filter((i) => allowed(role, i)) })).filter((g) => g.items.length > 0);
 }
-/** Built features the role can use, grouped. */
-export function builtNav(role: Role): NavGroup[] {
-  return visibleNav(role).map((g) => ({ ...g, items: g.items.filter((i) => !i.soon) })).filter((g) => g.items.length > 0);
-}
-/** Planned features the role would be able to use. */
-export const plannedItems = (role: Role): NavItem[] => visibleNav(role).flatMap((g) => g.items.filter((i) => i.soon));
+/** Every item is built; kept as the name callers use. */
+export const builtNav = visibleNav;
 
 export const href = (workspaceId: string, item: NavItem) => `/w/${workspaceId}${item.path ? `/${item.path}` : ""}`;
 export const titleFor = (pathname: string, workspaceId: string): string => {

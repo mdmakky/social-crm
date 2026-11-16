@@ -2,6 +2,7 @@
 import * as React from "react";
 import { Plug, Search } from "lucide-react";
 import { endpoints, type ConnectWhatsAppResult, type WhatsAppLookupResult } from "@crm/contracts";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
@@ -60,29 +61,32 @@ export function WhatsAppConnect({ workspaceId, disabledReason, mock, onConnected
 
   return (
     <form onSubmit={(e) => { e.preventDefault(); void (numbers ? connect() : find()); }} className="flex flex-col gap-3" noValidate>
-      <p className="text-sm text-fg-subtle">
-        Connect a number from your own WhatsApp Business Account. In Meta Business Settings create a system user, give it access to your app and to the WhatsApp account, and generate a token with the permissions
-        {" "}<span className="font-medium text-fg-muted">business_management</span>, <span className="font-medium text-fg-muted">whatsapp_business_management</span> and <span className="font-medium text-fg-muted">whatsapp_business_messaging</span>.
-        The token is stored encrypted and is never shown again. Receiving works once the app&apos;s WhatsApp webhook is set up in the Meta app dashboard (see below). Sending replies is not available yet.
-      </p>
-      {mock && <Alert tone="warning">Mock mode: nothing is sent to Meta. Any WhatsApp Business Account ID known to the mock works.</Alert>}
+      <details className="text-sm text-fg-subtle">
+        <summary className="cursor-pointer font-medium text-fg-muted">How to get a token</summary>
+        <p className="mt-1">
+          In Meta Business Settings create a system user with access to your app and WhatsApp account, then generate a token with
+          {" "}<span className="font-medium text-fg-muted">business_management</span>, <span className="font-medium text-fg-muted">whatsapp_business_management</span> and <span className="font-medium text-fg-muted">whatsapp_business_messaging</span>.
+          The token is stored encrypted. Sending replies is not available yet.
+        </p>
+      </details>
+      {mock && <div><Badge tone="warning">MOCK</Badge></div>}
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field label="WhatsApp Business Account ID" error={fieldErr.waba} hint="Shown in WhatsApp Manager and in the app dashboard.">
+        <Field label="WhatsApp Business Account ID" error={fieldErr.waba} hint="Find it in WhatsApp Manager.">
           {(p) => <Input {...p} inputMode="numeric" autoComplete="off" value={waba} disabled={off || busy !== null} onChange={(e) => { setWaba(e.target.value); setNumbers(null); }} />}
         </Field>
-        <Field label="System user token" error={fieldErr.token} hint="Pasted once, kept encrypted on the server.">
+        <Field label="System user token" error={fieldErr.token} hint="Stored encrypted. Never shown again.">
           {(p) => <Input {...p} type="password" autoComplete="off" spellCheck={false} value={token} disabled={off || busy !== null} onChange={(e) => { setToken(e.target.value); setNumbers(null); }} />}
         </Field>
       </div>
       {error && <Alert tone="error">{error}</Alert>}
       {numbers && (
-        numbers.length === 0 ? <Alert tone="warning">This account has no phone numbers. Add and verify a number in WhatsApp Manager first.</Alert> : numbers.every((n) => n.unavailable) ? <Alert tone="warning">Every number of this account is already connected to another workspace. Disconnect it there first, or contact support.</Alert> : (
+        numbers.length === 0 ? <Alert tone="warning">No phone numbers. Add and verify one in WhatsApp Manager.</Alert> : numbers.every((n) => n.unavailable) ? <Alert tone="warning">Every number here is connected to another workspace. Disconnect it there first.</Alert> : (
           <fieldset className="flex flex-col gap-2">
             <legend className="mb-1 text-sm font-medium text-fg">Choose the number to connect</legend>
             {numbers.map((n) => (
               <label key={n.phoneNumberId} className={`flex min-h-11 items-center gap-3 rounded-control border border-line-card px-3 py-2 ${n.unavailable ? "cursor-not-allowed opacity-70" : "cursor-pointer"}`}>
                 <input type="radio" name="wa-number" value={n.phoneNumberId} checked={pick === n.phoneNumberId} disabled={n.unavailable} onChange={() => setPick(n.phoneNumberId)} />
-                <span className="min-w-0 flex-1"><span className="block truncate font-medium">{n.verifiedName ?? n.displayPhoneNumber}</span><span className="block text-sm text-fg-muted">{n.displayPhoneNumber} · ID {n.phoneNumberId}{n.unavailable ? " · already connected to another workspace: it cannot be connected here" : n.connected ? " · already connected (connecting again replaces its token)" : ""}</span></span>
+                <span className="min-w-0 flex-1"><span className="block truncate font-medium">{n.verifiedName ?? n.displayPhoneNumber}</span><span className="block text-sm text-fg-muted">{n.displayPhoneNumber} · ID {n.phoneNumberId}{n.unavailable ? " · connected to another workspace" : n.connected ? " · already connected here" : ""}</span></span>
               </label>
             ))}
           </fieldset>

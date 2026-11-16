@@ -229,7 +229,7 @@ function Inner({ workspaceId, timeZone, role, myUserId, initial, pipelines, lost
         </DialogContent>
       </Dialog>
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-        <DialogContent title={`Delete this ${label.toLowerCase()}?`} description="It disappears from lists and the board. An owner or admin can restore it.">
+        <DialogContent title={`Delete this ${label.toLowerCase()}?`} description="It leaves lists and the board. An admin can restore it.">
           <DialogActions><Button onClick={() => setDeleteOpen(false)}>Cancel</Button><Button variant="danger" onClick={() => void remove()}>Delete</Button></DialogActions>
         </DialogContent>
       </Dialog>

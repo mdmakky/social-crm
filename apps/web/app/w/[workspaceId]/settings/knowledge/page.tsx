@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { endpoints } from "@crm/contracts";
 import { can } from "@crm/core/permissions";
-import { PageHeader } from "@/components/ui/panel";
+import { SettingsPage } from "@/components/settings/settings-page";
 import { must, serverApi } from "@/lib/api";
 import { KnowledgeSettings } from "./knowledge-settings";
 
@@ -12,9 +12,8 @@ export default async function KnowledgePage({ params }: { params: Promise<{ work
   const api = await serverApi();
   const w = must(await api.call(endpoints.getWorkspace, { params: { workspaceId } }));
   return (
-    <>
-      <PageHeader title="Knowledge" description="Documents, pasted text and web pages your assistant can look things up in. Everything stays inside this workspace." />
+    <SettingsPage title="Knowledge" description="Sources the assistant can look things up in.">
       <KnowledgeSettings workspaceId={workspaceId} timeZone={w.timezone} canManage={can(w.role, "ai.configure", {})} />
-    </>
+    </SettingsPage>
   );
 }

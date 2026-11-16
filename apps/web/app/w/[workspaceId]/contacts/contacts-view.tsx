@@ -209,7 +209,7 @@ export function ContactsView({ workspaceId, timeZone, myUserId, initial, initial
             <EmptyState
               icon={Users}
               title="No contacts yet"
-              description="Add the people you talk to, or bring them in from a spreadsheet. Conversations and leads will attach to these records."
+              description="Add people, or import a spreadsheet."
               action={<div className="flex flex-wrap justify-center gap-2">{perms.edit && <Button variant="primary" onClick={() => setNewOpen(true)}><Plus />Add contact</Button>}{perms.import && <Button asChild variant="secondary"><Link href={`/w/${workspaceId}/contacts/import`}><Upload />Import a CSV</Link></Button>}</div>}
             />
           )
@@ -383,7 +383,7 @@ function ColumnsDialog({ open, onOpenChange, columns, onChange }: { open: boolea
   };
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent title="Columns" description="Choose which columns to show and in what order. Your layout is remembered on this device; save a view to share it.">
+      <DialogContent title="Columns" description="Choose and order columns. Remembered on this device.">
         <p role="status" className="sr-only">{note}</p>
         <ul ref={list} className="flex flex-col gap-1">
           {columns.map((c, i) => (

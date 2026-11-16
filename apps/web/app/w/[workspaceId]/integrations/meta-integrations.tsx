@@ -5,7 +5,7 @@ import { endpoints, MESSENGER_WEBHOOK_FIELDS, type ConnectMetaResult, type Conne
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/form-controls";
-import { Dialog, DialogContent, DialogActions } from "@/components/ui/overlays";
+import { Dialog, DialogContent, DialogActions, Tooltip } from "@/components/ui/overlays";
 import { Panel, PanelHeader } from "@/components/ui/panel";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, EmptyState, ErrorState } from "@/components/ui/states";
@@ -19,10 +19,10 @@ type Channel = { key: ChannelKey; label: string; blurb: string; icon: LucideIcon
 
 /** One entry per channel. A channel without `platform` is not built: it is listed honestly as coming soon, with the reason. */
 export const CHANNELS: Channel[] = [
-  { key: "messenger", label: "Messenger", blurb: "Receive and answer messages sent to your Facebook Pages.", icon: MessageCircle, platform: "messenger" },
-  { key: "instagram", label: "Instagram", blurb: "Receive and answer direct messages sent to your Instagram professional account.", icon: Camera, platform: "instagram" },
-  { key: "whatsapp", label: "WhatsApp", blurb: "Receive messages sent to your WhatsApp Business number. Replying from here is not available yet.", icon: Phone, platform: "whatsapp" },
-  { key: "telegram", label: "Telegram", blurb: "Bot messaging on Telegram.", icon: Send, soon: "Not available yet. It will connect through a Telegram bot that you create." },
+  { key: "messenger", label: "Messenger", blurb: "Messages sent to your Facebook Pages.", icon: MessageCircle, platform: "messenger" },
+  { key: "instagram", label: "Instagram", blurb: "Direct messages to your professional account.", icon: Camera, platform: "instagram" },
+  { key: "whatsapp", label: "WhatsApp", blurb: "Messages to your WhatsApp Business number. Receive only.", icon: Phone, platform: "whatsapp" },
+  { key: "telegram", label: "Telegram", blurb: "Bot messaging.", icon: Send, soon: "Not available yet." },
 ];
 const isChannel = (v: string | undefined): v is ChannelKey => CHANNELS.some((c) => c.key === v);
 
@@ -32,17 +32,17 @@ type Props = { workspaceId: string; canManage: boolean; initial: MetaIntegration
 const RESULT: Record<string, { tone: "error" | "warning" | "info"; text: string }> = {
   denied: { tone: "warning", text: "The Meta login was cancelled. Nothing was connected." },
   error: { tone: "error", text: "Meta could not complete the login. Nothing was connected. Try again." },
-  invalid_state: { tone: "error", text: "That login link expired or was not started from this browser. Start the connection again." },
+  invalid_state: { tone: "error", text: "That login link expired. Start the connection again." },
   forbidden: { tone: "error", text: "Only owners and admins can connect Meta accounts." },
-  no_pages: { tone: "warning", text: "Meta returned no Pages for this login. Make sure you have access to a Page and approved it in the Meta dialog." },
+  no_pages: { tone: "warning", text: "Meta returned no Pages. Approve a Page you manage in the Meta dialog." },
   not_configured: { tone: "warning", text: "Meta is not configured on this server." },
-  ig_connected: { tone: "info", text: "Instagram account connected directly (no Facebook Page). Its webhook subscription was accepted." },
-  ig_connected_unsubscribed: { tone: "warning", text: "Instagram account connected, but Instagram did not accept the webhook subscription. New messages may not arrive until it is re-checked (see Webhook subscription below)." },
-  ig_no_accounts: { tone: "warning", text: "No Instagram account was shared in the login. Connect again and select the Instagram account (it must be a Business or Creator account) in the Meta dialog." },
-  ig_partial: { tone: "warning", text: "Some Instagram accounts were connected; others were skipped (already connected to another workspace, could not be saved, or more than 10 were shared). Connect again to retry the rest." },
-  account_unavailable: { tone: "error", text: "That Instagram account is already connected to another workspace, so it can't be connected here." },
+  ig_connected: { tone: "info", text: "Instagram account connected." },
+  ig_connected_unsubscribed: { tone: "warning", text: "Instagram account connected, but its webhook was not accepted. Re-check the subscription below." },
+  ig_no_accounts: { tone: "warning", text: "No Instagram account was shared. Connect again and select a Business or Creator account." },
+  ig_partial: { tone: "warning", text: "Some accounts were skipped. Connect again to retry the rest." },
+  account_unavailable: { tone: "error", text: "That Instagram account belongs to another workspace." },
 };
-const SUBSCRIPTION = { subscribed: "Webhook subscribed", failed: "Webhook subscription failed", dashboard_required: "Instagram webhook fields must be enabled in the Meta app dashboard (UNVERIFIED)" } as const;
+const SUBSCRIPTION = { subscribed: "Webhook subscribed", failed: "Webhook subscription failed", dashboard_required: "Enable the webhook fields in the Meta app dashboard" } as const;
 const STATUS: Record<IntegrationAccountDto["status"], { label: string; tone: "success" | "warning" | "neutral" }> = {
   connected: { label: "Connected", tone: "success" }, reauth_required: { label: "Reconnect needed", tone: "warning" }, disabled: { label: "Disconnected", tone: "neutral" },
 };
@@ -164,7 +164,7 @@ function Inner({ workspaceId, canManage, initial, result, channel: initialChanne
   }
 
   async function waConnected(r: ConnectWhatsAppResult) {
-    toast(r.subscription === "subscribed" ? (r.reconnected ? "WhatsApp number reconnected" : "WhatsApp number connected") : "Connected, but Meta did not accept the webhook subscription. Use Re-check subscription.", r.subscription === "subscribed" ? "success" : "error");
+    toast(r.subscription === "subscribed" ? (r.reconnected ? "WhatsApp number reconnected" : "WhatsApp number connected") : "Connected, but the webhook was not accepted. Use Re-check subscription.", r.subscription === "subscribed" ? "success" : "error");
     await reload();
   }
 
@@ -179,12 +179,12 @@ function Inner({ workspaceId, canManage, initial, result, channel: initialChanne
     <div className={cn("grid gap-3", compact ? "" : "sm:grid-cols-2")}>
       <div className="flex flex-col gap-2 rounded-control border border-line-card p-3">
         <p className="text-sm font-medium text-fg">With a Facebook Page</p>
-        <p className="text-sm text-fg-subtle">For an Instagram professional account that is linked to a Facebook Page. Also connects the Page&apos;s Messenger inbox.</p>
+        <p className="text-sm text-fg-subtle">For accounts linked to a Page. Also connects its Messenger.</p>
         <div>{connectBtn("Connect with Facebook Page", "secondary")}</div>
       </div>
       <div className="flex flex-col gap-2 rounded-control border border-line-card p-3">
         <p className="text-sm font-medium text-fg">Directly, without a Facebook Page</p>
-        <p className="text-sm text-fg-subtle">For Business or Creator accounts that are not linked to any Page. You sign in with Instagram and choose the account to share.</p>
+        <p className="text-sm text-fg-subtle">For Business or Creator accounts with no Page.</p>
         <div><Button variant="primary" disabled={!!igReason} loading={busy === "ig-connect"} onClick={() => void startInstagramUnified()} title={igReason} aria-describedby={igReason ? "ig-reason" : undefined}><Plug className="size-4" aria-hidden />Connect Instagram</Button></div>
         {igReason && <p id="ig-reason" className="text-sm text-fg-subtle">{igReason}</p>}
       </div>
@@ -201,8 +201,8 @@ function Inner({ workspaceId, canManage, initial, result, channel: initialChanne
 
   return (
     <div className="flex flex-col gap-4">
-      {data.mock && <div><Badge tone="warning">Mock mode: no real Meta connection</Badge></div>}
-      {!data.configured && <Alert tone="warning">Meta is not configured on this server. Connecting is unavailable until the Meta app settings and encryption key are set.</Alert>}
+      {data.mock && <div><Tooltip label="Mock mode: nothing is sent to Meta." side="bottom"><span><Badge tone="warning">MOCK</Badge></span></Tooltip></div>}
+      {!data.configured && <Alert tone="warning">Meta is not configured on this server.</Alert>}
       {banner && <Alert tone={banner.tone}>{banner.text}</Alert>}
       {reason && <p id="meta-reason" className="sr-only">{reason}</p>}
 
@@ -229,21 +229,21 @@ function Inner({ workspaceId, canManage, initial, result, channel: initialChanne
           <Panel>
             <div className="flex flex-wrap items-center gap-3 border-b border-line-card px-4 py-3">
               <span className="grid size-9 flex-none place-items-center rounded-control bg-accent-subtle text-accent-fg"><active.icon className="size-5" aria-hidden /></span>
-              <div className="min-w-[12rem] flex-1"><h2 className="text-base font-semibold text-fg">{active.label}</h2><p className="text-sm text-fg-subtle">{active.blurb}</p></div>
+              <div className="min-w-[12rem] flex-1"><h2 className="flex flex-wrap items-center gap-2 text-base font-semibold text-fg">{active.label}{active.platform && <Tooltip label="No recorded request to the live service yet." side="bottom"><span><Badge tone="warning">Not tested live</Badge></span></Tooltip>}</h2><p className="text-sm text-fg-subtle">{active.blurb}</p></div>
               {active.platform === "messenger" && live("messenger").length > 0 && <div className="w-full sm:w-auto [&>button]:w-full sm:[&>button]:w-auto">{connectBtn("Connect another Page", "primary")}</div>}
             </div>
 
             {!active.platform ? (
-              <div className="flex flex-col gap-3 p-4">
-                <Alert tone="info">{active.soon}</Alert>
-                <div><Button disabled aria-describedby="soon-reason"><Plug className="size-4" aria-hidden />Connect {active.label}</Button><p id="soon-reason" className="mt-2 text-sm text-fg-subtle">Unavailable: this channel is not built yet.</p></div>
+              <div className="flex flex-col gap-2 p-4">
+                <div><Button disabled aria-describedby="soon-reason"><Plug className="size-4" aria-hidden />Connect {active.label}</Button></div>
+                <p id="soon-reason" className="text-sm text-fg-subtle">{active.soon}</p>
               </div>
             ) : (
               <div className="flex flex-col">
                 {pending === "loading" && <section aria-busy="true" aria-label="Loading your Pages" className="flex flex-col gap-3 border-b border-line-card p-4"><Skeleton className="h-5 w-48" /><Skeleton className="h-10" /><Skeleton className="h-10" /></section>}
                 {pending && pending !== "loading" && (
                   <section className="border-b border-line-card">
-                    <PanelHeader title="Choose a Page to connect" description="Pick one Facebook Page. Its Messenger inbox is connected; tick the box to add its linked Instagram professional account too." />
+                    <PanelHeader title="Choose a Page" description="Its Messenger is connected. Tick the box to add Instagram." />
                     <fieldset className="flex flex-col gap-2 p-4">
                       <legend className="sr-only">Facebook Pages</legend>
                       {pending.pages.map((g) => (
@@ -280,7 +280,7 @@ function Inner({ workspaceId, canManage, initial, result, channel: initialChanne
                   <h3 id="accts" className="px-4 pt-4 text-sm font-semibold text-fg">{active.platform === "messenger" ? "Connected Pages" : "Connected accounts"}</h3>
                   {shown.length === 0 ? (
                     <EmptyState icon={active.icon} title={`No ${active.label} account connected`}
-                      description={active.platform === "whatsapp" ? "Connect a WhatsApp Business number with the form below to receive its messages here." : active.platform === "messenger" ? "Connect a Facebook Page to receive its Messenger messages here." : "Connect an Instagram Business or Creator account either through the Facebook Page it is linked to, or directly with Instagram if it has no Page. Turn on “Allow access to messages” in Instagram first."}
+                      description={active.platform === "whatsapp" ? "Connect a number with the form below." : active.platform === "messenger" ? "Connect a Facebook Page to receive its messages." : "Connect an account below."}
                       action={active.platform === "instagram" || active.platform === "whatsapp" ? undefined : connectBtn("Connect with Meta")} />
                   ) : (
                     <ul className="flex flex-col divide-y divide-line-card">
@@ -289,7 +289,7 @@ function Inner({ workspaceId, canManage, initial, result, channel: initialChanne
                           <div className="min-w-0">
                             <div className="flex flex-wrap items-center gap-2"><span className="truncate font-medium">{a.displayName ?? a.externalAccountId}</span><Badge tone={STATUS[a.status].tone}>{STATUS[a.status].label}</Badge>{a.platform === "instagram" && <Badge shape="square">{a.authMethod === "unified" ? "Direct · no Page" : "Via Facebook Page"}</Badge>}</div>
                             <p className="mt-1 text-sm text-fg-muted">ID {a.externalAccountId} · Last token check: <LocalTime iso={a.lastTokenCheckAt} /></p>
-                            {a.status === "reauth_required" && <p className="mt-2 rounded-control bg-warning-bg px-3 py-2 text-sm text-warning-fg">Meta stopped accepting this connection, so new messages are not arriving. {a.platform === "whatsapp" ? "Connect the number again with a new token (form below) to resume." : "Reconnect to resume."}</p>}
+                            {a.status === "reauth_required" && <p className="mt-2 rounded-control bg-warning-bg px-3 py-2 text-sm text-warning-fg">Meta stopped accepting this connection. {a.platform === "whatsapp" ? "Connect the number again with a new token." : "Reconnect to resume."}</p>}
                           </div>
                           {canManage && (
                             <div className="flex flex-wrap gap-2">
@@ -322,7 +322,7 @@ function Inner({ workspaceId, canManage, initial, result, channel: initialChanne
                   <h3 id="wh" className="text-sm font-semibold text-fg">Webhook subscription</h3>
                   {active.platform === "whatsapp" ? (
                     <>
-                      <p className="mt-1 text-sm text-fg-subtle">Connecting subscribes your Meta app to the WhatsApp Business Account. The callback URL and the <Badge shape="square">messages</Badge> field are set once in the Meta app dashboard (WhatsApp, Configuration); that step is not done from here, and delivery of real WhatsApp messages is UNVERIFIED until the first one arrives.</p>
+                      <details className="mt-1 text-sm text-fg-subtle"><summary className="cursor-pointer font-medium text-fg-muted">Technical details</summary><p className="mt-1">Connecting subscribes your Meta app to the account. Set the callback URL and the <Badge shape="square">messages</Badge> field once in the Meta app dashboard (WhatsApp, Configuration). Real delivery is not verified until the first message arrives.</p></details>
                       {canManage && shown.filter((a) => a.status === "connected").map((a) => (
                         <div key={a.id} className="mt-3 flex flex-wrap items-center gap-2 text-sm">
                           <span className="font-medium">{a.displayName ?? a.externalAccountId}</span>
@@ -333,8 +333,7 @@ function Inner({ workspaceId, canManage, initial, result, channel: initialChanne
                     </>
                   ) : active.platform === "messenger" ? (
                     <>
-                      <p className="mt-1 text-sm text-fg-subtle">Requested from Meta when a Page is connected:</p>
-                      <ul className="mt-2 flex flex-wrap gap-1.5">{MESSENGER_WEBHOOK_FIELDS.map((f) => <li key={f}><Badge shape="square">{f}</Badge></li>)}</ul>
+                      <details className="mt-1 text-sm text-fg-subtle"><summary className="cursor-pointer font-medium text-fg-muted">Technical details</summary><p className="mt-1">Fields requested from Meta when a Page is connected:</p><ul className="mt-2 flex flex-wrap gap-1.5">{MESSENGER_WEBHOOK_FIELDS.map((f) => <li key={f}><Badge shape="square">{f}</Badge></li>)}</ul></details>
                       {canManage && shown.filter((a) => a.status === "connected").map((a) => (
                         <div key={a.id} className="mt-3 flex flex-wrap items-center gap-2 text-sm">
                           <span className="font-medium">{a.displayName ?? a.externalAccountId}</span>
@@ -345,7 +344,7 @@ function Inner({ workspaceId, canManage, initial, result, channel: initialChanne
                     </>
                   ) : (
                     <>
-                      <p className="mt-1 text-sm text-fg-subtle">Accounts connected through a Facebook Page: webhook fields cannot be set from here and must be enabled in the Meta app dashboard (UNVERIFIED until a real Instagram message is delivered). Accounts connected directly (no Page) are subscribed from here.</p>
+                      <details className="mt-1 text-sm text-fg-subtle"><summary className="cursor-pointer font-medium text-fg-muted">Technical details</summary><p className="mt-1">Page-connected accounts need webhook fields enabled in the Meta app dashboard. Not tested live.</p></details>
                       {canManage && shown.filter((a) => a.status === "connected" && a.authMethod === "unified").map((a) => (
                         <div key={a.id} className="mt-3 flex flex-wrap items-center gap-2 text-sm">
                           <span className="font-medium">{a.displayName ?? a.externalAccountId}</span>
@@ -382,7 +381,7 @@ function Inner({ workspaceId, canManage, initial, result, channel: initialChanne
       </div>
 
       <Dialog open={!!confirm} onOpenChange={(o) => { if (!o) closeConfirm(); }}>
-        <DialogContent title="Disconnect this account?" description="Its saved token is deleted and new messages stop arriving. Existing conversations are kept. You can reconnect later.">
+        <DialogContent title="Disconnect this account?" description="New messages stop arriving. Conversations are kept.">
           <DialogActions>
             <Button onClick={closeConfirm}>Cancel</Button>
             <Button variant="danger" loading={!!confirm && busy === confirm.id} onClick={() => confirm && void disconnect(confirm)}>Disconnect</Button>

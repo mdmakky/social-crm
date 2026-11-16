@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { Textarea } from "@/components/ui/form-controls";
 import { Input, Select } from "@/components/ui/input";
+import { Tooltip } from "@/components/ui/overlays";
 import { Panel, PanelHeader } from "@/components/ui/panel";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, EmptyState, ErrorState } from "@/components/ui/states";
@@ -31,11 +32,11 @@ export function CapabilitiesPanel({ workspaceId, providers }: { workspaceId: str
 
   return (
     <Panel>
-      <PanelHeader title="Capabilities" description="What each connected model can do with images, documents and audio. Badges come from a built-in list that has not been checked against the vendors: treat them as UNVERIFIED." />
+      <PanelHeader title="Capabilities" description="What each model can do with images, documents and audio." />
       <div className="p-4">
         {state.kind === "loading" && <div role="status" aria-label="Loading capabilities"><Skeleton className="h-24" /></div>}
         {state.kind === "error" && <ErrorState title="Could not load capabilities" description={state.message} onRetry={() => { setState({ kind: "loading" }); void load(); }} />}
-        {state.kind === "ready" && state.data.providers.length === 0 && <EmptyState icon={Cpu} title="No provider connected" description="Connect and enable a provider above. Images, PDFs and audio need a model with the matching capability." />}
+        {state.kind === "ready" && state.data.providers.length === 0 && <EmptyState icon={Cpu} title="No provider connected" description="Connect and enable one above." />}
         {state.kind === "ready" && state.data.providers.length > 0 && (
           <div className="flex flex-col gap-4">
             <p className="text-sm text-fg-muted" role="status">
@@ -43,7 +44,7 @@ export function CapabilitiesPanel({ workspaceId, providers }: { workspaceId: str
             </p>
             {state.data.providers.map((p) => (
               <section key={p.provider} aria-label={`${p.label} capabilities`} className="flex flex-col gap-2">
-                <h3 className="flex flex-wrap items-center gap-2 text-sm font-medium text-fg">{p.label}{p.mock && <Badge tone="warning">MOCK</Badge>}{p.unverified && <Badge tone="warning">UNVERIFIED</Badge>}{p.isDefault && <Badge tone="success">Default</Badge>}</h3>
+                <h3 className="flex flex-wrap items-center gap-2 text-sm font-medium text-fg">{p.label}{p.mock && <Badge tone="warning">MOCK</Badge>}{p.unverified && <Tooltip label="From a built-in list, not checked against the vendor." side="bottom"><span><Badge tone="warning">Not tested live</Badge></span></Tooltip>}{p.isDefault && <Badge tone="success">Default</Badge>}</h3>
                 <ul className="flex flex-col gap-2">
                   {p.models.map((m) => (
                     <li key={m.id} aria-label={`${m.label} capabilities`} className="flex flex-wrap items-center gap-2 rounded-control border border-line-card px-3 py-2">
@@ -132,7 +133,7 @@ export function MediaPlayground({ workspaceId }: { workspaceId: string }) {
 
   return (
     <Panel>
-      <PanelHeader title="Media playground" description="Try a file with your provider. The file is sent to it for this one request and is not stored here; the usage log keeps only its size and a fingerprint, never the file or the answer." />
+      <PanelHeader title="Media playground" description="Send one file to your provider. It is not stored here." />
       <form onSubmit={run} className="flex flex-col gap-4 p-4" noValidate aria-label="Media playground">
         <Field label="Action">{(p) => (
           <Select {...p} value={op} disabled={busy} onChange={(e) => chooseOp(e.target.value as Op)}>
@@ -152,7 +153,7 @@ export function MediaPlayground({ workspaceId }: { workspaceId: string }) {
             <p className="flex flex-wrap items-center gap-2 text-xs text-fg-subtle">
               <span>{result.provider} / {result.model}</span>
               {result.mock && <Badge tone="warning">MOCK</Badge>}
-              {result.provider !== "mock" && <Badge tone="warning">UNVERIFIED</Badge>}
+              {result.provider !== "mock" && <Badge tone="warning">Not tested live</Badge>}
             </p>
             <p data-testid="media-result" className="whitespace-pre-wrap break-words rounded-control bg-subtle p-3 text-sm text-fg">{result.text || "(The model returned no text.)"}</p>
             <p className="text-xs text-fg-muted">Tokens: {result.usage.inputTokens.toLocaleString()} in, {result.usage.outputTokens.toLocaleString()} out. Cost: {formatMicro(result.usage.costMicro)} USD. Run {result.runId.slice(0, 8)}.</p>

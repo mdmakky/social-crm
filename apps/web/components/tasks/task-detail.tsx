@@ -115,7 +115,7 @@ function Body({ task: initial, workspaceId, timeZone, canEdit, onClose, onEdit, 
           )}
         </div>
       ) : (
-        <p className="text-sm text-fg-muted">You can view this task but not change it. Only its assignee, its creator and workspace admins can.</p>
+        <p className="text-sm text-fg-muted">View only. The assignee, creator and admins can edit.</p>
       )}
 
       <section aria-labelledby="task-history" className="border-t border-line pt-3">
