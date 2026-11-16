@@ -138,6 +138,53 @@ async function readCapped(res: Response, max: number): Promise<Uint8Array> {
   return Buffer.concat(parts);
 }
 
+export type BytesOptions = {
+  maxBytes: number;
+  /** Sent on the first origin only; dropped on a redirect to another origin so a token never follows a redirect elsewhere. */
+  headers?: Record<string, string>;
+  /** Extra check on every hop's hostname (for example a Meta CDN allowlist). Return false to refuse. */
+  allowHost?: (hostname: string) => boolean;
+  timeoutMs?: number;
+};
+
+/**
+ * Downloads a binary file from a public https URL with the same protections as fetchPublicPage (private ranges, pinned address, redirects rechecked) plus: https only,
+ * a hard byte cap enforced while streaming, no content-type filter (the caller sniffs the bytes). Failures are KnowledgeErrors; a `fetch_status` message ends with the HTTP status.
+ */
+export async function fetchPublicBytes(raw: string, o: BytesOptions, deps: SafeFetchDeps = {}): Promise<{ bytes: Uint8Array; contentType: string }> {
+  const resolve = deps.resolve ?? defaultResolve;
+  const doFetch = deps.fetch ?? defaultFetch;
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), o.timeoutMs ?? 30_000);
+  try {
+    let next = raw;
+    let origin: string | null = null;
+    for (let hop = 0; ; hop++) {
+      if (!next.toLowerCase().startsWith("https://")) throw new KnowledgeError("url_invalid", "Only https addresses are supported.");
+      const { url, address } = await assertPublicUrl(next, resolve);
+      if (o.allowHost && !o.allowHost(url.hostname.toLowerCase())) throw new KnowledgeError("url_blocked", "This host is not allowed.");
+      const sameOrigin = origin === null || origin === url.origin;
+      origin ??= url.origin;
+      const headers: Record<string, string> = { "user-agent": "SocialCRM-MediaFetch/1.0", accept: "*/*", "accept-encoding": "identity", ...(sameOrigin ? o.headers : {}) };
+      const res = await doFetch(url, { address, signal: ctl.signal, headers });
+      if (res.status >= 300 && res.status < 400 && res.headers.get("location")) {
+        await res.body?.cancel().catch(() => {});
+        if (hop >= MAX_REDIRECTS) throw new KnowledgeError("too_many_redirects", "The address redirects too many times.");
+        try { next = new URL(res.headers.get("location")!, url).toString(); } catch { throw new KnowledgeError("url_invalid", "The address redirects to an invalid address."); }
+        continue;
+      }
+      if (res.status < 200 || res.status >= 300) { await res.body?.cancel().catch(() => {}); throw new KnowledgeError("fetch_status", `The server answered with status ${res.status}`); }
+      return { bytes: await readCapped(res, o.maxBytes), contentType: (res.headers.get("content-type") ?? "").split(";")[0]!.trim().toLowerCase() };
+    }
+  } catch (e) {
+    if (e instanceof KnowledgeError) throw e;
+    if (ctl.signal.aborted) throw new KnowledgeError("fetch_timeout", "The server took too long to answer.");
+    throw new KnowledgeError("fetch_failed", "The address could not be reached.");
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /** Fetches one public page (HTML, plain text or markdown) with the protections described at the top of this file. Injectable resolver and fetch keep tests off the network. */
 export async function fetchPublicPage(raw: string, deps: SafeFetchDeps = {}): Promise<Fetched> {
   const resolve = deps.resolve ?? defaultResolve;

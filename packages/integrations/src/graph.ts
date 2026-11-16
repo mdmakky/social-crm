@@ -69,6 +69,11 @@ export interface MetaGraph {
    * Throws GraphError (190 invalid token, 100/200 family: no access to that WABA). At most 25 numbers are read. Shapes follow Meta's reference, UNVERIFIED until a recorded real request.
    */
   listWhatsAppNumbers(token: string, wabaId: string): Promise<WhatsAppNumber[]>;
+  /**
+   * WhatsApp Cloud API media lookup: GET /{media-id} with the token returns {url, mime_type, file_size, ...}; the url is then fetched with the SAME Bearer token (done by the caller through the SSRF-safe downloader).
+   * Throws GraphError (a 404 means the media expired or was never ours). Response shape follows Meta's reference, UNVERIFIED until a recorded real request.
+   */
+  getWhatsAppMedia(mediaId: string, token: string): Promise<{ url: string; mime: string | null; size: number | null }>;
   /** POST /{waba-id}/subscribed_apps with the token: subscribes THIS app to the WABA's webhooks (fields are configured on the app). */
   subscribeWaba(wabaId: string, token: string): Promise<boolean>;
   /** Instagram professional account details for the connect screen (best effort: null on any failure). Fields as in the Graph IG User object; UNVERIFIED against the pages read 2026-11-14. */
@@ -205,6 +210,11 @@ export function createMetaGraph(cfg: { appId: string; appSecret: string; version
       }
       return out;
     },
+    async getWhatsAppMedia(mediaId, token) {
+      const j = await call(`/${encodeURIComponent(mediaId)}`, { token });
+      if (typeof j.url !== "string" || !j.url.startsWith("https://") || j.url.length > 2000) throw new GraphError(null, 200, "other");
+      return { url: j.url, mime: typeof j.mime_type === "string" && j.mime_type.length <= 127 ? j.mime_type : null, size: typeof j.file_size === "number" && Number.isSafeInteger(j.file_size) ? j.file_size : null };
+    },
     async subscribeWaba(wabaId, token) {
       const j = await call(`/${encodeURIComponent(wabaId)}/subscribed_apps`, { method: "POST", token });
       return j.success === true;
@@ -235,7 +245,7 @@ export function createMetaGraph(cfg: { appId: string; appSecret: string; version
 }
 
 /** MOCK ONLY: in-memory Graph for tests and mock mode. Behaviour is whatever the test configures; it proves our code, not Meta's. */
-export function createMockGraph(state: { pages?: GraphPage[]; validCodes?: Set<string>; tokenInfo?: Map<string, TokenInfo>; failSubscribe?: boolean; /** WhatsApp: token and numbers per WABA id; failSubscribeWaba makes the webhook subscription fail */ whatsapp?: { wabas: Map<string, { token: string; numbers: WhatsAppNumber[] }>; failSubscribeWaba?: boolean }; metaUserId?: string | null; profiles?: Map<string, UserProfile | null | GraphError>; instagram?: Map<string, InstagramAccountInfo>; /** token -> accounts shared through Unified Login, or an error */ assigned?: Map<string, { id: string; username: string | null }[] | GraphError>; /** next sendText results, consumed in order; default is success with a generated id */ sends?: (string | SendError)[]; /** runs inside sendText before it answers (tests use it to race an echo) */ onSend?: () => Promise<void> } = {}): MetaGraph & { calls: string[]; state: typeof state } {
+export function createMockGraph(state: { pages?: GraphPage[]; validCodes?: Set<string>; tokenInfo?: Map<string, TokenInfo>; failSubscribe?: boolean; /** WhatsApp: token and numbers per WABA id; failSubscribeWaba makes the webhook subscription fail */ whatsapp?: { wabas: Map<string, { token: string; numbers: WhatsAppNumber[] }>; failSubscribeWaba?: boolean }; metaUserId?: string | null; profiles?: Map<string, UserProfile | null | GraphError>; instagram?: Map<string, InstagramAccountInfo>; /** token -> accounts shared through Unified Login, or an error */ assigned?: Map<string, { id: string; username: string | null }[] | GraphError>; /** next sendText results, consumed in order; default is success with a generated id */ sends?: (string | SendError)[]; /** runs inside sendText before it answers (tests use it to race an echo) */ onSend?: () => Promise<void>; /** WhatsApp media id -> lookup result (or an error); default is a mock lookaside url */ waMedia?: Map<string, { url: string; mime: string | null; size: number | null } | GraphError> } = {}): MetaGraph & { calls: string[]; state: typeof state } {
   const calls: string[] = [];
   const codes = state.validCodes ?? new Set(["good-code"]);
   return {
@@ -272,6 +282,12 @@ export function createMockGraph(state: { pages?: GraphPage[]; validCodes?: Set<s
       const a = state.assigned?.get(token);
       if (a instanceof GraphError) throw a;
       return a ?? [];
+    },
+    async getWhatsAppMedia(mediaId) {
+      calls.push(`wamedia:${mediaId}`);
+      const m = state.waMedia?.get(mediaId);
+      if (m instanceof GraphError) throw m;
+      return m ?? { url: `https://lookaside.fbsbx.com/mock/${mediaId}`, mime: null, size: null };
     },
     async listWhatsAppNumbers(token, wabaId) {
       calls.push(`wanumbers:${wabaId}`);
