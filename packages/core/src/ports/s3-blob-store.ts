@@ -1,8 +1,12 @@
 import { createHash, createHmac } from "node:crypto";
 import { assertSafeKey, type BlobMeta, type BlobStore } from "./blob-store.ts";
 
-export type S3Config = { endpoint: string; region: string; bucket: string; accessKeyId: string; secretAccessKey: string };
-export type S3Fetch = (url: string, init: { method: string; headers: Record<string, string>; body?: Uint8Array }) => Promise<Response>;
+export type S3Config = { endpoint: string; region: string; bucket: string; accessKeyId: string; secretAccessKey: string; /** Time to wait for the provider to answer (headers); default 30 s. A body that is being streamed is not cut. */ timeoutMs?: number };
+/** The provider did not answer in time, or the request could not be made. Carries no url, key or credential. */
+export class StorageError extends Error {
+  constructor(readonly kind: "timeout" | "unreachable", op: string) { super(`storage ${op} ${kind}`); this.name = "StorageError"; }
+}
+export type S3Fetch = (url: string, init: { method: string; headers: Record<string, string>; body?: Uint8Array; signal?: AbortSignal }) => Promise<Response>;
 
 const sha256 = (d: string | Uint8Array) => createHash("sha256").update(d).digest("hex");
 const hmac = (k: string | Buffer, d: string) => createHmac("sha256", k).update(d).digest();
@@ -33,7 +37,15 @@ export class S3BlobStore implements BlobStore {
     const signature = createHmac("sha256", kSigning).update(toSign).digest("hex");
     const { host: _host, ...headers } = signed; // fetch sets Host from the URL
     headers.authorization = `AWS4-HMAC-SHA256 Credential=${this.cfg.accessKeyId}/${scope}, SignedHeaders=${names.join(";")}, Signature=${signature}`;
-    return this.doFetch(`${url.origin}${path}`, { method, headers, ...(body ? { body } : {}) });
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), this.cfg.timeoutMs ?? 30_000);
+    try {
+      return await this.doFetch(`${url.origin}${path}`, { method, headers, signal: ctl.signal, ...(body ? { body } : {}) });
+    } catch {
+      throw new StorageError(ctl.signal.aborted ? "timeout" : "unreachable", method.toLowerCase());
+    } finally {
+      clearTimeout(timer);
+    }
   }
   private fail(op: string, r: Response): never {
     throw new Error(`storage ${op} failed (${r.status})`); // status only: the body can echo the key or the request

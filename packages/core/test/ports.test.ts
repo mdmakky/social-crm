@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { readdirSync, readFileSync } from "node:fs";
 import { FileMailer, MemoryMailer, type Mailer } from "../src/ports/mailer.ts";
 import { attachmentKey, FsBlobStore, workspaceKey, type BlobStore } from "../src/ports/blob-store.ts";
-import { S3BlobStore } from "../src/ports/s3-blob-store.ts";
+import { S3BlobStore, StorageError } from "../src/ports/s3-blob-store.ts";
 import { createBlobStore } from "../src/ports/blob-store-factory.ts";
 
 function mailerContract(name: string, make: () => Mailer) {
@@ -132,6 +132,17 @@ describe("S3BlobStore", () => {
     expect(f.seen[0]!.auth).toMatch(/Signature=[0-9a-f]{64}$/);
     const bad = new S3BlobStore({ endpoint: "https://acct.r2.example", region: "auto", bucket: "crm", accessKeyId: "AKID", secretAccessKey: SECRET }, async () => new Response("secret body", { status: 500 }));
     await expect(bad.put("a/b", new Uint8Array([1]), { contentType: "x/y" })).rejects.toThrow(/^storage put failed \(500\)$/);
+  });
+});
+describe("S3BlobStore timeout", () => {
+  it("a hanging endpoint becomes a typed timeout error without any url or key in it; a refused connection is unreachable", async () => {
+    const hang = (_u: string, i: { signal?: AbortSignal }) => new Promise<Response>((_res, rej) => i.signal?.addEventListener("abort", () => rej(new Error("aborted https://secret-host/key"))));
+    const s = new S3BlobStore({ endpoint: "https://acct.r2.example", region: "auto", bucket: "crm", accessKeyId: "AKID", secretAccessKey: SECRET, timeoutMs: 30 }, hang);
+    const e = await s.head("workspaces/w/attachments/a").catch((x) => x);
+    expect(e).toBeInstanceOf(StorageError);
+    expect(e).toMatchObject({ kind: "timeout", message: "storage head timeout" });
+    const down = new S3BlobStore({ endpoint: "https://acct.r2.example", region: "auto", bucket: "crm", accessKeyId: "AKID", secretAccessKey: SECRET }, async () => { throw new Error("ECONNREFUSED"); });
+    expect(await down.delete("a/b").catch((x) => x)).toMatchObject({ kind: "unreachable" });
   });
 });
 describe("createBlobStore", () => {

@@ -105,15 +105,15 @@ async function downloadOne(d: AttachmentWorkerDeps, workspaceId: string, id: str
     const r = rowsOf(
       await tx.execute(sql`
         UPDATE attachments SET attempts = attempts + 1, next_attempt_at = now() + interval '5 minutes', updated_at = now()
-        WHERE workspace_id = ${workspaceId} AND id = ${id} AND status = 'pending' AND source = 'channel_download' AND coalesce(next_attempt_at, now()) <= now()
-        RETURNING kind, declared_mime, provider_media_id, provider_url, attempts, message_id`),
+        WHERE workspace_id = ${workspaceId} AND id = ${id} AND status = 'pending' AND source = 'channel_download' AND coalesce(next_attempt_at, now()) <= now() AND attempts < ${max}
+        RETURNING kind, declared_mime, provider_media_id, provider_url, attempts, message_id, sha256, size_bytes`),
     )[0];
     if (!r) return null;
     const acc = rowsOf(
       await tx.execute(sql`SELECT m.integration_account_id AS account_id, a.platform FROM messages m JOIN integration_accounts a ON a.workspace_id = m.workspace_id AND a.id = m.integration_account_id WHERE m.workspace_id = ${workspaceId} AND m.id = ${r.message_id as string}`),
     )[0];
     const token = acc && acc.platform === "whatsapp" ? await loadToken(tx, d.meta as MetaConnectDeps, workspaceId, acc.account_id as string) : null;
-    return { kind: r.kind as AttachmentKind, declared: (r.declared_mime as string | null) ?? "", mediaId: r.provider_media_id as string, url: (r.provider_url as string | null) ?? null, attempts: Number(r.attempts), platform: (acc?.platform as string | undefined) ?? null, token };
+    return { kind: r.kind as AttachmentKind, declared: (r.declared_mime as string | null) ?? "", mediaId: r.provider_media_id as string, url: (r.provider_url as string | null) ?? null, attempts: Number(r.attempts), prevSha: (r.sha256 as string | null) ?? null, prevSize: r.size_bytes == null ? null : Number(r.size_bytes), platform: (acc?.platform as string | undefined) ?? null, token };
   });
   if (!claim) return "skipped";
 
@@ -151,12 +151,14 @@ async function downloadOne(d: AttachmentWorkerDeps, workspaceId: string, id: str
   if (!check.ok) return fail(VALIDATION[check.code] ?? "unsupported_media", false);
 
   const key = attachmentKey(workspaceId, id);
+  const sha = createHash("sha256").update(bytes).digest("hex");
+  // A row that was stored before (retry of a missing file) keeps its content identity: different bytes must never overwrite the blob, or the blob would no longer match the row.
+  if (claim.prevSha !== null && (claim.prevSha !== sha || claim.prevSize !== bytes.byteLength)) return fail("content_changed", false);
   try {
     await store.put(key, bytes, { contentType: check.mime });
   } catch {
     return fail("storage_error", true);
   }
-  const sha = createHash("sha256").update(bytes).digest("hex");
   const done = await settle(async (tx) =>
     rowsOf(await tx.execute(sql`
       UPDATE attachments SET status = 'ready', kind = ${check.kind}, mime = ${check.mime}, size_bytes = ${bytes.byteLength}, sha256 = ${sha}, storage_key = ${key}, error_code = NULL, next_attempt_at = NULL, updated_at = now()
@@ -202,19 +204,44 @@ export function createAttachmentRunner(d: AttachmentWorkerDeps, onError?: (e: un
 }
 
 /**
- * Consistency check for one workspace: a `ready` row whose blob is gone becomes `missing`. With a store that can list keys (the local one), also returns blob keys that have no live row (never deleted here: a person decides).
+ * Consistency check for one workspace. Guards against a bad run (wrong bucket or endpoint, an emptied local directory) wiping every row:
+ *  1. a probe (write, head, delete under workspaces/_health/) must succeed, else the whole run aborts and changes nothing;
+ *  2. a `ready` row is only flipped to `missing` when it is missing on TWO consecutive runs (the first run leaves the marker error_code `blob_check_1`);
+ *  3. a `missing` row whose blob is back becomes `ready` again.
+ * With a store that can list keys (the local one) it also returns blob keys that have no live row (never deleted here: a person decides).
  */
-export async function reconcileAttachments(workerDb: Db, store: BlobStore, workspaceId: string): Promise<{ markedMissing: number; orphanKeys: string[] }> {
-  const ready = await withContext(workerDb, { workspaceId }, async (tx) => rowsOf(await tx.execute(sql`SELECT id, storage_key FROM attachments WHERE workspace_id = ${workspaceId} AND status = 'ready' LIMIT 1000`)));
-  const gone: string[] = [];
-  for (const r of ready) if (!(await store.head(r.storage_key as string))) gone.push(r.id as string);
-  if (gone.length) await withContext(workerDb, { workspaceId }, (tx) => tx.execute(sql`UPDATE attachments SET status = 'missing', error_code = 'blob_missing', updated_at = now() WHERE workspace_id = ${workspaceId} AND status = 'ready' AND id IN (${sql.join(gone.map((g) => sql`${g}::uuid`), sql`, `)})`));
+export async function reconcileAttachments(workerDb: Db, store: BlobStore, workspaceId: string): Promise<{ markedMissing: number; suspected: number; recovered: number; orphanKeys: string[]; aborted: boolean }> {
+  const probe = `workspaces/_health/probe-${crypto.randomUUID()}`;
+  try {
+    await store.put(probe, new Uint8Array([1]), { contentType: "application/octet-stream" });
+    const ok = await store.head(probe);
+    await store.delete(probe);
+    if (!ok) throw new Error("probe not readable");
+  } catch {
+    console.error(JSON.stringify({ msg: "attachment reconcile aborted: storage probe failed" })); // no endpoint, key or error text
+    return { markedMissing: 0, suspected: 0, recovered: 0, orphanKeys: [], aborted: true };
+  }
+  const rows = await withContext(workerDb, { workspaceId }, async (tx) => rowsOf(await tx.execute(sql`SELECT id, storage_key, status, error_code FROM attachments WHERE workspace_id = ${workspaceId} AND status IN ('ready','missing') LIMIT 1000`)));
+  const flip: string[] = [], suspect: string[] = [], clear: string[] = [], recover: string[] = [];
+  for (const r of rows) {
+    const present = !!(await store.head(r.storage_key as string));
+    if (r.status === "missing") { if (present) recover.push(r.id as string); continue; }
+    if (present) { if (r.error_code === "blob_check_1") clear.push(r.id as string); continue; }
+    (r.error_code === "blob_check_1" ? flip : suspect).push(r.id as string);
+  }
+  const ids = (a: string[]) => sql.join(a.map((g) => sql`${g}::uuid`), sql`, `);
+  await withContext(workerDb, { workspaceId }, async (tx) => {
+    if (flip.length) await tx.execute(sql`UPDATE attachments SET status = 'missing', error_code = 'blob_missing', updated_at = now() WHERE workspace_id = ${workspaceId} AND status = 'ready' AND id IN (${ids(flip)})`);
+    if (suspect.length) await tx.execute(sql`UPDATE attachments SET error_code = 'blob_check_1', updated_at = now() WHERE workspace_id = ${workspaceId} AND status = 'ready' AND id IN (${ids(suspect)})`);
+    if (clear.length) await tx.execute(sql`UPDATE attachments SET error_code = NULL, updated_at = now() WHERE workspace_id = ${workspaceId} AND status = 'ready' AND id IN (${ids(clear)})`);
+    if (recover.length) await tx.execute(sql`UPDATE attachments SET status = 'ready', error_code = NULL, updated_at = now() WHERE workspace_id = ${workspaceId} AND status = 'missing' AND id IN (${ids(recover)})`);
+  });
   let orphanKeys: string[] = [];
   if (store.list) {
     const live = new Set((await withContext(workerDb, { workspaceId }, async (tx) => rowsOf(await tx.execute(sql`SELECT storage_key FROM attachments WHERE workspace_id = ${workspaceId} AND status IN ('ready','missing','pending')`)))).map((r) => r.storage_key as string));
     orphanKeys = (await store.list(`workspaces/${workspaceId}/attachments`)).filter((k) => !live.has(k));
   }
-  return { markedMissing: gone.length, orphanKeys };
+  return { markedMissing: flip.length, suspected: suspect.length, recovered: recover.length, orphanKeys, aborted: false };
 }
 
 /** Deletes the blobs of attachments whose rows were just soft-deleted. Idempotent; a failure is swallowed (the row is already deleted, reconcile reports the orphan). */

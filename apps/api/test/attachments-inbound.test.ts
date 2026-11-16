@@ -270,20 +270,73 @@ describe("download worker", () => {
 });
 
 describe("reconcile", () => {
-  it("a ready row whose blob is gone becomes missing; local orphan blobs are reported, never deleted", async () => {
+  async function readyRow(id: string) {
     const a = await account("whatsapp");
-    const mid = await waMedia(a.ext, digits(), { type: "image", image: { id: "RECON", mime_type: "image/png" } });
+    const mid = await waMedia(a.ext, digits(), { type: "image", image: { id, mime_type: "image/png" } });
     await drain(a.ext);
     await processAttachmentDownloads(worker(net(() => bytesRes(PNG)).deps));
     const r = await mine(mid);
     expect(r.status).toBe("ready");
+    return { mid, r };
+  }
+  it("two strikes before a row is flipped to missing; local orphan blobs are reported, never deleted; a returning blob recovers the row", async () => {
+    const { mid, r } = await readyRow("RECON");
     await store.delete(r.storage_key);
     const orphan = attachmentKey(ws, crypto.randomUUID());
     await store.put(orphan, PNG, { contentType: "image/png" });
-    const out = await reconcileAttachments(workerDb, store, ws);
-    expect(out.markedMissing).toBeGreaterThanOrEqual(1);
-    expect(out.orphanKeys).toContain(orphan);
+    const first = await reconcileAttachments(workerDb, store, ws);
+    expect(first).toMatchObject({ aborted: false, markedMissing: 0 });
+    expect(first.suspected).toBeGreaterThanOrEqual(1);
+    expect(await mine(mid)).toMatchObject({ status: "ready", error_code: "blob_check_1" }); // one strike: still ready
+    const second = await reconcileAttachments(workerDb, store, ws);
+    expect(second.markedMissing).toBeGreaterThanOrEqual(1);
+    expect(second.orphanKeys).toContain(orphan);
     expect(await store.head(orphan)).not.toBeNull();
     expect(await mine(mid)).toMatchObject({ status: "missing", error_code: "blob_missing" });
+    await store.put(r.storage_key, PNG, { contentType: "image/png" }); // the blob comes back
+    expect((await reconcileAttachments(workerDb, store, ws)).recovered).toBeGreaterThanOrEqual(1);
+    expect(await mine(mid)).toMatchObject({ status: "ready", error_code: null });
+  });
+
+  it("a failing storage probe aborts the whole run and changes no row; a blob that is back before the second strike clears the marker", async () => {
+    const { mid, r } = await readyRow("PROBE");
+    await store.delete(r.storage_key);
+    const broken = { put: async () => { throw new Error("wrong bucket"); }, head: async () => null, delete: async () => undefined, get: async () => null, getStream: async () => null } as unknown as FsBlobStore;
+    expect(await reconcileAttachments(workerDb, broken, ws)).toMatchObject({ aborted: true, markedMissing: 0, suspected: 0 });
+    expect(await mine(mid)).toMatchObject({ status: "ready", error_code: null });
+    await reconcileAttachments(workerDb, store, ws); // strike one
+    await store.put(r.storage_key, PNG, { contentType: "image/png" });
+    await reconcileAttachments(workerDb, store, ws);
+    expect(await mine(mid)).toMatchObject({ status: "ready", error_code: null });
+  });
+});
+
+describe("retry of a stored file", () => {
+  /** Test only: the state a person's retry of a missing file produces (the superuser skips the status graph). */
+  const requeue = async (id: string, attempts: number) => {
+    await q("SET session_replication_role = replica");
+    await q("UPDATE attachments SET status = 'pending', error_code = NULL, attempts = $2, next_attempt_at = NULL WHERE id = $1", [id, attempts]);
+    await q("SET session_replication_role = DEFAULT");
+  };
+  it("different bytes never overwrite the blob (failed, content_changed); exhausted attempts are never claimed; the same bytes restore the blob", async () => {
+    const a = await account("whatsapp");
+    const mid = await waMedia(a.ext, digits(), { type: "image", image: { id: "CHG", mime_type: "image/png" } });
+    await drain(a.ext);
+    await processAttachmentDownloads(worker(net(() => bytesRes(PNG)).deps));
+    const r = await mine(mid);
+    await requeue(r.id, 0);
+    const other = Buffer.concat([Buffer.from(PNG), Buffer.from([9, 9])]);
+    await processAttachmentDownloads(worker(net(() => bytesRes(other)).deps));
+    expect(await mine(mid)).toMatchObject({ status: "failed", error_code: "content_changed", sha256: r.sha256 });
+    expect(Buffer.from((await store.get(r.storage_key))!.bytes).equals(Buffer.from(PNG))).toBe(true); // blob untouched
+    await requeue(r.id, 5);
+    const spy = net(() => bytesRes(PNG));
+    await processAttachmentDownloads(worker(spy.deps, { maxAttempts: 5 }));
+    expect(spy.calls.filter((c) => c.url.includes("CHG"))).toHaveLength(0);
+    await requeue(r.id, 0);
+    await store.delete(r.storage_key);
+    await processAttachmentDownloads(worker(net(() => bytesRes(PNG)).deps));
+    expect(await mine(mid)).toMatchObject({ status: "ready", sha256: r.sha256 });
+    expect(await store.head(r.storage_key)).not.toBeNull();
   });
 });
