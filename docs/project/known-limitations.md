@@ -152,3 +152,12 @@ Updated: 2026-11-13 (Phase 0).
 - Hash vectors: the em, ph, fn (Mary) and non-ASCII fn (Valéry, 정) vectors match Meta's published examples (checked against the live customer information parameters page on 2026-11-16); ln, ct, st, zp, country and external_id are our own shasum values over the normalised string, not Meta-published.
 - Hash vectors: only the email vector is Meta's published one (recalled, re-check on the live page); the rest were computed from the normalisation rules read on 2026-11-13. Phone numbers without a country code are dropped (not guessed).
 - Mobile approvals (`apps/mobile`) are not device-verified: typechecked, linted and unit tested only; never run on Android or iOS (Android login is itself still deferred). Metro resolution of `@crm/core/approvals` and `@crm/design-tokens` is untested. The mobile app has no router yet (state-based screens), reject has no reason (API has none), kill switch is read-only on mobile, and the list shows the first 50 runs without paging.
+
+## AI Studio knowledge base, slice 1 (2026-11-16, branch feat/ai-knowledge-base)
+- Search is full-text with the `simple` configuration: no stemming (refund vs refunds), no synonyms, no meaning. Chinese, Japanese and Thai text without spaces is a single token, so substring queries miss. Plain questions work through an any-word retry, which can rank noisily. Embeddings are a later decision.
+- Supported files: .txt, .md, .csv, .html, up to 2 MB. PDF, DOCX, images (OCR) and audio return `unsupported_type`; scanned or non-UTF-8 files are rejected (`invalid_encoding`).
+- Websites are a single page fetch: no crawling, no JavaScript rendering, no login, no scheduled refresh (re-index is manual). Only text/html, text/plain and text/markdown, 2 MB, 10 s.
+- DNS answers are checked and the connection is pinned to the checked address, but an HTTP proxy or a platform egress firewall is not in place; add an egress allowlist at the host for defence in depth.
+- Rate limits are in-process (single API instance; move to a shared store before running more than one). Ingestion runs in the request, so a 1 MB source holds a request for about a second.
+- A `failed` source keeps its previous passages searchable by design. Failed adds are not stored, so there is no list of past failures.
+- The retrieval function exists but no AI agent calls it yet; nothing in the assistant uses the knowledge base.
