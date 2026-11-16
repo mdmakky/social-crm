@@ -28,8 +28,9 @@ export default defineConfig({
         WEB_ORIGIN: WEB,
         MAIL_DIR,
         // Opt-in MOCK Meta (no Meta contact): lets the Integrations flow run end to end. Needs the worker role and a key; labelled mock in the UI.
-        // Local blob store for the attachment specs (a temp directory under test-results; never a real bucket).
-        ...(process.env.STORAGE_DRIVER === "local" ? { STORAGE_DRIVER: "local", STORAGE_LOCAL_DIR: process.env.STORAGE_LOCAL_DIR ?? join(__dirname, "test-results", "blobs") } : {}),
+        // Local blob store for the attachment specs, always on in the e2e harness (a temp directory under test-results; never a real bucket). Without it inbox-attachments.spec.ts fails with "storage not configured".
+        STORAGE_DRIVER: "local",
+        STORAGE_LOCAL_DIR: process.env.STORAGE_LOCAL_DIR ?? join(__dirname, "test-results", "blobs"),
         ...(process.env.E2E_META_MOCK === "1" ? { DATABASE_URL_WORKER: "postgres://crm_worker:worker_dev@127.0.0.1:5436/" + (process.env.CRM_DB_NAME ?? "crm"), META_APP_SECRET: "e2e-mock-app-secret-0123456789", SECRETS_ENCRYPTION_KEY: Buffer.alloc(32, 9).toString("base64"), META_MOCK: "1", DATABASE_URL_INGEST: "postgres://crm_ingest:ingest_dev@127.0.0.1:5436/" + (process.env.CRM_DB_NAME ?? "crm"), META_VERIFY_TOKEN: "e2e-verify-token" } : {}),
       },
     },
