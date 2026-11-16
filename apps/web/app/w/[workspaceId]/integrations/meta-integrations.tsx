@@ -5,7 +5,7 @@ import { endpoints, MESSENGER_WEBHOOK_FIELDS, type ConnectMetaResult, type Conne
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/form-controls";
-import { Dialog, DialogContent } from "@/components/ui/overlays";
+import { Dialog, DialogContent, DialogActions } from "@/components/ui/overlays";
 import { Panel, PanelHeader } from "@/components/ui/panel";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, EmptyState, ErrorState } from "@/components/ui/states";
@@ -383,10 +383,10 @@ function Inner({ workspaceId, canManage, initial, result, channel: initialChanne
 
       <Dialog open={!!confirm} onOpenChange={(o) => { if (!o) closeConfirm(); }}>
         <DialogContent title="Disconnect this account?" description="Its saved token is deleted and new messages stop arriving. Existing conversations are kept. You can reconnect later.">
-          <div className="flex justify-end gap-2">
+          <DialogActions>
             <Button onClick={closeConfirm}>Cancel</Button>
             <Button variant="danger" loading={!!confirm && busy === confirm.id} onClick={() => confirm && void disconnect(confirm)}>Disconnect</Button>
-          </div>
+          </DialogActions>
         </DialogContent>
       </Dialog>
     </div>

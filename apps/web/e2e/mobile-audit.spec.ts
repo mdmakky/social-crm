@@ -28,7 +28,8 @@ const measure = (page: Page) =>
     };
     const small = Array.from(document.querySelectorAll<HTMLElement>("a[href],button,input:not([type=hidden]),select,textarea,[role=button],[role=tab],[role=menuitem],summary"))
       .filter((el) => vis(el) && !el.closest(".sr-only") && !el.classList.contains("sr-only"))
-      .map((el) => ({ el, r: el.getBoundingClientRect() }))
+      // a checkbox or radio inside (or for) a <label> is activated by the whole label: measure that area, and report the control itself only when there is no label
+      .map((el) => ({ el, r: ((el instanceof HTMLInputElement && /^(checkbox|radio)$/.test(el.type) && (el.closest("label") || el.labels?.[0])) || el).getBoundingClientRect() }))
       // an inline text link inside running text is exempt (WCAG 2.5.8 inline exception); report the rest
       .filter(({ el, r }) => (r.width < 44 || r.height < 44) && !(el.tagName === "A" && el.closest("p,li,dd") && getComputedStyle(el).display === "inline"))
       .map(({ el, r }) => `${el.tagName.toLowerCase()} "${(el.getAttribute("aria-label") || el.textContent || "").trim().slice(0, 28)}" ${Math.round(r.width)}x${Math.round(r.height)}`);

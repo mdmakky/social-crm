@@ -9,7 +9,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { Select } from "@/components/ui/input";
-import { Dialog, DialogContent, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/overlays";
+import { Dialog, DialogContent, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger, DialogActions } from "@/components/ui/overlays";
 import { PageHeader } from "@/components/ui/panel";
 import { Alert, EmptyState } from "@/components/ui/states";
 import { ToastProvider, useToast } from "@/components/ui/toast";
@@ -251,7 +251,7 @@ function LostForm({ reasons, onCancel, onSubmit }: { reasons: LostReasonDto[]; o
   return (
     <form className="flex flex-col gap-4" onSubmit={(e) => { e.preventDefault(); if (id) onSubmit(id); }}>
       <Field label="Reason">{(p) => <Select {...p} value={id} onChange={(e) => setId(e.target.value)}>{reasons.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}</Select>}</Field>
-      <div className="flex justify-end gap-2"><Button type="button" onClick={onCancel}>Cancel</Button><Button type="submit" variant="primary" disabled={!id}>Mark as lost</Button></div>
+      <DialogActions><Button type="button" onClick={onCancel}>Cancel</Button><Button type="submit" variant="primary" disabled={!id}>Mark as lost</Button></DialogActions>
     </form>
   );
 }

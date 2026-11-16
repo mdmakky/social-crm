@@ -124,6 +124,14 @@
 @media (max-width: 767px) { [data-bn="on"] { --bottomnav-h: calc(var(--bottomnav-base) + env(safe-area-inset-bottom, 0px)); } }
 /* Edge-to-edge on phones: cancels the page gutter (and its safe-area padding) for screens that own the whole viewport, like the inbox. */
 @media (max-width: 767px) { .bleed { margin: -1.25rem calc(-1 * max(1rem, env(safe-area-inset-right))) -1.25rem calc(-1 * max(1rem, env(safe-area-inset-left))); } }
+/* Dialog actions stay in reach on a long form: sticky to the bottom of the sheet, spanning its padding, equal-width buttons. */
+@media (max-width: 767px) {
+  [data-dialog-body] .dialog-actions { position: sticky; bottom: 0; z-index: 1; margin-inline: -1.25rem; margin-bottom: calc(-1 * max(1.25rem, env(safe-area-inset-bottom))); padding: 0.75rem 1.25rem max(1.25rem, env(safe-area-inset-bottom)); background: var(--bg-surface); border-top: 1px solid var(--line); }
+  [data-dialog-body] .dialog-actions > * { flex: 1 1 0; }
+}
+/* Table or cards: cards on phones and on touch tablets (fingers need row-sized targets and sort controls that are not 24px headers); the table everywhere else. */
+.t-cards, .t-cards-flex { display: none; }
+@media (max-width: 767px), (pointer: coarse) and (max-width: 1023px) { .t-cards { display: block; } .t-cards-flex { display: flex; } .t-table, .t-table-inline { display: none; } }
 /* Native checkboxes and radios are 13 to 16px: give touch users a real target (their labels already are 44px). */
 @media (pointer: coarse) { input[type="checkbox"], input[type="radio"] { width: 1.25rem; height: 1.25rem; } }
 

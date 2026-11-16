@@ -123,7 +123,7 @@ export function CapiPanel({ workspaceId, canManage }: { workspaceId: string; can
                 <fieldset className="flex flex-wrap gap-x-4 gap-y-1">
                   <legend className="mb-1 text-sm font-medium text-fg">Events to send</legend>
                   {CAPI_EVENT_NAMES.map((n) => (
-                    <label key={n} className="flex min-h-8 items-center gap-2 text-sm text-fg">
+                    <label key={n} className="flex min-h-8 items-center gap-2 text-sm text-fg pointer-coarse:min-h-11">
                       <input type="checkbox" checked={chosen.includes(n)} disabled={busy !== null} onChange={(e) => setChosen(e.target.checked ? [...chosen, n] : chosen.filter((x) => x !== n))} />{n}
                     </label>
                   ))}

@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { Input, Select } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/form-controls";
-import { Dialog, DialogContent } from "@/components/ui/overlays";
+import { Dialog, DialogContent, DialogActions } from "@/components/ui/overlays";
 import { Alert } from "@/components/ui/states";
 import { useToast } from "@/components/ui/toast";
 import { ContactPicker, type PickedContact } from "@/components/tasks/contact-picker";
@@ -82,10 +82,10 @@ export function NewLeadDialog({ open, onOpenChange, workspaceId, pipelines, canS
             <Field label="Expected close date">{(p) => <Input {...p} type="date" value={close} onChange={(e) => setClose(e.target.value)} min="2000-01-01" max="2100-12-31" />}</Field>
           </div>
           <Field label="Description" hint="Optional">{(p) => <Textarea {...p} rows={3} value={description} onChange={(e) => setDescription(e.target.value)} maxLength={5000} />}</Field>
-          <div className="flex justify-end gap-2">
+          <DialogActions>
             <Button type="button" onClick={() => onOpenChange(false)}>Cancel</Button>
             <Button type="submit" variant="primary" disabled={busy}>{busy ? "Creating…" : `Create ${label.toLowerCase()}`}</Button>
-          </div>
+          </DialogActions>
         </form>
       </DialogContent>
     </Dialog>

@@ -10,6 +10,7 @@ test.describe.serial("mobile experience", () => {
   let state: Awaited<ReturnType<BrowserContext["storageState"]>>;
   let ws = "";
   let convId = "";
+  let contactId = "";
   const touch = async (browser: Browser, w: number, h: number) => {
     const ctx = await browser.newContext({ baseURL: WEB, storageState: state, viewport: { width: w, height: h }, hasTouch: true, isMobile: true, deviceScaleFactor: 2 });
     return { ctx, page: await ctx.newPage() };
@@ -23,7 +24,9 @@ test.describe.serial("mobile experience", () => {
     seed(ws);
     const post = (u: string, data: unknown) => page.request.post(u, { data, headers: { origin: WEB } });
     const c = await (await post(`/v1/workspaces/${ws}/contacts`, { name: "Rahim Uddin Chowdhury", email: "rahim@example.com" })).json();
+    contactId = c.id;
     const p = await (await page.request.get(`/v1/workspaces/${ws}/pipelines`)).json();
+    await post(`/v1/workspaces/${ws}/contacts/${c.id}/tasks`, { title: "Call Rahim about delivery", dueAt: new Date(Date.now() + 86_400_000).toISOString() });
     await post(`/v1/workspaces/${ws}/leads`, { title: "Bulk order for the Eid collection", primaryContactId: c.id, pipelineId: p.pipelines[0].id });
     convId = (await (await page.request.get(`/v1/workspaces/${ws}/conversations`)).json()).items[0].id;
     state = await ctx.storageState();
@@ -83,6 +86,77 @@ test.describe.serial("mobile experience", () => {
     const log = (await page.getByRole("log").boundingBox())!;
     expect(log.height, "messages keep some room above the composer").toBeGreaterThan(80);
     await axe(page, "thread@390");
+    await ctx.close();
+  });
+
+  test("checkboxes and radios are activated by a 44px label on touch (the 20px control is never the only target)", async ({ browser }) => {
+    const { ctx, page } = await touch(browser, 390, 844);
+    for (const r of ["/settings/notifications", "/settings/contacts", "/settings/automations", "/integrations"]) {
+      await page.goto(`/w/${ws}${r}`);
+      await expect(page.locator("main h1, main [role=tablist]").first()).toBeVisible();
+      const small = await page.evaluate(() => Array.from(document.querySelectorAll<HTMLInputElement>("input[type=checkbox],input[type=radio]")).filter((i) => i.offsetParent !== null).map((i) => { const b = (i.closest("label") ?? i.labels?.[0] ?? i).getBoundingClientRect(); return { h: b.height, w: b.width, n: i.name || i.type }; }).filter((b) => b.h < 44 || b.w < 44));
+      expect(small, r).toEqual([]);
+    }
+    await ctx.close();
+  });
+
+  test("dialog actions stay in reach: the Create button is visible without scrolling and after scrolling a short phone", async ({ browser }) => {
+    const { ctx, page } = await touch(browser, 390, 600);
+    await page.goto(`/w/${ws}/settings/automations`);
+    await page.getByRole("button", { name: "New rule" }).first().click();
+    const dlg = page.getByRole("dialog");
+    const create = dlg.getByRole("button", { name: "Create rule" });
+    await expect(create).toBeVisible();
+    const inView = async () => { const b = (await create.boundingBox())!; return b.y >= 0 && b.y + b.height <= 600; };
+    expect(await inView()).toBe(true);
+    expect(await dlg.evaluate((el) => el.scrollHeight > el.clientHeight), "the form is taller than the sheet, so this proves the footer sticks").toBe(true);
+    await dlg.evaluate((el) => el.scrollTo(0, el.scrollHeight));
+    expect(await inView()).toBe(true);
+    await dlg.evaluate((el) => el.scrollTo(0, 0));
+    expect(await inView()).toBe(true);
+    await expect(dlg.getByRole("button", { name: "Cancel" })).toBeVisible();
+    await ctx.close();
+  });
+
+  test("touch tablet 820 shows card lists for Contacts and Tasks; a mouse at 820 and desktop keep the tables", async ({ browser }) => {
+    const t = await touch(browser, 820, 1180);
+    for (const r of ["/contacts", "/tasks", "/leads"]) {
+      await t.page.goto(`/w/${ws}${r}`);
+      await expect(t.page.locator("ul.t-cards, ul.t-cards-flex")).toBeVisible();
+      await expect(t.page.locator(".t-table")).toBeHidden();
+      expect(await overflow(t.page), r).toBeLessThanOrEqual(0);
+      const link = (await t.page.locator("ul.t-cards a, ul.t-cards [role=button], ul.t-cards [role=checkbox], ul.t-cards-flex a").first().boundingBox())!;
+      expect(link.height, `${r} first row target`).toBeGreaterThanOrEqual(44);
+    }
+    await t.ctx.close();
+    for (const [w, h] of [[820, 1180], [1440, 900]] as const) {
+      const ctx = await browser.newContext({ baseURL: WEB, storageState: state, viewport: { width: w, height: h } }); // no touch: fine pointer
+      const page = await ctx.newPage();
+      for (const r of ["/contacts", "/tasks", "/leads"]) {
+        await page.goto(`/w/${ws}${r}`);
+        await expect(page.locator(".t-table")).toBeVisible();
+        await expect(page.locator("ul.t-cards, ul.t-cards-flex")).toBeHidden();
+      }
+      await ctx.close();
+    }
+  });
+
+  test("pseudo-element hit areas receive the tap: pipeline drag handle and contact-task checkbox are 44px wide targets", async ({ browser }) => {
+    const { ctx, page } = await touch(browser, 390, 844);
+    const reaches = async (sel: string) => page.evaluate((q) => {
+      const el = document.querySelector<HTMLElement>(q)!;
+      el.scrollIntoView({ block: "center", behavior: "instant" });
+      const r = el.getBoundingClientRect();
+      const cx = r.x + r.width / 2, cy = r.y + r.height / 2;
+      // points 20px either side of the centre (a 44px target) must hit the control, not its neighbours
+      return ([[-20, 0], [20, 0], [0, -20], [0, 20]] as const).map(([dx, dy]) => { const hit = document.elementFromPoint(cx + dx, cy + dy); return hit?.closest(q) === el ? true : `${dx},${dy} hit ${hit?.tagName}.${String(hit?.className).slice(0, 40)} rect=${Math.round(r.x)},${Math.round(r.y)},${Math.round(r.width)}x${Math.round(r.height)}`; });
+    }, sel);
+    await page.goto(`/w/${ws}/pipeline`);
+    await expect(page.locator('button[aria-label*="Press space to pick up"]').first()).toBeVisible();
+    expect(await reaches('button[aria-label*="Press space to pick up"]')).toEqual([true, true, true, true]);
+    await page.goto(`/w/${ws}/contacts/${contactId}`);
+    await expect(page.locator('button[role=checkbox][aria-label^="Complete:"]').first()).toBeVisible();
+    expect(await reaches('button[role=checkbox][aria-label^="Complete:"]')).toEqual([true, true, true, true]);
     await ctx.close();
   });
 

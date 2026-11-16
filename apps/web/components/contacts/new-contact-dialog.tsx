@@ -6,7 +6,7 @@ import { endpoints, type CustomField, type DuplicateCandidate, type LifecycleSta
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { Input, Select } from "@/components/ui/input";
-import { Dialog, DialogClose, DialogContent } from "@/components/ui/overlays";
+import { Dialog, DialogClose, DialogContent, DialogActions } from "@/components/ui/overlays";
 import { Alert } from "@/components/ui/states";
 import { browserApi, errorMessage } from "@/lib/client-api";
 import { CustomFieldInput } from "./custom-field-input";
@@ -77,11 +77,11 @@ function NewContactForm({ workspaceId, stages, members, fields, myUserId, onClos
         <Field label="Owner">{(p) => <Select {...p} name="owner" defaultValue={myUserId}><option value="">Unassigned</option>{members.map((m) => <option key={m.userId} value={m.userId}>{m.name}{m.userId === myUserId ? " (you)" : ""}</option>)}</Select>}</Field>
       </div>
       {fields.map((f) => <CustomFieldInput key={f.id} def={f} value={custom[f.key]} onChange={(v) => setCustom((c) => ({ ...c, [f.key]: v }))} error={fieldErrors[f.key]} />)}
-      <div className="mt-2 flex justify-end gap-2">
+      <DialogActions className="mt-2">
         <DialogClose asChild><Button variant="ghost">Cancel</Button></DialogClose>
         {dupes ? <Button variant="secondary" loading={busy} onClick={() => void submit(true)}>Create anyway</Button> : null}
         <Button type="submit" variant="primary" loading={busy}>Add contact</Button>
-      </div>
+      </DialogActions>
     </form>
   );
 }

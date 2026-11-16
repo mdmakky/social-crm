@@ -128,7 +128,7 @@ function Inner({ initialOutcome, workspaceId, myUserId, pipelines, initial, memb
         </Panel>
       ) : (
         <div className={status === "loading" ? "opacity-60 transition-opacity" : "transition-opacity"} aria-busy={status === "loading"}>
-          <Panel className="hidden overflow-hidden md:block">
+          <Panel className="t-table overflow-hidden">
             <Table scrollLabel="Leads">
               <THead><TR className="hover:bg-transparent"><TH>Title</TH><TH>Contact</TH><TH>Stage</TH><TH className="text-right">Value</TH><TH>Close</TH><TH>Owner</TH></TR></THead>
               <TBody>
@@ -145,7 +145,7 @@ function Inner({ initialOutcome, workspaceId, myUserId, pipelines, initial, memb
               </TBody>
             </Table>
           </Panel>
-          <ul className="flex flex-col gap-2 md:hidden" aria-label="Leads">
+          <ul className="t-cards-flex flex-col gap-2" aria-label="Leads">
             {page.items.map((l) => (
               <li key={l.id}>
                 <Link href={href(l)} className="block rounded-card bg-surface p-3 shadow-sheet active:bg-hover">

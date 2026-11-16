@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { Checkbox } from "@/components/ui/form-controls";
 import { Input, Select } from "@/components/ui/input";
-import { Dialog, DialogContent } from "@/components/ui/overlays";
+import { Dialog, DialogContent, DialogActions } from "@/components/ui/overlays";
 import { Panel, PanelHeader } from "@/components/ui/panel";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, EmptyState, ErrorState } from "@/components/ui/states";
@@ -277,10 +277,10 @@ function RuleDialog({ workspaceId, rule, members, onSaved }: { workspaceId: stri
         </div>
 
         {error && <p role="alert" className="text-sm text-danger-fg">{error}</p>}
-        <div className="flex justify-end gap-2">
+        <DialogActions>
           <Button onClick={() => void onSaved()}>Cancel</Button>
           <Button type="submit" variant="primary" loading={saving}>{rule ? "Save rule" : "Create rule"}</Button>
-        </div>
+        </DialogActions>
       </form>
     </DialogContent>
   );

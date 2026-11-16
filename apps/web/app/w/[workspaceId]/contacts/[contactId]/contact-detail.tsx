@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { Textarea } from "@/components/ui/form-controls";
 import { Input, Select } from "@/components/ui/input";
-import { Dialog, DialogClose, DialogContent, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/overlays";
+import { Dialog, DialogClose, DialogContent, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DialogActions } from "@/components/ui/overlays";
 import { Panel, PanelHeader } from "@/components/ui/panel";
 import { Alert, EmptyState } from "@/components/ui/states";
 import { browserApi, errorMessage } from "@/lib/client-api";
@@ -154,10 +154,10 @@ function DeleteMenu({ workspaceId, contact, onDeleted }: { workspaceId: string; 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent title={`Delete ${contact.name}?`} description="The contact disappears from lists and search. The deletion is recorded in the audit log.">
           {error && <Alert tone="error" className="mb-3">{error}</Alert>}
-          <div className="flex justify-end gap-2">
+          <DialogActions>
             <DialogClose asChild><Button variant="ghost">Cancel</Button></DialogClose>
             <Button variant="danger" loading={busy} onClick={async () => { setBusy(true); const r = await browserApi.call(endpoints.deleteContact, { params: { workspaceId, contactId: contact.id } }); setBusy(false); if (r.ok) onDeleted(); else setError(errorMessage(r.error)); }}>Delete contact</Button>
-          </div>
+          </DialogActions>
         </DialogContent>
       </Dialog>
     </>

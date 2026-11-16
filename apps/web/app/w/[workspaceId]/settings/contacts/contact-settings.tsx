@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { Checkbox } from "@/components/ui/form-controls";
 import { Input, Select } from "@/components/ui/input";
-import { Dialog, DialogClose, DialogContent } from "@/components/ui/overlays";
+import { Dialog, DialogClose, DialogContent, DialogActions } from "@/components/ui/overlays";
 import { Panel, PanelHeader } from "@/components/ui/panel";
 import { Alert } from "@/components/ui/states";
 import { browserApi, errorMessage } from "@/lib/client-api";
@@ -194,20 +194,20 @@ export function ContactSettings({ workspaceId, canManage, stages: s0, tags: t0, 
       <Dialog open={!!confirmStage} onOpenChange={(o) => { if (!o && !busy) setConfirmStage(null); }}>
         <DialogContent title={`Archive "${confirmStage?.name ?? ""}"?`} description={`${confirmStage?.contactCount ?? 0} ${confirmStage?.contactCount === 1 ? "contact is" : "contacts are"} in this stage. Archived stages stay on the contacts that already have them but cannot be newly assigned. You can restore the stage later.`}>
           {dialogError && <Alert tone="error" className="mb-3">{dialogError}</Alert>}
-          <div className="flex justify-end gap-2">
+          <DialogActions>
             <DialogClose asChild><Button variant="ghost">Cancel</Button></DialogClose>
             <Button variant="danger" loading={busy} onClick={() => confirmStage && void archiveStage(confirmStage, true)}>Archive stage</Button>
-          </div>
+          </DialogActions>
         </DialogContent>
       </Dialog>
 
       <Dialog open={!!confirmTag} onOpenChange={(o) => { if (!o && !busy) setConfirmTag(null); }}>
         <DialogContent title={`Delete tag "${confirmTag?.name ?? ""}"?`} description={`It will be removed from ${confirmTag?.contactCount ?? 0} ${confirmTag?.contactCount === 1 ? "contact" : "contacts"}. This cannot be undone.`}>
           {dialogError && <Alert tone="error" className="mb-3">{dialogError}</Alert>}
-          <div className="flex justify-end gap-2">
+          <DialogActions>
             <DialogClose asChild><Button variant="ghost">Cancel</Button></DialogClose>
             <Button variant="danger" loading={busy} onClick={() => confirmTag && void deleteTag(confirmTag)}>Delete tag</Button>
-          </div>
+          </DialogActions>
         </DialogContent>
       </Dialog>
     </div>

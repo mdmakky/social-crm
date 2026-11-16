@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { Checkbox } from "@/components/ui/form-controls";
 import { Input, Select } from "@/components/ui/input";
-import { Dialog, DialogClose, DialogContent, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/overlays";
+import { Dialog, DialogClose, DialogContent, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, DialogActions } from "@/components/ui/overlays";
 import { PageHeader, Panel } from "@/components/ui/panel";
 import { Alert, EmptyState, ErrorState } from "@/components/ui/states";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
@@ -183,12 +183,12 @@ export function ContactsView({ workspaceId, timeZone, myUserId, initial, initial
           {filtered && <Button variant="ghost" onClick={clearFilters}><FilterX />Clear</Button>}
         </div>
         <div className="ml-auto flex items-center gap-2">
-          <Select aria-label="Sort by" wrapperClassName="md:hidden" className="w-auto" value={sortOptionFor(query.sort, query.dir)} onChange={(e) => { if (e.target.value === "custom") return; const [s, d] = e.target.value.split(":"); set({ sort: s as Q["sort"], dir: d as Q["dir"] }); }}>
+          <Select aria-label="Sort by" wrapperClassName="t-cards" className="w-auto" value={sortOptionFor(query.sort, query.dir)} onChange={(e) => { if (e.target.value === "custom") return; const [s, d] = e.target.value.split(":"); set({ sort: s as Q["sort"], dir: d as Q["dir"] }); }}>
             {sortOptionFor(query.sort, query.dir) === "custom" && <option value="custom">Custom order</option>}
             {SORT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
           </Select>
           <ViewsMenu views={views} active={activeView} base={baseView} canManageShared={perms.shareViews} onApply={applyView} onSave={() => setSaveOpen(true)} onRename={(v) => { setBaseView(v.id); setRenameOpen(true); }} onUpdate={async (v) => { const r = await browserApi.call(endpoints.updateView, { params: { workspaceId, viewId: v.id }, body: { config: currentConfig() } }); if (!r.ok) return setActionError(errorMessage(r.error)); setViews((x) => x.map((y) => (y.id === v.id ? r.data : y))); }} onDelete={setDeleteView} />
-          <Button variant="ghost" className="hidden md:inline-flex" onClick={() => setColsOpen(true)}><Columns3 />Columns</Button>
+          <Button variant="ghost" className="t-table-inline" onClick={() => setColsOpen(true)}><Columns3 />Columns</Button>
         </div>
       </div>
 
@@ -215,10 +215,10 @@ export function ContactsView({ workspaceId, timeZone, myUserId, initial, initial
           )
         ) : (
           <>
-            <div className="hidden md:block">
+            <div className="t-table">
               <ContactsTable items={page.items} columns={columns} query={query} onSort={toggleSort} workspaceId={workspaceId} timeZone={timeZone} />
             </div>
-            <ul className="md:hidden">
+            <ul className="t-cards">
               {page.items.map((c) => <ContactCard key={c.id} c={c} workspaceId={workspaceId} timeZone={timeZone} />)}
             </ul>
             <div className="flex items-center justify-between gap-3 border-t border-line-card px-4 py-2.5 text-sm text-fg-subtle">
@@ -430,10 +430,10 @@ function SaveViewForm({ canShare, onSave, onDone }: { canShare: boolean; onSave:
       {error && <Alert tone="error">{error}</Alert>}
       <Field label="View name" error={null}>{(p) => <Input {...p} value={name} onChange={(e) => setName(e.target.value)} maxLength={60} autoFocus placeholder="For example, My qualified leads" />}</Field>
       {canShare && <Checkbox label="Share with everyone in this workspace" checked={shared} onChange={(e) => setShared(e.target.checked)} />}
-      <div className="mt-2 flex justify-end gap-2">
+      <DialogActions className="mt-2">
         <DialogClose asChild><Button variant="ghost">Cancel</Button></DialogClose>
         <Button type="submit" variant="primary" loading={busy}>Save view</Button>
-      </div>
+      </DialogActions>
     </form>
   );
 }
@@ -456,10 +456,10 @@ function RenameViewForm({ view, onSave, onDone }: { view: SavedView; onSave: (na
     <form noValidate onSubmit={async (e) => { e.preventDefault(); if (!name.trim()) return setError("Give the view a name."); setBusy(true); const err = await onSave(name.trim()); setBusy(false); if (err) setError(err); else onDone(); }} className="flex flex-col gap-3">
       {error && <Alert tone="error">{error}</Alert>}
       <Field label="View name" error={null}>{(p) => <Input {...p} value={name} onChange={(e) => setName(e.target.value)} maxLength={60} autoFocus />}</Field>
-      <div className="mt-2 flex justify-end gap-2">
+      <DialogActions className="mt-2">
         <DialogClose asChild><Button variant="ghost">Cancel</Button></DialogClose>
         <Button type="submit" variant="primary" loading={busy}>Rename</Button>
-      </div>
+      </DialogActions>
     </form>
   );
 }
@@ -471,10 +471,10 @@ function DeleteViewDialog({ view, onClose, onConfirm }: { view: SavedView | null
     <Dialog open={!!view} onOpenChange={(o) => { if (!o) { setError(null); onClose(); } }}>
       <DialogContent title={view ? `Delete “${view.name}”?` : "Delete view"} description={view?.shared ? "This view is shared. It will be removed for everyone in the workspace." : "The saved filters and columns are removed. Contacts are not affected."}>
         {error && <Alert tone="error" className="mb-3">{error}</Alert>}
-        <div className="flex justify-end gap-2">
+        <DialogActions>
           <DialogClose asChild><Button variant="ghost">Cancel</Button></DialogClose>
           <Button variant="danger" loading={busy} onClick={async () => { if (!view) return; setBusy(true); const err = await onConfirm(view); setBusy(false); if (err) setError(err); else onClose(); }}>Delete view</Button>
-        </div>
+        </DialogActions>
       </DialogContent>
     </Dialog>
   );
