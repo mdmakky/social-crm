@@ -78,7 +78,7 @@ export function AuthForm({ mode, next, notice }: { mode: "login" | "register"; n
       <Button type="submit" variant="primary" size="lg" className="h-12 text-md" loading={busy}>{register ? "Create account" : "Sign in"}</Button>
       <p className="text-center text-sm text-fg-muted">
         {register ? "Already have an account? " : "New here? "}
-        <Link href={register ? "/login" : "/register"} className="font-medium text-accent-fg underline underline-offset-2">{register ? "Sign in" : "Create an account"}</Link>
+        <Link href={`${register ? "/login" : "/register"}${next !== "/" ? `?next=${encodeURIComponent(next)}` : ""}`} className="font-medium text-accent-fg underline underline-offset-2">{register ? "Sign in" : "Create an account"}</Link>
       </p>
     </form>
   );
