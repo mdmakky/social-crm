@@ -111,17 +111,17 @@ export type ApplyInput = { workspaceId: string; userId: string; role: Role; sour
 export async function applyPlan(tx: Tx, deps: AgentDeps, prep: Prepared, a: ApplyInput): Promise<AgentRunResult> {
   const tools = deps.tools ?? TOOLS;
   const outcomes: AgentActionOutcome[] = prep.parsed.rejected.map((r) => ({ tool: r.tool, args: {}, status: "rejected", detail: r.reason, result: null, actionId: null }));
-  for (const [idx, act] of prep.parsed.planned.entries()) outcomes.push(await applyOne(tx, tools, prep, a, act, idx));
+  for (const [idx, act] of prep.parsed.planned.entries()) outcomes.push(await applyOne(tx, deps.db, tools, prep, a, act, idx));
   return {
     reply: prep.parsed.reply, malformed: prep.parsed.malformed, dryRun: a.dryRun, actions: outcomes, agentVersion: prep.versionNo, provider: prep.run.provider, model: prep.run.model, mock: prep.run.mock, runId: prep.run.runId, usage: prep.run.usage,
   };
 }
 
-async function applyOne(tx: Tx, tools: ToolRegistry<ToolCtx>, prep: Prepared, a: ApplyInput, act: PlannedAction, idx: number): Promise<AgentActionOutcome> {
+async function applyOne(tx: Tx, db: Db, tools: ToolRegistry<ToolCtx>, prep: Prepared, a: ApplyInput, act: PlannedAction, idx: number): Promise<AgentActionOutcome> {
   const base = { tool: act.tool, args: act.args };
   const def = getTool(tools, act.tool)!;
   if (!can(a.role, def.requiredPermission as "contact.edit", {})) return { ...base, status: "rejected", detail: "forbidden", result: null, actionId: null };
-  const ctx = { workspaceId: a.workspaceId, userId: a.userId, contactId: a.contactId, ref: prep.run.runId };
+  const ctx = { db, workspaceId: a.workspaceId, userId: a.userId, contactId: a.contactId, ref: prep.run.runId };
   if (act.disposition === "pending") {
     if (a.dryRun) return { ...base, status: "would_pend", detail: act.pendingReason, result: null, actionId: null };
     const [row] = await tx.insert(schema.aiAgentActions).values({
