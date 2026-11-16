@@ -37,6 +37,16 @@ export async function recordInboundAttachments(tx: Tx, a: { workspaceId: string;
   }
 }
 
+/**
+ * MOCK ONLY (META_MOCK=1): a network that answers every channel download with a valid 1x1 PNG, and a 404 for a media id ending in FAILME. Lets the mock inbox show a real preview offline.
+ * It never touches a network, and it is labelled mock: it proves our pipeline, nothing about Meta's CDN.
+ */
+export const MOCK_PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64");
+export const mockMediaNet = (): SafeFetchDeps => ({
+  resolve: async () => ["93.184.216.34"],
+  fetch: async (url) => (url.pathname.endsWith("FAILME") ? new Response(null, { status: 404 }) : new Response(MOCK_PNG, { headers: { "content-type": "image/png" } })),
+});
+
 /** Hosts a channel download may come from (suffix match). UNVERIFIED: Meta documents no fixed list; a wrong guess fails closed (`url_blocked`). Override with ATTACHMENT_ALLOWED_HOSTS. */
 export const DEFAULT_MEDIA_HOSTS = ["fbcdn.net", "fbsbx.com", "cdninstagram.com", "whatsapp.net", "facebook.com", "instagram.com"];
 export const hostAllowed = (suffixes: string[]) => (host: string) => suffixes.some((s) => host === s || host.endsWith(`.${s}`));

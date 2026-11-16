@@ -13,7 +13,7 @@ import { createMockAdapter } from "@crm/capi"; // track:capi
 import type { AiDeps } from "./ai/run.ts"; // track:ai
 import { startCapiWorker } from "./capi/worker.ts"; // track:capi
 import { recoverStuckSends } from "./inbox/send.ts";
-import { createAttachmentRunner, DEFAULT_MEDIA_HOSTS, reconcileAttachments } from "./inbox/attachments.ts";
+import { createAttachmentRunner, DEFAULT_MEDIA_HOSTS, mockMediaNet, reconcileAttachments } from "./inbox/attachments.ts";
 import type { AttachmentRouteDeps } from "./attachments/routes.ts";
 import { createShutdown } from "./shutdown.ts";
 import { runTokenChecks, type MetaConnectDeps } from "./inbox/meta-connect.ts";
@@ -118,7 +118,7 @@ if (env.DATABASE_URL_INGEST && env.META_APP_SECRET && env.META_VERIFY_TOKEN) {
   console.log("meta webhook ingress mounted at /webhooks/meta/{messenger,instagram,whatsapp}");
 }
 // Inbound files are downloaded after the webhook transaction, by the same worker pass that enriches profiles (single-flight, errors never reach ingestion).
-const attachmentRunner = workerDb && meta ? createAttachmentRunner({ workerDb, store, graph: meta.graph, meta, limits: attachmentLimits, allowedHosts: env.ATTACHMENT_ALLOWED_HOSTS ? env.ATTACHMENT_ALLOWED_HOSTS.split(",").map((h) => h.trim().toLowerCase()).filter(Boolean) : DEFAULT_MEDIA_HOSTS }, (e) => console.error(JSON.stringify({ msg: "attachment worker error", error: (e as Error).name }))) : null;
+const attachmentRunner = workerDb && meta ? createAttachmentRunner({ workerDb, store, graph: meta.graph, meta, net: env.META_MOCK === "1" ? mockMediaNet() : undefined, limits: attachmentLimits, allowedHosts: env.ATTACHMENT_ALLOWED_HOSTS ? env.ATTACHMENT_ALLOWED_HOSTS.split(",").map((h) => h.trim().toLowerCase()).filter(Boolean) : DEFAULT_MEDIA_HOSTS }, (e) => console.error(JSON.stringify({ msg: "attachment worker error", error: (e as Error).name }))) : null;
 attachments.kick = () => void attachmentRunner?.run();
 const enrichProfiles = meta && workerDb ? createProfileEnricher({ workerDb, graph: meta.graph, box: meta.box }) : undefined;
 inboxWorker = workerDb ? startInboxWorker(workerDb, { intervalMs: env.INBOX_WORKER_INTERVAL_MS, recover: () => recoverStuckSends(workerDb), enrich: enrichProfiles || attachmentRunner ? async () => { await enrichProfiles?.(); await attachmentRunner?.run(); } : undefined, periodic: meta ? { everyMs: 6 * 3_600_000, run: async () => { await runTokenChecks(meta!); if (store) await reconcileAll(workerDb!, store); } } : undefined, onError: (e) => console.error(JSON.stringify({ msg: "inbox worker error", error: (e as Error).name })) }) : null;

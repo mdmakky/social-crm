@@ -63,6 +63,7 @@ export function failureText(code: string | null): string {
     case "channel_access": return "Meta blocked this send. Check that the Instagram account still allows access to messages for connected tools, then reconnect it in Settings > Integrations.";
     case "thread_owned_elsewhere": return "Another app is handling this conversation, so Meta refused the reply.";
     case "marked_not_sent": return "You marked this message as not sent.";
+    case "file_missing": return "The file could not be found in storage, so nothing was sent.";
     default: return "Meta did not accept this message.";
   }
 }

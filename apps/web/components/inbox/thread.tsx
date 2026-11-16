@@ -2,7 +2,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { ArrowDown, Check, ChevronLeft, Copy, MoreHorizontal, PanelRight, Send, Sparkles, X } from "lucide-react";
-import { endpoints, MAX_REPLY_LENGTH, type ConversationDetail, type MessageDto, type UpdateConversationBody } from "@crm/contracts";
+import { endpoints, MAX_REPLY_LENGTH, type AttachmentDto, type ConversationDetail, type MessageDto, type UpdateConversationBody } from "@crm/contracts";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/form-controls";
@@ -17,6 +17,7 @@ import { browserApi, errorMessage } from "@/lib/client-api";
 import { continuesRun, dayLabel, isSendKey, relTime, replyUsage, sameDay, useNow, windowMinutesLeft } from "@/lib/inbox";
 import { notifyInboxChanged, useInbox } from "./context";
 import { Attachments, ChannelBadge, DeliveryStatus } from "./parts";
+import { AttachControls, MessageFiles, UploadList, useConversationAttachments, useUploads } from "./attachments";
 import { StageControl, useContactLead } from "./stage";
 
 const PAGE = 50;
@@ -51,6 +52,9 @@ export function Thread({ conversationId }: { conversationId: string }) {
   const [firstRead, setFirstRead] = React.useState<number | null>(null);
   const params = { workspaceId, conversationId };
   const lead = useContactLead(workspaceId, detail?.contact.id ?? null, detail?.contact.name ?? "");
+  const { data: att, refresh: refreshAtt } = useConversationAttachments(workspaceId, conversationId);
+  const [pickNotice, setPickNotice] = React.useState<string | null>(null);
+  const uploads = useUploads(workspaceId, conversationId, att?.limits, setPickNotice);
 
   const refresh = React.useCallback(async (initial: boolean) => {
     const [d, m] = await Promise.all([
@@ -202,11 +206,19 @@ export function Thread({ conversationId }: { conversationId: string }) {
   };
   async function submit() {
     const text = draft.trim();
-    if (!text || inFlight.current || !detail || replyUsage(detail.platform, text, MAX_REPLY_LENGTH).over) return;
+    const files = uploads.ready.map((u) => u.attachmentId!);
+    if ((!text && files.length === 0) || uploads.busy || inFlight.current || !detail || replyUsage(detail.platform, text, MAX_REPLY_LENGTH).over) return;
     inFlight.current = true; // a ref, not state: two clicks in the same frame still see it
     setSubmitting(true);
     clientId.current ??= crypto.randomUUID();
-    const r = await browserApi.call(endpoints.sendMessage, { params, body: { clientMsgId: clientId.current, body: text } });
+    // Files go one per message (the channel sends one file per message): the text is the caption of the first, the rest follow without text. Without files this is the unchanged text send.
+    const first = await browserApi.call(endpoints.sendMessage, { params, body: { clientMsgId: clientId.current, body: text, ...(files.length ? { attachmentIds: [files[0]!] } : {}) } });
+    let r = first;
+    for (const id of files.slice(1)) {
+      if (!r.ok || r.data.message.deliveryState === "failed") break;
+      r = await browserApi.call(endpoints.sendMessage, { params, body: { clientMsgId: crypto.randomUUID(), body: "", attachmentIds: [id] } });
+      if (r.ok) merge(r.data.message);
+    }
     inFlight.current = false;
     setSubmitting(false);
     if (!r.ok) {
@@ -221,6 +233,7 @@ export function Thread({ conversationId }: { conversationId: string }) {
     const st = r.data.message.deliveryState;
     if (st === "failed") setDraft((d) => (d === "" ? text : d)); // the text is not lost: edit and send again as a new message
     else { setDraft(""); setAiDraft(null); }
+    if (files.length) { uploads.clear(); void refreshAtt(); }
     if (st === "unknown") toast("Meta did not confirm this message. See the message below before sending it again.", "error");
     void refresh(false);
     composerRef.current?.focus();
@@ -305,7 +318,7 @@ export function Thread({ conversationId }: { conversationId: string }) {
                   {firstRead !== null && m.direction === "in" && m.seq > firstRead && !msgs.slice(0, i).some((x) => x.direction === "in" && x.seq > firstRead) && (
                     <p className="mb-3 flex items-center gap-2 text-xs font-semibold text-accent-fg"><span className="h-px flex-1 bg-accent/30" />New messages<span className="h-px flex-1 bg-accent/30" /></p>
                   )}
-                  <Bubble m={m} now={now} run={continuesRun(m, msgs[i + 1])} onDecide={canReply ? decide : undefined} deciding={deciding} />
+                  <Bubble m={m} now={now} run={continuesRun(m, msgs[i + 1])} onDecide={canReply ? decide : undefined} deciding={deciding} files={att?.items.filter((x) => x.messageId === m.id) ?? []} storageConfigured={att?.storageConfigured ?? true} onFilesChanged={refreshAtt} />
                 </React.Fragment>
               );
             })}
@@ -332,6 +345,7 @@ export function Thread({ conversationId }: { conversationId: string }) {
                     <button type="button" onClick={() => { setAiDraft(null); setDraft(""); }} className="rounded px-1.5 py-0.5 text-fg-muted underline-offset-2 hover:text-fg hover:underline focus-visible:outline-2" aria-label="Discard AI draft">Discard</button>
                   </div>
                 )}
+                <UploadList uploads={uploads} notice={pickNotice} />
                 <Textarea
                   ref={composerRef}
                   aria-label="Reply"
@@ -345,9 +359,10 @@ export function Thread({ conversationId }: { conversationId: string }) {
                   rows={2}
                 />
                 <div className="flex items-center gap-2 px-3 pb-2.5">
+                  <AttachControls uploads={uploads} platform={detail.platform} storageConfigured={att?.storageConfigured ?? false} disabled={!canType || submitting} />
                   <Button type="button" size="sm" loading={suggesting} disabled={!canType || submitting} onClick={() => void suggest()} aria-label="Suggest reply with AI"><Sparkles aria-hidden />Suggest reply</Button>
                   <p id="composer-hint" className="min-w-0 flex-1 text-xs text-fg-subtle max-sm:sr-only">Enter to send, Shift+Enter for a new line.{usage.used > usage.max * 0.8 ? ` ${usage.used}/${usage.max} ${usage.unit}` : ""}{usage.over ? <span className="text-danger-fg"> Too long for {detail.platform === "instagram" ? "Instagram" : detail.platform === "whatsapp" ? "WhatsApp" : "Messenger"}: shorten it to send.</span> : null}</p>
-                  <Button type="submit" variant="primary" loading={submitting} disabled={!canType || draft.trim() === "" || usage.over}><Send aria-hidden />Send</Button>
+                  <Button type="submit" variant="primary" loading={submitting} disabled={!canType || (draft.trim() === "" && uploads.ready.length === 0) || uploads.busy || usage.over}><Send aria-hidden />Send</Button>
                 </div>
               </form>
               {aiProblem && <Alert tone={aiProblem.tone} className="mt-2">{aiProblem.text}</Alert>}
@@ -370,7 +385,7 @@ export function Thread({ conversationId }: { conversationId: string }) {
   );
 }
 
-function Bubble({ m, now, run, onDecide, deciding }: { m: MessageDto; now: number; run: boolean; onDecide?: (id: string, d: "sent" | "not_sent") => void; deciding: boolean }) {
+function Bubble({ m, now, run, onDecide, deciding, files, storageConfigured, onFilesChanged }: { m: MessageDto; now: number; run: boolean; onDecide?: (id: string, d: "sent" | "not_sent") => void; deciding: boolean; files: AttachmentDto[]; storageConfigured: boolean; onFilesChanged: () => void }) {
   const out = m.direction === "out";
   const ext = m.senderKind === "external";
   const who = out && !ext ? (m.senderName ?? (m.senderKind === "system" ? "System" : "You")) : null;
@@ -380,7 +395,7 @@ function Bubble({ m, now, run, onDecide, deciding }: { m: MessageDto; now: numbe
         <div className={cn("rounded-2xl border px-3.5 py-2 text-left text-base",
           !out ? "rounded-bl-sm border-line bg-surface text-fg" : ext ? "rounded-br-sm border-accent/20 bg-accent-subtle text-fg" : "rounded-br-sm border-transparent bg-accent text-on-accent")}>
           {m.body && <p className="whitespace-pre-wrap break-words leading-[1.55]">{m.body}</p>}
-          <Attachments items={m.attachments} />
+          {files.length > 0 ? <MessageFiles items={files} storageConfigured={storageConfigured} onChanged={onFilesChanged} /> : <Attachments items={m.attachments} />}
         </div>
         {!run && (
           <p className="mt-1 flex items-center gap-1.5 px-1 text-xs text-fg-subtle">

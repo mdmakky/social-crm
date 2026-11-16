@@ -122,7 +122,7 @@ export function attachmentRoutes(db: Db, deps: AttachmentRouteDeps = {}) {
     return c.body(blob.stream, 200, {
       "content-type": a.mime, // the DETECTED type, never the sender's label
       "content-length": String(a.sizeBytes ?? blob.size),
-      "content-disposition": disposition(INLINE(a.mime), a.filename, a.id, a.mime),
+      "content-disposition": disposition(INLINE(a.mime) && c.req.query("download") !== "1", a.filename, a.id, a.mime),
       "x-content-type-options": "nosniff",
       "content-security-policy": "default-src 'none'; sandbox",
       "cache-control": "private, no-store",
