@@ -1,6 +1,6 @@
 import { serve } from "@hono/node-server";
 import { z } from "zod";
-import { FileMailer } from "@crm/core";
+import { createBlobStore, FileMailer } from "@crm/core";
 import { createDb } from "@crm/db";
 import { createAuth } from "./auth.ts";
 import { createApp } from "./app.ts";
@@ -13,6 +13,8 @@ import { createMockAdapter } from "@crm/capi"; // track:capi
 import type { AiDeps } from "./ai/run.ts"; // track:ai
 import { startCapiWorker } from "./capi/worker.ts"; // track:capi
 import { recoverStuckSends } from "./inbox/send.ts";
+import { createAttachmentRunner, DEFAULT_MEDIA_HOSTS, mockMediaNet, reconcileAttachments } from "./inbox/attachments.ts";
+import type { AttachmentRouteDeps } from "./attachments/routes.ts";
 import { createShutdown } from "./shutdown.ts";
 import { runTokenChecks, type MetaConnectDeps } from "./inbox/meta-connect.ts";
 import { createProfileEnricher } from "./inbox/profile.ts";
@@ -51,6 +53,19 @@ const env = z
     SECRETS_ENCRYPTION_KEY: z.string().optional(),
     SECRETS_KEY_ID: z.string().min(1).max(64).default("dev1"),
     META_PUBLIC_BASE_URL: z.string().url().optional(), // public https base of this API, used in the data-deletion status link
+    // Inbox attachments. No STORAGE_DRIVER = no file storage: media shows as metadata, uploads answer storage_not_configured (docs/deploy/free-tier.md).
+    STORAGE_DRIVER: z.enum(["none", "local", "s3"]).default("none"),
+    STORAGE_LOCAL_DIR: z.string().optional(),
+    S3_ENDPOINT: z.string().url().optional(),
+    S3_REGION: z.string().optional(),
+    S3_BUCKET: z.string().optional(),
+    S3_ACCESS_KEY_ID: z.string().optional(),
+    S3_SECRET_ACCESS_KEY: z.string().optional(),
+    ATTACHMENT_MAX_IMAGE_BYTES: z.coerce.number().int().positive().optional(),
+    ATTACHMENT_MAX_AUDIO_BYTES: z.coerce.number().int().positive().optional(),
+    ATTACHMENT_MAX_VIDEO_BYTES: z.coerce.number().int().positive().optional(),
+    ATTACHMENT_MAX_DOCUMENT_BYTES: z.coerce.number().int().positive().optional(),
+    ATTACHMENT_ALLOWED_HOSTS: z.string().optional(), // comma separated host suffixes a channel download may come from; default: the Meta CDN names in DEFAULT_MEDIA_HOSTS (UNVERIFIED)
   })
   .parse(process.env);
 
@@ -84,7 +99,17 @@ let ingestDb: ReturnType<typeof createDb> | null = null;
 let inboxWorker: ReturnType<typeof startInboxWorker> | null = null; // assigned below; ingress signals it after it stores an event
 // AI runs as crm_worker with the sealed provider key; without the worker URL and the encryption key AI stays off (the settings page says so).
 const ai: AiDeps | undefined = workerDb && env.SECRETS_ENCRYPTION_KEY ? { workerDb, box: createSecretBox({ [env.SECRETS_KEY_ID]: env.SECRETS_ENCRYPTION_KEY }, env.SECRETS_KEY_ID) } : undefined;
-const app = createApp(auth, { allowedOrigins: origins, db, meta, ai });
+const store = createBlobStore(env);
+const attachmentLimits = Object.fromEntries(([["image", env.ATTACHMENT_MAX_IMAGE_BYTES], ["audio", env.ATTACHMENT_MAX_AUDIO_BYTES], ["video", env.ATTACHMENT_MAX_VIDEO_BYTES], ["document", env.ATTACHMENT_MAX_DOCUMENT_BYTES]] as const).filter(([, v]) => v !== undefined));
+const attachments: AttachmentRouteDeps = { store, limits: attachmentLimits };
+console.log(store ? `attachment storage: ${env.STORAGE_DRIVER}` : "attachment storage: not configured (media shows as metadata only)");
+/** Reconcile every workspace that has a connected channel (the worker role cannot list workspaces from attachments itself). */
+async function reconcileAll(w: NonNullable<typeof workerDb>, st: NonNullable<typeof store>) {
+  const { sql } = await import("drizzle-orm");
+  const ws = (await w.execute(sql`SELECT DISTINCT workspace_id FROM integration_accounts WHERE status <> 'disabled' LIMIT 500`)).rows as { workspace_id: string }[];
+  for (const x of ws) await reconcileAttachments(w, st, x.workspace_id).catch(() => undefined);
+}
+const app = createApp(auth, { allowedOrigins: origins, db, meta, ai, attachments });
 if (meta && workerDb && env.META_APP_SECRET) {
   app.route("/meta/callbacks", metaUserCallbackRoutes({ appSecrets: [env.META_APP_SECRET, ...(env.META_APP_SECRET_PREVIOUS ? [env.META_APP_SECRET_PREVIOUS] : [])], workerDb, userHashKey: meta.userHashKey, statusKey: createHmac("sha256", env.META_APP_SECRET).update("crm-deletion-status-v1").digest(), publicBaseUrl: env.META_PUBLIC_BASE_URL }));
 }
@@ -92,7 +117,11 @@ if (env.DATABASE_URL_INGEST && env.META_APP_SECRET && env.META_VERIFY_TOKEN) {
   app.route("/webhooks/meta", metaWebhookRoutes({ appSecrets: [env.META_APP_SECRET, ...(env.META_APP_SECRET_PREVIOUS ? [env.META_APP_SECRET_PREVIOUS] : [])], verifyToken: env.META_VERIFY_TOKEN, ingestDb: (ingestDb = createDb(env.DATABASE_URL_INGEST)), onStored: () => void inboxWorker?.tick() }));
   console.log("meta webhook ingress mounted at /webhooks/meta/{messenger,instagram,whatsapp}");
 }
-inboxWorker = workerDb ? startInboxWorker(workerDb, { intervalMs: env.INBOX_WORKER_INTERVAL_MS, recover: () => recoverStuckSends(workerDb), enrich: meta ? createProfileEnricher({ workerDb, graph: meta.graph, box: meta.box }) : undefined, periodic: meta ? { everyMs: 6 * 3_600_000, run: () => runTokenChecks(meta!) } : undefined, onError: (e) => console.error(JSON.stringify({ msg: "inbox worker error", error: (e as Error).name })) }) : null;
+// Inbound files are downloaded after the webhook transaction, by the same worker pass that enriches profiles (single-flight, errors never reach ingestion).
+const attachmentRunner = workerDb && meta ? createAttachmentRunner({ workerDb, store, graph: meta.graph, meta, net: env.META_MOCK === "1" ? mockMediaNet() : undefined, limits: attachmentLimits, allowedHosts: env.ATTACHMENT_ALLOWED_HOSTS ? env.ATTACHMENT_ALLOWED_HOSTS.split(",").map((h) => h.trim().toLowerCase()).filter(Boolean) : DEFAULT_MEDIA_HOSTS }, (e) => console.error(JSON.stringify({ msg: "attachment worker error", error: (e as Error).name }))) : null;
+attachments.kick = () => void attachmentRunner?.run();
+const enrichProfiles = meta && workerDb ? createProfileEnricher({ workerDb, graph: meta.graph, box: meta.box }) : undefined;
+inboxWorker = workerDb ? startInboxWorker(workerDb, { intervalMs: env.INBOX_WORKER_INTERVAL_MS, recover: () => recoverStuckSends(workerDb), enrich: enrichProfiles || attachmentRunner ? async () => { await enrichProfiles?.(); await attachmentRunner?.run(); } : undefined, periodic: meta ? { everyMs: 6 * 3_600_000, run: async () => { await runTokenChecks(meta!); if (store) await reconcileAll(workerDb!, store); } } : undefined, onError: (e) => console.error(JSON.stringify({ msg: "inbox worker error", error: (e as Error).name })) }) : null;
 // Activity tracking: any request except the health ping marks the system active. While idle the event dispatcher polls slowly (an idle free database can sleep) and wakes when a request arrives.
 const ACTIVE_WINDOW_MS = 120_000;
 let lastActivity = Date.now();

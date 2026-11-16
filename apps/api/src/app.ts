@@ -7,6 +7,7 @@ import { createMediaService } from "./ai/media.ts"; // track:ai
 import type { AiDeps } from "./ai/run.ts"; // track:ai
 import type { KnowledgeDeps } from "./knowledge/routes.ts"; // track:knowledge
 import { whatsappConnect, type WhatsAppLimits } from "./inbox/whatsapp-connect.ts";
+import { attachmentRoutes, type AttachmentRouteDeps } from "./attachments/routes.ts"; // track:inbox
 import { instagramUnified } from "./inbox/instagram-unified.ts";
 import { metaConnect, type MetaConnectDeps } from "./inbox/meta-connect.ts";
 import { HTTPException } from "hono/http-exception";
@@ -23,7 +24,7 @@ import { WindowCounter } from "./throttle.ts";
 const GENERIC_RESET_RESPONSE = { status: true, message: "If this email exists in our system, check your email for the reset link" };
 const sha = async (s: string) => Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s.trim().toLowerCase()))), (b) => b.toString(16).padStart(2, "0")).join("");
 
-export function createApp(auth: Auth, opts: { allowedOrigins: string[]; db: Db; resetThrottle?: { perEmail: number; perIp: number; windowMs: number; tokenAttemptsPerIp?: number }; testHooks?: { waLimits?: Partial<WhatsAppLimits>; capiCreatesPerUser?: number; import?: ImportHooks; extraSearchProviders?: SearchProvider[]; aiConfigsPerUser?: number; aiSuggestionsPerUser?: number; aiAgentRunsPerUser?: number; mediaLimits?: { perWorkspace?: number; windowMs?: number }; knowledge?: KnowledgeDeps }; meta?: MetaConnectDeps; ai?: AiDeps }) {
+export function createApp(auth: Auth, opts: { allowedOrigins: string[]; db: Db; resetThrottle?: { perEmail: number; perIp: number; windowMs: number; tokenAttemptsPerIp?: number }; testHooks?: { waLimits?: Partial<WhatsAppLimits>; capiCreatesPerUser?: number; import?: ImportHooks; extraSearchProviders?: SearchProvider[]; aiConfigsPerUser?: number; aiSuggestionsPerUser?: number; aiAgentRunsPerUser?: number; mediaLimits?: { perWorkspace?: number; windowMs?: number }; knowledge?: KnowledgeDeps }; meta?: MetaConnectDeps; ai?: AiDeps; attachments?: AttachmentRouteDeps }) {
   const app = new Hono<{ Variables: Vars }>();
   // Mutating requests that carry an Origin header must come from an allowed origin (native apps send none).
   app.use("*", async (c, next) => {
@@ -43,7 +44,7 @@ export function createApp(auth: Auth, opts: { allowedOrigins: string[]; db: Db; 
   app.use("/api/auth/*", bodyLimit({ maxSize: 64 * 1024, onError: (c) => tooLarge(c) }));
   const jsonLimit = bodyLimit({ maxSize: 1024 * 1024, onError: (c) => tooLarge(c) });
   // Routes that carry a file set their own cap: CSV import, knowledge file upload and the AI media routes (base64 PDF, image, audio).
-  const ownCap = /^\/v1\/workspaces\/[^/]+\/(imports|knowledge\/sources\/file|ai\/media\/(describe|ask|extract|transcribe))$/;
+  const ownCap = /^\/v1\/workspaces\/[^/]+\/(imports|knowledge\/sources\/file|conversations\/[^/]+\/attachments|ai\/media\/(describe|ask|extract|transcribe))$/;
   app.use("/v1/*", async (c, next) => (c.req.method === "POST" && ownCap.test(c.req.path) ? next() : jsonLimit(c, next)));
 
   /** Never returns or logs the error message: drizzle messages carry the SQL and every bound parameter (contact data, tokens). */
@@ -104,7 +105,7 @@ export function createApp(auth: Auth, opts: { allowedOrigins: string[]; db: Db; 
   const igUnified = instagramUnified(opts.db, opts.meta); // track:inbox
   v1.route("/", meta.callback);
   v1.route("/", igUnified.callback);
-  v1.route("/workspaces", workspaceRoutes(opts.db, { ...opts.testHooks, knowledge: { ...opts.testHooks?.knowledge, media }, metaScoped: new Hono<ScopedEnv>().route("/", meta.scoped).route("/", igUnified.scoped).route("/", whatsappConnect(opts.db, opts.meta, opts.testHooks?.waLimits)).route("/", capiRoutes(opts.db, { box: opts.meta?.box, createsPerUser: opts.testHooks?.capiCreatesPerUser })).route("/", aiRoutes(opts.db, { ai: opts.ai, media, configsPerUser: opts.testHooks?.aiConfigsPerUser, suggestionsPerUser: opts.testHooks?.aiSuggestionsPerUser })).route("/", agentRoutes(opts.db, { ai: opts.ai, runsPerUser: opts.testHooks?.aiAgentRunsPerUser })), sendDeps: opts.meta }));
+  v1.route("/workspaces", workspaceRoutes(opts.db, { ...opts.testHooks, knowledge: { ...opts.testHooks?.knowledge, media, blobs: opts.attachments?.store }, blobs: opts.attachments?.store, metaScoped: new Hono<ScopedEnv>().route("/", meta.scoped).route("/", igUnified.scoped).route("/", whatsappConnect(opts.db, opts.meta, opts.testHooks?.waLimits)).route("/", attachmentRoutes(opts.db, { ...opts.attachments, media })).route("/", capiRoutes(opts.db, { box: opts.meta?.box, createsPerUser: opts.testHooks?.capiCreatesPerUser })).route("/", aiRoutes(opts.db, { ai: opts.ai, media, configsPerUser: opts.testHooks?.aiConfigsPerUser, suggestionsPerUser: opts.testHooks?.aiSuggestionsPerUser })).route("/", agentRoutes(opts.db, { ai: opts.ai, runsPerUser: opts.testHooks?.aiAgentRunsPerUser, attach: { store: opts.attachments?.store, media } })), sendDeps: opts.meta, sendBlobs: opts.attachments?.store }));
   app.route("/v1", v1);
   return app;
 }

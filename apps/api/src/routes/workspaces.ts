@@ -1,7 +1,7 @@
 import { Hono, type Context } from "hono";
 import { and, count, desc, eq, lt } from "drizzle-orm";
 import { CreateWorkspaceBody, UpdateMemberBody, UpdateWorkspaceBody } from "@crm/contracts";
-import { can, memberChangeAllowed, type Role } from "@crm/core";
+import { can, memberChangeAllowed, type BlobStore, type Role } from "@crm/core";
 import { schema, user, withContext, type Db, type Tx } from "@crm/db";
 import { writeAudit } from "../audit.ts";
 import { ensureDefaultPipeline, ensureDefaultStages } from "../crm-service.ts";
@@ -44,7 +44,7 @@ async function roleIn(tx: Tx, workspaceId: string, userId: string): Promise<Role
   return m?.role ?? null;
 }
 
-export function workspaceRoutes(db: Db, hooks: { import?: ImportHooks; extraSearchProviders?: SearchProvider[]; metaScoped?: Hono<ScopedEnv>; sendDeps?: MetaConnectDeps; knowledge?: KnowledgeDeps } = {}) {
+export function workspaceRoutes(db: Db, hooks: { import?: ImportHooks; extraSearchProviders?: SearchProvider[]; metaScoped?: Hono<ScopedEnv>; sendDeps?: MetaConnectDeps; knowledge?: KnowledgeDeps; blobs?: BlobStore; sendBlobs?: BlobStore } = {}) {
   const r = new Hono<{ Variables: Vars }>();
   const audit = (c: Ctx) => ({ actorUserId: c.get("userId"), requestId: c.get("requestId"), ip: c.req.header("x-forwarded-for")?.split(",")[0]?.trim() });
 
@@ -180,7 +180,7 @@ export function workspaceRoutes(db: Db, hooks: { import?: ImportHooks; extraSear
   });
 
   scoped.route("/", crmConfigRoutes(db));
-  scoped.route("/", contactRoutes(db));
+  scoped.route("/", contactRoutes(db, { blobs: hooks.blobs }));
   scoped.route("/", importRoutes(db, hooks.import));
   scoped.route("/", searchRoutes(db, hooks.extraSearchProviders)); // track:search
   // --- track:tasks ---
@@ -193,7 +193,7 @@ export function workspaceRoutes(db: Db, hooks: { import?: ImportHooks; extraSear
   scoped.route("/", knowledgeRoutes(db, hooks.knowledge)); // track:knowledge
   scoped.route("/", conversationRoutes(db)); // track:inbox
   scoped.route("/", contactMethodRoutes(db));
-  scoped.route("/", sendRoutes(db, hooks.sendDeps)); // track:inbox
+  scoped.route("/", sendRoutes(db, hooks.sendDeps, hooks.sendBlobs)); // track:inbox
   if (hooks.metaScoped) scoped.route("/", hooks.metaScoped); // track:inbox
   r.route("/:id", scoped as unknown as Hono<{ Variables: Vars }>);
   return r;
