@@ -42,6 +42,18 @@ export const ConnectedAccount = z.object({ account: IntegrationAccountDto, subsc
 export const ConnectMetaResult = z.object({ accounts: z.array(ConnectedAccount) });
 export type ConnectMetaResult = z.infer<typeof ConnectMetaResult>;
 
+/** WhatsApp manual connection (system-user token). The token is sent over TLS, used once to read the WABA's numbers or to connect one, and stored only sealed. It is never returned. */
+const WaId = z.string().regex(/^[1-9][0-9]{0,99}$/);
+export const WhatsAppLookupBody = z.object({ wabaId: WaId, accessToken: z.string().min(20).max(2000).regex(/^\S+$/) });
+export type WhatsAppLookupBody = z.infer<typeof WhatsAppLookupBody>;
+export const WhatsAppNumberDto = z.object({ phoneNumberId: z.string(), displayPhoneNumber: z.string(), verifiedName: z.string().nullable(), connected: z.boolean() });
+export const WhatsAppLookupResult = z.object({ numbers: z.array(WhatsAppNumberDto) });
+export type WhatsAppLookupResult = z.infer<typeof WhatsAppLookupResult>;
+export const ConnectWhatsAppBody = WhatsAppLookupBody.extend({ phoneNumberId: WaId });
+export type ConnectWhatsAppBody = z.infer<typeof ConnectWhatsAppBody>;
+export const ConnectWhatsAppResult = z.object({ account: IntegrationAccountDto, subscription: SubscriptionState, reconnected: z.boolean(), /** earlier webhook events for this number (stored while it was not connected) that were queued for processing */ replayedEvents: z.number().int().min(0) });
+export type ConnectWhatsAppResult = z.infer<typeof ConnectWhatsAppResult>;
+
 export const MetaAccountEvent = z.object({ id: Uuid, kind: z.string(), summary: z.string(), createdAt: z.string() });
 export const MetaAccountEvents = z.object({ items: z.array(MetaAccountEvent) });
 export type MetaAccountEvents = z.infer<typeof MetaAccountEvents>;
@@ -51,6 +63,8 @@ export const MetaCallbackQuery = z.object({ code: z.string().max(2000).optional(
 export const inboxEndpoints = {
   getMetaIntegration: endpoint({ method: "GET", path: `${W}/integrations/meta`, response: MetaIntegrationState }),
   startInstagramUnified: endpoint({ method: "POST", path: `${W}/integrations/instagram/connect/start`, response: MetaConnectStart }),
+  lookupWhatsAppNumbers: endpoint({ method: "POST", path: `${W}/integrations/whatsapp/numbers`, body: WhatsAppLookupBody, response: WhatsAppLookupResult }),
+  connectWhatsApp: endpoint({ method: "POST", path: `${W}/integrations/whatsapp/connect`, body: ConnectWhatsAppBody, response: ConnectWhatsAppResult }),
   startMetaConnect: endpoint({ method: "POST", path: `${W}/integrations/meta/connect/start`, response: MetaConnectStart }),
   listMetaPending: endpoint({ method: "GET", path: `${W}/integrations/meta/pending`, response: MetaPendingList }),
   connectMetaPage: endpoint({ method: "POST", path: `${W}/integrations/meta/connect`, body: ConnectMetaBody, response: ConnectMetaResult }),

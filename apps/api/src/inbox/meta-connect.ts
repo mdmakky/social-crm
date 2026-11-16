@@ -80,7 +80,7 @@ export const dto = (a: typeof schema.integrationAccounts.$inferSelect): Integrat
 });
 
 /** Creates or reconnects one account and stores a new encrypted token version (older versions are deleted). Runs inside a worker transaction with the workspace context set. */
-export async function upsertAccount(tx: Tx, deps: MetaConnectDeps, a: { workspaceId: string; userId: string; platform: "messenger" | "instagram"; externalId: string; displayName: string; token: string; expiresAt: Date | null; metaUserHash: string | null; tasksUnverified: boolean; authMethod?: "facebook" | "unified" }) {
+export async function upsertAccount(tx: Tx, deps: MetaConnectDeps, a: { workspaceId: string; userId: string; platform: "messenger" | "instagram" | "whatsapp"; externalId: string; displayName: string; token: string; expiresAt: Date | null; metaUserHash: string | null; tasksUnverified: boolean; authMethod?: "facebook" | "unified" }) {
   const authMethod = a.authMethod ?? "facebook";
   const found = async () => rowsOf(await tx.execute(sql`SELECT id, workspace_id FROM integration_accounts WHERE platform = ${a.platform} AND external_account_id = ${a.externalId}`))[0];
   let row = await found();
@@ -141,6 +141,17 @@ export async function subscribeInstagramAccount(deps: MetaConnectDeps, igId: str
     }
   }
   return { state: "failed", code };
+}
+
+/** WhatsApp: the app is subscribed to the WABA (not to a number), so the WABA id comes from the side table. */
+export async function subscribeWhatsAppAccount(deps: MetaConnectDeps, tx: Tx, workspaceId: string, accountId: string, token: string): Promise<{ state: SubState; code: number | null }> {
+  const waba = rowsOf(await tx.execute(sql`SELECT waba_id FROM whatsapp_accounts WHERE integration_account_id = ${accountId} AND workspace_id = ${workspaceId}`))[0]?.waba_id as string | undefined;
+  if (!waba) return { state: "failed", code: null };
+  try {
+    return { state: (await deps.graph.subscribeWaba(waba, token)) ? "subscribed" : "failed", code: null };
+  } catch (e) {
+    return { state: "failed", code: e instanceof GraphError ? e.code : null };
+  }
 }
 
 /** Daily-ish token health: debug_token, then record the result. Invalid token (Graph error 190 family) moves the account to reauth_required. Returns false when Graph was unreachable (state unchanged). */
@@ -274,6 +285,7 @@ function scopedRoutes(db: Db, deps: MetaConnectDeps | undefined, pending: Pendin
     await withContext(deps.workerDb, wctx(c), async (tx) => {
       const token = await loadToken(tx, deps, a.workspaceId, a.id);
       if (token && a.platform === "messenger") await deps.graph.unsubscribePage(a.externalAccountId, token).catch(() => false); // best effort: the account is disabled either way
+      // WhatsApp: the app is subscribed per WABA, and another workspace may hold a number of the same WABA (invisible to us under RLS), so the subscription is never removed here: events for a disabled number become orphans.
       await tx.execute(sql`DELETE FROM integration_secrets WHERE integration_account_id = ${a.id} AND workspace_id = ${a.workspaceId}`);
       await tx.execute(sql`UPDATE integration_accounts SET status = 'disabled', version = version + 1, updated_at = now() WHERE id = ${a.id} AND workspace_id = ${a.workspaceId}`);
       await eventSql(tx, a.workspaceId, a.id, "disconnected", c.get("userId"), { platform: a.platform });
@@ -323,7 +335,7 @@ function scopedRoutes(db: Db, deps: MetaConnectDeps | undefined, pending: Pendin
     if (!a || a.status === "disabled") return fail(c, 404, "not_found");
     const sub = await withContext(deps.workerDb, wctx(c), async (tx) => {
       const token = await loadToken(tx, deps, a.workspaceId, a.id);
-      const s = !token ? { state: "failed" as SubState, code: null } : a.authMethod === "unified" ? await subscribeInstagramAccount(deps, a.externalAccountId, token) : await subscribe(deps, a.platform, a.externalAccountId, token);
+      const s = !token ? { state: "failed" as SubState, code: null } : a.platform === "whatsapp" ? await subscribeWhatsAppAccount(deps, tx, a.workspaceId, a.id, token) : a.authMethod === "unified" ? await subscribeInstagramAccount(deps, a.externalAccountId, token) : await subscribe(deps, a.platform, a.externalAccountId, token);
       await eventSql(tx, a.workspaceId, a.id, "status_changed", c.get("userId"), { subscription: s.state, code: s.code });
       return s;
     });

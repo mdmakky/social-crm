@@ -33,11 +33,13 @@ test.describe.serial("Integrations option B (mock Meta)", () => {
     await expect(rail.getByRole("button", { name: /Messenger/ })).toHaveAttribute("aria-current", "page");
     await rail.getByRole("button", { name: /WhatsApp/ }).click();
     await expect(page.getByRole("heading", { name: "WhatsApp", level: 2 })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Connect WhatsApp" })).toBeDisabled();
-    await expect(page.getByText("Unavailable: this channel is not built yet.")).toBeVisible();
     await expect(page).toHaveURL(/\?channel=whatsapp$/);
+    await expect(page.getByText("No WhatsApp account connected")).toBeVisible();
+    await expect(page.getByLabel("System user token")).toHaveAttribute("type", "password");
+    await expect(page.getByRole("button", { name: "Find numbers" })).toBeEnabled();
     await rail.getByRole("button", { name: /Telegram/ }).click();
     await expect(page.getByRole("button", { name: "Connect Telegram" })).toBeDisabled();
+    await expect(page.getByText("Unavailable: this channel is not built yet.")).toBeVisible();
     await rail.getByRole("button", { name: /Instagram/ }).click();
     await expect(page.getByText("No Instagram account connected")).toBeVisible();
     await expect(page.getByText(/must be enabled in the Meta app dashboard \(UNVERIFIED/)).toBeVisible();

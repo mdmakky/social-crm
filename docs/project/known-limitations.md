@@ -120,3 +120,10 @@ Updated: 2026-11-13 (Phase 0).
 - Media is shown as "Attachment, not available" (id kept, no download); locations are placeholders; reactions and system notices are ignored; `sent`/`failed`/`played` statuses are ignored.
 - The contact name stays `WhatsApp user NNNN`; the WhatsApp profile name is not used yet.
 - Whether Meta delivers WhatsApp events to a separate callback URL and the exact payload of real messages are unverified.
+
+## WhatsApp, slice 2: manual connection (2026-11-16, branch feat/whatsapp-connect)
+- NEVER run against real Meta: the connect flow is tested with the mock Graph only. `GET /{waba-id}/phone_numbers`, plain `POST /{waba-id}/subscribed_apps` (Meta's Graph reference page calls POST/DELETE "not supported" while the webhook override page uses it) and `debug_token` for system user tokens are unverified until a recorded real request.
+- Replying is still refused (`422 unsupported_channel`); media download, templates, profile names are not built.
+- The callback URL and the `messages` field must still be set once in the Meta app dashboard; nothing here changes Meta settings.
+- A disconnected number stays reserved for its workspace (409 elsewhere); there is no release path yet. A number moved to another WABA cannot be re-connected (`waba_mismatch`).
+- Token expiry options of system user tokens are not documented; an expired token shows as "Reconnect needed" after the daily token check. The connect and lookup routes have no extra rate limit.

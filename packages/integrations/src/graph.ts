@@ -5,7 +5,10 @@
  */
 /** `tasks` is null when Graph did not return the field (then eligibility cannot be checked: UNVERIFIED whether /me/accounts returns it for every token). */
 export type GraphPage = { id: string; name: string; accessToken: string; tasks: string[] | null; instagramAccountId: string | null; /** filled in by the connect callback, not by Graph's account list */ instagram?: InstagramAccountInfo | null };
-export type TokenInfo = { isValid: boolean; expiresAt: Date | null; scopes: string[]; errorCode: number | null };
+export type TokenInfo = { /** app the token was issued to (debug_token app_id); null when Graph did not say */ appId?: string | null; isValid: boolean; expiresAt: Date | null; scopes: string[]; errorCode: number | null };
+
+/** One phone number of a WhatsApp Business Account (GET /{waba-id}/phone_numbers). `id` is the phone number id used as the webhook routing key. */
+export type WhatsAppNumber = { id: string; displayPhoneNumber: string; verifiedName: string | null };
 
 export type InstagramAccountInfo = { username: string | null; name: string | null; pictureUrl: string | null };
 
@@ -60,6 +63,13 @@ export interface MetaGraph {
    * Throws GraphError. At most 25 accounts are read.
    */
   listAssignedInstagramAccounts(token: string): Promise<{ id: string; username: string | null }[]>;
+  /**
+   * WhatsApp manual connection (system-user token): GET /{waba-id}/phone_numbers?fields=id,display_phone_number,verified_name with the token.
+   * Throws GraphError (190 invalid token, 100/200 family: no access to that WABA). At most 25 numbers are read. Shapes follow Meta's reference, UNVERIFIED until a recorded real request.
+   */
+  listWhatsAppNumbers(token: string, wabaId: string): Promise<WhatsAppNumber[]>;
+  /** POST /{waba-id}/subscribed_apps with the token: subscribes THIS app to the WABA's webhooks (fields are configured on the app). */
+  subscribeWaba(wabaId: string, token: string): Promise<boolean>;
   /** Instagram professional account details for the connect screen (best effort: null on any failure). Fields as in the Graph IG User object; UNVERIFIED against the pages read 2026-11-14. */
   getInstagramAccount(igId: string, pageToken: string): Promise<InstagramAccountInfo | null>;
   /** Authorization-code exchange (redirect_uri must equal the one used for the dialog). */
@@ -184,6 +194,19 @@ export function createMetaGraph(cfg: { appId: string; appSecret: string; version
       }
       return out;
     },
+    async listWhatsAppNumbers(token, wabaId) {
+      const j = (await call(`/${encodeURIComponent(wabaId)}/phone_numbers`, { token, query: { fields: "id,display_phone_number,verified_name", limit: "25" } })) as { data?: Record<string, unknown>[] };
+      const out: WhatsAppNumber[] = [];
+      for (const n of (j.data ?? []).slice(0, 25)) {
+        if (typeof n.id !== "string" || !/^[1-9][0-9]{0,99}$/.test(n.id) || typeof n.display_phone_number !== "string") continue;
+        out.push({ id: n.id, displayPhoneNumber: n.display_phone_number.replace(/[^0-9+()\- ]/g, "").slice(0, 32), verifiedName: cleanProfileName(n.verified_name) });
+      }
+      return out;
+    },
+    async subscribeWaba(wabaId, token) {
+      const j = await call(`/${encodeURIComponent(wabaId)}/subscribed_apps`, { method: "POST", token });
+      return j.success === true;
+    },
     async getInstagramAccount(igId, pageToken) {
       try {
         const j = await call(`/${encodeURIComponent(igId)}`, { token: pageToken, query: { fields: "username,name,profile_picture_url" } });
@@ -202,15 +225,15 @@ export function createMetaGraph(cfg: { appId: string; appSecret: string; version
       return name === null && picUrl === null ? null : { name, picUrl };
     },
     async debugToken(token) {
-      const j = (await call("/debug_token", { token: appToken, query: { input_token: token } })) as { data?: { is_valid?: boolean; expires_at?: number; scopes?: string[]; error?: { code?: number } } };
+      const j = (await call("/debug_token", { token: appToken, query: { input_token: token } })) as { data?: { app_id?: string; is_valid?: boolean; expires_at?: number; scopes?: string[]; error?: { code?: number } } };
       const d = j.data ?? {};
-      return { isValid: d.is_valid === true, expiresAt: typeof d.expires_at === "number" && d.expires_at > 0 ? new Date(d.expires_at * 1000) : null, scopes: Array.isArray(d.scopes) ? d.scopes : [], errorCode: d.error?.code ?? null };
+      return { appId: typeof d.app_id === "string" ? d.app_id : null, isValid: d.is_valid === true, expiresAt: typeof d.expires_at === "number" && d.expires_at > 0 ? new Date(d.expires_at * 1000) : null, scopes: Array.isArray(d.scopes) ? d.scopes : [], errorCode: d.error?.code ?? null };
     },
   };
 }
 
 /** MOCK ONLY: in-memory Graph for tests and mock mode. Behaviour is whatever the test configures; it proves our code, not Meta's. */
-export function createMockGraph(state: { pages?: GraphPage[]; validCodes?: Set<string>; tokenInfo?: Map<string, TokenInfo>; failSubscribe?: boolean; metaUserId?: string | null; profiles?: Map<string, UserProfile | null | GraphError>; instagram?: Map<string, InstagramAccountInfo>; /** token -> accounts shared through Unified Login, or an error */ assigned?: Map<string, { id: string; username: string | null }[] | GraphError>; /** next sendText results, consumed in order; default is success with a generated id */ sends?: (string | SendError)[]; /** runs inside sendText before it answers (tests use it to race an echo) */ onSend?: () => Promise<void> } = {}): MetaGraph & { calls: string[]; state: typeof state } {
+export function createMockGraph(state: { pages?: GraphPage[]; validCodes?: Set<string>; tokenInfo?: Map<string, TokenInfo>; failSubscribe?: boolean; /** WhatsApp: token and numbers per WABA id; failSubscribeWaba makes the webhook subscription fail */ whatsapp?: { wabas: Map<string, { token: string; numbers: WhatsAppNumber[] }>; failSubscribeWaba?: boolean }; metaUserId?: string | null; profiles?: Map<string, UserProfile | null | GraphError>; instagram?: Map<string, InstagramAccountInfo>; /** token -> accounts shared through Unified Login, or an error */ assigned?: Map<string, { id: string; username: string | null }[] | GraphError>; /** next sendText results, consumed in order; default is success with a generated id */ sends?: (string | SendError)[]; /** runs inside sendText before it answers (tests use it to race an echo) */ onSend?: () => Promise<void> } = {}): MetaGraph & { calls: string[]; state: typeof state } {
   const calls: string[] = [];
   const codes = state.validCodes ?? new Set(["good-code"]);
   return {
@@ -247,6 +270,18 @@ export function createMockGraph(state: { pages?: GraphPage[]; validCodes?: Set<s
       const a = state.assigned?.get(token);
       if (a instanceof GraphError) throw a;
       return a ?? [];
+    },
+    async listWhatsAppNumbers(token, wabaId) {
+      calls.push(`wanumbers:${wabaId}`);
+      const w = state.whatsapp?.wabas.get(wabaId);
+      if (!w) throw new GraphError(100, 400, "other");
+      if (w.token !== token) throw new GraphError(190, 401, "auth");
+      return w.numbers;
+    },
+    async subscribeWaba(wabaId) {
+      calls.push(`subscribewaba:${wabaId}`);
+      if (state.whatsapp?.failSubscribeWaba) throw new GraphError(200, 403, "permission");
+      return true;
     },
     async getInstagramAccount(igId) {
       calls.push(`igaccount:${igId}`);

@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
+import { whatsappConnect } from "./inbox/whatsapp-connect.ts";
 import { instagramUnified } from "./inbox/instagram-unified.ts";
 import { metaConnect, type MetaConnectDeps } from "./inbox/meta-connect.ts";
 import { HTTPException } from "hono/http-exception";
@@ -94,7 +95,7 @@ export function createApp(auth: Auth, opts: { allowedOrigins: string[]; db: Db; 
   const igUnified = instagramUnified(opts.db, opts.meta); // track:inbox
   v1.route("/", meta.callback);
   v1.route("/", igUnified.callback);
-  v1.route("/workspaces", workspaceRoutes(opts.db, { ...opts.testHooks, metaScoped: new Hono<ScopedEnv>().route("/", meta.scoped).route("/", igUnified.scoped), sendDeps: opts.meta }));
+  v1.route("/workspaces", workspaceRoutes(opts.db, { ...opts.testHooks, metaScoped: new Hono<ScopedEnv>().route("/", meta.scoped).route("/", igUnified.scoped).route("/", whatsappConnect(opts.db, opts.meta)), sendDeps: opts.meta }));
   app.route("/v1", v1);
   return app;
 }
