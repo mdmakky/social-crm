@@ -9,3 +9,5 @@ export * from "./leads.ts";
 export * from "./inbox.ts";
 // --- track:automation ---
 export * from "./automation.ts";
+// --- track:capi ---
+export * from "./capi.ts";

@@ -9,6 +9,8 @@ import { notificationsConsumer } from "./notifications/index.ts";
 import { automationConsumer, processRuns } from "./automation/engine.ts";
 import { metaWebhookRoutes } from "./inbox/webhook.ts";
 import { startInboxWorker } from "./inbox/process.ts";
+import { createMockAdapter } from "@crm/capi"; // track:capi
+import { startCapiWorker } from "./capi/worker.ts"; // track:capi
 import { recoverStuckSends } from "./inbox/send.ts";
 import { createShutdown } from "./shutdown.ts";
 import { runTokenChecks, type MetaConnectDeps } from "./inbox/meta-connect.ts";
@@ -104,12 +106,14 @@ const server = serve({
   },
   port: env.PORT,
 });
+// CAPI queue worker. MOCK adapter only (slice 1): nothing is sent to Meta, datasets are created in mock mode, and the UI says so.
+const capiWorker = workerDb && meta ? startCapiWorker(workerDb, { adapter: createMockAdapter(), box: meta.box }) : null;
 // In-process event relay (decision D7: moves to a pg-boss worker app later; dispatchPending is the unit of work).
 const dispatcher = startDispatcher(db, { consumers: [notificationsConsumer, automationConsumer], afterDispatch: () => processRuns(db), intervalMs: env.EVENT_DISPATCH_INTERVAL_MS, idleIntervalMs: env.EVENT_DISPATCH_IDLE_INTERVAL_MS, isActive, retentionDays: env.EVENT_RETENTION_DAYS });
 dispatcherRef = dispatcher;
 const shutdown = createShutdown({
   server,
-  stoppers: [() => dispatcher.stop(), () => inboxWorker?.stop() ?? Promise.resolve()],
+  stoppers: [() => dispatcher.stop(), () => inboxWorker?.stop() ?? Promise.resolve(), () => capiWorker?.stop() ?? Promise.resolve()],
   pools: [db, workerDb, ingestDb].flatMap((d) => (d ? [() => d.$client.end()] : [])),
   exit: (code) => process.exit(code),
   timeoutMs: 10_000,

@@ -16,6 +16,8 @@ import { conversationEndpoints } from "./conversations.ts";
 import { contactMethodEndpoints } from "./contact-methods.ts";
 // --- track:automation ---
 import { automationEndpoints } from "./automation.ts";
+// --- track:capi ---
+import { capiEndpoints } from "./capi.ts";
 
 export * from "./endpoint.ts";
 export * from "./crm.ts";
@@ -28,6 +30,7 @@ export * from "./inbox.ts"; // track:inbox
 export * from "./conversations.ts"; // track:inbox
 export * from "./contact-methods.ts";
 export * from "./automation.ts"; // track:automation
+export * from "./capi.ts"; // track:capi
 
 export const PASSWORD_MIN_LENGTH = 10;
 export const RESET_TOKEN_TTL_SECONDS = 30 * 60;
@@ -95,4 +98,4 @@ const coreEndpoints = {
   auditLog: endpoint({ method: "GET", path: "/v1/workspaces/:workspaceId/audit-log", query: AuditQuery, response: AuditPage }),
 } as const;
 
-export const endpoints = { ...coreEndpoints, ...crmEndpoints, ...searchEndpoints /* track:search */, ...inboxEndpoints /* track:inbox */, ...conversationEndpoints /* track:inbox */, ...contactMethodEndpoints, ...leadsEndpoints, ...leadRecordEndpoints, ...leadReportEndpoints /* track:leads */, ...tasksEndpoints /* track:tasks */, ...notificationEndpoints /* track:notifications */, ...automationEndpoints /* track:automation */ } as const;
+export const endpoints = { ...coreEndpoints, ...crmEndpoints, ...searchEndpoints /* track:search */, ...inboxEndpoints /* track:inbox */, ...conversationEndpoints /* track:inbox */, ...contactMethodEndpoints, ...leadsEndpoints, ...leadRecordEndpoints, ...leadReportEndpoints /* track:leads */, ...tasksEndpoints /* track:tasks */, ...notificationEndpoints /* track:notifications */, ...automationEndpoints /* track:automation */, ...capiEndpoints /* track:capi */ } as const;
