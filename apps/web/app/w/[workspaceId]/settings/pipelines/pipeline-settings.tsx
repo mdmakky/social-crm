@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { Input, Select } from "@/components/ui/input";
-import { Dialog, DialogContent } from "@/components/ui/overlays";
+import { Dialog, DialogContent, DialogActions } from "@/components/ui/overlays";
 import { Panel, PanelHeader } from "@/components/ui/panel";
 import { Alert, EmptyState, ErrorState } from "@/components/ui/states";
 import { ToastProvider, useToast } from "@/components/ui/toast";
@@ -142,7 +142,7 @@ function PipelineCard({ pl, canManage, w, run, setData }: { pl: PipelineDto; can
       </Dialog>
       <Dialog open={archiveOpen} onOpenChange={setArchiveOpen}>
         <DialogContent title={`Archive “${pl.name}”?`} description="Archived pipelines stay in history but cannot receive new leads. A pipeline with open leads cannot be archived.">
-          <div className="flex justify-end gap-2"><Button onClick={() => setArchiveOpen(false)}>Cancel</Button><Button variant="danger" onClick={async () => { await run(() => browserApi.call(endpoints.archivePipeline, { params: pp, body: { expectedVersion: pl.version } }), "Pipeline archived."); setArchiveOpen(false); }}>Archive</Button></div>
+          <DialogActions><Button onClick={() => setArchiveOpen(false)}>Cancel</Button><Button variant="danger" onClick={async () => { await run(() => browserApi.call(endpoints.archivePipeline, { params: pp, body: { expectedVersion: pl.version } }), "Pipeline archived."); setArchiveOpen(false); }}>Archive</Button></DialogActions>
         </DialogContent>
       </Dialog>
     </Panel>
@@ -206,7 +206,7 @@ function ArchiveStageForm({ stage, options, onCancel, onConfirm }: { stage: Stag
   return (
     <form className="flex flex-col gap-4" onSubmit={async (e) => { e.preventDefault(); setBusy(true); await onConfirm(to); setBusy(false); }}>
       <Field label={`Move leads from “${stage.name}” to`}>{(p) => <Select {...p} value={to} onChange={(e) => setTo(e.target.value)}>{options.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</Select>}</Field>
-      <div className="flex justify-end gap-2"><Button type="button" onClick={onCancel}>Cancel</Button><Button type="submit" variant="danger" disabled={!to || busy}>Archive stage</Button></div>
+      <DialogActions><Button type="button" onClick={onCancel}>Cancel</Button><Button type="submit" variant="danger" disabled={!to || busy}>Archive stage</Button></DialogActions>
     </form>
   );
 }
@@ -223,7 +223,7 @@ function NewPipeline({ open, onOpenChange, w, run }: { open: boolean; onOpenChan
           <Field label="Name" error={err}>{(p) => <Input {...p} value={name} onChange={(e) => setName(e.target.value)} maxLength={80} autoFocus />}</Field>
           <Field label="Type" hint="Decides whether the items are called leads or deals.">{(p) => <Select {...p} value={kind} onChange={(e) => setKind(e.target.value as "lead" | "sales")}><option value="sales">Sales (deals)</option><option value="lead">Lead qualification (leads)</option></Select>}</Field>
           <Field label="Default currency">{(p) => <Select {...p} value={currency} onChange={(e) => setCurrency(e.target.value)}>{CURRENCIES.map((c) => <option key={c}>{c}</option>)}</Select>}</Field>
-          <div className="flex justify-end gap-2"><Button type="button" onClick={() => onOpenChange(false)}>Cancel</Button><Button type="submit" variant="primary">Create pipeline</Button></div>
+          <DialogActions><Button type="button" onClick={() => onOpenChange(false)}>Cancel</Button><Button type="submit" variant="primary">Create pipeline</Button></DialogActions>
         </form>
       </DialogContent>
     </Dialog>

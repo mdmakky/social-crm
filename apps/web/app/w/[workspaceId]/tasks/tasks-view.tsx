@@ -196,7 +196,7 @@ export function TasksView({ workspaceId, timeZone, role, myUserId, initial, init
           )
         ) : (
           <>
-            <div className="hidden md:block">
+            <div className="t-table">
               <Table scrollLabel="Tasks table, scrolls sideways when columns do not fit">
                 <THead>
                   <tr>
@@ -225,7 +225,7 @@ export function TasksView({ workspaceId, timeZone, role, myUserId, initial, init
                 </TBody>
               </Table>
             </div>
-            <ul className="md:hidden" aria-label="Tasks">
+            <ul className="t-cards" aria-label="Tasks">
               {page.items.map((t) => (
                 <li key={t.id} className="flex items-start gap-1 border-b border-line-card px-2 py-1 last:border-b-0">
                   <CheckBox t={t} allowed={mayEdit(t)} onToggle={toggle} />

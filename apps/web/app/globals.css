@@ -119,6 +119,22 @@
 
 .tnum { font-variant-numeric: tabular-nums; }
 
+/* Phone shell metrics. The bottom bar only exists below md; --bottomnav-h is 0 when it is hidden (thread, keyboard) so calc()-sized screens stay right. */
+:root { --bottomnav-base: 3.5rem; --bottomnav-h: 0px; --topbar-total: calc(var(--topbar-h) + env(safe-area-inset-top, 0px)); }
+@media (max-width: 767px) { [data-bn="on"] { --bottomnav-h: calc(var(--bottomnav-base) + env(safe-area-inset-bottom, 0px)); } }
+/* Edge-to-edge on phones: cancels the page gutter (and its safe-area padding) for screens that own the whole viewport, like the inbox. */
+@media (max-width: 767px) { .bleed { margin: -1.25rem calc(-1 * max(1rem, env(safe-area-inset-right))) -1.25rem calc(-1 * max(1rem, env(safe-area-inset-left))); } }
+/* Dialog actions stay in reach on a long form: sticky to the bottom of the sheet, spanning its padding, equal-width buttons. */
+@media (max-width: 767px) {
+  [data-dialog-body] .dialog-actions { position: sticky; bottom: 0; z-index: 1; margin-inline: -1.25rem; margin-bottom: calc(-1 * max(1.25rem, env(safe-area-inset-bottom))); padding: 0.75rem 1.25rem max(1.25rem, env(safe-area-inset-bottom)); background: var(--bg-surface); border-top: 1px solid var(--line); }
+  [data-dialog-body] .dialog-actions > * { flex: 1 1 0; }
+}
+/* Table or cards: cards on phones and on touch tablets (fingers need row-sized targets and sort controls that are not 24px headers); the table everywhere else. */
+.t-cards, .t-cards-flex { display: none; }
+@media (max-width: 767px), (pointer: coarse) and (max-width: 1023px) { .t-cards { display: block; } .t-cards-flex { display: flex; } .t-table, .t-table-inline { display: none; } }
+/* Native checkboxes and radios are 13 to 16px: give touch users a real target (their labels already are 44px). */
+@media (pointer: coarse) { input[type="checkbox"], input[type="radio"] { width: 1.25rem; height: 1.25rem; } }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
 }
@@ -147,6 +163,10 @@
 .pop[data-state="closed"] { animation: pop-out var(--dur-fast) ease-in forwards; }
 .scrim { animation: scrim-in var(--dur-base) var(--ease-out); }
 .scrim[data-state="closed"] { animation: scrim-out var(--dur-fast) ease-in forwards; }
+@keyframes sheet-up { from { transform: translateY(100%); } to { transform: none; } }
+@keyframes sheet-down { from { transform: none; } to { transform: translateY(100%); } }
+.sheet { animation: sheet-up var(--dur-slow) var(--ease-out); }
+.sheet[data-state="closed"] { animation: sheet-down var(--dur-base) ease-in forwards; }
 .drawer { animation: drawer-in var(--dur-slow) var(--ease-out); }
 .drawer[data-state="closed"] { animation: pop-out var(--dur-fast) ease-in forwards; }
 .toast { animation: toast-in var(--dur-slow) var(--ease-out); }

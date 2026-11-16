@@ -1,7 +1,7 @@
 "use client";
 import * as React from "react";
 import Link from "next/link";
-import { ArrowDown, ArrowUp, BarChart3, FilterX, Lock, Plus, Search } from "lucide-react";
+import { ArrowDown, ArrowUp, BarChart3, FilterX, Lock, Plus, Search, SlidersHorizontal } from "lucide-react";
 import { endpoints, type LeadDto, type LeadListQuery, type LeadPage, type Member, type PipelineDto } from "@crm/contracts";
 import { Status } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -33,6 +33,7 @@ export function LeadsView(props: Props) {
 }
 
 function Inner({ initialOutcome, workspaceId, myUserId, pipelines, initial, members, canCreate, canSetValue }: Props) {
+  const [showFilters, setShowFilters] = React.useState(false);
   const [f, setF] = React.useState<Filters>({ ...DEFAULTS, outcome: initialOutcome });
   const [page, setPage] = React.useState<LeadPage>(initial ?? { items: [], nextCursor: null });
   const [status, setStatus] = React.useState<"idle" | "loading" | "error">(initial ? "idle" : "error");
@@ -90,24 +91,28 @@ function Inner({ initialOutcome, workspaceId, myUserId, pipelines, initial, memb
           <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-fg-subtle" aria-hidden />
           <Input aria-label="Search leads by title" placeholder="Search by title" className="pl-8" value={f.q} onChange={(e) => set({ q: e.target.value })} />
         </div>
-        <Select aria-label="Status" wrapperClassName="w-auto" value={f.outcome} onChange={(e) => set({ outcome: e.target.value as Filters["outcome"] })}>
+        <Button variant="secondary" className="md:hidden" aria-expanded={showFilters} aria-controls="lead-filters" onClick={() => setShowFilters((v) => !v)}><SlidersHorizontal aria-hidden />Filters{filtered ? " (on)" : ""}</Button>
+        <div id="lead-filters" className={`${showFilters ? "flex" : "hidden"} w-full flex-wrap items-center gap-2 md:contents`}>
+        <Select aria-label="Status" wrapperClassName="w-auto max-md:min-w-[9rem] max-md:flex-1" value={f.outcome} onChange={(e) => set({ outcome: e.target.value as Filters["outcome"] })}>
           <option value="open">Open</option><option value="won">Won</option><option value="lost">Lost</option><option value="all">All statuses</option>
         </Select>
         {active.length > 1 && (
-          <Select aria-label="Pipeline" wrapperClassName="w-auto" value={f.pipelineId} onChange={(e) => set({ pipelineId: e.target.value, stageId: "" })}>
+          <Select aria-label="Pipeline" wrapperClassName="w-auto max-md:min-w-[9rem] max-md:flex-1" value={f.pipelineId} onChange={(e) => set({ pipelineId: e.target.value, stageId: "" })}>
             <option value="">All pipelines</option>{active.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
           </Select>
         )}
-        <Select aria-label="Stage" wrapperClassName="w-auto" value={f.stageId} onChange={(e) => set({ stageId: e.target.value })}>
+        <Select aria-label="Stage" wrapperClassName="w-auto max-md:min-w-[9rem] max-md:flex-1" value={f.stageId} onChange={(e) => set({ stageId: e.target.value })}>
           <option value="">All stages</option>{stages.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
         </Select>
-        <Select aria-label="Owner" wrapperClassName="w-auto" value={f.ownerId} onChange={(e) => set({ ownerId: e.target.value })}>
+        <Select aria-label="Owner" wrapperClassName="w-auto max-md:min-w-[9rem] max-md:flex-1" value={f.ownerId} onChange={(e) => set({ ownerId: e.target.value })}>
           <option value="">Anyone</option><option value={myUserId}>Me</option>{members.filter((m) => m.userId !== myUserId).map((m) => <option key={m.userId} value={m.userId}>{m.name}</option>)}
         </Select>
         <div className="ml-auto flex items-center gap-1">
-          <Select aria-label="Sort by" wrapperClassName="w-auto" value={f.sort} onChange={(e) => set({ sort: e.target.value as Filters["sort"] })}>{SORTS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</Select>
+          <Select aria-label="Sort by" wrapperClassName="w-auto max-md:min-w-[9rem] max-md:flex-1" value={f.sort} onChange={(e) => set({ sort: e.target.value as Filters["sort"] })}>{SORTS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</Select>
           <Button variant="secondary" icon aria-label={f.dir === "desc" ? "Sorted descending. Switch to ascending" : "Sorted ascending. Switch to descending"} onClick={() => set({ dir: f.dir === "desc" ? "asc" : "desc" })}>{f.dir === "desc" ? <ArrowDown className="size-4" aria-hidden /> : <ArrowUp className="size-4" aria-hidden />}</Button>
           {filtered && <Button variant="ghost" onClick={() => setF(DEFAULTS)}><FilterX className="size-4" aria-hidden />Clear</Button>}
+        </div>
+      
         </div>
       </div>
       <p className="sr-only" role="status" aria-live="polite">{announce}</p>
@@ -123,7 +128,7 @@ function Inner({ initialOutcome, workspaceId, myUserId, pipelines, initial, memb
         </Panel>
       ) : (
         <div className={status === "loading" ? "opacity-60 transition-opacity" : "transition-opacity"} aria-busy={status === "loading"}>
-          <Panel className="hidden overflow-hidden md:block">
+          <Panel className="t-table overflow-hidden">
             <Table scrollLabel="Leads">
               <THead><TR className="hover:bg-transparent"><TH>Title</TH><TH>Contact</TH><TH>Stage</TH><TH className="text-right">Value</TH><TH>Close</TH><TH>Owner</TH></TR></THead>
               <TBody>
@@ -140,7 +145,7 @@ function Inner({ initialOutcome, workspaceId, myUserId, pipelines, initial, memb
               </TBody>
             </Table>
           </Panel>
-          <ul className="flex flex-col gap-2 md:hidden" aria-label="Leads">
+          <ul className="t-cards-flex flex-col gap-2" aria-label="Leads">
             {page.items.map((l) => (
               <li key={l.id}>
                 <Link href={href(l)} className="block rounded-card bg-surface p-3 shadow-sheet active:bg-hover">

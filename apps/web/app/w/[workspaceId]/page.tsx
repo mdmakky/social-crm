@@ -56,7 +56,7 @@ export default async function Home({ params }: { params: Promise<{ workspaceId: 
         <Panel aria-label="Open deals by stage" className="mb-4 p-4">
           <div className="mb-2 flex items-baseline justify-between">
             <h2 className="text-base font-semibold text-fg">Pipeline</h2>
-            <Link href={`${base}/pipeline`} className="inline-flex items-center gap-1 text-sm font-medium text-accent-fg hover:underline">Open board <ArrowRight className="size-3.5" aria-hidden /></Link>
+            <Link href={`${base}/pipeline`} className="inline-flex items-center gap-1 text-sm font-medium text-accent-fg hover:underline pointer-coarse:min-h-11">Open board <ArrowRight className="size-3.5" aria-hidden /></Link>
           </div>
           <div className="flex h-2 gap-0.5 overflow-hidden rounded-full" role="img" aria-label={stages.map((x) => `${x.name}: ${x.count}`).join(", ")}>
             {stages.map((x, i) => <span key={x.stageId} className={`${STAGE_HUES[i % STAGE_HUES.length]} h-full transition-[flex-grow] duration-[var(--dur-slow)] ease-[var(--ease-out)]`} style={{ flexGrow: x.count }} />)}
@@ -76,7 +76,7 @@ export default async function Home({ params }: { params: Promise<{ workspaceId: 
         <Panel className="p-4 lg:col-span-3" aria-labelledby="home-tasks">
           <div className="mb-2 flex items-baseline justify-between">
             <h2 id="home-tasks" className="text-base font-semibold text-fg">Your next tasks</h2>
-            <Link href={`${base}/tasks`} className="inline-flex items-center gap-1 text-sm font-medium text-accent-fg hover:underline">All tasks <ArrowRight className="size-3.5" aria-hidden /></Link>
+            <Link href={`${base}/tasks`} className="inline-flex items-center gap-1 text-sm font-medium text-accent-fg hover:underline pointer-coarse:min-h-11">All tasks <ArrowRight className="size-3.5" aria-hidden /></Link>
           </div>
           {myTasks.length === 0 ? (
             <EmptyState icon={CheckSquare} title="Nothing assigned to you" description={noContacts ? "Add your first contact, then create follow-ups for it." : "Tasks assigned to you appear here, soonest first."} action={noContacts ? <Link href={`${base}/contacts`} className="text-sm font-medium text-accent-fg hover:underline">Go to contacts</Link> : undefined} />

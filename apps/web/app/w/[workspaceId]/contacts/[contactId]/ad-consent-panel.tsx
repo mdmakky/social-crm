@@ -3,7 +3,7 @@ import * as React from "react";
 import { endpoints, type AdConsentDto, type Member } from "@crm/contracts";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogClose, DialogContent } from "@/components/ui/overlays";
+import { Dialog, DialogClose, DialogContent, DialogActions } from "@/components/ui/overlays";
 import { Panel, PanelHeader } from "@/components/ui/panel";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, ErrorState } from "@/components/ui/states";
@@ -79,10 +79,10 @@ export function AdConsentPanel({ workspaceId, contactId, canEdit, timeZone, memb
             : "This stops any further sending of this contact's identifiers to Meta. Events already waiting are skipped. Earlier records stay in the history."}
         >
           {error && <Alert tone="error" className="mb-3">{error}</Alert>}
-          <div className="flex justify-end gap-2">
+          <DialogActions>
             <DialogClose asChild><Button variant="ghost" disabled={busy}>Cancel</Button></DialogClose>
             <Button variant={pending === "granted" ? "primary" : "danger"} loading={busy} onClick={() => pending && void record(pending)}>{pending === "granted" ? "Confirm consent" : "Confirm withdrawal"}</Button>
-          </div>
+          </DialogActions>
         </DialogContent>
       </Dialog>
     </Panel>

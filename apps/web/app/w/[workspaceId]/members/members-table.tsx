@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { Select } from "@/components/ui/input";
-import { Dialog, DialogClose, DialogContent, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/overlays";
+import { Dialog, DialogClose, DialogContent, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DialogActions } from "@/components/ui/overlays";
 import { Alert } from "@/components/ui/states";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import { endpoints } from "@crm/contracts";
@@ -135,12 +135,12 @@ export function MembersTable({ workspaceId, members, myRole, myUserId, timeZone 
                 )}
               </Field>
             )}
-            <div className="mt-5 flex justify-end gap-2">
+            <DialogActions className="mt-5">
               <DialogClose asChild><Button variant="ghost">Cancel</Button></DialogClose>
               <Button variant={dialog.kind === "remove" ? "danger" : "primary"} loading={busy} disabled={dialog.kind === "role" && role === dialog.member.role} onClick={submit}>
                 {dialog.kind === "role" ? "Save role" : "Remove member"}
               </Button>
-            </div>
+            </DialogActions>
           </DialogContent>
         )}
       </Dialog>

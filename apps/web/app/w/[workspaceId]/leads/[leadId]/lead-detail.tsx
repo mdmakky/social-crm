@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { Input, Select } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/form-controls";
-import { Dialog, DialogContent, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, Tooltip } from "@/components/ui/overlays";
+import { Dialog, DialogContent, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, Tooltip, DialogActions } from "@/components/ui/overlays";
 import { Panel, PanelHeader } from "@/components/ui/panel";
 import { Alert } from "@/components/ui/states";
 import { ToastProvider, useToast } from "@/components/ui/toast";
@@ -230,7 +230,7 @@ function Inner({ workspaceId, timeZone, role, myUserId, initial, pipelines, lost
       </Dialog>
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <DialogContent title={`Delete this ${label.toLowerCase()}?`} description="It disappears from lists and the board. An owner or admin can restore it.">
-          <div className="flex justify-end gap-2"><Button onClick={() => setDeleteOpen(false)}>Cancel</Button><Button variant="danger" onClick={() => void remove()}>Delete</Button></div>
+          <DialogActions><Button onClick={() => setDeleteOpen(false)}>Cancel</Button><Button variant="danger" onClick={() => void remove()}>Delete</Button></DialogActions>
         </DialogContent>
       </Dialog>
     </>
@@ -247,7 +247,7 @@ function LostForm({ reasons, onCancel, onSubmit }: { reasons: { id: string; name
     <form className="flex flex-col gap-4" onSubmit={(e) => { e.preventDefault(); if (id) onSubmit(id); }}>
       <Field label="Reason">{(p) => <Select {...p} value={id} onChange={(e) => setId(e.target.value)}>{reasons.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}</Select>}</Field>
       {reasons.length === 0 && <Alert tone="warning">No lost reasons are available. An admin can add some in Settings → Pipelines.</Alert>}
-      <div className="flex justify-end gap-2"><Button type="button" onClick={onCancel}>Cancel</Button><Button type="submit" variant="primary" disabled={!id}>Mark as lost</Button></div>
+      <DialogActions><Button type="button" onClick={onCancel}>Cancel</Button><Button type="submit" variant="primary" disabled={!id}>Mark as lost</Button></DialogActions>
     </form>
   );
 }
@@ -312,7 +312,7 @@ function EditDialog({ open, onOpenChange, lead, members, role, myUserId, workspa
             <Field label="Owner">{(p) => <Select {...p} value={owner} onChange={(e) => setOwner(e.target.value)}><option value="">Unassigned</option>{ownerChoices.map((m) => <option key={m.userId} value={m.userId}>{m.name}</option>)}</Select>}</Field>
           </div>
           <Field label="Description">{(p) => <Textarea {...p} rows={4} value={description} onChange={(e) => setDescription(e.target.value)} maxLength={5000} />}</Field>
-          <div className="flex justify-end gap-2"><Button type="button" onClick={() => onOpenChange(false)}>Cancel</Button><Button type="submit" variant="primary" disabled={busy}>{busy ? "Saving…" : "Save"}</Button></div>
+          <DialogActions><Button type="button" onClick={() => onOpenChange(false)}>Cancel</Button><Button type="submit" variant="primary" disabled={busy}>{busy ? "Saving…" : "Save"}</Button></DialogActions>
         </form>
       </DialogContent>
     </Dialog>

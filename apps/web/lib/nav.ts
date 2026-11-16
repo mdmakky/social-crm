@@ -64,3 +64,16 @@ export const titleFor = (pathname: string, workspaceId: string): string => {
   const rest = pathname.replace(`/w/${workspaceId}`, "").replace(/^\//, "");
   return NAV.flatMap((g) => g.items).find((i) => i.path !== undefined && i.path === rest.split("/")[0])?.label ?? "Home";
 };
+
+/** Phone bottom bar: the four places used all day, in thumb order. Everything else lives in the More sheet. Permission-aware like the rest of the nav. */
+export const MOBILE_TABS = ["inbox", "contacts", "leads", "tasks"] as const;
+export function mobileTabs(role: Role): NavItem[] {
+  const built = builtNav(role).flatMap((g) => g.items);
+  return MOBILE_TABS.map((k) => built.find((i) => i.key === k)).filter((i): i is NavItem => !!i);
+}
+/** Built features the role can use that are not in the bottom bar, grouped (Home first, unlabeled). */
+export function moreNav(role: Role): NavGroup[] {
+  const tabs = new Set<string>(MOBILE_TABS);
+  return builtNav(role).map((g) => ({ ...g, items: g.items.filter((i) => !tabs.has(i.key)) })).filter((g) => g.items.length > 0);
+}
+export const isActivePath = (pathname: string, to: string, item: NavItem) => (item.path === "" ? pathname === to : pathname === to || pathname.startsWith(`${to}/`));

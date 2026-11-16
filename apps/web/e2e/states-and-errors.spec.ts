@@ -82,13 +82,13 @@ test.describe("failure and error states in the browser", () => {
     expect(outline.width).toBeGreaterThanOrEqual(2);
   });
 
-  test("the navigation drawer closes when the viewport grows past the rail breakpoint", async ({ page }) => {
+  test("the More sheet closes when the viewport grows past the rail breakpoint", async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 812 });
     await signUpAndCreate(page, "Resize Owner", "Resize Co");
-    await page.getByRole("button", { name: "Open navigation" }).click();
-    await expect(page.getByRole("dialog", { name: "Navigation" })).toBeVisible();
+    await page.getByRole("button", { name: "More" }).click();
+    await expect(page.getByRole("dialog", { name: "More" })).toBeVisible();
     await page.setViewportSize({ width: 1024, height: 768 });
-    await expect(page.getByRole("dialog", { name: "Navigation" })).toBeHidden();
+    await expect(page.getByRole("dialog", { name: "More" })).toBeHidden();
     await page.getByRole("link", { name: "Members" }).filter({ visible: true }).first().click(); // page is interactive again, not inert
     await expect(page).toHaveURL(/\/members$/);
   });
@@ -119,7 +119,7 @@ test.describe("touch devices", () => {
 
   test("shell controls are at least 44px on touch", async ({ page }) => {
     await signUpAndCreate(page, "Touch Owner", "Touch Co");
-    for (const name of ["Open navigation", "Open command menu", "Account menu"]) {
+    for (const name of ["Open command menu", "Account menu", "More"]) {
       const box = await page.getByRole("button", { name }).boundingBox();
       expect(box!.height, name).toBeGreaterThanOrEqual(44);
       expect(box!.width, name).toBeGreaterThanOrEqual(44);

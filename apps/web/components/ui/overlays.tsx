@@ -51,7 +51,7 @@ export function DialogContent({ title, description, children, className }: { tit
   return (
     <DialogPrimitive.Portal>
       <DialogPrimitive.Overlay className="scrim fixed inset-0 z-40 bg-fg/25" />
-      <DialogPrimitive.Content onOpenAutoFocus={(e) => { const first = (e.currentTarget as HTMLElement).querySelector<HTMLElement>("[data-dialog-body] select, [data-dialog-body] input, [data-dialog-body] button:not([disabled])"); if (first) { e.preventDefault(); first.focus(); } }} className={cn("pop fixed left-1/2 top-1/2 z-50 w-[calc(100vw-32px)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-card border border-line bg-surface p-5 shadow-popover", className)}>
+      <DialogPrimitive.Content onOpenAutoFocus={(e) => { const first = (e.currentTarget as HTMLElement).querySelector<HTMLElement>("[data-dialog-body] select, [data-dialog-body] input, [data-dialog-body] button:not([disabled])"); if (first) { e.preventDefault(); first.focus(); } }} className={cn("pop fixed left-1/2 top-1/2 z-50 max-h-[calc(100dvh-2rem)] w-[calc(100vw-32px)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto overscroll-contain rounded-card border border-line bg-surface p-5 shadow-popover max-md:inset-x-0 max-md:bottom-0 max-md:top-auto max-md:max-h-[92dvh] max-md:w-full max-md:max-w-none max-md:translate-x-0 max-md:translate-y-0 max-md:rounded-b-none max-md:border-x-0 max-md:border-b-0 max-md:pb-0 max-md:[animation:sheet-up_var(--dur-slow)_var(--ease-out)]", className)}>
         <div className="flex items-start justify-between gap-4">
           <DialogPrimitive.Title className="text-md font-semibold text-fg">{title}</DialogPrimitive.Title>
           <DialogPrimitive.Close asChild>
@@ -59,8 +59,13 @@ export function DialogContent({ title, description, children, className }: { tit
           </DialogPrimitive.Close>
         </div>
         {description ? <DialogPrimitive.Description className="mt-1 text-sm text-fg-muted">{description}</DialogPrimitive.Description> : <DialogPrimitive.Description className="sr-only">{title}</DialogPrimitive.Description>}
-        <div data-dialog-body className="mt-4">{children}</div>
+        <div data-dialog-body className="mt-4 max-md:pb-[max(1.25rem,env(safe-area-inset-bottom))]">{children}</div>
       </DialogPrimitive.Content>
     </DialogPrimitive.Portal>
   );
+}
+
+/** Cancel/Save row of a dialog. Below md it sticks to the bottom of the scrolling sheet, full-width buttons, so the actions stay reachable on a long form. */
+export function DialogActions({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
+  return <div className={cn("dialog-actions flex justify-end gap-2", className)} {...props} />;
 }

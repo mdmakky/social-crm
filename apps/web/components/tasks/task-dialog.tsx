@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { Textarea } from "@/components/ui/form-controls";
 import { Input, Select } from "@/components/ui/input";
-import { Dialog, DialogClose, DialogContent } from "@/components/ui/overlays";
+import { Dialog, DialogClose, DialogContent, DialogActions } from "@/components/ui/overlays";
 import { Alert } from "@/components/ui/states";
 import { browserApi, errorMessage } from "@/lib/client-api";
 import { fromLocalInput, PRIORITY_LABEL, STATUS_LABEL, toLocalInput } from "@/lib/tasks";
@@ -96,10 +96,10 @@ function TaskForm({ workspaceId, members, myUserId, task, defaultContact, leadId
         {task && <Field label="Status">{(p) => <Select {...p} name="status" value={f.status} onChange={(e) => set({ status: e.target.value as TaskStatus })}>{TASK_STATUSES.map((x) => <option key={x} value={x}>{STATUS_LABEL[x]}</option>)}</Select>}</Field>}
       </div>
       <Field label="Related contact" hint="Optional. The task also shows on that contact's page.">{(p) => <ContactPicker id={p.id} describedBy={p["aria-describedby"]} workspaceId={workspaceId} value={f.contact} onChange={(c) => set({ contact: c })} />}</Field>
-      <div className="mt-2 flex justify-end gap-2">
+      <DialogActions className="mt-2">
         <DialogClose asChild><Button type="button" variant="ghost">Cancel</Button></DialogClose>
         <Button type="submit" variant="primary" loading={busy}>{task ? "Save changes" : "Create task"}</Button>
-      </div>
+      </DialogActions>
     </form>
   );
 }

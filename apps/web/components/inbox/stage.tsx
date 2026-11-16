@@ -4,7 +4,7 @@ import { ChevronDown, Plus } from "lucide-react";
 import { endpoints, type LeadDto, type LostReasonDto, type PipelineDto, type StageDto } from "@crm/contracts";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/input";
-import { Dialog, DialogClose, DialogContent, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/overlays";
+import { Dialog, DialogClose, DialogContent, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger, DialogActions } from "@/components/ui/overlays";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast";
 import { browserApi, errorMessage } from "@/lib/client-api";
@@ -99,7 +99,7 @@ export function StageControl({ ctl, canEdit, className, block }: { ctl: ContactL
   const trigger = (
     <Button variant="secondary" size="sm" disabled={ctl.busy} className={className}>
       {ctl.stage ? <span aria-hidden className="size-2 rounded-full transition-colors" style={{ background: dot(ctl.stage, idx) }} /> : null}
-      <span className="font-normal text-fg-subtle">Stage</span>{ctl.stage ? ctl.stage.name : "No lead"}
+      <span className="font-normal text-fg-subtle max-md:sr-only">Stage</span>{ctl.stage ? ctl.stage.name : "No lead"}
       {canEdit && <ChevronDown className="ml-auto" aria-hidden />}
     </Button>
   );
@@ -131,10 +131,10 @@ export function StageControl({ ctl, canEdit, className, block }: { ctl: ContactL
               {ctl.lostReasons.length === 0 && <option value="">No reasons configured</option>}
               {ctl.lostReasons.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
             </Select>
-            <div className="flex justify-end gap-2">
+            <DialogActions>
               <DialogClose asChild><Button>Cancel</Button></DialogClose>
               <Button variant="danger" disabled={!reason} onClick={() => { const s = lost; setLost(null); if (s) void ctl.move(s, reason); }}>Mark lost</Button>
-            </div>
+            </DialogActions>
           </div>
         </DialogContent>
       </Dialog>
