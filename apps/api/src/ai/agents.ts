@@ -8,7 +8,7 @@ import { writeAudit } from "../audit.ts";
 import { killSwitchOn } from "../automation/kill-switch.ts";
 import { actor, body, fail, forbidden, isUuid, query, wctx, type SC, type ScopedEnv } from "../routes/scope.ts";
 import { WindowCounter } from "../throttle.ts";
-import { applyPlan, contactContext, conversationContext, executeTool, prepareAgentRun, type AgentDeps } from "./agent-run.ts";
+import { applyPlan, isMediaTool, precomputeMedia, runToolOutsideTx, contactContext, conversationContext, executeTool, prepareAgentRun, type AgentDeps } from "./agent-run.ts";
 import type { AiDeps } from "./run.ts";
 import { TOOLS, type AttachToolDeps, type ToolCtx } from "./tools/index.ts";
 
@@ -205,7 +205,9 @@ export function agentRoutes(db: Db, deps: AgentRouteDeps = {}) {
     const canManage = manage(c);
     const prep = await prepareAgentRun(agentDeps(), { workspaceId, userId, agentId, versionId: canManage ? o.versionId : undefined, requireActive: !canManage || o.source === "run", live: !o.dryRun, userContent: ctx.text, entity: ctx.conversationId ? { type: "conversation", id: ctx.conversationId } : ctx.contactId ? { type: "contact", id: ctx.contactId } : undefined });
     if (!prep.ok) return failure(c, prep.code);
-    const out: AgentRunResult = await withContext(db, wctx(c), (tx) => applyPlan(tx, agentDeps(), prep, { workspaceId, userId, role: c.get("role"), source: o.source, dryRun: o.dryRun, contactId: ctx.contactId, conversationId: ctx.conversationId, ...actor(c) }));
+    const input = { workspaceId, userId, role: c.get("role"), source: o.source, dryRun: o.dryRun, contactId: ctx.contactId, conversationId: ctx.conversationId, ...actor(c) };
+    const pre = await precomputeMedia(agentDeps(), prep, input); // blob + provider calls happen here, before the transaction opens
+    const out: AgentRunResult = await withContext(db, wctx(c), (tx) => applyPlan(tx, agentDeps(), prep, input, pre));
     return c.json(out);
   }
 
@@ -287,6 +289,13 @@ export function agentRoutes(db: Db, deps: AgentRouteDeps = {}) {
     const id = c.req.param("actionId");
     if (!isUuid(id)) return fail(c, 404, "not_found");
     const { workspaceId, userId } = wctx(c);
+    // A media tool does blob and provider I/O: run it BEFORE the transaction opens, from the stored (still pending) action, and only record the result inside.
+    let pre: Awaited<ReturnType<typeof runToolOutsideTx>> | undefined;
+    if (approve) {
+      const peek = await withContext(db, wctx(c), async (tx) => (await tx.select().from(schema.aiAgentActions).where(and(eq(schema.aiAgentActions.workspaceId, workspaceId), eq(schema.aiAgentActions.id, id), eq(schema.aiAgentActions.status, "pending"))))[0]);
+      const def = peek && isMediaTool(peek.tool) ? getTool(tools, peek.tool) : undefined;
+      if (peek && def && can(c.get("role"), def.requiredPermission as "contact.edit", {})) pre = await runToolOutsideTx(agentDeps(), tools, { workspaceId, userId, contactId: peek.contactId, conversationId: peek.conversationId }, peek.tool, peek.args as Record<string, unknown>);
+    }
     return withContext(db, wctx(c), async (tx) => {
       if (approve && (await killSwitchOn(tx, workspaceId))) return fail(c, 409, "kill_switch_on", "Automations are paused for this workspace. Turn the kill switch off to approve actions.");
       const now = new Date();
@@ -300,7 +309,7 @@ export function agentRoutes(db: Db, deps: AgentRouteDeps = {}) {
         const def = getTool(tools, row.tool);
         let res: { ok: true; result: Record<string, unknown> } | { ok: false; error: string };
         if (def && !can(c.get("role"), def.requiredPermission as "contact.edit", {})) res = { ok: false, error: "You don't have permission to run this tool." };
-        else res = await executeTool(tx, tools, { db, workspaceId, userId, contactId: row.contactId, ref: row.id, conversationId: row.conversationId, attach: deps.attach }, row.tool, row.args as Record<string, unknown>);
+        else res = await executeTool(tx, tools, { db, workspaceId, userId, contactId: row.contactId, ref: row.id, conversationId: row.conversationId, attach: deps.attach, pre }, row.tool, row.args as Record<string, unknown>);
         await tx.update(schema.aiAgentActions).set(res.ok ? { status: "executed", result: res.result, updatedAt: new Date() } : { status: "failed", error: res.error, updatedAt: new Date() }).where(and(eq(schema.aiAgentActions.workspaceId, workspaceId), eq(schema.aiAgentActions.id, id)));
         summary = { ...summary, outcome: res.ok ? "executed" : "failed" };
       }
