@@ -64,3 +64,30 @@ describe("formatDate", () => {
     expect(formatDate("2026-11-13T02:00:00Z", "Asia/Dhaka")).toBe("Nov 13, 2026");
   });
 });
+
+describe("initials with emoji and Bangla", () => {
+  const lone = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]|�/;
+  it("keeps an emoji at the start or end of a name whole (never half a surrogate pair)", () => {
+    for (const [name, want] of [
+      ["🌸 Sara Ahmed", "🌸A"],
+      ["Sara 🌸", "S🌸"],
+      ["🌸", "🌸"],
+      ["👍🏽 Tom Reed", "👍🏽R"],
+      ["👨‍👩‍👧‍👦 Family Ali", "👨‍👩‍👧‍👦A"],
+      ["🏳️‍🌈 Pride Co", "🏳️‍🌈C"],
+      ["🇧🇩 Rahim Uddin", "🇧🇩U"],
+      ["❤️ Love", "❤️L"],
+    ] as const) {
+      const got = initials(name);
+      expect(got, name).toBe(want);
+      expect(lone.test(got), `${name} -> lone surrogate`).toBe(false);
+    }
+  });
+  it("leaves letters exactly as before, Bangla included", () => {
+    expect(initials("Maya Okafor")).toBe("MO");
+    expect(initials("আব্দুল করিম")).toBe("আক");
+    expect(initials("  rahim   uddin  ")).toBe("RU");
+    expect(initials("")).toBe("?");
+    expect(initials("Sara")).toBe("S");
+  });
+});
