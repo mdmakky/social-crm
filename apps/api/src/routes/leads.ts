@@ -7,6 +7,7 @@ import { can } from "@crm/core/permissions";
 import { schema, user, withContext, type Db, type Tx } from "@crm/db";
 import { emitEvent } from "../events.ts";
 import { writeAudit } from "../audit.ts";
+import { captureLeadWon } from "../capi/enqueue.ts"; // track:capi
 import { activeMember, loadContact, recordActivity } from "../crm-service.ts";
 import { lockPipeline } from "./pipelines.ts";
 import { actor, body, fail, forbidden, isUuid, query, wctx, type SC, type ScopedEnv } from "./scope.ts";
@@ -284,6 +285,7 @@ export function leadRoutes(db: Db) {
       const kind = wasClosed ? "lead.reopened" : to.kind === "won" ? "lead.won" : to.kind === "lost" ? "lead.lost" : "lead.stage_changed";
       await recordActivity(tx, { workspaceId, contactId: l!.primaryContactId, leadId: id, kind, actorUserId: userId, data: { fromStageId: l!.stageId, toStageId: to.id } });
       await audit(c, tx, kind, id, { fromStageId: l!.stageId, toStageId: to.id });
+      if (to.kind === "won" && l!.outcome !== "won") await captureLeadWon(tx, { workspaceId, leadId: id, contactId: l!.primaryContactId, valueMinor: l!.valueMinor, currency: l!.currency }); // track:capi, the one CAPI hook (savepoint, never fails the move)
       return c.json(await loadDto(tx, c, id));
     });
   });

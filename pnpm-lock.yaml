@@ -196,6 +196,9 @@ importers:
       '@crm/api-client':
         specifier: workspace:*
         version: link:../../packages/api-client
+      '@crm/capi':
+        specifier: workspace:*
+        version: link:../../packages/capi
       '@crm/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts

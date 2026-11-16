@@ -107,10 +107,11 @@ describe("capi_events", () => {
     await rejects(q(app, ctx(U.agent, A), event(B, dsB)), /row-level security/);
     await rejects(q(app, ctx(U.agent, A), event(A, dsB)), /capi_events_dataset_fk|row-level security|violates foreign key/); // another workspace's dataset
   });
-  it("history is for owner/admin of the workspace only", async () => {
+  it("rows are visible to owner/admin/agent of the workspace only (the endpoint narrows it to owner/admin)", async () => {
     const mine = await q(app, ctx(U.owner, A), sql`SELECT id FROM capi_events`);
     expect(mine.length).toBeGreaterThan(0);
-    expect(await q(app, ctx(U.agent, A), sql`SELECT id FROM capi_events`)).toEqual([]);
+    expect((await q(app, ctx(U.agent, A), sql`SELECT id FROM capi_events`)).length).toBeGreaterThan(0);
+    expect(await q(app, ctx(U.viewer, A), sql`SELECT id FROM capi_events`)).toEqual([]);
     expect(await q(app, ctx(U.ownerB, B), sql`SELECT id FROM capi_events`)).toEqual([]);
     expect(await q(app, ctx(U.ownerB, A), sql`SELECT id FROM capi_events`)).toEqual([]);
   });

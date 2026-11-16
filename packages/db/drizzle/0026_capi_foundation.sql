@@ -118,8 +118,9 @@ CREATE POLICY capis_worker_select ON capi_dataset_secrets FOR SELECT TO crm_work
 CREATE POLICY cons_select ON consent_records FOR SELECT TO crm_app USING (workspace_id = (SELECT app_workspace_id()) AND (SELECT app_has_role(array['owner','admin','agent'])));--> statement-breakpoint
 CREATE POLICY cons_insert ON consent_records FOR INSERT TO crm_app WITH CHECK (workspace_id = (SELECT app_workspace_id()) AND (SELECT app_has_role(array['owner','admin','agent'])) AND recorded_by = (SELECT app_user_id()));--> statement-breakpoint
 CREATE POLICY cons_worker_select ON consent_records FOR SELECT TO crm_worker USING (workspace_id = (SELECT app_workspace_id()));--> statement-breakpoint
--- History is for people who can manage CAPI (owner, admin); enqueueing is allowed to anyone who can change a lead, because a lead change is the trigger.
-CREATE POLICY cape_select ON capi_events FOR SELECT TO crm_app USING (workspace_id = (SELECT app_workspace_id()) AND (SELECT app_has_role(array['owner','admin'])));--> statement-breakpoint
+-- Enqueueing is allowed to anyone who can change a lead (a lead change is the trigger), and INSERT ... ON CONFLICT needs the SELECT policy to pass too, so agents can see rows at the database level.
+-- The history ENDPOINT is still owner/admin only (capi.view) and its DTO carries no payload or identifiers.
+CREATE POLICY cape_select ON capi_events FOR SELECT TO crm_app USING (workspace_id = (SELECT app_workspace_id()) AND (SELECT app_has_role(array['owner','admin','agent'])));--> statement-breakpoint
 CREATE POLICY cape_insert ON capi_events FOR INSERT TO crm_app WITH CHECK (workspace_id = (SELECT app_workspace_id()) AND (SELECT app_has_role(array['owner','admin','agent'])) AND status IN ('pending','skipped_no_consent') AND attempts = 0 AND sent_at IS NULL);--> statement-breakpoint
 -- The queue is claimed across workspaces (like webhook_events); everything else the worker does for an event runs under that event's workspace context.
 CREATE POLICY cape_worker_select ON capi_events FOR SELECT TO crm_worker USING (true);--> statement-breakpoint
