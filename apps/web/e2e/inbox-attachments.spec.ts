@@ -69,6 +69,11 @@ test.describe.serial("Inbox attachments (mock)", () => {
     await expect(failed).toContainText("no longer has this file");
     await expect(page.getByRole("button", { name: "Retry download" })).toBeVisible();
     expect((await list(page)).storageConfigured).toBe(true);
+    // through the web proxy the API's own strict headers survive (the global page CSP does not replace them)
+    const served = await page.request.get(`/v1/workspaces/${ws}/conversations/${conv}/attachments/${imageId}/content`);
+    expect(served.headers()["content-security-policy"]).toBe("default-src 'none'; sandbox");
+    expect(served.headers()["x-content-type-options"]).toBe("nosniff");
+    expect(served.headers()["content-type"]).toBe("image/png");
     await page.getByRole("button", { name: "Retry download" }).click();
     await expect(failed).toBeVisible(); // still failing (the mock answers 404 again): a clear state, no crash
     await axe(page, "inbox-attachments@1440");

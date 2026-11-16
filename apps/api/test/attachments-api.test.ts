@@ -43,7 +43,8 @@ async function seedConv(ws: string, platform = "messenger") {
 }
 const upload = (u: TestUser, ws: string, conv: string, file: { filename?: string; mime: string; bytes: Buffer }, hh = h) =>
   as(u, hh).call(endpoints.uploadAttachment, { params: { workspaceId: ws, conversationId: conv }, body: { filename: file.filename ?? "photo.png", mime: file.mime, contentBase64: b64(file.bytes) } });
-const png = (u = agent, ws = A, conv = convA) => upload(u, ws, conv, { mime: "image/png", bytes: PNG }).then(ok);
+// each call is a different file: an identical re-upload within a minute is a double submit and returns the first attachment
+const png = (u = agent, ws = A, conv = convA) => upload(u, ws, conv, { mime: "image/png", bytes: Buffer.concat([PNG, Buffer.from(crypto.randomUUID())]) }).then(ok);
 const raw = (u: TestUser, method: string, path: string, body?: unknown) =>
   h.app.request(path, { method, headers: { cookie: u.cookie, origin: "http://localhost:3000", ...(body ? { "content-type": "application/json" } : {}) }, body: body ? JSON.stringify(body) : undefined });
 const P = (ws: string, conv: string, id: string, tail = "") => `/v1/workspaces/${ws}/conversations/${conv}/attachments/${id}${tail}`;
@@ -82,12 +83,13 @@ describe("contract", () => {
 describe("upload", () => {
   it("an agent uploads a file: validated by bytes, stored through the store under the fixed key, metadata only in PostgreSQL, audit without the file name", async () => {
     const a = await png(agent);
-    expect(a).toMatchObject({ direction: "outbound", source: "user_upload", kind: "image", status: "ready", mime: "image/png", sizeBytes: PNG.length, messageId: null, createdBy: agent.id });
+    expect(a).toMatchObject({ direction: "outbound", source: "user_upload", kind: "image", status: "ready", mime: "image/png", messageId: null, createdBy: agent.id });
     const [row] = await q("SELECT * FROM attachments WHERE id=$1", [a.id]);
     expect(row.storage_key).toBe(attachmentKey(A, a.id));
     expect(row.sha256).toMatch(/^[0-9a-f]{64}$/);
     expect(JSON.stringify(row)).not.toContain("SECRETPIXELS"); // no bytes in the database
-    expect(Buffer.from((await store.get(row.storage_key))!.bytes).equals(PNG)).toBe(true);
+    expect(Buffer.from((await store.get(row.storage_key))!.bytes).subarray(0, PNG.length).equals(PNG)).toBe(true);
+    expect(row.size_bytes).toBe(String(a.sizeBytes));
     const audits = await q("SELECT summary FROM audit_log WHERE entity_id=$1", [a.id]);
     expect(audits).toHaveLength(1);
     expect(JSON.stringify(audits)).not.toContain("photo.png");
@@ -149,7 +151,7 @@ describe("controlled access", () => {
     const txt = await upload(agent, A, convA, { filename: "a.html", mime: "text/plain", bytes: TXT }).then(ok);
     expect((await raw(owner, "GET", P(A, convA, txt.id, "/content"))).headers.get("content-disposition")).toMatch(/^attachment;/);
     const pdf = await upload(agent, A, convA, { filename: "a.pdf", mime: "application/pdf", bytes: PDF }).then(ok);
-    expect((await raw(owner, "GET", P(A, convA, pdf.id, "/content"))).headers.get("content-disposition")).toMatch(/^inline;/);
+    expect((await raw(owner, "GET", P(A, convA, pdf.id, "/content"))).headers.get("content-disposition")).toMatch(/^attachment;/); // PDFs are downloads (the sandbox CSP and Chrome's viewer were not verified)
     expect(ok(await as(viewer).call(endpoints.getAttachment, { params: ids(A, convA, img.id) }))).toMatchObject({ id: img.id, kind: "image" });
     const list = ok(await as(viewer).call(endpoints.listAttachments, { params: { workspaceId: A, conversationId: convA } }));
     expect(list.storageConfigured).toBe(true);
@@ -334,5 +336,43 @@ describe("knowledge from an attachment (a reference, not a copy)", () => {
     const gone = await png(agent);
     await store.delete(attachmentKey(A, gone.id));
     expect(failure(await as(owner).call(endpoints.addAttachmentToKnowledge, { params: { workspaceId: A }, body: { attachmentId: gone.id } })).code).toBe("file_missing");
+  });
+});
+
+describe("upload memory and double submit", () => {
+  it("caps concurrent uploads per user and per process with 429 busy, and a double submit returns the first attachment", async () => {
+    let release: () => void = () => {};
+    const gate = new Promise<void>((r) => { release = r; });
+    class Slow extends FsBlobStore { override async put(k: string, b: Uint8Array, m: { contentType: string }) { await gate; return super.put(k, b, m); } }
+    const slowDir = mkdtempSync(join(tmpdir(), "att-slow-"));
+    const hc = await bootstrap(undefined, undefined, undefined, { store: new Slow(slowDir), uploadsPerUser: 1000, maxConcurrentUploads: 3, maxConcurrentUploadsPerUser: 2 });
+    try {
+      const o = await hc.newUser("atcap");
+      const o2 = await hc.newUser("atcap2");
+      const ws = await hc.workspace(o, "Att cap", { agent: o2 });
+      const conv = (await seedConv(ws)).conv;
+      const mk = (u: TestUser, n: string) => upload(u, ws, conv, { filename: n, mime: "application/pdf", bytes: Buffer.concat([PDF, Buffer.from(n)]) }, hc);
+      const a = mk(o, "a.pdf"), b = mk(o, "b.pdf");
+      await new Promise((r) => setTimeout(r, 150));
+      expect(failure(await mk(o, "c.pdf"))).toMatchObject({ status: 429, code: "busy" }); // per user: 2
+      const d = mk(o2, "d.pdf"); // another person still fits (process cap 3)
+      await new Promise((r) => setTimeout(r, 150));
+      expect(failure(await mk(o2, "e.pdf"))).toMatchObject({ status: 429, code: "busy" }); // process: 3
+      release();
+      expect((await Promise.all([a, b, d])).every((r) => r.ok)).toBe(true);
+      // a double submit: same content and name, in sequence and at the same time
+      const one = ok(await mk(o, "same.pdf"));
+      const two = ok(await mk(o, "same.pdf"));
+      expect(two.id).toBe(one.id);
+      const [x, y] = await Promise.all([mk(o2, "race.pdf"), mk(o2, "race.pdf")]);
+      expect(ok(x).id).toBe(ok(y).id);
+      const rows = (await hc.admin.query("SELECT count(*)::int AS n FROM attachments WHERE conversation_id=$1 AND original_filename IN ('same.pdf','race.pdf')", [conv])).rows[0].n;
+      expect(rows).toBe(2);
+      expect((await new FsBlobStore(slowDir).list!(`workspaces/${ws}/attachments`)).filter((k) => !k.endsWith(".meta.json")).length).toBe(5); // a, b, d, same, race: no loser blob
+    } finally {
+      release();
+      await hc.close();
+      rmSync(slowDir, { recursive: true, force: true });
+    }
   });
 });

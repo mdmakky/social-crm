@@ -7,7 +7,7 @@ import { ATTACHMENT_LIMITS, checkAttachment, type AttachmentErrorCode, type Atta
 import { AttachmentAskBody, AttachmentTranscribeBody, UploadAttachmentBody, type MediaResult } from "@crm/contracts";
 import { attachmentKey, type BlobStore } from "@crm/core";
 import { can } from "@crm/core/permissions";
-import { withContext, type Db } from "@crm/db";
+import { withContext, type Db, type Tx } from "@crm/db";
 import { writeAudit } from "../audit.ts";
 import { MEDIA_FAILURES, type MediaOutcome, type MediaService } from "../ai/media.ts";
 import { deleteAttachmentBlobs } from "../inbox/attachments.ts";
@@ -22,6 +22,9 @@ export type AttachmentRouteDeps = {
   media?: MediaService;
   limits?: Partial<Record<AttachmentKind, number>>;
   uploadsPerUser?: number;
+  /** Uploads being read and stored at once (a 36 MB request costs about 120 MB of memory): per process and per user. Over the cap: 429 `busy`. */
+  maxConcurrentUploads?: number;
+  maxConcurrentUploadsPerUser?: number;
   windowMs?: number;
   /** Called after a person re-queues a failed download: wakes the download worker. Assigned by server.ts once the worker exists. */
   kick?: () => void;
@@ -47,6 +50,8 @@ export function attachmentRoutes(db: Db, deps: AttachmentRouteDeps = {}) {
   const r = new Hono<ScopedEnv>();
   const limits = effectiveLimits(deps.limits);
   const uploads = new WindowCounter(deps.uploadsPerUser ?? 60, deps.windowMs ?? 10 * 60_000);
+  let inFlight = 0;
+  const perUser = new Map<string, number>();
   const view = (c: SC) => can(c.get("role"), "conversation.view", {});
   const reply = (c: SC) => can(c.get("role"), "conversation.reply", {});
   const ids = (c: SC) => ({ conversationId: c.req.param("conversationId"), attachmentId: c.req.param("attachmentId") });
@@ -70,34 +75,50 @@ export function attachmentRoutes(db: Db, deps: AttachmentRouteDeps = {}) {
     if (!deps.store) return fail(c, 503, "storage_not_configured", NOT_CONFIGURED);
     const { workspaceId: ws, userId } = wctx(c);
     if (!uploads.allow(`${ws}:${userId}`)) { c.header("Retry-After", "60"); return fail(c, 429, "rate_limited", "Too many uploads in a short time. Try again in a minute."); }
+    const who = `${ws}:${userId}`;
+    if (inFlight >= (deps.maxConcurrentUploads ?? 4) || (perUser.get(who) ?? 0) >= (deps.maxConcurrentUploadsPerUser ?? 2)) { c.header("Retry-After", "5"); return fail(c, 429, "busy", "Other uploads are still being processed. Try again in a few seconds."); }
+    inFlight += 1; perUser.set(who, (perUser.get(who) ?? 0) + 1);
+    try { return await handleUpload(c, ws, userId, conversationId); } finally { inFlight -= 1; perUser.set(who, (perUser.get(who) ?? 1) - 1); }
+  });
+
+  async function handleUpload(c: SC, ws: string, userId: string, conversationId: string): Promise<Response> {
+    const store = deps.store!;
     const b = await body(c, UploadAttachmentBody);
     if (!b.ok) return b.res;
-    const bytes = new Uint8Array(Buffer.from(b.data.contentBase64, "base64"));
+    const bytes = Buffer.from(b.data.contentBase64, "base64"); // a Buffer is already a Uint8Array: no second copy
     const chk = checkAttachment(b.data.mime, bytes, { strict: true, limits });
     if (!chk.ok) { const f = UPLOAD_FAILURES[chk.code]; return fail(c, f.status, chk.code, f.message); }
     const known = await withContext(db, wctx(c), async (tx) => rowsOf(await tx.execute(sql`SELECT 1 FROM conversations WHERE workspace_id = ${ws} AND id = ${conversationId}`)).length > 0);
     if (!known) return fail(c, 404, "not_found");
+    const filename = b.data.filename.replace(/[\u0000-\u001f\u007f\\/:*?"<>|]/g, "_").replace(/^\.+/, "").trim().slice(0, 200) || null; // eslint-disable-line no-control-regex
+    const sha = createHash("sha256").update(bytes).digest("hex");
+    // A double submit (same person, conversation, content and name within a minute, not yet sent) returns the first attachment instead of creating a second row and blob.
+    const dup = (tx: Tx) => tx.execute(sql`SELECT ${ATT_COLS} FROM attachments a WHERE a.workspace_id = ${ws} AND a.conversation_id = ${conversationId} AND a.created_by = ${userId} AND a.sha256 = ${sha} AND a.original_filename IS NOT DISTINCT FROM ${filename} AND a.message_id IS NULL AND a.status = 'ready' AND a.created_at > now() - interval '60 seconds' ORDER BY a.created_at LIMIT 1`).then((r) => rowsOf(r)[0]);
+    const first = await withContext(db, wctx(c), dup);
+    if (first) return c.json(toDto(first), 200);
     const id = crypto.randomUUID();
     const key = attachmentKey(ws, id);
-    try { await deps.store.put(key, bytes, { contentType: chk.mime }); } catch { return fail(c, 502, "storage_error", "The file could not be saved. Try again."); }
+    try { await store.put(key, bytes, { contentType: chk.mime }); } catch { return fail(c, 502, "storage_error", "The file could not be saved. Try again."); }
     try {
-      const filename = b.data.filename.replace(/[\u0000-\u001f\u007f\\/:*?"<>|]/g, "_").replace(/^\.+/, "").trim().slice(0, 200) || null; // eslint-disable-line no-control-regex
-      const sha = createHash("sha256").update(bytes).digest("hex");
-      const dto = await withContext(db, wctx(c), async (tx) => {
+      const out = await withContext(db, wctx(c), async (tx) => {
+        await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${`up:${ws}:${conversationId}:${userId}:${sha}`}, 0))`); // two simultaneous submits: the second waits here and then sees the first
+        const again = await dup(tx);
+        if (again) return { dup: toDto(again) };
         const row = rowsOf(await tx.execute(sql`
           INSERT INTO attachments (id, workspace_id, conversation_id, direction, source, kind, status, mime, declared_mime, original_filename, size_bytes, sha256, storage_key, created_by)
           VALUES (${id}, ${ws}, ${conversationId}, 'outbound', 'user_upload', ${chk.kind}, 'ready', ${chk.mime}, ${b.data.mime.slice(0, 127)}, ${filename}, ${bytes.byteLength}, ${sha}, ${key}, ${userId})
           RETURNING id, conversation_id, message_id, direction, source, kind, status, mime, original_filename, size_bytes, error_code, created_at, created_by`))[0]!;
         await writeAudit(tx, { ...actor(c), workspaceId: ws, action: "attachment.uploaded", entityType: "attachment", entityId: id, summary: { conversationId, kind: chk.kind, mime: chk.mime, size: bytes.byteLength } });
-        return toDto(row);
+        return { created: toDto(row) };
       });
-      return c.json(dto, 201);
+      if ("dup" in out) { await store.delete(key).catch(() => undefined); return c.json(out.dup, 200); } // the loser of a race leaves no blob
+      return c.json(out.created, 201);
     } catch (e) {
-      await deps.store.delete(key).catch(() => undefined); // no orphan blob when the row could not be written
+      await store.delete(key).catch(() => undefined); // no orphan blob when the row could not be written
       if (pgCode(e) === "42501") return forbidden(c);
       throw e;
     }
-  });
+  }
 
   r.get("/conversations/:conversationId/attachments/:attachmentId", async (c) => {
     if (!view(c)) return forbidden(c);

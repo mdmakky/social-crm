@@ -40,8 +40,8 @@ const EXT: Record<string, string> = {
 };
 export const extOf = (mime: string | null): string | null => (mime && EXT[mime]) || null;
 
-/** Types a browser may render inline. Everything else (office files, text, csv) is a download. SVG and HTML are never accepted as attachments at all. */
-export const INLINE = (mime: string) => /^(image\/(png|jpeg|gif|webp)|audio\/(mpeg|wav|mp4|ogg|webm)|video\/(mp4|quicktime|webm)|application\/pdf)$/.test(mime);
+/** Types a browser may render inline. Everything else (pdf, office files, text, csv) is a download: Chrome's PDF viewer may refuse a response under `sandbox` CSP and that was not verified, so PDFs are downloaded. SVG and HTML are never accepted as attachments at all. */
+export const INLINE = (mime: string) => /^(image\/(png|jpeg|gif|webp)|audio\/(mpeg|wav|mp4|ogg|webm)|video\/(mp4|quicktime|webm))$/.test(mime);
 
 /** Content-Disposition with a safe name: ASCII fallback plus RFC 5987 form, no quotes, backslashes, control characters or path parts. */
 export function disposition(inline: boolean, filename: string | null, id: string, mime: string | null): string {
