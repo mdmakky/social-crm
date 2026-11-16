@@ -60,3 +60,10 @@ Provider timeouts and rate limits retry with backoff and fall back to a configur
 
 ## 5. Mobile
 Mobile shows AI suggestions inline in the composer, summaries at the top of a conversation, lead insights on lead detail, and approval requests as actionable notifications. It calls the same API; no AI keys or prompts live on the device.
+
+## 3c. Agent builder and tool registry, slice 1 (2026-11-16, decisions D110 to D119)
+- **Status:** built on `feat/ai-agent-builder` (not merged). Agents (`ai_agents`, append-only `ai_agent_versions`), tool grants per version (`auto` or `approval`), pending approvals (`ai_agent_actions`), per-agent run log (`ai_runs.agent_id`).
+- **Flow:** API loads the active version, composes the system prompt (safety preamble, instructions, personality, language, style, granted tool catalog, JSON output format), calls `runAi` once with no transaction open, parses `{reply, actions}` against the registry and the grants, then applies it in one transaction as the requesting user. Customer text is fenced as data; grants never come from model text.
+- **Tools:** one file per tool in `apps/api/src/ai/tools` plus one registry line. Read tools run, auto write tools run once, approval-granted and sensitive tools are queued for owner/admin approval. Max 3 actions per run. Drafts only: nothing is sent.
+- **Automation:** action `run_ai_agent` makes the model call before the action transaction, then records a draft note and pending approvals. The kill switch, approvals and idempotency of the automation engine apply. Delays are not available.
+- **Not built:** multi-turn tool loops, auto-send, approval expiry, inbox agent picker, evaluation fixtures. Real providers are UNVERIFIED.

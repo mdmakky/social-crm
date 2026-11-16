@@ -35,7 +35,7 @@ const connectMock = (u: TestUser, ws: string) => as(u).call(endpoints.setAiProvi
 
 beforeAll(async () => {
   workerDb = createDb(`postgres://crm_worker:worker_dev@127.0.0.1:5436/${DB}`);
-  aiDeps = { workerDb, box, backoffMs: 10, sleep: async () => {}, providerFor: (id, o) => (id === "mock" ? { id, async generate(req: GenerateRequest): Promise<GenerateResult> { calls++; return { text: nextReply, usage: { inputTokens: 100, outputTokens: 50 }, finishReason: "stop" }; } } : getProvider(id, o)) };
+  aiDeps = { workerDb, box, backoffMs: 10, sleep: async () => {}, providerFor: (id, o) => (id === "mock" ? { id, async generate(_req: GenerateRequest): Promise<GenerateResult> { calls++; return { text: nextReply, usage: { inputTokens: 100, outputTokens: 50 }, finishReason: "stop" }; } } : getProvider(id, o)) };
   h = await bootstrap({ aiAgentRunsPerUser: 1000 }, undefined, aiDeps);
   [owner, admin, agent, viewer, ownerB] = (await Promise.all(["ago", "aga", "agg", "agv", "agb"].map((l) => h.newUser(l)))) as [TestUser, TestUser, TestUser, TestUser, TestUser];
   A = await h.workspace(owner, "Agents A", { admin, agent, viewer });

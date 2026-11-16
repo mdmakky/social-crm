@@ -81,7 +81,7 @@ describe("versions are append-only; the active pointer must be the agent's own",
 
 describe("agent actions", () => {
   it("are visible to owner/admin and to the requesting agent only; the proposal is immutable; terminal states are final", async () => {
-    const [{ id }] = await q<{ id: string }>(app, ctx(U.agent, A), action(A, agA, verA, U.agent));
+    const id = (await q<{ id: string }>(app, ctx(U.agent, A), action(A, agA, verA, U.agent)))[0]!.id;
     expect(await q(app, ctx(U.owner, A), sql`SELECT id FROM ai_agent_actions`)).toHaveLength(1);
     expect(await q(app, ctx(U.agent, A), sql`SELECT id FROM ai_agent_actions`)).toHaveLength(1);
     expect(await q(app, ctx(U.viewer, A), sql`SELECT id FROM ai_agent_actions`)).toHaveLength(0);
