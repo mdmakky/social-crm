@@ -3,9 +3,9 @@ import { AiError, type AiProvider, type Capability, type MediaInput, type MediaK
 /** Hard caps per media kind, in bytes. Mirrored in @crm/contracts (a test keeps them equal). */
 export const MEDIA_LIMITS = { image: 5 * 1024 * 1024, audio: 20 * 1024 * 1024, document: 10 * 1024 * 1024 } as const;
 
-type Sig = { kind: MediaKind; mime: string; aliases: string[]; test: (b: Uint8Array) => boolean };
-const at = (b: Uint8Array, off: number, s: string) => [...s].every((c, i) => b[off + i] === c.charCodeAt(0));
-const SIGS: Sig[] = [
+export type Sig = { kind: MediaKind; mime: string; aliases: string[]; test: (b: Uint8Array) => boolean };
+export const at = (b: Uint8Array, off: number, s: string) => [...s].every((c, i) => b[off + i] === c.charCodeAt(0));
+export const SIGS: Sig[] = [
   { kind: "image", mime: "image/png", aliases: ["image/png"], test: (b) => b[0] === 0x89 && at(b, 1, "PNG\r\n") },
   { kind: "image", mime: "image/jpeg", aliases: ["image/jpeg", "image/jpg"], test: (b) => b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff },
   { kind: "image", mime: "image/gif", aliases: ["image/gif"], test: (b) => at(b, 0, "GIF87a") || at(b, 0, "GIF89a") },
