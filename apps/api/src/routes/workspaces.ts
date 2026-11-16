@@ -22,6 +22,7 @@ import { taskRoutes } from "./tasks.ts";
 import { importRoutes, type ImportHooks } from "./imports.ts";
 import { notificationRoutes } from "./notifications.ts"; // track:notifications
 import { automationRoutes } from "./automation.ts"; // track:automation
+import { knowledgeRoutes, type KnowledgeDeps } from "../knowledge/routes.ts"; // track:knowledge
 
 export type Vars = { userId: string; requestId: string };
 type Ctx = Context<{ Variables: Vars }>;
@@ -43,7 +44,7 @@ async function roleIn(tx: Tx, workspaceId: string, userId: string): Promise<Role
   return m?.role ?? null;
 }
 
-export function workspaceRoutes(db: Db, hooks: { import?: ImportHooks; extraSearchProviders?: SearchProvider[]; metaScoped?: Hono<ScopedEnv>; sendDeps?: MetaConnectDeps } = {}) {
+export function workspaceRoutes(db: Db, hooks: { import?: ImportHooks; extraSearchProviders?: SearchProvider[]; metaScoped?: Hono<ScopedEnv>; sendDeps?: MetaConnectDeps; knowledge?: KnowledgeDeps } = {}) {
   const r = new Hono<{ Variables: Vars }>();
   const audit = (c: Ctx) => ({ actorUserId: c.get("userId"), requestId: c.get("requestId"), ip: c.req.header("x-forwarded-for")?.split(",")[0]?.trim() });
 
@@ -189,6 +190,7 @@ export function workspaceRoutes(db: Db, hooks: { import?: ImportHooks; extraSear
   scoped.route("/", taskRoutes(db));
   scoped.route("/", notificationRoutes(db)); // track:notifications
   scoped.route("/", automationRoutes(db)); // track:automation
+  scoped.route("/", knowledgeRoutes(db, hooks.knowledge)); // track:knowledge
   scoped.route("/", conversationRoutes(db)); // track:inbox
   scoped.route("/", contactMethodRoutes(db));
   scoped.route("/", sendRoutes(db, hooks.sendDeps)); // track:inbox
