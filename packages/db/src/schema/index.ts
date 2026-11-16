@@ -15,3 +15,5 @@ export * from "./capi.ts";
 export * from "./ai.ts";
 // --- track:knowledge ---
 export * from "./knowledge.ts";
+// --- track:invitations ---
+export * from "./invitations.ts";

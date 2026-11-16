@@ -33,6 +33,7 @@ const env = z
     PORT: z.coerce.number().default(8787),
     NODE_ENV: z.string().default("development"),
     MAIL_DIR: z.string().default(".dev-mail"),
+    INVITATION_EMAIL: z.enum(["0", "1"]).default("0"), // 1 = also email invitation links through the mailer above; off by default because that mailer only writes files (D213)
     EVENT_DISPATCH_INTERVAL_MS: z.coerce.number().default(1000),
     EVENT_DISPATCH_IDLE_INTERVAL_MS: z.coerce.number().default(600_000), // poll this slowly when nobody has used the API for ACTIVE_WINDOW_MS
     EVENT_RETENTION_DAYS: z.coerce.number().default(30),
@@ -120,7 +121,7 @@ async function reconcileAll(w: NonNullable<typeof workerDb>, st: NonNullable<typ
   const ws = (await w.execute(sql`SELECT DISTINCT workspace_id FROM integration_accounts WHERE status <> 'disabled' LIMIT 500`)).rows as { workspace_id: string }[];
   for (const x of ws) await reconcileAttachments(w, st, x.workspace_id).catch(() => undefined);
 }
-const app = createApp(auth, { allowedOrigins: origins, db, meta, ai, attachments, openrouterBrowser: orMock ? createModelBrowser({ fetch: mockModelsFetch, mock: true }) : undefined });
+const app = createApp(auth, { allowedOrigins: origins, db, invitations: env.INVITATION_EMAIL === "1" ? { mailer } : undefined, meta, ai, attachments, openrouterBrowser: orMock ? createModelBrowser({ fetch: mockModelsFetch, mock: true }) : undefined });
 if (meta && workerDb && env.META_APP_SECRET) {
   app.route("/meta/callbacks", metaUserCallbackRoutes({ appSecrets: [env.META_APP_SECRET, ...(env.META_APP_SECRET_PREVIOUS ? [env.META_APP_SECRET_PREVIOUS] : [])], workerDb, userHashKey: meta.userHashKey, statusKey: createHmac("sha256", env.META_APP_SECRET).update("crm-deletion-status-v1").digest(), publicBaseUrl: env.META_PUBLIC_BASE_URL }));
 }

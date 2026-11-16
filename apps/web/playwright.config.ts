@@ -27,6 +27,7 @@ export default defineConfig({
         BETTER_AUTH_URL: WEB,
         WEB_ORIGIN: WEB,
         MAIL_DIR,
+        INVITATION_EMAIL: "1", // invitations are also mailed (to the file mailer) so the "Email sent" state is covered
         // Opt-in MOCK Meta (no Meta contact): lets the Integrations flow run end to end. Needs the worker role and a key; labelled mock in the UI.
         // Local blob store for the attachment specs, always on in the e2e harness (a temp directory under test-results; never a real bucket). Without it inbox-attachments.spec.ts fails with "storage not configured".
         STORAGE_DRIVER: "local",

@@ -33,7 +33,6 @@ Updated: 2026-11-13 (Phase 0).
 - Tests share the single local development database. Test data is run-unique and accumulates (the audit log is append-only and cannot be cleaned by the app role). A separate test database is needed before CI.
 - No hosted CI; "from a clean checkout" was run locally. The e2e suite builds and starts both servers itself on ports 3217 and 8791.
 - Forgot-password is not available (needs a provider for the Mailer, D22).
-- Invitations are not built; tests add members by direct SQL. The Members page cannot add anyone yet.
 - No before/after values in audit entries.
 - Dark theme tokens exist and pass contrast tests but no UI toggle exists and it has not been visually checked.
 - `@crm/contracts` is shared Zod; no OpenAPI document or generated client exists yet (Phase 1 item 5).
@@ -224,3 +223,6 @@ Updated: 2026-11-13 (Phase 0).
 - The source filter is an exact text match (sources are free text, only `manual` is written today).
 - Performance at 10,000+ leads is verified for the stage-counts query shape and time on 4,210 seeded rows only; the list itself has no dedicated index for `updated_at` sorting beyond what exists (UNVERIFIED at 10k with EXPLAIN ANALYZE on a production-sized table).
 - Old board-only strings in docs/design/leads-pipeline/* describe the removed board; they are history, not current behaviour.
+- Invitations are link-based: there is no production mail provider (D22), so by default the inviter copies the link and sends it. Email goes out only when the API runs with `INVITATION_EMAIL=1` and a real mailer exists (today only the file mailer, which writes to disk).
+- Invitation rate limits and the pending cap check are per API instance (in-process counters, like the reset throttle). The session email is not verified (no verification flow), so a person who holds both the link and an account registered with the invited address can join.
+- The register form is not prefilled with the invited email (the public preview shows it masked only); a mismatch is caught on accept.

@@ -20,12 +20,14 @@ import { isAllowedRedirect } from "./redirects.ts";
 import type { ImportHooks } from "./routes/imports.ts";
 import type { SearchProvider } from "./search/types.ts"; // track:search
 import { WindowCounter } from "./throttle.ts";
+import type { Mailer } from "@crm/core";
+import { invitationRoutes, type InvitationDeps } from "./invitations.ts"; // track:invitations
 
 /** Same body Better Auth returns for any address, so throttled and unknown requests are indistinguishable from real ones. */
 const GENERIC_RESET_RESPONSE = { status: true, message: "If this email exists in our system, check your email for the reset link" };
 const sha = async (s: string) => Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s.trim().toLowerCase()))), (b) => b.toString(16).padStart(2, "0")).join("");
 
-export function createApp(auth: Auth, opts: { allowedOrigins: string[]; db: Db; resetThrottle?: { perEmail: number; perIp: number; windowMs: number; tokenAttemptsPerIp?: number }; testHooks?: { waLimits?: Partial<WhatsAppLimits>; capiCreatesPerUser?: number; import?: ImportHooks; extraSearchProviders?: SearchProvider[]; aiConfigsPerUser?: number; aiSuggestionsPerUser?: number; aiAgentRunsPerUser?: number; openrouterBrowser?: ModelBrowser; openrouterBrowsesPerUser?: number; mediaLimits?: { perWorkspace?: number; windowMs?: number }; knowledge?: KnowledgeDeps }; meta?: MetaConnectDeps; ai?: AiDeps; attachments?: AttachmentRouteDeps; openrouterBrowser?: ModelBrowser; openrouterBrowsesPerUser?: number }) {
+export function createApp(auth: Auth, opts: { allowedOrigins: string[]; db: Db; resetThrottle?: { perEmail: number; perIp: number; windowMs: number; tokenAttemptsPerIp?: number }; testHooks?: { waLimits?: Partial<WhatsAppLimits>; capiCreatesPerUser?: number; import?: ImportHooks; extraSearchProviders?: SearchProvider[]; aiConfigsPerUser?: number; aiSuggestionsPerUser?: number; aiAgentRunsPerUser?: number; openrouterBrowser?: ModelBrowser; openrouterBrowsesPerUser?: number; mediaLimits?: { perWorkspace?: number; windowMs?: number }; knowledge?: KnowledgeDeps }; invitations?: Pick<InvitationDeps, "limits"> & { mailer?: Mailer }; meta?: MetaConnectDeps; ai?: AiDeps; attachments?: AttachmentRouteDeps; openrouterBrowser?: ModelBrowser; openrouterBrowsesPerUser?: number }) {
   const app = new Hono<{ Variables: Vars }>();
   // Mutating requests that carry an Origin header must come from an allowed origin (native apps send none).
   app.use("*", async (c, next) => {
@@ -89,6 +91,8 @@ export function createApp(auth: Auth, opts: { allowedOrigins: string[]; db: Db; 
   app.get("/health", (c) => c.json({ ok: true }));
   app.on(["GET", "POST"], "/api/auth/*", (c) => auth.handler(c.req.raw));
 
+  const inv = invitationRoutes(opts.db, { webOrigin: opts.allowedOrigins[0] ?? "", ...opts.invitations }); // track:invitations
+  app.route("/v1", inv.preview); // public by token, registered before the session guard below
   const v1 = new Hono<{ Variables: Vars }>();
   v1.use("*", async (c, next) => {
     const session = await auth.api.getSession({ headers: c.req.raw.headers });
@@ -97,6 +101,7 @@ export function createApp(auth: Auth, opts: { allowedOrigins: string[]; db: Db; 
     c.set("me" as never, session.user as never);
     await next();
   });
+  v1.route("/", inv.accept);
   v1.get("/me", (c) => {
     const u = c.get("me" as never) as { id: string; email: string; name: string };
     return c.json({ id: u.id, email: u.email, name: u.name });
@@ -106,7 +111,7 @@ export function createApp(auth: Auth, opts: { allowedOrigins: string[]; db: Db; 
   const igUnified = instagramUnified(opts.db, opts.meta); // track:inbox
   v1.route("/", meta.callback);
   v1.route("/", igUnified.callback);
-  v1.route("/workspaces", workspaceRoutes(opts.db, { ...opts.testHooks, knowledge: { ...opts.testHooks?.knowledge, media, blobs: opts.attachments?.store }, blobs: opts.attachments?.store, metaScoped: new Hono<ScopedEnv>().route("/", meta.scoped).route("/", igUnified.scoped).route("/", whatsappConnect(opts.db, opts.meta, opts.testHooks?.waLimits)).route("/", attachmentRoutes(opts.db, { ...opts.attachments, media })).route("/", capiRoutes(opts.db, { box: opts.meta?.box, createsPerUser: opts.testHooks?.capiCreatesPerUser })).route("/", aiRoutes(opts.db, { ai: opts.ai, media, browser: opts.openrouterBrowser ?? opts.testHooks?.openrouterBrowser, browsesPerUser: opts.openrouterBrowsesPerUser ?? opts.testHooks?.openrouterBrowsesPerUser, configsPerUser: opts.testHooks?.aiConfigsPerUser, suggestionsPerUser: opts.testHooks?.aiSuggestionsPerUser })).route("/", agentRoutes(opts.db, { ai: opts.ai, runsPerUser: opts.testHooks?.aiAgentRunsPerUser, attach: { store: opts.attachments?.store, media } })), sendDeps: opts.meta, sendBlobs: opts.attachments?.store }));
+  v1.route("/workspaces", workspaceRoutes(opts.db, { ...opts.testHooks, invitations: inv.scoped, knowledge: { ...opts.testHooks?.knowledge, media, blobs: opts.attachments?.store }, blobs: opts.attachments?.store, metaScoped: new Hono<ScopedEnv>().route("/", meta.scoped).route("/", igUnified.scoped).route("/", whatsappConnect(opts.db, opts.meta, opts.testHooks?.waLimits)).route("/", attachmentRoutes(opts.db, { ...opts.attachments, media })).route("/", capiRoutes(opts.db, { box: opts.meta?.box, createsPerUser: opts.testHooks?.capiCreatesPerUser })).route("/", aiRoutes(opts.db, { ai: opts.ai, media, browser: opts.openrouterBrowser ?? opts.testHooks?.openrouterBrowser, browsesPerUser: opts.openrouterBrowsesPerUser ?? opts.testHooks?.openrouterBrowsesPerUser, configsPerUser: opts.testHooks?.aiConfigsPerUser, suggestionsPerUser: opts.testHooks?.aiSuggestionsPerUser })).route("/", agentRoutes(opts.db, { ai: opts.ai, runsPerUser: opts.testHooks?.aiAgentRunsPerUser, attach: { store: opts.attachments?.store, media } })), sendDeps: opts.meta, sendBlobs: opts.attachments?.store }));
   app.route("/v1", v1);
   return app;
 }
