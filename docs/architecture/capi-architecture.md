@@ -2,6 +2,10 @@
 
 Version 0.1 (Phase 0). Facts come from `docs/research/meta-capi-research.md` (official docs read 2026-11-13). Items marked unverified there must be confirmed before implementation. CAPI is a separate integration from Messenger, Instagram messaging, Lead Ads and the Marketing API; it shares only the workspace and the adapter conventions.
 
+## Implementation status (slice 1, 2026-11-16, branch `feat/capi-foundation`): MOCK ONLY, not live
+Built and tested on mock: `packages/capi` (event schema, normalisation and SHA-256 with vectors, deterministic `event_id`, consent gate, backoff, mock adapter, real adapter built but NOT wired), migration 0026 (`capi_datasets`, `capi_dataset_secrets`, `consent_records`, `capi_events`; forced RLS, guards), API (`/capi/datasets`, `/capi/events`, `/contacts/:id/ad-consent`), queue worker, Integrations page panel.
+Differences from this design, on purpose: the outbox is `capi_events` itself (no separate `capi_delivery_attempts`: attempts, last error code and `fbtrace_id` live on the row); no per-workspace mapping table (a dataset lists the event names it accepts, empty by default); one CRM hook only (lead moved to a Won stage becomes `Purchase`, needs a lead value); one event per send (no batching or bisection yet); no pg-boss (in-process loop, `FOR UPDATE SKIP LOCKED` claim with a lease); no LDU, field allowlist, `test_event_code` send button or dead-letter retry; contact deletion does not yet purge queue rows. Live status needs a recorded real Test Events delivery (section 10): none exists.
+
 ## 1. Flow
 
 ```

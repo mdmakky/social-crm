@@ -129,3 +129,12 @@ Updated: 2026-11-13 (Phase 0).
 - Token expiry options of system user tokens are not documented; an expired token shows as "Reconnect needed" after the daily token check. The connect and lookup routes are rate limited in process only (per API instance; a shared store is needed before running more than one instance).
 - Number release: a disconnected number is reserved to its old workspace and WABA. Safe release needs an ops script run as the DB owner (delete side row, secrets and account of a `disabled` account with no conversations); in-app release would need a DELETE grant and a migration. Not built.
 - `/numbers` marks a number held by another workspace "unavailable" (advisory; `/connect` stays authoritative, 409). The UI does not show the WABA id of a connected number.
+
+## Meta Conversions API, slice 1 (2026-11-16, branch feat/capi-foundation)
+- MOCK ONLY. Nothing is sent to Meta, no real Test Events delivery has been recorded, so no claim of live operation. "Accepted" in the UI means the mock accepted it.
+- One hook (lead Won becomes Purchase; needs a lead value; 2-decimal currencies assumed except common zero-decimal ones, 3-decimal currencies such as KWD would be 10x off). Lead, Schedule, form leads, appointments are not wired. No per-workspace mapping or field allowlist; no LDU/region rules; no sensitive-category denylist.
+- Consent can be recorded through the API (`/contacts/:id/ad-consent`) but there is no web or mobile control for it yet, so on the web every event is `skipped_no_consent` until consent is recorded by API. Consent granted after a skip does not replay the event.
+- One event per request (no batching or bisection), no manual retry or dead-letter view, no `needs_reauth` flip on an auth error (the event fails with `auth`), no test-event send button. The token is not validated against Meta on connect (mock).
+- Contact deletion does not purge or redact queue rows yet; hashed identifiers stay in `capi_events.payload` of sent rows (no retention job). Hashes are pseudonymous, not anonymous.
+- The worker is an in-process 15 s loop on the single API instance (same shortcut as the inbox worker); dataset create rate limit is in process.
+- Hash vectors: only the email vector is Meta's published one (recalled, re-check on the live page); the rest were computed from the normalisation rules read on 2026-11-13. Phone numbers without a country code are dropped (not guessed).
