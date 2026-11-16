@@ -3,7 +3,7 @@ import { addMemberByEmail, register, signUpAndCreate } from "./helpers";
 
 const GROUPS = ["Workspace", "CRM data", "AI and automation", "Channels", "Team and security"];
 const OLD_URLS: [string, string][] = [
-  ["settings", "General"], ["settings/contacts", "Contact settings"], ["settings/pipelines", "Pipeline settings"], ["settings/notifications", "Notification preferences"],
+  ["settings", "General"], ["settings/contacts", "Contact fields"], ["settings/pipelines", "Lead stages"], ["settings/ad-measurement", "Ad measurement"], ["settings/notifications", "Notification preferences"],
   ["settings/automations", "Automations"], ["settings/ai", "AI"], ["settings/ai-agents", "AI Agents"], ["settings/knowledge", "Knowledge"],
   ["integrations", "Integrations"], ["members", "Members"], ["audit-log", "Audit log"],
 ];
@@ -24,10 +24,13 @@ test.describe("settings information architecture", () => {
     await expect(nav.getByRole("link", { name: "Members" })).toHaveAttribute("aria-current", "page");
     await nav.getByRole("link", { name: "Audit log" }).click();
     await expect(page).toHaveURL(/\/audit-log$/);
-    // The sidebar Workspace group still reaches the same pages.
-    await expect(page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Integrations" })).toBeVisible();
-    await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Members" }).click();
-    await expect(page).toHaveURL(/\/members$/);
+    // One home per thing: the main sidebar has Settings only; Integrations, Members, Audit log and Ad measurement live in the Settings sub-navigation.
+    const main = page.getByRole("navigation", { name: "Main" });
+    await expect(main.getByRole("link", { name: "Settings" })).toBeVisible();
+    for (const gone of ["Integrations", "Members", "Audit log"]) await expect(main.getByRole("link", { name: gone })).toHaveCount(0);
+    await nav.getByRole("link", { name: "Ad measurement" }).click();
+    await expect(page).toHaveURL(/\/settings\/ad-measurement$/);
+    await expect(page.getByRole("heading", { level: 2, name: "Meta Conversions API" })).toBeVisible();
     // Keyboard: the nav links are focusable in order.
     await nav.getByRole("link", { name: "General" }).focus();
     await page.keyboard.press("Tab");
@@ -69,8 +72,8 @@ test.describe("settings information architecture", () => {
     const viewer = await user("Vic Viewer", "viewer");
     for (const [p, canIntegrations] of [[agent, true], [viewer, false]] as const) {
       const nav = p.getByRole("navigation", { name: "Settings sections" });
-      for (const l of ["General", "Notifications", "Contacts", "Pipelines", "Knowledge", "Members"]) await expect(nav.getByRole("link", { name: l })).toBeVisible();
-      for (const l of ["AI", "AI Agents", "Automations", "Audit log"]) await expect(nav.getByRole("link", { name: l, exact: true })).toHaveCount(0);
+      for (const l of ["General", "Notifications", "Contact fields", "Lead stages", "Knowledge", "Members"]) await expect(nav.getByRole("link", { name: l })).toBeVisible();
+      for (const l of ["AI", "AI Agents", "Automations", "Audit log", "Ad measurement"]) await expect(nav.getByRole("link", { name: l, exact: true })).toHaveCount(0);
       await expect(nav.getByRole("link", { name: "Integrations" })).toHaveCount(canIntegrations ? 1 : 0);
       await expect(nav.getByText("More sections are available to owners and admins.")).toBeVisible();
     }

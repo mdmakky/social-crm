@@ -63,8 +63,8 @@ test.describe.serial("mobile experience", () => {
     await expect(sheet.getByRole("link", { name: "Pipeline" })).toBeVisible();
     await expect(sheet.getByRole("button", { name: "Sign out" })).toBeVisible();
     await axe(page, "more-sheet@390");
-    await sheet.getByRole("link", { name: "Members" }).click();
-    await expect(page).toHaveURL(/\/members$/);
+    await sheet.getByRole("link", { name: "Settings" }).click();
+    await expect(page).toHaveURL(/\/settings$/);
     await expect(sheet).toBeHidden();
     await expect(page.getByRole("button", { name: "More" })).toHaveAttribute("aria-expanded", "false");
     await ctx.close();

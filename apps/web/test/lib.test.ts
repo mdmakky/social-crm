@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { describeAudit } from "@/lib/audit-text";
 import { initials } from "@/lib/initials";
-import { NAV, builtNav, plannedItems, titleFor, visibleNav } from "@/lib/nav";
+import { NAV, titleFor, visibleNav } from "@/lib/nav";
 import { formatDate } from "@/lib/format";
 
 describe("describeAudit", () => {
@@ -35,26 +35,14 @@ describe("navigation permissions", () => {
     expect(labels("owner")).toEqual(NAV.flatMap((g) => g.items.map((i) => i.label)));
     expect(labels("admin")).toEqual(labels("owner"));
   });
-  it("agents lose audit log and automation but keep integrations and AI", () => {
-    const l = labels("agent");
-    expect(l).not.toContain("Audit log");
-    expect(l).not.toContain("Automation");
-    expect(l).toContain("Integrations");
-    expect(l).toContain("AI assistant");
-  });
-  it("viewers see only the basics", () => {
-    expect(labels("viewer")).toEqual(["Home", "Inbox", "Contacts", "Tasks", "Leads", "Pipeline", "Reports", "Members", "Settings"]);
-  });
-  it("only built features are links; planned ones are listed separately and also permission-filtered", () => {
-    expect(builtNav("owner").flatMap((g) => g.items.map((i) => i.label))).toEqual(["Home", "Inbox", "Contacts", "Tasks", "Leads", "Pipeline", "Reports", "Integrations", "Members", "Audit log", "Settings"]);
-    expect(builtNav("viewer").flatMap((g) => g.items.map((i) => i.label))).toEqual(["Home", "Inbox", "Contacts", "Tasks", "Leads", "Pipeline", "Reports", "Members", "Settings"]);
-    expect(plannedItems("owner").map((i) => i.label)).toEqual(["Automation", "AI assistant"]);
-    expect(plannedItems("viewer").map((i) => i.label)).toEqual([]);
+  it("the sidebar is daily work plus one Settings entry, the same for every role that can use it", () => {
+    expect(labels("owner")).toEqual(["Home", "Inbox", "Contacts", "Tasks", "Leads", "Pipeline", "Reports", "Settings"]);
+    expect(labels("viewer")).toEqual(["Home", "Inbox", "Contacts", "Tasks", "Leads", "Pipeline", "Reports", "Settings"]);
+    for (const gone of ["Integrations", "Members", "Audit log", "Automation", "AI assistant"]) expect(labels("owner")).not.toContain(gone);
   });
   it("derives page titles from the path", () => {
-    expect(titleFor("/w/abc/members", "abc")).toBe("Members");
+    expect(titleFor("/w/abc/settings/ai", "abc")).toBe("Settings");
     expect(titleFor("/w/abc", "abc")).toBe("Home");
-    expect(titleFor("/w/abc/audit-log", "abc")).toBe("Audit log");
   });
 });
 

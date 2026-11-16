@@ -24,21 +24,19 @@ test.describe("permission-aware navigation and pages", () => {
     const t = await team(browser, page, workspaceId);
     const nav = (p: Page) => p.getByRole("navigation", { name: "Main" }).first();
 
-    // Roles with no planned (not yet built) feature have no "Coming soon" disclosure at all.
-    for (const p of [page, t.admin.page, t.agent.page, t.viewer.page]) { const soon = nav(p).getByText("Coming soon"); if (await soon.count()) await soon.click(); }
-    await expect(nav(page).getByRole("link", { name: "Audit log" })).toBeVisible();
-    await expect(nav(page).getByText("Automation")).toBeVisible();
-    await expect(nav(t.admin.page).getByRole("link", { name: "Audit log" })).toBeVisible();
-
-    for (const p of [t.agent.page, t.viewer.page]) {
-      await expect(nav(p).getByRole("link", { name: "Audit log" })).toHaveCount(0);
-      await expect(nav(p).getByText("Automation")).toHaveCount(0);
+    // The sidebar is daily work plus one Settings entry for every role; admin pages live only inside Settings (permission-aware there).
+    const side = (p: Page) => p.getByRole("navigation", { name: "Settings sections" });
+    for (const p of [page, t.admin.page, t.agent.page, t.viewer.page]) {
+      await expect(nav(p).getByRole("link", { name: "Settings" })).toBeVisible();
+      for (const gone of ["Audit log", "Integrations", "Members"]) await expect(nav(p).getByRole("link", { name: gone })).toHaveCount(0);
     }
-    await expect(nav(t.agent.page).getByRole("link", { name: "Integrations" })).toBeVisible(); // built: a link for roles with integration.view
-    await expect(nav(t.viewer.page).getByRole("link", { name: "Integrations" })).toHaveCount(0);
+    for (const p of [page, t.admin.page, t.agent.page, t.viewer.page]) await p.goto(`/w/${workspaceId}/settings`);
+    await expect(side(page).getByRole("link", { name: "Audit log" })).toBeVisible();
+    await expect(side(t.admin.page).getByRole("link", { name: "Audit log" })).toBeVisible();
+    for (const p of [t.agent.page, t.viewer.page]) await expect(side(p).getByRole("link", { name: "Audit log" })).toHaveCount(0);
+    await expect(side(t.agent.page).getByRole("link", { name: "Integrations" })).toBeVisible(); // a link for roles with integration.view
+    await expect(side(t.viewer.page).getByRole("link", { name: "Integrations" })).toHaveCount(0);
     await expect(nav(t.viewer.page).getByRole("link", { name: "Inbox" })).toBeVisible(); // conversation.view: every role
-    await expect(nav(t.viewer.page).getByText("AI assistant")).toHaveCount(0);
-    await expect(nav(t.agent.page).getByText("AI assistant")).toBeVisible();
   });
 
   test("restricted pages explain the restriction instead of failing", async ({ page, browser }) => {
@@ -97,7 +95,7 @@ test.describe("members", () => {
     await page.getByRole("button", { name: "Actions for Vic Viewer" }).click();
     await page.getByRole("menuitem", { name: "Remove from workspace" }).click();
     const dialog = page.getByRole("dialog", { name: "Remove Vic Viewer?" });
-    await expect(dialog).toContainText("They will lose access");
+    await expect(dialog).toContainText("They lose access");
     await dialog.getByRole("button", { name: "Cancel" }).click();
     await expect(page.getByRole("row", { name: /Vic Viewer/ })).toBeVisible();
     await page.getByRole("button", { name: "Actions for Vic Viewer" }).click();
@@ -110,8 +108,8 @@ test.describe("members", () => {
   });
 
   test("the only owner cannot be demoted or removed from the UI", async ({ page }) => {
-    await signUpAndCreate(page, "Solo Owner", "Solo Co");
-    await page.getByRole("link", { name: "Members" }).first().click();
+    const { workspaceId } = await signUpAndCreate(page, "Solo Owner", "Solo Co");
+    await page.goto(`/w/${workspaceId}/members`);
     await expect(page.getByRole("row", { name: /Solo Owner/ })).toContainText("Owner");
     await expect(page.getByRole("button", { name: /Actions for Solo Owner/ })).toHaveCount(0);
   });

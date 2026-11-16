@@ -21,7 +21,7 @@ test("pipeline settings: add, rename, reorder with buttons, archive a stage with
   test.setTimeout(120_000);
   const { workspaceId } = await signUpAndCreate(page, "Olive Owner", "Pipelines Co");
   await page.goto(`/w/${workspaceId}/settings/pipelines`);
-  await expect(page.getByRole("heading", { level: 1, name: "Pipeline settings" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Lead stages" })).toBeVisible();
   const stages = page.getByRole("list", { name: "Sales stages" });
   await expect(stages.getByRole("listitem")).toHaveCount(7);
 
@@ -45,7 +45,7 @@ test("pipeline settings: add, rename, reorder with buttons, archive a stage with
 
   await page.getByRole("button", { name: "Archive Demo call" }).click();
   const dlg = page.getByRole("dialog");
-  await expect(dlg).toContainText("Leads in this stage move to the stage you choose");
+  await expect(dlg).toContainText("Its leads move to the stage you choose");
   await dlg.getByRole("button", { name: "Archive stage" }).click();
   await expect(stages).toContainText("Archived");
   await expect(page.getByRole("button", { name: "Move Demo call up" })).toHaveCount(0);

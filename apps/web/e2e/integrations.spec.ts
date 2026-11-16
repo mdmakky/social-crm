@@ -28,7 +28,7 @@ test.describe.serial("Integrations option B (mock Meta)", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto(`/w/${wsInt}/integrations`);
     await expect(page.getByRole("heading", { name: "Integrations", level: 1 })).toBeVisible();
-    await expect(page.getByText("Mock mode: no real Meta connection")).toBeVisible();
+    await expect(page.getByText("MOCK", { exact: true })).toBeVisible();
     const rail = page.getByRole("navigation", { name: "Channels" });
     for (const c of ["Messenger", "Instagram", "WhatsApp", "Telegram"]) await expect(rail.getByRole("button", { name: new RegExp(c) })).toBeVisible();
     await expect(rail.getByRole("button", { name: /Messenger/ })).toHaveAttribute("aria-current", "page");
@@ -40,10 +40,10 @@ test.describe.serial("Integrations option B (mock Meta)", () => {
     await expect(page.getByRole("button", { name: "Find numbers" })).toBeEnabled();
     await rail.getByRole("button", { name: /Telegram/ }).click();
     await expect(page.getByRole("button", { name: "Connect Telegram" })).toBeDisabled();
-    await expect(page.getByText("Unavailable: this channel is not built yet.")).toBeVisible();
+    await expect(page.getByText("Not available yet.")).toBeVisible();
     await rail.getByRole("button", { name: /Instagram/ }).click();
     await expect(page.getByText("No Instagram account connected")).toBeVisible();
-    await expect(page.getByText(/must be enabled in the Meta app dashboard \(UNVERIFIED/)).toBeVisible();
+    await expect(page.getByText("Not tested live", { exact: true })).toBeVisible();
     await axe(page, "integrations-empty@1440");
   });
 
@@ -51,7 +51,7 @@ test.describe.serial("Integrations option B (mock Meta)", () => {
     const page = owner.page;
     await page.goto(`/w/${wsInt}/integrations?channel=messenger`);
     await page.getByRole("button", { name: "Connect with Meta" }).first().click();
-    await expect(page.getByText("Choose a Page to connect")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText("Choose a Page", { exact: true })).toBeVisible({ timeout: 15_000 });
     await expect(page.getByText("Mock Page")).toBeVisible();
     await page.getByLabel("Also connect the linked Instagram account").check();
     await page.getByRole("button", { name: "Connect Page" }).click();
@@ -65,7 +65,9 @@ test.describe.serial("Integrations option B (mock Meta)", () => {
     await expect(page.getByRole("heading", { name: "Connected Pages" })).toBeVisible();
     await expect(page.getByText("Mock Page").first()).toBeVisible();
     await expect(page.getByText("Connected", { exact: true }).first()).toBeVisible();
-    // webhook subscription: requested fields, explicit re-check result
+    // webhook subscription: requested fields (behind the closed "Technical details"), explicit re-check result
+    await expect(page.getByText("message_echoes", { exact: true })).toBeHidden();
+    await page.getByText("Technical details").click();
     for (const f of ["messages", "message_echoes", "messaging_postbacks", "message_reads", "message_deliveries"]) await expect(page.getByText(f, { exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Re-check subscription" }).click();
     await expect(page.getByText("Webhook subscribed").last()).toBeVisible();
@@ -146,13 +148,13 @@ test.describe.serial("Integrations option B (mock Meta)", () => {
     await expect(page.getByText("Webhook subscribed").last()).toBeVisible();
     await page.getByRole("button", { name: "Check token" }).first().click();
     await expect(page.getByText("Token is valid")).toBeVisible();
-    await expect(page.getByText(/dashboard step is UNVERIFIED|UNVERIFIED/).first()).toBeVisible();
+    await expect(page.getByText("Not tested live", { exact: true })).toBeVisible();
     await axe(page, "whatsapp-connected@1440");
     // a second number of the same account shows the first as already connected
     await waba.fill("200000000000001");
     await token.fill(WA_TOKEN);
     await page.getByRole("button", { name: "Find numbers" }).click();
-    await expect(page.getByText(/already connected \(connecting again replaces its token\)/)).toBeVisible(); // this workspace's own number (another number may also read "already connected to another workspace")
+    await expect(page.getByText(/already connected here/)).toBeVisible(); // this workspace's own number (another number may also read "connected to another workspace")
     await page.getByRole("button", { name: "Start over" }).click();
     // disconnect with confirm
     await page.getByRole("button", { name: "Disconnect" }).first().click();
@@ -173,7 +175,7 @@ test.describe.serial("Integrations option B (mock Meta)", () => {
     await page.getByLabel("WhatsApp Business Account ID").fill("200000000000001");
     await page.getByLabel("System user token").fill(WA_TOKEN);
     await page.getByRole("button", { name: "Find numbers" }).click();
-    await expect(page.getByText(/ID 300000000000001 · already connected to another workspace: it cannot be connected here/)).toBeVisible(); // the line of this very number (other specs may hold other mock numbers too)
+    await expect(page.getByText(/ID 300000000000001 · connected to another workspace/)).toBeVisible(); // the line of this very number (other specs may hold other mock numbers too)
     const radios = page.getByRole("radio");
     await expect(radios.first()).toBeDisabled();
     await expect(radios.nth(1)).toBeEnabled();

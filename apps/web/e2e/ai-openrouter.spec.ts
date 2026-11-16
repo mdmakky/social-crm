@@ -24,7 +24,7 @@ test("browse, filter, enable two models, choose the default, save", async () => 
   await owner.getByLabel("Provider", { exact: true }).selectOption("openrouter");
   const key = owner.getByLabel("API key");
   await expect(key).toHaveAttribute("type", "password");
-  await expect(owner.getByText(/UNVERIFIED \(not tested against the live service\)/)).toBeVisible();
+  await expect(owner.getByText("Not tested live", { exact: true }).first()).toBeVisible();
   await expect(owner.getByText("No models enabled")).toBeVisible();
 
   // No model yet: saving is refused with a clear message.

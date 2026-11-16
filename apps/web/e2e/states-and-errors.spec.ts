@@ -89,8 +89,8 @@ test.describe("failure and error states in the browser", () => {
     await expect(page.getByRole("dialog", { name: "More" })).toBeVisible();
     await page.setViewportSize({ width: 1024, height: 768 });
     await expect(page.getByRole("dialog", { name: "More" })).toBeHidden();
-    await page.getByRole("link", { name: "Members" }).filter({ visible: true }).first().click(); // page is interactive again, not inert
-    await expect(page).toHaveURL(/\/members$/);
+    await page.getByRole("link", { name: "Settings", exact: true }).filter({ visible: true }).first().click(); // page is interactive again, not inert
+    await expect(page).toHaveURL(/\/settings$/);
   });
 });
 

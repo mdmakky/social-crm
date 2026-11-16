@@ -21,7 +21,7 @@ test.beforeAll(async ({ browser }) => {
 test("configure the mock provider and a budget", async () => {
   await owner.goto(SETTINGS());
   await expect(owner.getByRole("heading", { name: "Provider", exact: true })).toBeVisible();
-  await expect(owner.getByText(/Mock provider: drafts are canned text/)).toBeVisible();
+  await expect(owner.getByText("MOCK", { exact: true }).first()).toBeVisible();
   await expect(owner.getByLabel("API key")).toHaveCount(0); // the mock takes no key
   await owner.getByRole("button", { name: "Connect provider" }).click();
   await expect(owner.getByText("AI provider saved")).toBeVisible();
