@@ -19,7 +19,7 @@ test("add text, find it with its source, delete it; viewer is read-only; another
   await dlg.getByRole("button", { name: "Add source" }).click();
   await expect(dlg.getByRole("alert")).toHaveText("Paste some text.");
   await dlg.getByLabel("Source type").selectOption("file");
-  await dlg.getByLabel("File").setInputFiles({ name: "scan.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4") });
+  await dlg.getByLabel("File").setInputFiles({ name: "scan.docx", mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", buffer: Buffer.from("PK") });
   await expect(dlg.getByRole("alert")).toContainText("not supported yet");
   await dlg.getByLabel("Source type").selectOption("url");
   await dlg.getByLabel("Web address").fill("http://127.0.0.1:8080/admin");

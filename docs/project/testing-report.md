@@ -161,3 +161,13 @@ Offline: scripted fake provider or the mock; no real AI service was contacted.
 - Playwright `e2e/ai-agents.spec.ts` 5/5 passed: `E2E_WEB_PORT=3917 E2E_API_PORT=9291 CRM_DB_NAME=ag_f E2E_META_MOCK=1 pnpm exec playwright test e2e/ai-agents.spec.ts` on a fresh database (create with grants, dry run then live then approve, rejected ungranted tool, 375/768/1440 plus axe, viewer blocked).
 - `turbo lint typecheck` green (24/24 tasks); `next build` passes.
 Not covered: any real provider (UNVERIFIED), mobile screens, evaluation fixtures, the full API suite (only affected files run; unrelated flaky tests ignored).
+
+### AI Studio multimodal foundation, slice 1 (2026-11-16, private database mm_f)
+Offline: the mock provider, scripted fake adapters and fake fetch; no real AI service was contacted.
+- `@crm/ai` 58/58 (new `media.test.ts`: capability gating, `supports`/`pickModel`, magic bytes incl. spoofed mime, size caps, per-minute cost, unsupported_capability, deterministic mock, Anthropic and OpenAI-compatible request shapes for vision, PDF and multipart transcription, error mapping and timeout with a fake fetch).
+- `@crm/knowledge` 65/65, `@crm/contracts` 100/100.
+- API `ai-media.test.ts` 22 tests, run with `ai`, `ai-agents`, `knowledge`, `contract` (drift guard) and `automation`: 100/100 in 6 files. Covers permissions (viewer 403, agent allowed, non-member 404), tenant isolation, spoofed mime and oversize refused before any provider call, budget hard stop with no provider call, provider fall-through for transcription, per-minute cost, unsupported_capability, error mapping, 429 with Retry-After, runs without media/output bodies, no key leakage, knowledge ingestion of PDF/image/audio (chunks, search), failed sources with codes. One existing knowledge test was adjusted (oversize body is now 29 MB because the route cap is 28 MB).
+- `@crm/db` suite 14 files, 189/189 on mm_f incl. `tenancy.test.ts` (no migration added). The first run had one file fail to load (the known intermittent fixture collision); the rerun passed.
+- Playwright `e2e/ai-multimodal.spec.ts` 1/1 passed (`E2E_WEB_PORT=4017 E2E_API_PORT=9391 CRM_DB_NAME=mm_f E2E_META_MOCK=1 pnpm exec playwright test e2e/ai-multimodal.spec.ts`): capability badges, playground describe, ask, transcribe and spoofed file, 375/768/1440 no overflow, axe, knowledge PDF and audio sources ready, spoofed PDF failed source, viewer blocked. `knowledge-base.spec.ts` and `ai-settings.spec.ts` 6/6 (the unsupported-type probe now uses `.docx`).
+- `turbo lint typecheck` green; `next build` passes.
+Not covered: any real provider (UNVERIFIED), mobile screens, large-file behaviour near the caps over a real network, the full API suite (only affected files run).

@@ -1,7 +1,7 @@
 "use client";
 import * as React from "react";
 import { BookOpen, RefreshCw, Search, Trash2 } from "lucide-react";
-import { endpoints, KNOWLEDGE_LIMITS, KNOWLEDGE_SEARCH_MAX_QUERY, type KnowledgeHit, type KnowledgeSourceDto, type KnowledgeSourceList } from "@crm/contracts";
+import { endpoints, KNOWLEDGE_LIMITS, MEDIA_LIMITS, KNOWLEDGE_SEARCH_MAX_QUERY, type KnowledgeHit, type KnowledgeSourceDto, type KnowledgeSourceList } from "@crm/contracts";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
@@ -16,13 +16,24 @@ import { useToast } from "@/components/ui/toast";
 import { browserApi, errorMessage } from "@/lib/client-api";
 import { formatDateTime } from "@/lib/format";
 
-const FILE_TYPES = [".txt", ".md", ".csv", ".html", ".htm"];
+const TEXT_TYPES = [".txt", ".md", ".csv", ".html", ".htm"];
+// PDF, images (text is read by OCR) and audio (transcribed) go through the AI provider's media capabilities; they need a provider that supports them (Settings, AI, Capabilities).
+const PDF_TYPES = [".pdf"], IMAGE_TYPES = [".png", ".jpg", ".jpeg", ".webp", ".gif"], AUDIO_TYPES = [".mp3", ".wav", ".m4a", ".ogg", ".webm"];
+const FILE_TYPES = [...TEXT_TYPES, ...PDF_TYPES, ...IMAGE_TYPES, ...AUDIO_TYPES];
+const endsWithAny = (name: string, list: string[]) => list.some((x) => name.toLowerCase().endsWith(x));
+/** Size limit for a file by its extension: 2 MB for text formats, 10 MB PDF, 5 MB image, 20 MB audio. */
+const limitFor = (name: string) => (endsWithAny(name, PDF_TYPES) ? MEDIA_LIMITS.document : endsWithAny(name, IMAGE_TYPES) ? MEDIA_LIMITS.image : endsWithAny(name, AUDIO_TYPES) ? MEDIA_LIMITS.audio : KNOWLEDGE_LIMITS.maxFileBytes);
+const fmtMb = (n: number) => `${n / 1048576} MB`;
 const TYPE_LABEL = { text: "Pasted text", file: "File", url: "Web page" } as const;
 const STATUS = { pending: { tone: "accent", label: "Indexing" }, ready: { tone: "success", label: "Ready" }, failed: { tone: "danger", label: "Failed" } } as const;
 const ERROR_TEXT: Record<string, string> = {
   fetch_failed: "The address could not be reached.", fetch_timeout: "The website took too long to answer.", fetch_status: "The website returned an error.", url_blocked: "The address is not allowed.",
   unsupported_content_type: "The page is not a web page or text file.", too_large: "The content is too large.", empty_content: "No text was found.", too_many_redirects: "Too many redirects.",
+  capability_not_configured: "No AI provider with this capability is set up. An owner or admin can add one in Settings, AI.", budget_exceeded: "The monthly AI budget was used up.",
+  unsupported_media: "The file is not a valid PDF, image or audio file of its type.", ai_unavailable: "The AI provider could not process the file.", rate_limited: "Too many files in a short time.",
 };
+/** The server's message for our own errors (it is written for people), the generic text otherwise. */
+const apiMessage = (e: Parameters<typeof errorMessage>[0]) => (e.kind === "http" && e.message ? e.message : errorMessage(e));
 const fmtNumber = (n: number) => n.toLocaleString("en-US");
 
 export function KnowledgeSettings({ workspaceId, timeZone, canManage }: { workspaceId: string; timeZone: string; canManage: boolean }) {
@@ -82,7 +93,7 @@ export function KnowledgeSettings({ workspaceId, timeZone, canManage }: { worksp
                   <TD className="whitespace-nowrap text-fg-muted">{TYPE_LABEL[s.type]}</TD>
                   <TD>
                     <Badge tone={STATUS[s.status].tone}>{STATUS[s.status].label}</Badge>
-                    {s.status === "failed" && <p role="note" className="mt-1 max-w-48 text-xs text-danger-fg">{ERROR_TEXT[s.error ?? ""] ?? "The last refresh failed."} Earlier passages still work.</p>}
+                    {s.status === "failed" && <p role="note" className="mt-1 max-w-48 text-xs text-danger-fg">{ERROR_TEXT[s.error ?? ""] ?? "The last refresh failed."}{s.chunkCount > 0 ? " Earlier passages still work." : ""}</p>}
                   </TD>
                   <TD className="text-right tabular-nums">{fmtNumber(s.chunkCount)}</TD>
                   <TD className="whitespace-nowrap text-fg-muted">{s.createdByName ?? "Unknown"}<span className="block text-xs text-fg-subtle">{formatDateTime(s.createdAt, timeZone)}</span></TD>
@@ -102,7 +113,7 @@ export function KnowledgeSettings({ workspaceId, timeZone, canManage }: { worksp
       <TestRetrieval workspaceId={workspaceId} hasSources={data.items.length > 0} />
 
       <Dialog open={adding} onOpenChange={setAdding}>
-        {adding && <AddDialog workspaceId={workspaceId} onDone={async (title) => { setAdding(false); toast(`Added "${title}"`); await load(true); }} onCancel={() => setAdding(false)} />}
+        {adding && <AddDialog workspaceId={workspaceId} onDone={async (title) => { setAdding(false); toast(`Added "${title}"`); await load(true); }} onCancel={() => setAdding(false)} onFailed={() => void load(true)} />}
       </Dialog>
       <Dialog open={deleting !== null} onOpenChange={(o) => !o && setDeleting(null)}>
         {deleting && (
@@ -173,7 +184,7 @@ function toBase64(buf: ArrayBuffer): string {
   return btoa(s);
 }
 
-function AddDialog({ workspaceId, onDone, onCancel }: { workspaceId: string; onDone: (title: string) => Promise<void>; onCancel: () => void }) {
+function AddDialog({ workspaceId, onDone, onCancel, onFailed }: { workspaceId: string; onDone: (title: string) => Promise<void>; onCancel: () => void; onFailed: () => void }) {
   const [kind, setKind] = React.useState<"text" | "file" | "url">("text");
   const [title, setTitle] = React.useState("");
   const [text, setText] = React.useState("");
@@ -185,8 +196,8 @@ function AddDialog({ workspaceId, onDone, onCancel }: { workspaceId: string; onD
   function pick(f: File | null) {
     setFile(f); setError(null);
     if (!f) return;
-    if (!FILE_TYPES.some((x) => f.name.toLowerCase().endsWith(x))) setError(`Files of this type are not supported yet. Use ${FILE_TYPES.join(", ")}.`);
-    else if (f.size > KNOWLEDGE_LIMITS.maxFileBytes) setError("The file is larger than 2 MB.");
+    if (!endsWithAny(f.name, FILE_TYPES)) setError(`Files of this type are not supported yet. Use ${FILE_TYPES.join(", ")}.`);
+    else if (f.size > limitFor(f.name)) setError(`The file is larger than ${fmtMb(limitFor(f.name))}.`);
   }
 
   async function save(e: React.FormEvent) {
@@ -196,14 +207,14 @@ function AddDialog({ workspaceId, onDone, onCancel }: { workspaceId: string; onD
     if (kind === "text" && !title.trim()) return setError("Enter a title.");
     if (kind === "url" && !url.trim()) return setError("Enter a web address.");
     if (kind === "file" && !file) return setError("Choose a file.");
-    if (kind === "file" && file && (!FILE_TYPES.some((x) => file.name.toLowerCase().endsWith(x)) || file.size > KNOWLEDGE_LIMITS.maxFileBytes)) return pick(file);
+    if (kind === "file" && file && (!endsWithAny(file.name, FILE_TYPES) || file.size > limitFor(file.name))) return pick(file);
     setSaving(true);
     const t = title.trim() || undefined;
     const res = kind === "text" ? await browserApi.call(endpoints.createKnowledgeText, { params: { workspaceId }, body: { title: title.trim(), text } })
       : kind === "url" ? await browserApi.call(endpoints.createKnowledgeUrl, { params: { workspaceId }, body: { url: url.trim(), title: t } })
       : await browserApi.call(endpoints.createKnowledgeFile, { params: { workspaceId }, body: { filename: file!.name, title: t, contentBase64: toBase64(await file!.arrayBuffer()) } });
     setSaving(false);
-    if (!res.ok) return setError(errorMessage(res.error));
+    if (!res.ok) { if (kind === "file") onFailed(); return setError(apiMessage(res.error)); } // a failed media upload leaves a failed source row: show it
     await onDone(res.data.title);
   }
 
@@ -222,7 +233,7 @@ function AddDialog({ workspaceId, onDone, onCancel }: { workspaceId: string; onD
         </Field>
         {kind === "text" && <Field label="Text" hint={`Up to ${fmtNumber(KNOWLEDGE_LIMITS.maxCharsPerSource)} characters.`}>{(p) => <Textarea {...p} rows={8} value={text} onChange={(e) => setText(e.target.value)} placeholder="Paste the document text here" />}</Field>}
         {kind === "file" && (
-          <Field label="File" hint="Text (.txt), Markdown (.md), CSV (.csv) or HTML (.html), up to 2 MB. PDF, Word, images and audio are not supported yet.">
+          <Field label="File" hint="Text (.txt), Markdown (.md), CSV (.csv) or HTML (.html), up to 2 MB. With an AI provider that supports it: PDF (10 MB), images such as .png or .jpg (5 MB, text is read from them), and audio such as .mp3 or .wav (20 MB, transcribed). Word files are not supported yet.">
             {(p) => <Input {...p} type="file" accept={FILE_TYPES.join(",")} onChange={(e) => pick(e.target.files?.[0] ?? null)} />}
           </Field>
         )}

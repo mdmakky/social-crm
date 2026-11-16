@@ -11,6 +11,7 @@ const img = (): MediaInput => ({ kind: "image", mime: "image/png", bytes: png() 
 const aud = (): MediaInput => ({ kind: "audio", mime: "audio/wav", bytes: wav() });
 const doc = (): MediaInput => ({ kind: "document", mime: "application/pdf", bytes: pdf() });
 const codeOf = async (p: Promise<unknown>) => p.then(() => "ok", (e: unknown) => (e instanceof AiError ? e.code : `other:${String(e)}`));
+type Body = { model?: string; max_tokens?: number; messages: { content: Record<string, unknown>[] }[] };
 const json = (status: number, body: unknown) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 
 describe("capabilities in the catalog", () => {
@@ -117,21 +118,21 @@ describe("Anthropic adapter against a fake fetch (UNVERIFIED against the live se
   const reply = { content: [{ type: "text", text: "A red cup." }], usage: { input_tokens: 1500, output_tokens: 7 }, stop_reason: "end_turn" };
   const run = (media: MediaInput, via: "vision" | "document", fetchImpl: typeof fetch) => invokeMedia(createAnthropic({ fetch: fetchImpl }), via, { apiKey: "sk-ant-KEY", model: "claude-sonnet-4-5", media, prompt: "Describe it", maxOutputTokens: 300 });
   it("vision sends a base64 image block then the instruction, and reads usage", async () => {
-    let seen: { url: string; headers: Record<string, string>; body: any } | undefined;
+    let seen: { url: string; headers: Record<string, string>; body: Body } | undefined;
     const r = await run(img(), "vision", async (url, init) => { seen = { url: String(url), headers: init?.headers as Record<string, string>, body: JSON.parse(String(init?.body)) }; return json(200, reply); });
     expect(r).toMatchObject({ text: "A red cup.", usage: { inputTokens: 1500, outputTokens: 7 } });
     expect(seen!.url).toBe("https://api.anthropic.com/v1/messages");
     expect(seen!.headers["x-api-key"]).toBe("sk-ant-KEY");
     expect(seen!.body).toMatchObject({ model: "claude-sonnet-4-5", max_tokens: 300 });
-    expect(seen!.body.messages[0].content).toEqual([{ type: "image", source: { type: "base64", media_type: "image/png", data: Buffer.from(png()).toString("base64") } }, { type: "text", text: "Describe it" }]);
+    expect(seen!.body.messages[0]!.content).toEqual([{ type: "image", source: { type: "base64", media_type: "image/png", data: Buffer.from(png()).toString("base64") } }, { type: "text", text: "Describe it" }]);
   });
   it("document sends a PDF document block; an image also works; audio is unsupported", async () => {
-    const bodies: any[] = [];
+    const bodies: Body[] = [];
     const f: typeof fetch = async (_u, init) => { bodies.push(JSON.parse(String(init?.body))); return json(200, reply); };
     await run(doc(), "document", f);
     await run(img(), "document", f);
-    expect(bodies[0].messages[0].content[0]).toMatchObject({ type: "document", source: { type: "base64", media_type: "application/pdf" } });
-    expect(bodies[1].messages[0].content[0].type).toBe("image");
+    expect(bodies[0]!.messages[0]!.content[0]).toMatchObject({ type: "document", source: { type: "base64", media_type: "application/pdf" } });
+    expect(bodies[1]!.messages[0]!.content[0]!.type).toBe("image");
     expect(await codeOf(run(aud(), "document", f))).toBe("unsupported_capability");
     expect(await codeOf(run(doc(), "vision", f))).toBe("unsupported_capability"); // vision takes images only
     expect(bodies).toHaveLength(2); // the unsupported calls never reached the network
@@ -148,13 +149,13 @@ describe("Anthropic adapter against a fake fetch (UNVERIFIED against the live se
 describe("OpenAI-compatible adapter against a fake fetch (UNVERIFIED against a live service)", () => {
   const oa = (f: typeof fetch) => createOpenAiCompatible({ fetch: f, baseUrl: "https://llm.example.com/v1/" });
   it("vision sends an image_url data URI", async () => {
-    let seen: { url: string; headers: Record<string, string>; body: any } | undefined;
+    let seen: { url: string; headers: Record<string, string>; body: Body } | undefined;
     const r = await invokeMedia(oa(async (url, init) => { seen = { url: String(url), headers: init?.headers as Record<string, string>, body: JSON.parse(String(init?.body)) }; return json(200, { choices: [{ message: { content: "A cup" }, finish_reason: "stop" }], usage: { prompt_tokens: 800, completion_tokens: 3 } }); }), "vision",
       { apiKey: "sk-KEY", model: "gpt-4o", media: img(), prompt: "What is this?", maxOutputTokens: 100 });
     expect(r).toMatchObject({ text: "A cup", usage: { inputTokens: 800, outputTokens: 3 } });
     expect(seen!.url).toBe("https://llm.example.com/v1/chat/completions");
     expect(seen!.headers.authorization).toBe("Bearer sk-KEY");
-    expect(seen!.body.messages[0].content).toEqual([{ type: "text", text: "What is this?" }, { type: "image_url", image_url: { url: `data:image/png;base64,${Buffer.from(png()).toString("base64")}` } }]);
+    expect(seen!.body.messages[0]!.content).toEqual([{ type: "text", text: "What is this?" }, { type: "image_url", image_url: { url: `data:image/png;base64,${Buffer.from(png()).toString("base64")}` } }]);
   });
   it("transcription posts multipart to /audio/transcriptions and reads the duration", async () => {
     let url = "", headers: Record<string, string> = {}, form: FormData | undefined;
