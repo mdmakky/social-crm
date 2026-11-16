@@ -330,7 +330,7 @@ export function Thread({ conversationId }: { conversationId: string }) {
       {/* Closed by default. On wide screens the panel slides open in place; below that it is a sheet. */}
       <aside id="contact-panel" aria-label="Contact" aria-hidden={!(lg && ctxOpen)} inert={!(lg && ctxOpen)}
         className={cn("hidden shrink-0 overflow-hidden border-l bg-surface transition-[width,border-color] duration-[var(--dur-slow)] ease-[var(--ease-out)] lg:block", lg && ctxOpen ? "w-[320px] border-line" : "w-0 border-transparent")}>
-        <div className={cn("h-full w-[320px] overflow-y-auto transition-[opacity,transform] duration-[var(--dur-slow)] ease-[var(--ease-out)]", lg && ctxOpen ? "translate-x-0 opacity-100" : "translate-x-3 opacity-0")}>
+        <div className={cn("h-full w-[320px] overflow-y-auto transition-transform duration-[var(--dur-slow)] ease-[var(--ease-out)]", lg && ctxOpen ? "translate-x-0" : "translate-x-3")}>
           <ContactPanel d={detail} workspaceId={workspaceId} now={now} lead={lead} canEditLead={canEditLead} onClose={toggleCtx} />
         </div>
       </aside>
