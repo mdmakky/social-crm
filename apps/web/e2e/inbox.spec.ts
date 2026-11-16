@@ -138,6 +138,8 @@ test.describe.serial("Inbox (mock fixtures)", () => {
     await page.getByRole("link", { name: /Maria Lopez/ }).click();
     const back = page.getByRole("link", { name: "Back to inbox" });
     await expect(back).toBeVisible();
+    // Measure after the entrance animation has settled: mid-flight, float32 layout reads 43.999992 for a 44px box. The 44px assertion below is unchanged.
+    await page.evaluate(() => Promise.all(document.getAnimations().map((x) => x.finished.catch(() => undefined))));
     const box = (await back.boundingBox())!;
     expect(Math.min(box.width, box.height)).toBeGreaterThanOrEqual(44);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
