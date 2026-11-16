@@ -11,6 +11,7 @@ import { Panel, PanelHeader } from "@/components/ui/panel";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, EmptyState, ErrorState } from "@/components/ui/states";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
+import { tabClass } from "@/components/ui/tabs";
 import { ToastProvider, useToast } from "@/components/ui/toast";
 import { browserApi, errorMessage } from "@/lib/client-api";
 import { formatMicro, parseMicro } from "@/lib/ai-money";
@@ -23,6 +24,8 @@ type Data = { providers: AiProviderDto[]; prompts: AiPromptDto[]; budget: AiBudg
  * Settings, AI (Phase 6 slice 1). The provider key goes into a password field, is sent once over the same-origin proxy and cleared; the server never returns it (only the last four characters).
  * Real providers are UNVERIFIED (no recorded request to a live service); the mock provider is offline and says so wherever it is used.
  */
+const SECTIONS = [{ id: "ai-provider", label: "Provider" }, { id: "ai-prompts", label: "Prompts" }, { id: "ai-budget", label: "Budget and usage" }, { id: "ai-capabilities", label: "Capabilities" }, { id: "ai-playground", label: "Media playground" }];
+
 export function AiSettings({ workspaceId }: { workspaceId: string }) {
   return <ToastProvider><Inner workspaceId={workspaceId} /></ToastProvider>;
 }
@@ -46,13 +49,16 @@ function Inner({ workspaceId }: { workspaceId: string }) {
   if (loadError) return <ErrorState title="Could not load AI settings" description={loadError} onRetry={() => { setLoadError(null); void load(); }} />;
   if (!data) return <div className="flex flex-col gap-4" role="status" aria-label="Loading AI settings"><Skeleton className="h-48" /><Skeleton className="h-40" /><Skeleton className="h-32" /></div>;
   return (
-    <div className="flex max-w-3xl flex-col gap-6">
-      <ProviderPanel params={params} providers={data.providers} onSaved={load} />
-      <CapabilitiesPanel workspaceId={workspaceId} providers={data.providers} />
-      <MediaPlayground workspaceId={workspaceId} />
-      <PromptPanel params={params} prompts={data.prompts} onSaved={load} />
-      <BudgetPanel params={params} budget={data.budget} usage={data.usage} onSaved={load} />
-      <UsagePanel usage={data.usage} />
+    <div className="flex flex-col gap-[var(--page-gap)]">
+      {/* In-page index: the AI page is long, so each part has an anchor and the index stays in view while scrolling. */}
+      <nav aria-label="On this page" data-scroll="allowed" className="sticky top-0 z-10 -mx-1 flex gap-1.5 overflow-x-auto bg-canvas/95 px-1 py-2 backdrop-blur">
+        {SECTIONS.map((s) => <a key={s.id} href={`#${s.id}`} className={tabClass(false)}>{s.label}</a>)}
+      </nav>
+      <section id="ai-provider" aria-label="Provider" className="scroll-mt-14"><ProviderPanel params={params} providers={data.providers} onSaved={load} /></section>
+      <section id="ai-prompts" aria-label="Prompts" className="scroll-mt-14"><PromptPanel params={params} prompts={data.prompts} onSaved={load} /></section>
+      <section id="ai-budget" aria-label="Budget" className="scroll-mt-14 flex flex-col gap-[var(--page-gap)]"><BudgetPanel params={params} budget={data.budget} usage={data.usage} onSaved={load} /><UsagePanel usage={data.usage} /></section>
+      <section id="ai-capabilities" aria-label="Capabilities" className="scroll-mt-14"><CapabilitiesPanel workspaceId={workspaceId} providers={data.providers} /></section>
+      <section id="ai-playground" aria-label="Media playground" className="scroll-mt-14"><MediaPlayground workspaceId={workspaceId} /></section>
     </div>
   );
 }

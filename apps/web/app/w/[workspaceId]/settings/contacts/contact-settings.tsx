@@ -154,10 +154,10 @@ export function ContactSettings({ workspaceId, canManage, stages: s0, tags: t0, 
           </ul>
         )}
         {canManage && (
-          <form onSubmit={addField} className="grid gap-3 border-t border-line p-4 sm:grid-cols-2">
+          <form onSubmit={addField} className="grid items-start gap-3 border-t border-line p-4 sm:grid-cols-2">
             <Field label="Label">{(x) => <Input {...x} value={nf.label} onChange={(e) => setNf({ ...nf, label: e.target.value, key: keyTouched ? nf.key : slug(e.target.value) })} maxLength={60} />}</Field>
-            <Field label="Type">{(x) => <Select {...x} value={nf.type} onChange={(e) => setNf({ ...nf, type: e.target.value })}>{CUSTOM_FIELD_TYPES.map((t) => <option key={t} value={t}>{TYPE_LABEL[t]}</option>)}</Select>}</Field>
             <Field label="Key" hint="Used in imports and exports. Lowercase letters, numbers and underscores.">{(x) => <Input {...x} value={nf.key} onChange={(e) => { setKeyTouched(true); setNf({ ...nf, key: e.target.value }); }} maxLength={40} />}</Field>
+            <Field label="Type">{(x) => <Select {...x} value={nf.type} onChange={(e) => setNf({ ...nf, type: e.target.value })}>{CUSTOM_FIELD_TYPES.map((t) => <option key={t} value={t}>{TYPE_LABEL[t]}</option>)}</Select>}</Field>
             {(nf.type === "select" || nf.type === "multiselect") && <Field label="Options" hint="One per line or comma-separated.">{(x) => <Input {...x} value={nf.options} onChange={(e) => setNf({ ...nf, options: e.target.value })} />}</Field>}
             <div className="flex items-center sm:col-span-2"><Checkbox label="Required when adding a contact" checked={nf.required} onChange={(e) => setNf({ ...nf, required: e.target.checked })} /></div>
             <div className="sm:col-span-2"><Button type="submit" disabled={!nf.label.trim()}><Plus />Add field</Button></div>

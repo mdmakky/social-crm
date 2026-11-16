@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { endpoints } from "@crm/contracts";
 import { can } from "@crm/core/permissions";
-import { PageHeader } from "@/components/ui/panel";
+import { SettingsPage } from "@/components/settings/settings-page";
 import { dataOf, must, serverApi } from "@/lib/api";
 import { ContactSettings } from "./contact-settings";
 
@@ -14,9 +14,8 @@ export default async function ContactSettingsPage({ params }: { params: Promise<
   const [ws, stages, tags, fields] = await Promise.all([api.call(endpoints.getWorkspace, { params: p }), api.call(endpoints.listLifecycleStages, { params: p }), api.call(endpoints.listTags, { params: p }), api.call(endpoints.listCustomFields, { params: p })]);
   const w = must(ws);
   return (
-    <>
-      <PageHeader title="Contact settings" description="Lifecycle stages, custom fields and tags used across contacts." />
+    <SettingsPage title="Contact settings" description="Lifecycle stages, custom fields and tags used across contacts.">
       <ContactSettings workspaceId={workspaceId} canManage={can(w.role, "schema.manage", {})} stages={dataOf(stages) ?? []} tags={dataOf(tags) ?? []} fields={dataOf(fields) ?? []} />
-    </>
+    </SettingsPage>
   );
 }

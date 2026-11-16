@@ -209,3 +209,7 @@ Fake fetch only; the network is never used. See the run results recorded in the 
 - `apps/api` `ai-openrouter.test.ts` (browse permissions, cache, rate limit, no key sent, PUT limits and capability intersection, retry with Retry-After, MAX cost, budget hard stop with reported cost, 402 and 422 responses, no key leakage, tenant isolation) on private database `or_a`.
 - Playwright `e2e/ai-openrouter.spec.ts` on a fresh `or_a`: `E2E_WEB_PORT=5017 E2E_API_PORT=9591 CRM_DB_NAME=or_a E2E_META_MOCK=1 pnpm exec playwright test e2e/ai-openrouter.spec.ts`.
 Not covered: any real OpenRouter request, the live model list shape, real 402/403/429/503 behaviour, `usage.cost` on a real response.
+
+## Settings information architecture (2026-11-17)
+- New `e2e/settings-nav.spec.ts` (grouped nav and aria-current at 1440, every old URL loads inside the shell, phone list to detail and back at 375 with 44px rows, agent and viewer see only what they may). Run on a fresh `set_f`: `E2E_WEB_PORT=5417 E2E_API_PORT=9991 CRM_DB_NAME=set_f E2E_META_MOCK=1 pnpm exec playwright test settings-nav`.
+- Not covered: the full e2e suite (only specs touching settings and the moved pages were run), browsers other than Chromium, a screen reader pass.

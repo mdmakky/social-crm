@@ -61,7 +61,7 @@ function Inner({ workspaceId }: { workspaceId: string }) {
   if (!data) return <div className="flex flex-col gap-4" role="status" aria-label="Loading AI agents"><Skeleton className="h-40" /><Skeleton className="h-32" /></div>;
   const current = data.agents.find((a) => a.id === selected) ?? null;
   return (
-    <div className="flex max-w-4xl flex-col gap-6">
+    <div className="flex flex-col gap-[var(--page-gap)]">
       <Panel>
         <PanelHeader title="Agents" description={`${data.activeCount} of ${data.maxActive} active agents used.`} actions={<Button variant="primary" onClick={() => setSelected("new")}><Plus className="size-4" aria-hidden />New agent</Button>} />
         {data.agents.length === 0 ? (

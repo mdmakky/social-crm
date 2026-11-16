@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { endpoints } from "@crm/contracts";
-import { PageHeader, Panel } from "@/components/ui/panel";
+import { SettingsPage } from "@/components/settings/settings-page";
+import { Panel } from "@/components/ui/panel";
 import { ErrorState } from "@/components/ui/states";
 import { dataOf, must, serverApi } from "@/lib/api";
 import { MembersTable } from "./members-table";
@@ -19,8 +20,7 @@ export default async function MembersPage({ params }: { params: Promise<{ worksp
   const members = { data: dataOf(membersRes) };
   const me = { data: dataOf(meRes) };
   return (
-    <>
-      <PageHeader title="Members" description={`People with access to ${ws.data.name}.`} />
+    <SettingsPage title="Members" description={`People with access to ${ws.data.name}.`}>
       <Panel>
         {members.data && me.data ? (
           <MembersTable workspaceId={workspaceId} members={members.data} myRole={ws.data.role} myUserId={me.data.id} timeZone={ws.data.timezone} />
@@ -28,6 +28,6 @@ export default async function MembersPage({ params }: { params: Promise<{ worksp
           <ErrorState title="Members could not be loaded" description="Reload the page to try again." />
         )}
       </Panel>
-    </>
+    </SettingsPage>
   );
 }
