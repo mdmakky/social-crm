@@ -34,6 +34,8 @@ Status: slice 1 built (rules, idempotent runs, retries, default approval, kill s
 Provider abstraction, model config UI, reply suggestions, summaries, lead classification, run logging with tokens and cost, budgets, approval integration, mobile AI surfaces.
 Gate: works with at least two providers through config; budget hard stop test; no AI key reachable from clients; evaluation fixtures run.
 
+> Status (2026-11-16): slice 1 built on `feat/ai-foundation` (not merged): provider abstraction with mock and two real adapters (UNVERIFIED, fake fetch only), model config UI, reply suggestion (draft only), run logging with tokens and cost, monthly budget with hard stop (tested), no key reachable from clients (tested). Open: conversation summaries, lead classification, approval integration, mobile AI surfaces, evaluation fixtures, real-provider verification (a recorded real request per provider). Gate NOT met until those close.
+
 ## Phase 6b: Meta CAPI module
 Per `capi-architecture.md`: dataset connection, mappings, consent gate, hashing with test vectors, queue and retries, delivery history UI, health dashboard, mock adapter, then one real test event to Meta's test events tool if the user has a Dataset.
 Gate: all CAPI tests listed in the brief pass on mock; live status claimed only with a recorded real test event. (Sequencing: after the core CRM event system exists, as the brief requires; may swap with Phase 6 by approval.)
