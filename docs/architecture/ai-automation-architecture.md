@@ -26,6 +26,8 @@ An approval step creates an `approvals` row with the proposed action, notifies t
 
 ## 3. AI layer
 
+> Status (2026-11-16): slice 1 built (decisions D86 to D96). `packages/ai` is a thin port plus registry, not the Vercel AI SDK (adapters on fetch). Built: provider config with sealed key, model catalog with workspace price overrides, versioned prompts, `ai_runs` (tokens, cost, latency, no text), monthly budget with hard stop, retry only on rate_limit and timeout, ONE capability (reply suggestion, draft only). Not built: summaries, lead classification, purpose-based routing (one default provider and model today), secondary-model fallback, tools, redacted output storage and retention (nothing is stored), evaluation fixtures, mobile surfaces. Real providers are UNVERIFIED.
+
 ```
 Feature (suggest reply / summarize / classify / workflow AI step)
   -> ai facade (packages/ai): purpose-based model routing, prompt templates (versioned),
