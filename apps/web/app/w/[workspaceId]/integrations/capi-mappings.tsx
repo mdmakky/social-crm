@@ -51,15 +51,17 @@ export function CapiMappings({ workspaceId, datasets, canManage }: { workspaceId
   const [busy, setBusy] = React.useState<string | null>(null);
   const key = live.map((d) => d.id).join(",");
 
-  const load = React.useCallback(async () => {
-    const [p, ...m] = await Promise.all([browserApi.call(endpoints.listPipelines, { params: { workspaceId } }), ...key.split(",").filter(Boolean).map((id) => browserApi.call(endpoints.listCapiMappings, { params: { workspaceId, datasetId: id } }))]);
+  const ids = key.split(",").filter(Boolean);
+  const fetchAll = () => Promise.all([browserApi.call(endpoints.listPipelines, { params: { workspaceId } }), ...ids.map((id) => browserApi.call(endpoints.listCapiMappings, { params: { workspaceId, datasetId: id } }))]);
+  const apply = ([p, ...m]: Awaited<ReturnType<typeof fetchAll>>) => {
     const failed = [p, ...m].find((r) => !r.ok);
     if (failed && !failed.ok) { setError(errorMessage(failed.error)); return; }
     setError(null);
     if (p.ok) setPipelines(p.data.pipelines);
-    setRules(Object.fromEntries(key.split(",").filter(Boolean).map((id, i) => [id, (m[i] as { ok: true; data: { items: CapiMappingDto[] } }).data.items])));
-  }, [workspaceId, key]);
-  React.useEffect(() => { void load(); }, [load]);
+    setRules(Object.fromEntries(ids.map((id, i) => [id, (m[i] as { ok: true; data: { items: CapiMappingDto[] } }).data.items])));
+  };
+  const load = async () => apply(await fetchAll());
+  React.useEffect(() => { void fetchAll().then(apply); }, [workspaceId, key]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const stageName = (id: string | null) => {
     if (!id) return "";

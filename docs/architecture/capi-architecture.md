@@ -4,7 +4,7 @@ Version 0.1 (Phase 0). Facts come from `docs/research/meta-capi-research.md` (of
 
 ## Implementation status (slice 1, 2026-11-16, branch `feat/capi-foundation`): MOCK ONLY, not live
 Built and tested on mock: `packages/capi` (event schema, normalisation and SHA-256 with vectors, deterministic `event_id`, consent gate, backoff, mock adapter, real adapter built but NOT wired), migration 0028 (`capi_datasets`, `capi_dataset_secrets`, `consent_records`, `capi_events`; forced RLS, guards), API (`/capi/datasets`, `/capi/events`, `/contacts/:id/ad-consent`), queue worker, Integrations page panel.
-Differences from this design, on purpose: the outbox is `capi_events` itself (no separate `capi_delivery_attempts`: attempts, last error code and `fbtrace_id` live on the row); no per-workspace mapping table (a dataset lists the event names it accepts, empty by default); one CRM hook only (lead moved to a Won stage becomes `Purchase`, needs a lead value); one event per send (no batching or bisection yet); no pg-boss (in-process loop, `FOR UPDATE SKIP LOCKED` claim with a lease); no LDU, field allowlist, `test_event_code` send button or dead-letter retry; contact deletion cleanup shipped in 0029 (pending cancelled, payloads purged to {}, see D83 to D85). Live status needs a recorded real Test Events delivery (section 10): none exists.
+Differences from this design, on purpose: the outbox is `capi_events` itself (no separate `capi_delivery_attempts`: attempts, last error code and `fbtrace_id` live on the row); mappings shipped in migration 0034 (`capi_event_mappings`, section 2; no `require_consent` or field allowlist per mapping yet, consent is always required); one event per send (no batching or bisection yet); no pg-boss (in-process loop, `FOR UPDATE SKIP LOCKED` claim with a lease); no LDU, field allowlist, `test_event_code` send button or dead-letter retry; contact deletion cleanup shipped in 0029 (pending cancelled, payloads purged to {}, see D83 to D85). Live status needs a recorded real Test Events delivery (section 10): none exists.
 
 ## 1. Flow
 
@@ -23,14 +23,23 @@ CRM operations never wait for Meta. The CRM transaction only writes the outbox r
 
 ## 2. Event mapping (configurable per workspace)
 
-Default mapping proposals, all disabled until the user enables them:
+A mapping is one rule on a dataset: when a trigger happens, send an event. Table `capi_event_mappings` (workspace_id, dataset_id, trigger_type, stage_id, event_name, value_mode, fixed_value_minor, currency, enabled), at most 50 per dataset, unique on (dataset, trigger, stage, event). Nothing about any industry is in code.
+
+- Triggers: `lead_created`; `lead_stage_entered` (stage required, composite FK to `pipeline_stages`); `lead_won` and `lead_lost` (transition INTO the outcome, not repeated while the lead stays in it).
+- Event name: a Meta standard name (`META_STANDARD_EVENTS`, from the Pixel reference in the research doc) or a custom name `^[A-Za-z][A-Za-z0-9_]{0,39}$`. A custom event only helps once it exists in Events Manager (the UI says so).
+- Value: `lead_value` (lead value and currency), `fixed` (amount and currency on the rule), `none`. Only a Purchase needs a value; without one it is recorded as `skipped` / `no_value`. A Purchase rule cannot be `none`.
+- Default rule for every dataset (seeded, editable, deletable): lead won -> Purchase, lead value. Enabled when the dataset opted in to Purchase.
+- Hook: `captureLeadTransition(tx, ...)` at lead creation and every stage move. It selects enabled mappings of ACTIVE datasets whose trigger the transition satisfies, then writes one outbox row per mapping through `enqueueCapiEvent` (consent gate, stable event id). Savepoint per mapping: a CAPI failure never blocks the CRM write. Archiving a stage (bulk housekeeping move) fires nothing.
+- Dry run: `POST /capi/mappings/preview` returns, per rule, send or skip and why, for a given lead. Nothing is queued.
+
+Meta event suggestions for common CRM facts (the owner picks; nothing here is forced):
 
 | CRM event | Suggested Meta event | Notes |
 |---|---|---|
-| Lead created from lead ad or DM | Lead | Include lead_id when the source is a Meta lead ad (highest priority match, not hashed) |
-| Lead qualified | custom event or Lead with custom_data.lead_event_source (CRM) | Conversion Leads optimization has volume prerequisites (200+ leads a month per research); verify before promising it |
+| Lead created | Lead | Include lead_id when the source is a Meta lead ad (highest priority match, not hashed) |
+| Lead qualified (a stage) | custom event or Lead with custom_data.lead_event_source (CRM) | Conversion Leads optimization has volume prerequisites (200+ leads a month per research); verify before promising it |
 | Appointment scheduled | Schedule | |
-| Purchase completed | Purchase | custom_data.value and ISO 4217 currency required |
+| Purchase completed (won) | Purchase | custom_data.value and ISO 4217 currency required |
 | Contact created / message started | Contact | action_source depends on origin; business_messaging is limited to Business Messaging Partners (fit for a direct CRM unverified) |
 | Registration / application | CompleteRegistration / SubmitApplication | |
 
@@ -38,7 +47,8 @@ PageView, ViewContent, AddToCart, InitiateCheckout come from the website Pixel. 
 
 ## 3. Event identity and deduplication
 - `event_id` is derived deterministically, for example `sha256(workspace_id | dataset_id | crm_event_id | meta_event_name)` encoded as a short string, and stored on the `capi_events` row at creation. Retries always reuse it; a unique index on (workspace_id, dataset_id, event_id) prevents duplicate rows.
-- A CRM event fires at most once per mapping because the mapping step uses the CRM event id as the idempotency key.
+- THE RULE: `crm_event_ref` is `lead:<id>:created|won|lost` (once per lead, ever; this is the legacy Purchase key) or `lead:<id>:stage:<stageId>:<n>` for stage entered, n = how many times the lead has entered that stage (from `stage_transitions`, this entry included). A request that changes nothing is not an entry; leaving and re-entering is entry n+1 and may send again. The mapping id is not in the key: the (dataset, trigger, stage, event) tuple is unique, so a deleted and re-created rule must not re-send history. Two rules with different event names on one transition give two events (the event name is in `event_id`).
+- A Purchase skipped for `no_value` is stored under its own key (`...:no_value`), so adding the value and winning again still sends the real event.
 - Browser and server deduplication needs the same `event_name` and `event_id` within the window Meta documents (48 hours per research). Where a website Pixel is in use, the page must pass its event id to the CRM, for example through a hidden form field, and the CRM reuses it.
 - `event_time` is the original business time, not the retry time. Events older than 7 days are marked `skipped` with a reason rather than risking a failed batch.
 
