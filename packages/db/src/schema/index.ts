@@ -7,3 +7,5 @@ export * from "./notifications.ts";
 export * from "./leads.ts";
 // --- track:inbox ---
 export * from "./inbox.ts";
+// --- track:capi ---
+export * from "./capi.ts";
