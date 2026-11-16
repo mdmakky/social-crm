@@ -13,3 +13,5 @@ export * from "./automation.ts";
 export * from "./capi.ts";
 // --- track:ai ---
 export * from "./ai.ts";
+// --- track:knowledge ---
+export * from "./knowledge.ts";
