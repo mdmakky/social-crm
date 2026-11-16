@@ -6,6 +6,7 @@ import { schema, withContext, type Db } from "@crm/db";
 import { GraphError, type WhatsAppNumber } from "@crm/integrations";
 import { writeAudit } from "../audit.ts";
 import { actor, body, fail, wctx, type SC, type ScopedEnv } from "../routes/scope.ts";
+import { WindowCounter } from "../throttle.ts";
 import { AccountElsewhere, dto, eventSql, upsertAccount, type MetaConnectDeps } from "./meta-connect.ts";
 
 /** Scope that lets the token read the WABA and subscribe the app to it. Sending needs `whatsapp_business_messaging` too: recorded on the connect event, required by slice 3, not by this slice. */
@@ -13,6 +14,9 @@ export const WA_REQUIRED_SCOPE = "whatsapp_business_management";
 export const WA_MESSAGING_SCOPE = "whatsapp_business_messaging";
 
 class WabaMismatch extends Error {}
+/** Each call spends a Meta request carrying a pasted token, so an owner (or a stolen session) cannot use these routes to probe tokens or WABA ids in bulk. Per workspace and user, in process (same shortcut as imports: move to a shared store before running more than one API instance). */
+export type WhatsAppLimits = { lookupsPerUser: number; connectsPerUser: number; windowMs: number };
+const DEFAULT_LIMITS: WhatsAppLimits = { lookupsPerUser: 30, connectsPerUser: 10, windowMs: 10 * 60_000 };
 type Row = Record<string, unknown>;
 const rowsOf = (r: unknown) => (r as { rows: Row[] }).rows;
 
@@ -32,8 +36,12 @@ async function numbersOf(deps: MetaConnectDeps, token: string, wabaId: string): 
  * the owner picks one, and we store it with the token sealed (same SecretBox, same rows as Messenger and Instagram), then subscribe the app to the WABA.
  * Facts and unknowns: docs/integrations/whatsapp-cloud-api.md. Check-token, disconnect and re-subscribe are the generic account routes in meta-connect.ts.
  */
-export function whatsappConnect(db: Db, deps?: MetaConnectDeps) {
+export function whatsappConnect(db: Db, deps?: MetaConnectDeps, limits?: Partial<WhatsAppLimits>) {
   const r = new Hono<ScopedEnv>();
+  const lim = { ...DEFAULT_LIMITS, ...limits };
+  const lookups = new WindowCounter(lim.lookupsPerUser, lim.windowMs);
+  const connects = new WindowCounter(lim.connectsPerUser, lim.windowMs);
+  const limited = (c: SC) => { c.header("Retry-After", String(Math.ceil(lim.windowMs / 1000))); return fail(c, 429, "rate_limited", "Too many attempts. Try again in a few minutes."); };
   const manage = (c: SC) => can(c.get("role"), "integration.manage", {});
   const forbidden = (c: SC) => fail(c, 403, "forbidden", "You don't have permission to do that.");
   const notConfigured = (c: SC) => fail(c, 503, "integration_not_configured", "Meta is not configured on this server.");
@@ -41,6 +49,7 @@ export function whatsappConnect(db: Db, deps?: MetaConnectDeps) {
   r.post("/integrations/whatsapp/numbers", async (c) => {
     if (!manage(c)) return forbidden(c);
     if (!deps) return notConfigured(c);
+    if (!lookups.allow(`${c.get("workspaceId")}:${c.get("userId")}`)) return limited(c);
     const parsed = await body(c, WhatsAppLookupBody);
     if (!parsed.ok) return parsed.res;
     const res = await numbersOf(deps, parsed.data.accessToken, parsed.data.wabaId);
@@ -54,6 +63,7 @@ export function whatsappConnect(db: Db, deps?: MetaConnectDeps) {
   r.post("/integrations/whatsapp/connect", async (c) => {
     if (!manage(c)) return forbidden(c);
     if (!deps) return notConfigured(c);
+    if (!connects.allow(`${c.get("workspaceId")}:${c.get("userId")}`)) return limited(c);
     const parsed = await body(c, ConnectWhatsAppBody);
     if (!parsed.ok) return parsed.res;
     const { wabaId, phoneNumberId, accessToken } = parsed.data;
@@ -68,6 +78,7 @@ export function whatsappConnect(db: Db, deps?: MetaConnectDeps) {
       if (e instanceof GraphError && e.kind === "auth") return fail(c, 422, "token_invalid", "Meta rejected this token. Check that it is a current system user token for this app.");
       return fail(c, 502, "meta_unavailable", "Meta could not be reached. Try again later.");
     }
+    if (!deps.mock && !info.appId) return fail(c, 422, "token_invalid", "Meta did not say which app this token belongs to. Generate the token for this app and try again."); // fail closed outside the mock: an unattributed token is not accepted
     if (info.appId && info.appId !== deps.appId) return fail(c, 422, "token_invalid", "This token was issued to a different Meta app. Generate it for this app.");
     if (!info.isValid) return fail(c, 422, "token_invalid", "Meta rejected this token. Check that it is a current system user token for this app.");
     if (info.scopes.length > 0 && !info.scopes.includes(WA_REQUIRED_SCOPE)) return fail(c, 422, "permission_missing", `The token lacks the ${WA_REQUIRED_SCOPE} permission. Create it again with that permission.`);

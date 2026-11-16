@@ -58,3 +58,5 @@ Inbox redesign, option A "Focus" (2026-11-14, branch `feat/inbox-redesign` from 
 WhatsApp slice 1, webhook foundation (2026-11-14, branch `feat/whatsapp-foundation`, not pushed, not merged, not deployed). Migration 0025, decisions D64 to D67, `docs/integrations/whatsapp-cloud-api.md`. Receiving only: no connect form, no sending. Next: slice 2 (manual onboarding) needs a WABA, a number and a system-user token.
 
 WhatsApp slice 2, manual connection (2026-11-16, branch `feat/whatsapp-connect`, not merged, not deployed). Verified read-only on Neon: migration 0025 applied (26 migrations, `whatsapp_accounts` with forced RLS, platform CHECKs include whatsapp). Added: Graph port methods `listWhatsAppNumbers`/`subscribeWaba`, routes `POST /integrations/whatsapp/numbers` and `/connect`, orphan replay on connect, WhatsApp panel on the Integrations page, decisions D68 to D70.
+
+- WhatsApp slice 2 hardening (2026-11-16): rate limit on connect/lookup, fail-closed app id, disconnect row lock, E2E flow (7/7 on fresh DB). Review confirmed whatsapp_accounts has 4 RLS policies (wa_select, wa_worker_select, wa_worker_insert, wa_worker_update). Not merged, not deployed.

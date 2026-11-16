@@ -41,7 +41,7 @@ beforeAll(async () => {
     graph, box, workerDb, appId: "123456", configId: "654321", graphVersion: "v25.0", redirectUri: "http://localhost:3000/v1/integrations/meta/callback", webOrigin: "http://localhost:3000",
     stateKey: createHmac("sha256", "k").update("s").digest(), userHashKey: createHmac("sha256", "k").update("u").digest(), mock: true, secureCookies: false,
   };
-  h = await bootstrap(undefined, deps);
+  h = await bootstrap({ waLimits: { lookupsPerUser: 1000, connectsPerUser: 1000 } }, deps); // the rate limit has its own tests below
   [owner, agent, viewer, other] = (await Promise.all(["wcowner", "wcagent", "wcviewer", "wcother"].map((l) => h.newUser(l)))) as TestUser[] as [TestUser, TestUser, TestUser, TestUser];
   ws = await h.workspace(owner, "WAC A", { agent, viewer });
   wsOther = await h.workspace(other, "WAC B");
@@ -234,5 +234,45 @@ describe("events that arrived before the number was connected", () => {
     expect((await pending()).map((e) => e.status)).toEqual(["processed"]);
     const msgs = await q("SELECT m.body FROM messages m JOIN conversations c ON c.id=m.conversation_id WHERE c.integration_account_id=$1", [out.account.id]);
     expect(msgs.map((m) => m.body)).toEqual(["hello before connect"]);
+  });
+});
+
+describe("rate limit", () => {
+  it("stops bulk token or WABA probing per user, answers 429 with Retry-After, and does not call Meta once limited", async () => {
+    const small = await bootstrap({ waLimits: { lookupsPerUser: 2, connectsPerUser: 1, windowMs: 60_000 } }, deps);
+    try {
+      const u = (await small.newUser("wcrate")) as TestUser;
+      const w2 = await small.workspace(u, "WAC Rate");
+      const w = waba();
+      const post = (path: string, body: unknown) => small.app.request(`/v1/workspaces/${w2}/integrations/whatsapp/${path}`, { method: "POST", headers: { cookie: u.cookie, origin: "http://localhost:3000", "content-type": "application/json" }, body: JSON.stringify(body) });
+      const look = { wabaId: w.id, accessToken: TOKEN };
+      expect([(await post("numbers", look)).status, (await post("numbers", look)).status]).toEqual([200, 200]);
+      const before = graph.calls.length;
+      const third = await post("numbers", look);
+      expect([third.status, (await third.json()).error.code, third.headers.get("retry-after")]).toEqual([429, "rate_limited", "60"]);
+      expect(graph.calls.length).toBe(before);
+      const c1 = await post("connect", { ...look, phoneNumberId: "0" });
+      expect(c1.status).toBe(400); // spent the single connect attempt (invalid id)
+      expect((await post("connect", { ...look, phoneNumberId: w.numbers[0]!.id })).status).toBe(429);
+      // other users are not affected by this user's budget
+      expect((await call(owner, "POST", `${WA(ws)}/numbers`, look)).status).toBe(200);
+    } finally {
+      await small.close();
+    }
+  });
+});
+
+describe("token without an app id", () => {
+  it("is refused outside the mock (fail closed) and nothing is stored", async () => {
+    const w = waba();
+    const n = w.numbers[0]!;
+    deps.mock = false;
+    try {
+      const res = await connect(owner, ws, { wabaId: w.id, phoneNumberId: n.id });
+      expect([res.status, (await res.json()).error.code]).toEqual([422, "token_invalid"]);
+    } finally {
+      deps.mock = true;
+    }
+    expect(await accountRow(n.id)).toBeUndefined();
   });
 });

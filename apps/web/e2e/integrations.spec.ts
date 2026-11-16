@@ -102,6 +102,68 @@ test.describe.serial("Integrations option B (mock Meta)", () => {
     await expect(page.getByRole("navigation", { name: "Channels" }).getByRole("button", { name: /Messenger/ })).toContainText("Not connected");
   });
 
+  test("WhatsApp manual connect: errors, number picker, connect, re-check, token never shown, disconnect", async () => {
+    const WA_TOKEN = "mock-system-user-token-" + "0".repeat(24); // same value as MOCK_WA_TOKEN in apps/api/src/server.ts
+    const page = owner.page;
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(`/w/${wsInt}/integrations?channel=whatsapp`);
+    const waba = page.getByLabel("WhatsApp Business Account ID");
+    const token = page.getByLabel("System user token");
+    // client-side validation: nothing is sent
+    await page.getByRole("button", { name: "Find numbers" }).click();
+    await expect(page.getByText("Enter the WhatsApp Business Account ID: digits only.")).toBeVisible();
+    await expect(page.getByText("Paste the whole system user token, with no spaces.")).toBeVisible();
+    // Meta rejects: unknown WABA, then wrong token (server errors, in plain language)
+    await waba.fill("999999999999999");
+    await token.fill(WA_TOKEN);
+    await page.getByRole("button", { name: "Find numbers" }).click();
+    await expect(page.getByText(/cannot read that WhatsApp Business Account/)).toBeVisible();
+    await waba.fill("200000000000001");
+    await token.fill("wrong-token-" + "1".repeat(24));
+    await page.getByRole("button", { name: "Find numbers" }).click();
+    await expect(page.getByText(/Meta rejected this token/)).toBeVisible();
+    // happy path: find, pick, connect
+    await token.fill(WA_TOKEN);
+    await page.getByRole("button", { name: "Find numbers" }).click();
+    await expect(page.getByText("Choose the number to connect")).toBeVisible();
+    await expect(page.getByText("Mock WhatsApp Business")).toBeVisible();
+    await expect(page.getByRole("radio").first()).toBeChecked();
+    await axe(page, "whatsapp-picker@1440");
+    await page.getByRole("button", { name: "Connect number" }).click();
+    const rail = page.getByRole("navigation", { name: "Channels" });
+    await expect(rail.getByRole("button", { name: /WhatsApp/ })).toContainText("1 connected", { timeout: 15_000 });
+    await expect(page.getByText(/ID 300000000000001/).first()).toBeVisible();
+    await expect(page.getByText("Webhook subscribed").first()).toBeVisible();
+    // the token is gone from the form, the page, the proxy responses and storage
+    await expect(token).toHaveValue("");
+    expect(await page.content()).not.toContain(WA_TOKEN);
+    expect(await page.evaluate(() => JSON.stringify([localStorage, sessionStorage, document.cookie]))).not.toContain("mock-system-user-token");
+    const list = await page.request.get(`/v1/workspaces/${wsInt}/integrations/meta`);
+    expect(await list.text()).not.toContain(WA_TOKEN);
+    // re-check subscription and token check
+    await page.getByRole("button", { name: "Re-check subscription" }).click();
+    await expect(page.getByText("Webhook subscribed").last()).toBeVisible();
+    await page.getByRole("button", { name: "Check token" }).first().click();
+    await expect(page.getByText("Token is valid")).toBeVisible();
+    await expect(page.getByText(/dashboard step is UNVERIFIED|UNVERIFIED/).first()).toBeVisible();
+    await axe(page, "whatsapp-connected@1440");
+    // a second number of the same account shows the first as already connected
+    await waba.fill("200000000000001");
+    await token.fill(WA_TOKEN);
+    await page.getByRole("button", { name: "Find numbers" }).click();
+    await expect(page.getByText(/already connected/)).toBeVisible();
+    await page.getByRole("button", { name: "Start over" }).click();
+    // disconnect with confirm
+    await page.getByRole("button", { name: "Disconnect" }).first().click();
+    await page.getByRole("dialog", { name: "Disconnect this account?" }).getByRole("button", { name: "Disconnect" }).click();
+    await expect(rail.getByRole("button", { name: /WhatsApp/ })).toContainText("Not connected");
+  });
+
+  test("WhatsApp: a non-member cannot reach the connect routes (roles: see the API permissions test)", async () => {
+    const res = await outsider.page.request.post(`/v1/workspaces/${wsInt}/integrations/whatsapp/numbers`, { data: { wabaId: "200000000000001", accessToken: "x".repeat(40) } });
+    expect(res.status()).toBe(404); // not a member: the workspace does not exist for them
+  });
+
   test("mobile 375: list screen, detail screen, back", async () => {
     const page = owner.page;
     await page.setViewportSize({ width: 375, height: 812 });

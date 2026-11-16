@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
-import { whatsappConnect } from "./inbox/whatsapp-connect.ts";
+import { whatsappConnect, type WhatsAppLimits } from "./inbox/whatsapp-connect.ts";
 import { instagramUnified } from "./inbox/instagram-unified.ts";
 import { metaConnect, type MetaConnectDeps } from "./inbox/meta-connect.ts";
 import { HTTPException } from "hono/http-exception";
@@ -17,7 +17,7 @@ import { WindowCounter } from "./throttle.ts";
 const GENERIC_RESET_RESPONSE = { status: true, message: "If this email exists in our system, check your email for the reset link" };
 const sha = async (s: string) => Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s.trim().toLowerCase()))), (b) => b.toString(16).padStart(2, "0")).join("");
 
-export function createApp(auth: Auth, opts: { allowedOrigins: string[]; db: Db; resetThrottle?: { perEmail: number; perIp: number; windowMs: number; tokenAttemptsPerIp?: number }; testHooks?: { import?: ImportHooks; extraSearchProviders?: SearchProvider[] }; meta?: MetaConnectDeps }) {
+export function createApp(auth: Auth, opts: { allowedOrigins: string[]; db: Db; resetThrottle?: { perEmail: number; perIp: number; windowMs: number; tokenAttemptsPerIp?: number }; testHooks?: { waLimits?: Partial<WhatsAppLimits>; import?: ImportHooks; extraSearchProviders?: SearchProvider[] }; meta?: MetaConnectDeps }) {
   const app = new Hono<{ Variables: Vars }>();
   // Mutating requests that carry an Origin header must come from an allowed origin (native apps send none).
   app.use("*", async (c, next) => {
@@ -95,7 +95,7 @@ export function createApp(auth: Auth, opts: { allowedOrigins: string[]; db: Db; 
   const igUnified = instagramUnified(opts.db, opts.meta); // track:inbox
   v1.route("/", meta.callback);
   v1.route("/", igUnified.callback);
-  v1.route("/workspaces", workspaceRoutes(opts.db, { ...opts.testHooks, metaScoped: new Hono<ScopedEnv>().route("/", meta.scoped).route("/", igUnified.scoped).route("/", whatsappConnect(opts.db, opts.meta)), sendDeps: opts.meta }));
+  v1.route("/workspaces", workspaceRoutes(opts.db, { ...opts.testHooks, metaScoped: new Hono<ScopedEnv>().route("/", meta.scoped).route("/", igUnified.scoped).route("/", whatsappConnect(opts.db, opts.meta, opts.testHooks?.waLimits)), sendDeps: opts.meta }));
   app.route("/v1", v1);
   return app;
 }

@@ -119,3 +119,6 @@ Fixtures only. No real WhatsApp request, no real message, no Playwright.
 Mock Graph only. No real Meta request, no real message, Playwright spec updated but not run.
 - `apps/api/test/whatsapp-connect.test.ts` (12): role checks, lookup (no token echo, connected flag), connect (account, side row, sealed token, history, audit), reconnect, refusals (invalid token, missing scope, wrong app, number not in WABA, WABA mismatch), subscription failure then re-subscribe, cross-workspace takeover (409), disconnect keeps the WABA subscription, orphan replay.
 - Review (independent agent) found a cross-workspace unsubscribe risk, a stale WABA on reconnect and a missing app-id check; all three fixed and tested.
+
+### WhatsApp slice 2 hardening pass (2026-11-16)
+Mock Graph only; no real Meta request. Playwright `e2e/integrations.spec.ts` on a FRESH database with `E2E_META_MOCK=1`: 7/7 passed (new: full WhatsApp flow with validation errors, wrong WABA, wrong token, number picker, connect, token absent from DOM/storage/API, re-check, token check, already-connected hint, disconnect; non-member 404). Lint, typecheck, unit, db (149) and api (538 passed, 14 skipped) all green; `next build` OK. `whatsapp-connect.test.ts` now 14 tests (rate limit, missing app id fails closed).

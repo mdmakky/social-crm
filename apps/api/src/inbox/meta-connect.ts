@@ -283,6 +283,7 @@ function scopedRoutes(db: Db, deps: MetaConnectDeps | undefined, pending: Pendin
     const a = await ownAccount(c, c.req.param("accountId") ?? "");
     if (!a) return fail(c, 404, "not_found");
     await withContext(deps.workerDb, wctx(c), async (tx) => {
+      await tx.execute(sql`SELECT 1 FROM integration_accounts WHERE id = ${a.id} AND workspace_id = ${a.workspaceId} FOR UPDATE`); // a reconnect racing this disconnect waits here, so it cannot leave a disabled row holding a fresh token
       const token = await loadToken(tx, deps, a.workspaceId, a.id);
       if (token && a.platform === "messenger") await deps.graph.unsubscribePage(a.externalAccountId, token).catch(() => false); // best effort: the account is disabled either way
       // WhatsApp: the app is subscribed per WABA, and another workspace may hold a number of the same WABA (invisible to us under RLS), so the subscription is never removed here: events for a disabled number become orphans.
