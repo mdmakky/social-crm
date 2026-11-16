@@ -328,7 +328,14 @@ describe("messaging through a directly connected account", () => {
     const f = signedFixture(payload, secret);
     return hook.request(`/webhooks/meta/${path}`, { method: "POST", body: new Uint8Array(f.raw), headers: { "content-type": "application/json", "x-hub-signature-256": f.signature } });
   };
-  const drain = async (ref: string) => { for (const e of await q("SELECT id FROM webhook_events WHERE account_ref=$1 AND status IN ('received','failed') ORDER BY received_at", [ref])) await processWebhookEvent(workerDb, e.id); };
+  const drain = async (ref: string) => { // SKIP LOCKED: loop until no event is left (another worker may hold one right now)
+    for (let i = 0; i < 50; i++) {
+      const todo = await q("SELECT id FROM webhook_events WHERE account_ref=$1 AND status IN ('received','failed') ORDER BY received_at", [ref]);
+      if (!todo.length) return;
+      for (const e of todo) await processWebhookEvent(workerDb, e.id);
+      if (i > 0) await new Promise((r) => setTimeout(r, 50));
+    }
+  };
   async function conv(text = "hello") {
     const id = digits();
     share({ id, username: "msg.acct" });

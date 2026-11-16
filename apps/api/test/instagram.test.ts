@@ -38,8 +38,14 @@ async function igAccount(w: string, o: { token?: boolean; status?: string } = {}
   }
   return { id: a.id as string, ref };
 }
+// processWebhookEvent claims with SKIP LOCKED: an event another worker (a parallel test file's processPending) holds right now is skipped, so loop until none is left.
 async function drain(ref: string) {
-  for (const e of await q("SELECT id FROM webhook_events WHERE account_ref=$1 AND status IN ('received','failed') ORDER BY received_at", [ref])) await processWebhookEvent(workerDb, e.id);
+  for (let i = 0; i < 50; i++) {
+    const todo = await q("SELECT id FROM webhook_events WHERE account_ref=$1 AND status IN ('received','failed') ORDER BY received_at", [ref]);
+    if (!todo.length) return;
+    for (const e of todo) await processWebhookEvent(workerDb, e.id);
+    if (i > 0) await new Promise((r) => setTimeout(r, 50));
+  }
 }
 const deliver = async (payload: unknown, path: "instagram" | "messenger" = "instagram", sig = true) => {
   const f = signedFixture(payload, mockSecret);

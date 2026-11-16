@@ -29,8 +29,14 @@ const post = (payload: unknown, o: { sig?: boolean; path?: string; raw?: Buffer 
   const raw = o.raw ?? Buffer.from(JSON.stringify(payload));
   return hook.request(`/webhooks/meta/${o.path ?? "whatsapp"}`, { method: "POST", body: new Uint8Array(raw), headers: { "content-type": "application/json", "x-hub-signature-256": o.sig === false ? "sha256=" + "0".repeat(64) : signMetaBody(raw, mockSecret) } });
 };
+// processWebhookEvent claims with SKIP LOCKED, so an event another worker (the app's own, or a parallel test file) holds right now is skipped by us. Loop until none is left.
 const drain = async (...refs: string[]) => {
-  for (const e of await q("SELECT id FROM webhook_events WHERE account_ref = ANY($1::text[]) AND status IN ('received','failed') ORDER BY received_at", [refs])) await processWebhookEvent(workerDb, e.id);
+  for (let i = 0; i < 50; i++) {
+    const todo = await q("SELECT id FROM webhook_events WHERE account_ref = ANY($1::text[]) AND status IN ('received','failed') ORDER BY received_at", [refs]);
+    if (!todo.length) return;
+    for (const e of todo) await processWebhookEvent(workerDb, e.id);
+    if (i > 0) await new Promise((r) => setTimeout(r, 50));
+  }
 };
 const msg = (phone: string, from: string, text: string, id = wamid()) => buildWhatsAppBody(digits(), [buildWhatsAppChange({ phoneNumberId: phone, messages: [waText(from, id, text)], contacts: [{ profile: { name: "Customer Name" }, wa_id: from }] })]);
 const convOf = async (acct: string) => (await q("SELECT * FROM conversations WHERE integration_account_id = $1", [acct]))[0];
