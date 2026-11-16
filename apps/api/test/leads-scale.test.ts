@@ -99,6 +99,30 @@ describe("stage counts", () => {
   }, 60_000);
 });
 
+describe("cursor paging", () => {
+  it("pages through leads whose timestamps differ only in microseconds without skipping or repeating any (all three sorts)", async () => {
+    const ws = await h.workspace(owner, "Paging");
+    const c = await h.contact(as(owner), ws, { name: "Pager" });
+    const pl = ok(await as(owner).call(endpoints.listPipelines, { params: p(ws) })).pipelines[0]!;
+    await h.admin.query(
+      `INSERT INTO leads (workspace_id, title, primary_contact_id, pipeline_id, stage_id, outcome, rank, probability, created_at, updated_at, expected_close_date)
+       SELECT $1, 'P ' || g, $2, $3, $4, 'open', lpad(g::text, 12, '0'), 10, now() + g * interval '37 microseconds', now() + g * interval '41 microseconds', DATE '2030-01-01' + (g % 3) FROM generate_series(1, 237) g`,
+      [ws, c.id, pl.id, pl.stages[0]!.id],
+    );
+    for (const sort of ["updated", "created", "close"] as const) {
+      const seen = new Set<string>();
+      let cursor: string | undefined;
+      for (let i = 0; i < 10; i++) {
+        const page = ok(await as(owner).call(endpoints.listLeads, { params: p(ws), query: { limit: 50, sort, ...(cursor ? { cursor } : {}) } }));
+        for (const l of page.items) { expect(seen.has(l.id)).toBe(false); seen.add(l.id); }
+        cursor = page.nextCursor ?? undefined;
+        if (!cursor) break;
+      }
+      expect(seen.size, sort).toBe(237);
+    }
+  });
+});
+
 describe("bulk stage move", () => {
   const hist = async (leadId: string) => ({
     acts: await q("SELECT kind FROM activities WHERE workspace_id=$1 AND lead_id=$2 AND kind <> 'lead.created'", [A, leadId]),

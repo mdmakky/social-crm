@@ -59,7 +59,7 @@ export function leadRoutes(db: Db) {
     };
   };
   const joined = (tx: Tx, where: SQL | undefined) =>
-    tx.select({ l: schema.leads, contactName: schema.contacts.name, contactDeleted: sql<boolean>`${schema.contacts.deletedAt} IS NOT NULL`, ownerName: ownerU.name })
+    tx.select({ l: schema.leads, contactName: schema.contacts.name, contactDeleted: sql<boolean>`${schema.contacts.deletedAt} IS NOT NULL`, ownerName: ownerU.name, ku: sql<string>`leads.updated_at::text`, kc: sql<string>`leads.created_at::text` })
       .from(schema.leads)
       .innerJoin(schema.contacts, and(eq(schema.contacts.workspaceId, schema.leads.workspaceId), eq(schema.contacts.id, schema.leads.primaryContactId)))
       .leftJoin(ownerU, eq(ownerU.id, schema.leads.ownerUserId))
@@ -143,7 +143,8 @@ export function leadRoutes(db: Db) {
       const page = rows.slice(0, limit);
       const g = await grantsFor(tx, c, page.map((x) => x.l.id));
       const last = page[page.length - 1];
-      const k = last ? (sort === "updated" ? last.l.updatedAt.toISOString() : sort === "created" ? last.l.createdAt.toISOString() : (last.l.expectedCloseDate ?? "9999-12-31")) : "";
+      // full microsecond precision from Postgres: a millisecond ISO string skipped rows that share a millisecond with the page boundary
+      const k = last ? (sort === "updated" ? last.ku : sort === "created" ? last.kc : (last.l.expectedCloseDate ?? "9999-12-31")) : "";
       return c.json({ items: page.map((j) => dto(c, g, j)), nextCursor: rows.length > limit && last ? enc({ k, id: last.l.id, sort, dir }) : null });
     });
   });

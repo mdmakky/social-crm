@@ -67,7 +67,7 @@ test("mobile audit", async ({ browser }) => {
 
   const routes: [string, string][] = [
     ["home", ""], ["inbox", "/inbox"], ["thread", `/inbox/${convId}`], ["contacts", "/contacts"], ["contact", `/contacts/${c1.id}`], ["import", "/contacts/import"],
-    ["leads", "/leads"], ["pipeline", "/pipeline"], ["tasks", "/tasks"], ["reports", "/reports"], ["notifications", "/notifications"], ["integrations", "/integrations"],
+    ["leads", "/leads"], ["tasks", "/tasks"], ["reports", "/reports"], ["notifications", "/notifications"], ["integrations", "/integrations"],
     ["members", "/members"], ["audit", "/audit-log"], ["settings", "/settings"], ["set-automations", "/settings/automations"], ["set-contacts", "/settings/contacts"],
     ["set-integrations", "/settings/integrations"], ["set-notifications", "/settings/notifications"], ["set-pipelines", "/settings/pipelines"],
   ];

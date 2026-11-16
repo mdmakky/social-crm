@@ -68,13 +68,13 @@ test("lead lifecycle in the UI: create, filter, move, edit, lose with a reason, 
   await expect(page.getByRole("heading", { level: 1, name: "Leads" })).toBeVisible();
   await expect(page.getByText("No open leads")).toBeVisible();
 
-  await page.getByRole("button", { name: /New deal/ }).first().click();
+  await page.getByRole("button", { name: "New lead", exact: true }).first().click();
   const dlg = page.getByRole("dialog");
   await dlg.getByLabel("Title").fill("Annual contract");
   await dlg.getByLabel("Primary contact").fill("Ana");
   await dlg.getByRole("option", { name: /Ana Costa/ }).click();
   await dlg.getByLabel("Value").fill("2,500.50");
-  await dlg.getByRole("button", { name: "Create deal" }).click();
+  await dlg.getByRole("button", { name: "Create lead" }).click();
 
   await expect(page.getByRole("heading", { level: 1, name: "Annual contract" })).toBeVisible();
   await expect(page.getByText("$2,500.50")).toBeVisible();
@@ -107,16 +107,16 @@ test("lead lifecycle in the UI: create, filter, move, edit, lose with a reason, 
   await expect(page.getByText("No open leads")).toBeVisible(); // back to the default Open filter
 });
 
-test("deal value is restricted for agents: not in the page, the API response or the list; a grant opens it", async ({ page, browser }) => {
+test("lead value is restricted for agents: not in the page, the API response or the list; a grant opens it", async ({ page, browser }) => {
   test.setTimeout(150_000);
   const { workspaceId } = await signUpAndCreate(page, "Olive Owner", "Value Co");
   const agent = await newUser(browser, "Sam Agent");
   await addMemberByEmail(workspaceId, agent.email, "agent");
   const [contactId] = await seedContacts(page, workspaceId, [{ name: "Ana Costa" }]);
-  const lead = await seedLead(page, workspaceId, { title: "Secret deal", primaryContactId: contactId, valueMinor: 987654, currency: "USD" });
+  const lead = await seedLead(page, workspaceId, { title: "Secret lead", primaryContactId: contactId, valueMinor: 987654, currency: "USD" });
 
   await agent.page.goto(`/w/${workspaceId}/leads`);
-  await expect(agent.page.getByRole("link", { name: "Secret deal" })).toBeVisible();
+  await expect(agent.page.getByRole("link", { name: "Secret lead" })).toBeVisible();
   await expect(agent.page.getByText("Hidden").first()).toBeVisible();
   await agent.page.goto(`/w/${workspaceId}/leads/${lead.id}`);
   await expect(agent.page.getByText("Restricted")).toBeVisible();
@@ -124,7 +124,7 @@ test("deal value is restricted for agents: not in the page, the API response or 
   expect(await agent.page.content()).not.toContain("987654");
   const raw = await agent.page.request.get(ws(workspaceId, `/leads/${lead.id}`));
   expect((await raw.json()).valueMinor).toBeNull();
-  await expect(agent.page.getByText("Deal value access")).toHaveCount(0);
+  await expect(agent.page.getByText("Lead value access")).toHaveCount(0);
 
   await page.goto(`/w/${workspaceId}/leads/${lead.id}`);
   await expect(page.getByText("$9,876.54")).toBeVisible();
@@ -139,7 +139,7 @@ test("responsive and accessible: list, detail and pipeline settings at 375, 768,
   test.setTimeout(180_000);
   const { workspaceId } = await signUpAndCreate(page, "Olive Owner", "Responsive Leads Co");
   const [contactId] = await seedContacts(page, workspaceId, [{ name: "Ana Costa" }]);
-  const lead = await seedLead(page, workspaceId, { title: "Responsive deal with a rather long title to test wrapping on narrow screens", primaryContactId: contactId, valueMinor: 100000, currency: "USD" });
+  const lead = await seedLead(page, workspaceId, { title: "Responsive lead with a rather long title to test wrapping on narrow screens", primaryContactId: contactId, valueMinor: 100000, currency: "USD" });
   for (const width of [375, 768, 1024, 1440]) {
     await page.setViewportSize({ width, height: 900 });
     for (const path of ["/leads", `/leads/${lead.id}`, "/settings/pipelines"]) {

@@ -4,7 +4,7 @@ import { axe, seed, WEB } from "./channel-helpers";
 
 /** Phone and tablet experience: touch emulation is on so `pointer: coarse` styles apply. Inbox data is MOCK fixtures (apps/api/dev/seed-inbox.mts). */
 const PHONES = [{ w: 360, h: 740 }, { w: 375, h: 812 }, { w: 390, h: 844 }, { w: 430, h: 932 }] as const;
-const ROUTES = ["", "/inbox", "/contacts", "/leads", "/pipeline", "/tasks", "/reports", "/settings", "/settings/automations", "/integrations", "/members", "/audit-log", "/notifications"];
+const ROUTES = ["", "/inbox", "/contacts", "/leads", "/tasks", "/reports", "/settings", "/settings/automations", "/integrations", "/members", "/audit-log", "/notifications"];
 
 test.describe.serial("mobile experience", () => {
   let state: Awaited<ReturnType<BrowserContext["storageState"]>>;
@@ -60,7 +60,7 @@ test.describe.serial("mobile experience", () => {
     await page.goto(`/w/${ws}`);
     await page.getByRole("button", { name: "More" }).click();
     const sheet = page.getByRole("dialog", { name: "More" });
-    await expect(sheet.getByRole("link", { name: "Pipeline" })).toBeVisible();
+    await expect(sheet.getByRole("link", { name: "Pipeline" })).toHaveCount(0); // the board is gone (D170)
     await expect(sheet.getByRole("button", { name: "Sign out" })).toBeVisible();
     await axe(page, "more-sheet@390");
     await sheet.getByRole("link", { name: "Members" }).click();
@@ -141,7 +141,7 @@ test.describe.serial("mobile experience", () => {
     }
   });
 
-  test("pseudo-element hit areas receive the tap: pipeline drag handle and contact-task checkbox are 44px wide targets", async ({ browser }) => {
+  test("pseudo-element hit areas receive the tap: the contact-task checkbox is a 44px wide target", async ({ browser }) => {
     const { ctx, page } = await touch(browser, 390, 844);
     const reaches = async (sel: string) => page.evaluate((q) => {
       const el = document.querySelector<HTMLElement>(q)!;
@@ -151,23 +151,9 @@ test.describe.serial("mobile experience", () => {
       // points 20px either side of the centre (a 44px target) must hit the control, not its neighbours
       return ([[-20, 0], [20, 0], [0, -20], [0, 20]] as const).map(([dx, dy]) => { const hit = document.elementFromPoint(cx + dx, cy + dy); return hit?.closest(q) === el ? true : `${dx},${dy} hit ${hit?.tagName}.${String(hit?.className).slice(0, 40)} rect=${Math.round(r.x)},${Math.round(r.y)},${Math.round(r.width)}x${Math.round(r.height)}`; });
     }, sel);
-    await page.goto(`/w/${ws}/pipeline`);
-    await expect(page.locator('button[aria-label*="Press space to pick up"]').first()).toBeVisible();
-    expect(await reaches('button[aria-label*="Press space to pick up"]')).toEqual([true, true, true, true]);
     await page.goto(`/w/${ws}/contacts/${contactId}`);
     await expect(page.locator('button[role=checkbox][aria-label^="Complete:"]').first()).toBeVisible();
     expect(await reaches('button[role=checkbox][aria-label^="Complete:"]')).toEqual([true, true, true, true]);
-    await ctx.close();
-  });
-
-  test("pipeline on a phone: stage chips jump between snapping columns; won/lost links are 44px", async ({ browser }) => {
-    const { ctx, page } = await touch(browser, 390, 844);
-    await page.goto(`/w/${ws}/pipeline`);
-    await expect(page.getByRole("group", { name: "Jump to stage" })).toBeVisible();
-    const snap = await page.getByRole("region", { name: "Pipeline board" }).evaluate((el) => getComputedStyle(el).scrollSnapType);
-    expect(snap).toContain("x");
-    await page.getByRole("group", { name: "Jump to stage" }).getByRole("button").nth(2).click();
-    await expect.poll(() => page.getByRole("region", { name: "Pipeline board" }).evaluate((el) => el.scrollLeft)).toBeGreaterThan(100);
     await ctx.close();
   });
 
@@ -192,7 +178,7 @@ test.describe.serial("mobile experience", () => {
     const t = await touch(browser, 820, 1180);
     await t.page.goto(`/w/${ws}`);
     await expect(t.page.getByRole("navigation", { name: "Primary" })).toBeHidden();
-    for (const name of ["Inbox", "Contacts", "Leads", "Pipeline"]) {
+    for (const name of ["Inbox", "Contacts", "Leads"]) {
       const b = (await t.page.getByRole("navigation", { name: "Main" }).filter({ visible: true }).getByRole("link", { name }).boundingBox())!;
       expect(b.width, name).toBeGreaterThanOrEqual(44);
       expect(b.height, name).toBeGreaterThanOrEqual(44);
@@ -203,7 +189,7 @@ test.describe.serial("mobile experience", () => {
     const page = await d.newPage();
     await page.goto(`/w/${ws}`);
     await expect(page.getByRole("navigation", { name: "Primary" })).toBeHidden();
-    await expect(page.getByRole("navigation", { name: "Main" }).getByText("Pipeline")).toBeVisible();
+    await expect(page.getByRole("navigation", { name: "Main" }).getByText("Leads")).toBeVisible();
     await expect(page.getByRole("button", { name: "Search or jump to" })).toBeVisible();
     await d.close();
   });
