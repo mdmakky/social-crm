@@ -41,7 +41,7 @@ const fromRows = (mode: "and" | "or", rows: Row[]): ConditionInput => ({
   op: mode,
   conditions: rows.filter((r) => r.field && r.value.trim()).map((r): ConditionInput => (r.op === "in" ? { op: "in", field: r.field, values: r.value.split(",").map((v) => v.trim()).filter(Boolean) } : { op: r.op, field: r.field, value: r.value.trim() })),
 });
-const describeAction = (a: AutomationAction, members: Member[]) => (a.type === "create_task" ? `Create task "${a.title}"` : a.type === "add_tag" ? `Add tag "${a.tagName}"` : `Assign owner ${members.find((m) => m.id === a.ownerUserId)?.name ?? "(unknown member)"}`);
+const describeAction = (a: AutomationAction, members: Member[]) => (a.type === "create_task" ? `Create task "${a.title}"` : a.type === "add_tag" ? `Add tag "${a.tagName}"` : a.type === "run_ai_agent" ? "Run an AI agent (draft note and proposed actions, nothing sent)" : `Assign owner ${members.find((m) => m.id === a.ownerUserId)?.name ?? "(unknown member)"}`);
 
 export function AutomationSettings({ workspaceId, timeZone, members }: { workspaceId: string; timeZone: string; members: Member[] }) {
   const toast = useToast();
@@ -191,7 +191,9 @@ function RuleDialog({ workspaceId, rule, members, onSaved }: { workspaceId: stri
   const [error, setError] = React.useState<string | null>(null);
   const fields = FIELDS[trigger];
   const setAction = (i: number, a: AutomationAction) => setActions((cur) => cur.map((x, j) => (j === i ? a : x)));
-  const blank = (type: AutomationAction["type"]): AutomationAction => (type === "add_tag" ? { type, tagName: "" } : type === "assign_owner" ? { type, ownerUserId: members[0]?.id ?? "" } : { type, title: "" });
+  const [agents, setAgents] = React.useState<{ id: string; name: string }[]>([]);
+  React.useEffect(() => { void browserApi.call(endpoints.listAiAgents, { params: { workspaceId } }).then((r) => { if (r.ok) setAgents(r.data.items.filter((a) => a.status === "active").map((a) => ({ id: a.id, name: a.name }))); }); }, [workspaceId]);
+  const blank = (type: AutomationAction["type"]): AutomationAction => (type === "add_tag" ? { type, tagName: "" } : type === "assign_owner" ? { type, ownerUserId: members[0]?.id ?? "" } : type === "run_ai_agent" ? { type, agentId: agents[0]?.id ?? "" } : { type: "create_task", title: "" });
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
@@ -257,6 +259,14 @@ function RuleDialog({ workspaceId, rule, members, onSaved }: { workspaceId: stri
                 <Select aria-label={`Action ${i + 1} new owner`} value={a.ownerUserId} onChange={(e) => setAction(i, { ...a, ownerUserId: e.target.value })} wrapperClassName="min-w-40 flex-1">
                   {members.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
                 </Select>
+              )}
+              {a.type === "run_ai_agent" && (
+                agents.length === 0
+                  ? <span className="text-sm text-fg-muted">No active agent yet. Activate one in AI Agents first.</span>
+                  : <Select aria-label={`Action ${i + 1} AI agent`} value={a.agentId} onChange={(e) => setAction(i, { ...a, agentId: e.target.value })} wrapperClassName="min-w-40 flex-1">
+                    <option value="">Choose an agent</option>
+                    {agents.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+                  </Select>
               )}
               {a.type === "create_task" && (
                 <>

@@ -60,7 +60,7 @@ export function agentRoutes(db: Db, deps: AgentRouteDeps = {}) {
     return withContext(db, wctx(c), async (tx) => {
       const agents = await tx.select().from(schema.aiAgents).where(eq(schema.aiAgents.workspaceId, workspaceId)).orderBy(desc(schema.aiAgents.id));
       const vs = await versionsOf(tx, workspaceId, agents.map((a) => a.id));
-      return c.json({ items: agents.map((a) => agentDto(a, vs.filter((v) => v.agentId === a.id), false)), activeCount: agents.filter((a) => a.status === "active").length, maxActive: MAX_ACTIVE_AGENTS });
+      return c.json({ items: agents.map((a) => agentDto(a, vs.filter((v) => v.agentId === a.id), true)), activeCount: agents.filter((a) => a.status === "active").length, maxActive: MAX_ACTIVE_AGENTS });
     });
   });
 

@@ -27,7 +27,7 @@ export const AgentDto = z.object({
   id: z.string().uuid(), key: z.string(), name: z.string(), description: z.string(), status: z.enum(AGENT_STATUSES),
   activeVersionId: z.string().uuid().nullable(), activeVersion: z.number().int().nullable(), latestVersion: z.number().int(),
   createdAt: z.string(), updatedAt: z.string(),
-  /** Newest first. Only the detail endpoint fills it; the list leaves it empty. */
+  /** Newest first. */
   versions: z.array(AgentVersionDto),
 });
 export type AgentDto = z.infer<typeof AgentDto>;
