@@ -9,6 +9,7 @@ import { endpoints, type SearchGroup } from "@crm/contracts";
 import { browserApi, errorMessage } from "@/lib/client-api";
 import { authClient } from "@/lib/auth-client";
 import { builtNav, href } from "@/lib/nav";
+import { settingsFor } from "@/components/settings/settings-nav";
 import { Kbd } from "@/components/ui/kbd";
 import type { ShellWorkspace } from "./types";
 
@@ -116,6 +117,14 @@ function Palette({ onOpenChange, workspace, workspaces, role }: Props) {
                 </Command.Item>
               );
             })}
+          </Command.Group>
+          <Command.Group heading="Settings" className={groupCls}>
+            {settingsFor(role).groups.flatMap((g) => g.items).map((i) => (
+              <Command.Item key={i.path} value={`${i.label} settings`} onSelect={() => go(`/w/${workspace.id}/${i.path}`)} className={itemCls}>
+                <i.icon />
+                <span className="flex-1">{i.label}</span>
+              </Command.Item>
+            ))}
           </Command.Group>
           {workspaces.length > 1 && (
             <Command.Group heading="Switch workspace" className={groupCls}>
