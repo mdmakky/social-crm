@@ -100,7 +100,7 @@ export async function pruneEvents(db: Db, opts: { consumers: string[]; olderThan
  * intervalMs is the poll interval while the system is active. With `isActive` + `idleIntervalMs` the loop slows down when nobody is using the API
  * (a free hosted database can then go to sleep); `wake()` runs a pass at once when activity resumes.
  */
-export function startDispatcher(db: Db, opts: { consumers: Consumer[]; intervalMs?: number; idleIntervalMs?: number; isActive?: () => boolean; retentionDays?: number; log?: (m: string, e?: unknown) => void }) {
+export function startDispatcher(db: Db, opts: { consumers: Consumer[]; intervalMs?: number; idleIntervalMs?: number; isActive?: () => boolean; retentionDays?: number; afterDispatch?: () => Promise<unknown>; log?: (m: string, e?: unknown) => void }) {
   const log = opts.log ?? ((m, e) => console.error(m, e));
   let stopped = false;
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -114,6 +114,7 @@ export function startDispatcher(db: Db, opts: { consumers: Consumer[]; intervalM
       try {
         const r = await dispatchPending(db, { consumers: opts.consumers });
         for (const e of r.errors) log(`dispatcher: ${e.consumer} failed for workspace ${e.workspaceId}`, e.error);
+        await opts.afterDispatch?.();
         if (Date.now() - lastPrune > 3_600_000) {
           lastPrune = Date.now();
           await pruneEvents(db, { consumers: opts.consumers.map((c) => c.name), olderThanDays: opts.retentionDays ?? 30 });

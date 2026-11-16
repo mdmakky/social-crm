@@ -5,3 +5,4 @@ export * from "./contacts.ts";
 // --- track:tasks ---
 export * from "./tasks.ts";
 export * from "./extract.ts";
+export * from "./automation.ts";
