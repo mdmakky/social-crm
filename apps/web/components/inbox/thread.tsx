@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/form-controls";
 import { Select } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/overlays";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/overlays";
+import { Sheet } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, ErrorState } from "@/components/ui/states";
 import { useToast } from "@/components/ui/toast";
@@ -247,13 +248,13 @@ export function Thread({ conversationId }: { conversationId: string }) {
           <Link href={`/w/${workspaceId}/inbox`} aria-label="Back to inbox" className="press -ml-2 inline-flex size-11 items-center justify-center rounded-control text-fg-muted hover:bg-hover md:hidden"><ChevronLeft className="size-5" aria-hidden /></Link>
           <Avatar name={name} src={detail.contact.avatarUrl} size="xl" />
           <div className="min-w-[9rem] flex-1 basis-40">
-            <h2 ref={headingRef} tabIndex={-1} className="truncate text-md font-semibold text-fg outline-none"><Link href={`/w/${workspaceId}/contacts/${detail.contact.id}`} className="hover:underline">{name}</Link></h2>
+            <h2 ref={headingRef} tabIndex={-1} className="truncate text-md font-semibold text-fg outline-none"><Link href={`/w/${workspaceId}/contacts/${detail.contact.id}`} className="inline-block hover:underline pointer-coarse:-my-3 pointer-coarse:py-3">{name}</Link></h2>
             <div className="flex items-center gap-1.5"><ChannelBadge platform={detail.platform} account={detail.accountName} />{detail.status !== "open" && <Badge tone={detail.status === "resolved" ? "success" : "warning"}>{detail.status === "resolved" ? "Resolved" : "Pending"}</Badge>}</div>
           </div>
-          <div className="flex flex-wrap items-center gap-1.5">
-            <StageControl ctl={lead} canEdit={canEditLead} />
+          <div className="flex w-full items-center gap-1.5 md:w-auto md:flex-wrap">
+            <StageControl ctl={lead} canEdit={canEditLead} className="max-md:min-w-0 max-md:flex-1 max-md:justify-start" />
             {canReply ? (
-              <Select aria-label="Assignee" value={detail.assignee?.userId ?? ""} onChange={(e) => void change({ assigneeUserId: e.target.value || null })}>
+              <Select aria-label="Assignee" wrapperClassName="max-md:min-w-0 max-md:flex-1" value={detail.assignee?.userId ?? ""} onChange={(e) => void change({ assigneeUserId: e.target.value || null })}>
                 <option value="">Unassigned</option>
                 {assigneeOptions.map((o) => <option key={o.id} value={o.id} disabled={!canAssignAny && o.id !== myUserId && o.id !== current?.userId}>{o.name}</option>)}
               </Select>
@@ -296,7 +297,7 @@ export function Thread({ conversationId }: { conversationId: string }) {
         </div>
         <p role="status" aria-live="polite" className="sr-only">{announce}</p>
 
-        <footer className="px-4 pb-4 pt-1">
+        <footer className="px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-1">
           {!canReply ? <p className="py-3 text-sm text-fg-muted">You have read-only access.</p> : (
             <>
               {detail.replyWindow === "closed" && <Alert tone="warning" className="mb-2">You can&apos;t reply: more than 24 hours have passed since {name}&apos;s last message. {detail.platform === "whatsapp" ? "WhatsApp only allows free-form replies within 24 hours of the customer's last message (template messages are not available yet)." : "Meta only allows replies within 24 hours."} You can reply as soon as {name} writes again.</Alert>}
@@ -333,9 +334,9 @@ export function Thread({ conversationId }: { conversationId: string }) {
           <ContactPanel d={detail} workspaceId={workspaceId} now={now} lead={lead} canEditLead={canEditLead} onClose={toggleCtx} />
         </div>
       </aside>
-      <Dialog open={sheet && !lg} onOpenChange={setSheet}>
-        <DialogContent title="Contact" description={`Details for ${name}`}><ContactPanel d={detail} workspaceId={workspaceId} now={now} lead={lead} canEditLead={canEditLead} /></DialogContent>
-      </Dialog>
+      <Sheet open={sheet && !lg} onOpenChange={setSheet} title="Contact" description={`Details for ${name}`}>
+        <ContactPanel d={detail} workspaceId={workspaceId} now={now} lead={lead} canEditLead={canEditLead} />
+      </Sheet>
     </div>
   );
 }

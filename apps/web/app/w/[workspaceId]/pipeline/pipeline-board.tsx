@@ -18,6 +18,7 @@ import { browserApi, errorMessage } from "@/lib/client-api";
 import { formatDate } from "@/lib/format";
 import { formatMoney, noun } from "@/lib/leads";
 import { cn } from "@/lib/cn";
+import { tabClass } from "@/components/ui/tabs";
 
 type Props = { workspaceId: string; pipelines: PipelineDto[]; lostReasons: LostReasonDto[]; current: PipelineDto | null; initialLeads: LeadDto[]; wonLeads: LeadDto[]; lostLeads: LeadDto[]; truncated: boolean; canEdit: boolean; canCreate: boolean; canSetValue: boolean };
 const COLUMN_CAP = 50; // cards rendered per column before "Show more" (keeps drag smooth without virtualization)
@@ -137,7 +138,10 @@ function Inner({ workspaceId, pipelines, lostReasons, current, initialLeads, won
       {!canEdit && <p className="mb-2 text-sm text-fg-muted">You can view the pipeline but not move cards.</p>}
 
       <DndContext sensors={sensors} collisionDetection={collide} accessibility={{ announcements }} onDragStart={(e: DragStartEvent) => setDragId(String(e.active.id))} onDragEnd={onDragEnd} onDragCancel={() => setDragId(null)}>
-        <div className="overflow-x-auto pb-3" role="region" aria-label="Pipeline board" tabIndex={0}>
+        <div className="mb-2 flex gap-1.5 overflow-x-auto pb-1 md:hidden" role="group" aria-label="Jump to stage">
+          {open.map((s) => <button key={s.id} type="button" className={tabClass(false)} onClick={() => document.querySelector(`[data-column="${s.id}"]`)?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", inline: "start", block: "nearest" })}>{s.name}<span className="tabular-nums text-fg-subtle">{(cols.get(s.id) ?? []).length}</span></button>)}
+        </div>
+        <div className={cn("overflow-x-auto pb-3", dragId === null && "max-md:snap-x max-md:snap-mandatory")} role="region" aria-label="Pipeline board" tabIndex={0}>
           <div className="flex min-h-[60vh] gap-3">
             {open.map((s) => {
               const col = cols.get(s.id) ?? [];
@@ -150,7 +154,7 @@ function Inner({ workspaceId, pipelines, lostReasons, current, initialLeads, won
                 </Column>
               );
             })}
-            <div className="flex w-56 shrink-0 flex-col gap-3">
+            <div className="flex w-56 shrink-0 flex-col gap-3 max-md:w-[calc(100vw-4.5rem)] max-md:snap-start">
               {won && <Terminal stage={won} workspaceId={workspaceId} outcome="won" closed={wonLeads} icon={<Trophy className="size-4" aria-hidden />} dragging={dragId !== null} />}
               {lost && <Terminal stage={lost} workspaceId={workspaceId} outcome="lost" closed={lostLeads} icon={<XCircle className="size-4" aria-hidden />} dragging={dragId !== null} />}
             </div>
@@ -172,7 +176,7 @@ function Inner({ workspaceId, pipelines, lostReasons, current, initialLeads, won
 function Column({ stage, count, total, currency, dragging, children }: { stage: StageDto; count: number; total: number; currency: string; dragging: boolean; children: React.ReactNode }) {
   const { setNodeRef, isOver } = useDroppable({ id: stage.id });
   return (
-    <section ref={setNodeRef} data-column={stage.id} aria-label={`${stage.name}, ${count} cards`} className={cn("flex shrink-0 flex-col rounded-card border bg-canvas transition-[width,colors] duration-[var(--dur-base)]", count === 0 && !dragging ? "w-56" : "w-72", isOver ? "border-accent bg-accent-subtle/40" : "border-line-card", dragging && !isOver && "border-dashed")}>
+    <section ref={setNodeRef} data-column={stage.id} aria-label={`${stage.name}, ${count} cards`} className={cn("flex shrink-0 flex-col rounded-card border bg-canvas transition-[width,colors] duration-[var(--dur-base)]", count === 0 && !dragging ? "w-56" : "w-72", "max-md:w-[calc(100vw-4.5rem)] max-md:snap-start", isOver ? "border-accent bg-accent-subtle/40" : "border-line-card", dragging && !isOver && "border-dashed")}>
       <header className="flex items-center justify-between gap-2 px-3 pb-1 pt-2.5">
         <h2 className="flex min-w-0 items-center gap-2 truncate text-base font-semibold text-fg"><span aria-hidden className="size-1.5 shrink-0 rounded-full" style={{ background: `var(--hue-${(stage.position % 6) + 1}-dot)` }} />{stage.name}</h2>
         <span className="shrink-0 text-xs tabular-nums text-fg-subtle">{count}</span>
@@ -192,10 +196,10 @@ function Terminal({ stage, workspaceId, outcome, closed, icon, dragging }: { sta
       <h2 className="flex items-center justify-between gap-1.5 font-semibold text-fg"><span className="inline-flex items-center gap-1.5">{icon}{stage.name}</span><span className="text-xs font-normal tabular-nums text-fg-subtle" title="Closed in the last 30 days">{closed.length}</span></h2>
       {dragging ? <p className="py-2 text-center text-xs">Drop to close</p> : shown.length === 0 ? <p className="py-1 text-xs text-fg-subtle">None in the last 30 days. Drag a card here to close it.</p> : (
         <ul className="flex flex-col gap-1">
-          {shown.map((l) => <li key={l.id}><Link href={`/w/${workspaceId}/leads/${l.id}`} className="block truncate rounded-control bg-surface px-2 py-1.5 text-xs text-fg hover:bg-hover">{l.title}</Link></li>)}
+          {shown.map((l) => <li key={l.id}><Link href={`/w/${workspaceId}/leads/${l.id}`} className="block truncate rounded-control bg-surface px-2 py-1.5 text-xs text-fg hover:bg-hover pointer-coarse:py-3">{l.title}</Link></li>)}
         </ul>
       )}
-      {!dragging && <Link href={`/w/${workspaceId}/leads?status=${outcome}`} className="mt-auto pt-1 text-xs text-accent-fg underline underline-offset-2">View all {stage.name.toLowerCase()}{closed.length > shown.length ? ` (${closed.length} recent)` : ""}</Link>}
+      {!dragging && <Link href={`/w/${workspaceId}/leads?status=${outcome}`} className="mt-auto pt-1 text-xs text-accent-fg underline underline-offset-2 pointer-coarse:min-h-11 pointer-coarse:py-3">View all {stage.name.toLowerCase()}{closed.length > shown.length ? ` (${closed.length} recent)` : ""}</Link>}
     </section>
   );
 }
@@ -205,7 +209,7 @@ function CardBody({ lead, workspaceId, overlay, handle }: { lead: LeadDto; works
     <div className={cn("rounded-card bg-surface p-3 text-sm shadow-sheet", overlay && "w-72 rotate-1 shadow-lift")}>
       <div className="flex items-start gap-1">
         {handle}
-        <Link href={`/w/${workspaceId}/leads/${lead.id}`} className="min-w-0 flex-1 break-words font-medium text-fg hover:text-accent-fg" tabIndex={overlay ? -1 : 0}>{lead.title}</Link>
+        <Link href={`/w/${workspaceId}/leads/${lead.id}`} className="min-w-0 flex-1 break-words font-medium text-fg hover:text-accent-fg pointer-coarse:-my-3.5 pointer-coarse:py-3.5" tabIndex={overlay ? -1 : 0}>{lead.title}</Link>
       </div>
       <p className="mt-0.5 truncate text-xs text-fg-muted">{lead.primaryContact.name}</p>
       <div className="mt-2 flex items-center justify-between gap-2 text-xs">
@@ -224,7 +228,7 @@ function Card({ lead, stages, workspaceId, canEdit, pending, hidden, onMove }: {
   const { attributes, listeners, setNodeRef } = useDraggable({ id: lead.id, disabled: !canEdit });
   const handle = canEdit ? (
     <>
-      <button type="button" ref={setNodeRef as never} {...attributes} {...listeners} aria-label={`Move ${lead.title}. Press space to pick up, arrow keys to choose a stage`} className="-ml-1 mt-0.5 shrink-0 cursor-grab touch-none rounded p-0.5 text-fg-subtle hover:bg-hover active:cursor-grabbing"><GripVertical className="size-4" aria-hidden /></button>
+      <button type="button" ref={setNodeRef as never} {...attributes} {...listeners} aria-label={`Move ${lead.title}. Press space to pick up, arrow keys to choose a stage`} className="relative -ml-1 mt-0.5 shrink-0 cursor-grab touch-none rounded p-0.5 pointer-coarse:before:absolute pointer-coarse:before:-inset-3.5 pointer-coarse:before:content-[''] text-fg-subtle hover:bg-hover active:cursor-grabbing"><GripVertical className="size-4" aria-hidden /></button>
     </>
   ) : undefined;
   return (

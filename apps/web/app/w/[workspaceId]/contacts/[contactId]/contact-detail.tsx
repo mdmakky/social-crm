@@ -74,7 +74,7 @@ export function ContactDetailView(props: Props) {
 
   return (
     <>
-      <Link href={`/w/${workspaceId}/contacts`} className="mb-3 inline-flex items-center gap-1 text-sm text-fg-muted hover:text-fg"><ArrowLeft className="size-4" aria-hidden />Contacts</Link>
+      <Link href={`/w/${workspaceId}/contacts`} className="mb-3 inline-flex items-center gap-1 text-sm text-fg-muted hover:text-fg pointer-coarse:min-h-11"><ArrowLeft className="size-4" aria-hidden />Contacts</Link>
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
           <Avatar name={c.name} size="xl" />
@@ -126,7 +126,7 @@ export function ContactDetailView(props: Props) {
                 {props.deals.items.map((l) => (
                   <li key={l.id} className="flex items-center gap-3 border-b border-line-card px-4 py-2.5 last:border-b-0">
                     <div className="min-w-0 flex-1">
-                      <Link href={`/w/${workspaceId}/leads/${l.id}`} className="block truncate text-base font-medium text-fg hover:underline">{l.title}</Link>
+                      <Link href={`/w/${workspaceId}/leads/${l.id}`} className="block truncate text-base font-medium text-fg hover:underline pointer-coarse:-my-3 pointer-coarse:py-3">{l.title}</Link>
                       <p className="truncate text-xs text-fg-subtle">{props.deals!.pipelines.find((x) => x.id === l.pipelineId)?.stages.find((x) => x.id === l.stageId)?.name ?? "Stage"}{l.valueMinor !== null && l.currency ? ` · ${formatMoney(l.valueMinor, l.currency)}` : ""}</p>
                     </div>
                     <Badge tone={l.outcome === "open" ? "neutral" : OUTCOME_TONE[l.outcome]}>{OUTCOME_LABEL[l.outcome]}</Badge>
@@ -234,8 +234,8 @@ function DetailsPanel({ c, carry, onCarry, onCarryUsed, saved, onSaved, stages, 
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Name" error={fieldErrors.name}>{(x) => <Input {...x} value={form.name} onChange={(e) => set({ name: e.target.value })} disabled={!canEdit} maxLength={120} />}</Field>
           <Field label="Company">{(x) => <Input {...x} value={form.company} onChange={(e) => set({ company: e.target.value })} disabled={!canEdit} maxLength={120} />}</Field>
-          <Field label="Email" action={c.email ? <a className="text-sm text-fg-muted underline underline-offset-2 hover:text-fg" href={mailtoHref(c.email)}>Send email</a> : undefined}>{(x) => <Input {...x} type="email" inputMode="email" value={form.email} onChange={(e) => set({ email: e.target.value })} disabled={!canEdit} />}</Field>
-          <Field label="Phone" action={c.phone ? <a className="text-sm text-fg-muted underline underline-offset-2 hover:text-fg" href={telHref(c.phone)}>Call</a> : undefined}>{(x) => <Input {...x} type="tel" inputMode="tel" value={form.phone} onChange={(e) => set({ phone: e.target.value })} disabled={!canEdit} />}</Field>
+          <Field label="Email" action={c.email ? <a className="inline-flex text-sm text-fg-muted underline underline-offset-2 hover:text-fg pointer-coarse:min-h-11 pointer-coarse:items-center pointer-coarse:px-2" href={mailtoHref(c.email)}>Send email</a> : undefined}>{(x) => <Input {...x} type="email" inputMode="email" value={form.email} onChange={(e) => set({ email: e.target.value })} disabled={!canEdit} />}</Field>
+          <Field label="Phone" action={c.phone ? <a className="inline-flex text-sm text-fg-muted underline underline-offset-2 hover:text-fg pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:items-center pointer-coarse:justify-center pointer-coarse:px-2" href={telHref(c.phone)}>Call</a> : undefined}>{(x) => <Input {...x} type="tel" inputMode="tel" value={form.phone} onChange={(e) => set({ phone: e.target.value })} disabled={!canEdit} />}</Field>
           <Field label="Lifecycle stage">{(x) => <Select {...x} value={form.stage} onChange={(e) => set({ stage: e.target.value })} disabled={!canEdit}>{stageOptions.map((s) => <option key={s.id} value={s.id}>{s.name}{s.archived ? " (archived)" : ""}</option>)}</Select>}</Field>
           <Field label="Owner">{(x) => <Select {...x} value={form.owner} onChange={(e) => set({ owner: e.target.value })} disabled={!canEdit}><option value="">Unassigned</option>{members.map((m) => <option key={m.userId} value={m.userId}>{m.name}{m.userId === myUserId ? " (you)" : ""}</option>)}</Select>}</Field>
           <Field label="Source">{(x) => <Select {...x} value={form.source} onChange={(e) => set({ source: e.target.value })} disabled={!canEdit}>{Object.keys(SOURCE_LABEL).map((s) => <option key={s} value={s}>{sourceLabel(s)}</option>)}</Select>}</Field>
@@ -461,7 +461,7 @@ function TasksPanel({ tasks, setTasks, p, canEdit, role, myUserId, members, time
               const mine = can(role, "task.edit", { isOwn: t.assignee?.id === myUserId || t.createdBy?.id === myUserId });
               return (
                 <li key={t.id} className="flex items-start gap-2">
-                  <button type="button" role="checkbox" aria-checked={t.status === "done"} aria-label={`${t.status === "done" ? "Reopen" : "Complete"}: ${t.title}`} disabled={!mine} onClick={() => void toggle(t)} className={`mt-0.5 flex size-5 shrink-0 items-center justify-center rounded border pointer-coarse:size-7 ${t.status === "done" ? "border-accent bg-accent text-on-accent" : "border-line-control bg-surface"} disabled:opacity-50`}>
+                  <button type="button" role="checkbox" aria-checked={t.status === "done"} aria-label={`${t.status === "done" ? "Reopen" : "Complete"}: ${t.title}`} disabled={!mine} onClick={() => void toggle(t)} className={`mt-0.5 flex size-5 shrink-0 items-center justify-center rounded border pointer-coarse:size-7 pointer-coarse:relative pointer-coarse:before:absolute pointer-coarse:before:-inset-2 pointer-coarse:before:content-[''] ${t.status === "done" ? "border-accent bg-accent text-on-accent" : "border-line-control bg-surface"} disabled:opacity-50`}>
                     {t.status === "done" && <Check className="size-3.5" aria-hidden />}
                   </button>
                   <div className="min-w-0 flex-1">

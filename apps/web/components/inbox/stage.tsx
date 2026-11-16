@@ -99,7 +99,7 @@ export function StageControl({ ctl, canEdit, className, block }: { ctl: ContactL
   const trigger = (
     <Button variant="secondary" size="sm" disabled={ctl.busy} className={className}>
       {ctl.stage ? <span aria-hidden className="size-2 rounded-full transition-colors" style={{ background: dot(ctl.stage, idx) }} /> : null}
-      <span className="font-normal text-fg-subtle">Stage</span>{ctl.stage ? ctl.stage.name : "No lead"}
+      <span className="font-normal text-fg-subtle max-md:sr-only">Stage</span>{ctl.stage ? ctl.stage.name : "No lead"}
       {canEdit && <ChevronDown className="ml-auto" aria-hidden />}
     </Button>
   );

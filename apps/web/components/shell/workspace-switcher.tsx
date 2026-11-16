@@ -12,7 +12,7 @@ export function WorkspaceSwitcher({ current, all, compact }: { current: ShellWor
     <DropdownMenu>
       <DropdownMenuTrigger
         aria-label={compact ? `Switch workspace, current: ${current.name}` : undefined}
-        className={cn("press flex w-full items-center gap-2.5 rounded-xl p-1.5 text-left hover:bg-canvas data-[state=open]:bg-canvas", compact && "justify-center")}
+        className={cn("press flex w-full items-center gap-2.5 rounded-xl p-1.5 pointer-coarse:min-h-11 text-left hover:bg-canvas data-[state=open]:bg-canvas", compact && "justify-center")}
       >
         <span aria-hidden data-initials={current.name.trim().slice(0, 2).toUpperCase()} className="inline-flex size-7 shrink-0 items-center justify-center rounded-lg bg-accent text-[11px] font-bold text-on-accent after:content-[attr(data-initials)]" />
         {!compact && (

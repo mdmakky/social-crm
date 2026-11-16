@@ -122,6 +122,8 @@
 /* Phone shell metrics. The bottom bar only exists below md; --bottomnav-h is 0 when it is hidden (thread, keyboard) so calc()-sized screens stay right. */
 :root { --bottomnav-base: 3.5rem; --bottomnav-h: 0px; --topbar-total: calc(var(--topbar-h) + env(safe-area-inset-top, 0px)); }
 @media (max-width: 767px) { [data-bn="on"] { --bottomnav-h: calc(var(--bottomnav-base) + env(safe-area-inset-bottom, 0px)); } }
+/* Edge-to-edge on phones: cancels the page gutter (and its safe-area padding) for screens that own the whole viewport, like the inbox. */
+@media (max-width: 767px) { .bleed { margin: -1.25rem calc(-1 * max(1rem, env(safe-area-inset-right))) -1.25rem calc(-1 * max(1rem, env(safe-area-inset-left))); } }
 /* Native checkboxes and radios are 13 to 16px: give touch users a real target (their labels already are 44px). */
 @media (pointer: coarse) { input[type="checkbox"], input[type="radio"] { width: 1.25rem; height: 1.25rem; } }
 

@@ -251,7 +251,7 @@ function ContactsTable({ items, columns, query, onSort, workspaceId, timeZone }:
             return (
               <TH key={col} className={col === "contact" ? "sticky left-0 z-10" : undefined} aria-sort={active ? (query.dir === "asc" ? "ascending" : "descending") : s ? "none" : undefined}>
                 {s ? (
-                  <button type="button" onClick={() => onSort(col)} className="press group/sort inline-flex min-h-6 min-w-6 items-center gap-1 rounded py-1 text-xs font-medium text-fg-subtle hover:text-fg">
+                  <button type="button" onClick={() => onSort(col)} className="press group/sort inline-flex min-h-6 min-w-6 items-center gap-1 rounded py-1 text-xs font-medium text-fg-subtle hover:text-fg pointer-coarse:min-h-11 pointer-coarse:min-w-11">
                     {COLUMN_LABEL[col]}
                     {active ? (query.dir === "asc" ? <ArrowUp className="size-3" aria-hidden /> : <ArrowDown className="size-3" aria-hidden />) : <ArrowUpDown className="size-3 text-fg-disabled opacity-0 transition-opacity duration-[var(--dur-fast)] group-hover/sort:opacity-100 group-focus-visible/sort:opacity-100" aria-hidden />}
                   </button>
@@ -290,7 +290,7 @@ function cell(col: ContactColumn, c: ContactSummary, workspaceId: string, timeZo
         <div className="flex min-w-0 items-center gap-3">
           <Avatar name={c.name} size="lg" />
           <div className="min-w-0 leading-tight">
-            <Link href={`/w/${workspaceId}/contacts/${c.id}`} className="block truncate font-medium text-fg hover:text-accent-fg">{c.name}</Link>
+            <Link href={`/w/${workspaceId}/contacts/${c.id}`} className="block truncate font-medium text-fg hover:text-accent-fg pointer-coarse:-my-3 pointer-coarse:py-3">{c.name}</Link>
             <p className="truncate text-sm text-fg-subtle">{c.email ?? c.phone ?? "No email or phone"}</p>
           </div>
         </div>

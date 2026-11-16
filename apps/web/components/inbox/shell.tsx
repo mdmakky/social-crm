@@ -9,6 +9,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Kbd } from "@/components/ui/kbd";
+import { Sheet } from "@/components/ui/sheet";
+import { tabClass } from "@/components/ui/tabs";
+import { usePhone } from "@/lib/use-phone";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/overlays";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState, ErrorState } from "@/components/ui/states";
@@ -119,6 +122,8 @@ function Inner({ children, members }: { children: React.ReactNode; members: Memb
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  const phone = usePhone();
+  const [filterOpen, setFilterOpen] = React.useState(false);
   const tab = tabOf(f);
   const dirty = f.status !== "open" || tab === null || f.q !== "";
   const clear = () => { setQ(""); setF(DEFAULTS); };
@@ -126,13 +131,33 @@ function Inner({ children, members }: { children: React.ReactNode; members: Memb
   const TABS: { id: InboxTab; label: string }[] = [{ id: "all", label: "All" }, { id: "unread", label: "Unread" }, { id: "mine", label: "Mine" }, { id: "unassigned", label: "Unassigned" }];
   const STATUSES: { id: Filters["status"]; label: string }[] = [{ id: "open", label: "Open" }, { id: "pending", label: "Pending" }, { id: "resolved", label: "Resolved" }, { id: "all", label: "All statuses" }];
 
+  const FILTER_BTN = <Button variant="ghost" icon size="sm" className="relative ml-auto" aria-label="Filter conversations"><SlidersHorizontal aria-hidden />{(f.status !== "open" || tab === null) && <span aria-hidden className="absolute right-1 top-1 size-1.5 rounded-full bg-accent" />}</Button>;
+
   return (
-    <div className="flex h-[calc(100dvh-var(--topbar-h)-3.5rem)] min-h-[28rem] overflow-hidden rounded-card border border-line bg-surface max-md:h-[calc(100dvh-var(--topbar-total)-var(--bottomnav-h)-2.5rem)]">
+    <div className="bleed flex h-[calc(100dvh-var(--topbar-h)-3.5rem)] min-h-[28rem] overflow-hidden rounded-card border border-line bg-surface max-md:h-[calc(100dvh-var(--topbar-total)-var(--bottomnav-h))] max-md:min-h-0 max-md:rounded-none max-md:border-0">
       <section aria-label="Conversations" className={cn("min-w-0 flex-col border-r border-line md:flex md:w-[300px] md:shrink-0 lg:w-[352px]", selected ? "hidden" : "flex w-full")}>
         <div className="px-4 pt-4">
           <div className="flex items-center gap-2">
             <h1 className="text-lg font-semibold tracking-title text-fg">Inbox</h1>
             {unreadTotal > 0 && <Badge tone="accent">{unreadTotal > 99 ? "99+" : unreadTotal} unread</Badge>}
+            {phone ? (
+              <>
+                {React.cloneElement(FILTER_BTN, { onClick: () => setFilterOpen(true) })}
+                <Sheet open={filterOpen} onOpenChange={setFilterOpen} title="Filter conversations" description="Combine with the tabs above.">
+                  <div className="space-y-5 pb-2">
+                    <section aria-label="Status"><h3 className="mb-2 text-xs font-semibold text-fg-subtle">Status</h3>
+                      <div className="flex flex-wrap gap-2">{STATUSES.map((o) => <button key={o.id} type="button" aria-pressed={f.status === o.id} className={tabClass(f.status === o.id)} onClick={() => setF({ ...f, status: o.id })}>{o.label}</button>)}</div>
+                    </section>
+                    {members.some((m) => m.userId !== myUserId && m.status === "active") && (
+                      <section aria-label="Assigned to"><h3 className="mb-2 text-xs font-semibold text-fg-subtle">Assigned to</h3>
+                        <div className="flex flex-wrap gap-2">{members.filter((m) => m.userId !== myUserId && m.status === "active").map((m) => <button key={m.userId} type="button" aria-pressed={f.assignee === m.userId} className={tabClass(f.assignee === m.userId)} onClick={() => setF({ ...f, ...TAB_FILTERS.all, assignee: m.userId })}>{m.name}</button>)}</div>
+                      </section>
+                    )}
+                    <div className="flex gap-2"><Button className="flex-1" disabled={!dirty} onClick={() => { clear(); setFilterOpen(false); }}><FilterX aria-hidden />Clear all</Button><Button variant="primary" className="flex-1" onClick={() => setFilterOpen(false)}>Show results</Button></div>
+                  </div>
+                </Sheet>
+              </>
+            ) : (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" icon size="sm" className="relative ml-auto" aria-label="Filter conversations"><SlidersHorizontal aria-hidden />{(f.status !== "open" || tab === null) && <span aria-hidden className="absolute right-1 top-1 size-1.5 rounded-full bg-accent" />}</Button>
@@ -146,6 +171,7 @@ function Inner({ children, members }: { children: React.ReactNode; members: Memb
                 {dirty && <><DropdownMenuSeparator /><DropdownMenuItem onSelect={clear}><FilterX aria-hidden />Clear all filters</DropdownMenuItem></>}
               </DropdownMenuContent>
             </DropdownMenu>
+            )}
           </div>
           <div className="relative mt-3">
             <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-fg-subtle" aria-hidden />
@@ -157,7 +183,7 @@ function Inner({ children, members }: { children: React.ReactNode; members: Memb
         <div role="tablist" aria-label="Conversation views" className="mt-2 flex gap-0.5 border-b border-line px-2">
           {TABS.map((t) => (
             <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} onClick={() => setTab(t.id)}
-              className={cn("press relative inline-flex h-9 items-center gap-1.5 px-2 text-base font-medium pointer-coarse:h-11", tab === t.id ? "text-fg" : "text-fg-subtle hover:text-fg")}>
+              className={cn("press relative inline-flex h-9 items-center gap-1.5 px-2 text-base font-medium pointer-coarse:h-11 pointer-coarse:min-w-11 pointer-coarse:justify-center", tab === t.id ? "text-fg" : "text-fg-subtle hover:text-fg")}>
               {t.label}
               {t.id === "unread" && unreadTotal > 0 && <span className="rounded-full bg-hover px-1.5 text-xs text-fg-muted tabular-nums">{unreadTotal > 99 ? "99+" : unreadTotal}</span>}
               <span aria-hidden className={cn("absolute inset-x-2 -bottom-px h-0.5 origin-left rounded bg-accent transition-transform duration-[var(--dur-base)] ease-[var(--ease-out)]", tab === t.id ? "scale-x-100" : "scale-x-0")} />
