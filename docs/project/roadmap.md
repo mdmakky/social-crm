@@ -28,7 +28,7 @@ Gate: cross-client sync tests (action on one client visible on the other under 2
 ## Phase 5: Automation foundation
 Workflow model, trigger system, condition engine, action registry, execution log, retries, approvals (web and mobile), kill switches. Rule-list builder UI.
 Gate: idempotency tests (replayed trigger yields one run), retry and failure tests, approval flow E2E.
-Status: slice 1 built on `feat/automation-foundation` (rules, idempotent runs, retries, default approval, kill switch, web rule list; idempotency, retry and approval flow covered by API tests). Open: Playwright approval E2E, mobile approvals, more triggers and actions.
+Status: slice 1 built on `feat/automation-foundation` (rules, idempotent runs, retries, default approval, kill switch, web rule list; idempotency, retry and approval flow covered by API tests). Playwright approval E2E met (`apps/web/e2e/automation-approval.spec.ts`, 6/6 on a private DB; gate line met for web, mobile approvals not covered). Open: mobile approvals, more triggers and actions.
 
 ## Phase 6: AI foundation
 Provider abstraction, model config UI, reply suggestions, summaries, lead classification, run logging with tokens and cost, budgets, approval integration, mobile AI surfaces.
