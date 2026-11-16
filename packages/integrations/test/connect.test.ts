@@ -69,7 +69,7 @@ describe("Graph client (injected fetch; NOT Meta)", () => {
     expect(calls[0]!.url.pathname).toBe("/v25.0/55/subscribed_apps");
     expect(await g.unsubscribePage("55", "PT")).toBe(true);
     expect(calls[1]!.init.method).toBe("DELETE");
-    expect(await g.debugToken("TT")).toEqual({ isValid: true, expiresAt: new Date(2_000_000_000_000), scopes: ["pages_messaging"], errorCode: null });
+    expect(await g.debugToken("TT")).toEqual({ appId: null, isValid: true, expiresAt: new Date(2_000_000_000_000), scopes: ["pages_messaging"], errorCode: null });
     expect(calls[2]!.url.searchParams.get("input_token")).toBe("TT");
     expect((calls[2]!.init.headers as Record<string, string>).authorization).toBe("Bearer 111|SECRET");
     expect(await g.debugToken("TT")).toMatchObject({ isValid: false, errorCode: 190 });

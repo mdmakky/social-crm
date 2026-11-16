@@ -59,12 +59,13 @@ const origins = [env.WEB_ORIGIN, "crm://"];
 const db = createDb(env.DATABASE_URL_APP);
 const auth = createAuth(db, { secret: env.BETTER_AUTH_SECRET, baseURL: env.BETTER_AUTH_URL, trustedOrigins: origins, mailer });
 const workerDb = env.DATABASE_URL_WORKER ? createDb(env.DATABASE_URL_WORKER) : null;
+const MOCK_WA_TOKEN = "mock-system-user-token-" + "0".repeat(24); // META_MOCK only: the E2E spec pastes the same value
 let meta: MetaConnectDeps | undefined;
 if (workerDb && env.SECRETS_ENCRYPTION_KEY && env.META_APP_SECRET && ((env.META_APP_ID && env.META_FLFB_CONFIG_ID) || env.META_MOCK === "1")) {
   if (env.NODE_ENV === "production" && env.META_MOCK === "1") throw new Error("META_MOCK is not allowed in production");
   meta = {
     graph: env.META_MOCK === "1"
-      ? createMockGraph({ pages: [{ id: "100000000000001", name: "Mock Page", accessToken: "mock-page-token", tasks: ["MANAGE", "MESSAGING"], instagramAccountId: "170000000000001" }] })
+      ? createMockGraph({ pages: [{ id: "100000000000001", name: "Mock Page", accessToken: "mock-page-token", tasks: ["MANAGE", "MESSAGING"], instagramAccountId: "170000000000001" }], whatsapp: { wabas: new Map([["200000000000001", { token: MOCK_WA_TOKEN, numbers: [{ id: "300000000000001", displayPhoneNumber: "+1 555 010 0001", verifiedName: "Mock WhatsApp Business" }, { id: "300000000000002", displayPhoneNumber: "+1 555 010 0002", verifiedName: null }] }]]) } })
       : createMetaGraph({ appId: env.META_APP_ID!, appSecret: env.META_APP_SECRET, version: env.META_GRAPH_VERSION }),
     box: createSecretBox({ [env.SECRETS_KEY_ID]: env.SECRETS_ENCRYPTION_KEY }, env.SECRETS_KEY_ID),
     workerDb, appId: env.META_APP_ID ?? "0", configId: env.META_FLFB_CONFIG_ID ?? "0", graphVersion: env.META_GRAPH_VERSION,

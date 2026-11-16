@@ -10,7 +10,7 @@ Status: implemented on branch `feat/whatsapp-foundation`; not pushed, merged or 
 - Integrations page: WhatsApp stays a "Coming soon" channel with an honest reason (no connect, no send). The Inbox shows WhatsApp conversations read-only with a notice instead of a composer; the API refuses a reply with `422 unsupported_channel`.
 
 ## Not in slice 1
-Connecting a number (slice 2), sending, templates, media download, Embedded Signup, Coexistence, token handling. A message for a number nobody connected is stored as an `orphan` event and can be replayed (`orphan -> received`) after the account exists.
+Sending, templates, media download, Embedded Signup, Coexistence, token handling. A message for a number nobody connected is stored as an `orphan` event and can be replayed (`orphan -> received`) after the account exists.
 
 ## Verified against Meta's official pages (read 2026-11-14)
 Pages: `documentation/business-messaging/whatsapp/webhooks/create-webhook-endpoint` and `.../webhooks/reference/messages/*` (the old `developers.facebook.com/docs/whatsapp/cloud-api/webhooks/...` URLs return 404).
@@ -40,3 +40,13 @@ Pages: `documentation/business-messaging/whatsapp/webhooks/create-webhook-endpoi
 
 ## Rollback
 Migration `0025` is additive except the replaced CHECK constraints and two worker policies. To undo it on an empty `whatsapp` dataset: drop trigger/function `whatsapp_accounts_guard`, drop table `whatsapp_accounts`, restore the three CHECKs and the two policies and the name-guard function from `0017`/`0022`/`0019`. With WhatsApp rows present the CHECKs cannot be restored until those rows are removed.
+
+## Slice 2: manual connection with a system user token (2026-11-16)
+Meta documentation read 2026-11-16 (developers.facebook.com/documentation/business-messaging/whatsapp/, get-started, access-tokens, whatsapp-business-accounts, business-phone-numbers, webhooks/override).
+VERIFIED in the docs: a system user token needs `business_management`, `whatsapp_business_management`, `whatsapp_business_messaging` (messages webhooks need messaging, all others management); the system user must be assigned the app ("Manage app") and the WhatsApp account; "System user access token" is listed as the token for direct developers using their own data (Business Integration System User tokens are for Tech Providers and need Embedded Signup); `GET /{waba-id}/phone_numbers` returns `data[]` with `id`, `display_phone_number`, `verified_name`, `quality_rating`; webhook callback and verify token are set in the app dashboard; signature header `X-Hub-Signature-256`.
+NOT stated / conflicting: using a system user token on a CUSTOMER's WABA; whether Advanced access is needed for own-business use (inferred: no); `debug_token` for these tokens (standard Graph, inferred); plain `POST /{waba-id}/subscribed_apps` (the Graph reference says POST/DELETE unsupported, the webhook override page uses POST with a body); token expiry choices.
+What slice 2 does: `POST /integrations/whatsapp/numbers` (list numbers for a WABA id + token, token not stored) and `POST /integrations/whatsapp/connect` (validate, store, subscribe the WABA, replay orphans). Errors: `token_invalid`, `permission_missing`, `waba_not_accessible`, `number_not_found`, `waba_mismatch`, `account_unavailable` (409), `meta_unavailable` (502). Check token, re-check subscription and disconnect reuse the generic account routes.
+Still needed from a real run: the three unverified calls above, and the dashboard webhook setup (not changed by us).
+
+## Hardening pass (2026-11-16): documentation re-check
+Documented: guides use plain `POST /{waba}/subscribed_apps` (webhooks/override, manage-webhooks) while the Graph reference stub says create/update/delete "You can't perform this operation on this endpoint" (conflict stays open). Direct developers "do not need Advanced access or app review" (solution-providers/app-review; business verification not mentioned). System user tokens are long-lived with a chosen expiry preference (access-tokens). Error codes 190 expired, 200 no token, 10 permission, 100 invalid parameter, 80007 WABA rate limit, 4 app rate limit; no subcodes (v16+). Assumed, not documented: `expires_at=0` means never; `debug_token` returns `app_id`/`scopes` for system user tokens; 100 means unknown WABA. Still needs one recorded real request.

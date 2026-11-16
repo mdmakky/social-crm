@@ -114,3 +114,14 @@ Fixtures only. No real WhatsApp request, no real message, no Playwright.
 - `apps/api/test/whatsapp.test.ts` (13): handshake, bad signatures (no body stored), unusable bodies, per-change rows, contact/conversation/message creation, idempotent redelivery, media reference, routing by phone number id (never entry.id), two workspaces in one POST, orphan and replay, disabled number, BSUID sender, status watermarks (forward only, unknown id, other account), inbox listing, refused reply, channel taken from the signed object.
 - `packages/db/test/whatsapp-schema.test.ts` (6): platform checks, worker contact/method policies and name guard, `whatsapp_accounts` isolation (members, other workspace, no context), no writes for the app/ingest roles, worker writes only in its workspace, guard trigger and checks.
 - Results (serial API run): lint and typecheck 18/18; core 98, db 149, integrations 44, api-client 18, design-tokens 48, web 45; API 524 passed, 14 skipped (37 files passed, 2 skipped; the skips pre-date this work). Messenger, Instagram Page-based and Unified Login suites unchanged and green.
+
+## WhatsApp slice 2: manual connection (2026-11-16, branch feat/whatsapp-connect)
+Mock Graph only. No real Meta request, no real message, Playwright spec updated but not run.
+- `apps/api/test/whatsapp-connect.test.ts` (12): role checks, lookup (no token echo, connected flag), connect (account, side row, sealed token, history, audit), reconnect, refusals (invalid token, missing scope, wrong app, number not in WABA, WABA mismatch), subscription failure then re-subscribe, cross-workspace takeover (409), disconnect keeps the WABA subscription, orphan replay.
+- Review (independent agent) found a cross-workspace unsubscribe risk, a stale WABA on reconnect and a missing app-id check; all three fixed and tested.
+
+### WhatsApp slice 2 hardening pass (2026-11-16)
+Mock Graph only; no real Meta request. Playwright `e2e/integrations.spec.ts` on a FRESH database with `E2E_META_MOCK=1`: 7/7 passed (new: full WhatsApp flow with validation errors, wrong WABA, wrong token, number picker, connect, token absent from DOM/storage/API, re-check, token check, already-connected hint, disconnect; non-member 404). Lint, typecheck, unit, db (149) and api (538 passed, 14 skipped) all green; `next build` OK. `whatsapp-connect.test.ts` now 14 tests (rate limit, missing app id fails closed).
+
+### WhatsApp slice 2 final review (2026-11-16)
+New API tests: no Graph call while a worker transaction is open (counting Proxy on the worker db; WhatsApp and Messenger paths: connect, check-token, re-subscribe, disconnect), stale token check dropped after a reconnect, number held by another workspace (flag, no identity leak, 409 message, reservation survives disconnect). Verified the three transaction tests FAIL on the previous code and pass now. Playwright adds the unavailable-number case.

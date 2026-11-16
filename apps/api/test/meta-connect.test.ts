@@ -354,3 +354,27 @@ describe("account events", () => {
     expect(r.ok).toBe(true);
   });
 });
+
+describe("no Graph call while a transaction is open", () => {
+  it("disconnect (unsubscribe), check-token and re-subscribe call Meta outside any worker transaction", async () => {
+    let open = 0;
+    const violations: string[] = [];
+    const real = deps.workerDb;
+    deps.workerDb = new Proxy(real, { get: (t, k) => (k === "transaction" ? (fn: (tx: unknown) => Promise<unknown>, ...rest: unknown[]) => (t as unknown as { transaction: (...a: unknown[]) => Promise<unknown> }).transaction(async (tx: unknown) => { open++; try { return await fn(tx); } finally { open--; } }, ...rest) : Reflect.get(t, k, t)) });
+    const orig = { unsub: graph.unsubscribePage, sub: graph.subscribePage, dbg: graph.debugToken };
+    graph.unsubscribePage = async (...a) => { if (open > 0) violations.push("unsubscribePage"); return orig.unsub(...a); };
+    graph.subscribePage = async (...a) => { if (open > 0) violations.push("subscribePage"); return orig.sub(...a); };
+    graph.debugToken = async (...a) => { if (open > 0) violations.push("debugToken"); return orig.dbg(...a); };
+    try {
+      const { accounts } = await (await connect(owner, ws, page())).json();
+      const id = accounts[0].account.id as string;
+      expect((await call(owner, "POST", `${WP(ws)}/accounts/${id}/check-token`)).status).toBe(200);
+      expect((await call(owner, "POST", `${WP(ws)}/accounts/${id}/resubscribe`)).status).toBe(200);
+      expect((await call(owner, "POST", `${WP(ws)}/accounts/${id}/disconnect`)).status).toBe(200);
+      expect(violations).toEqual([]);
+    } finally {
+      deps.workerDb = real;
+      Object.assign(graph, { unsubscribePage: orig.unsub, subscribePage: orig.sub, debugToken: orig.dbg });
+    }
+  });
+});

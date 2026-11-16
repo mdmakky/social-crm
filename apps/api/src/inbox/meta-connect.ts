@@ -80,7 +80,7 @@ export const dto = (a: typeof schema.integrationAccounts.$inferSelect): Integrat
 });
 
 /** Creates or reconnects one account and stores a new encrypted token version (older versions are deleted). Runs inside a worker transaction with the workspace context set. */
-export async function upsertAccount(tx: Tx, deps: MetaConnectDeps, a: { workspaceId: string; userId: string; platform: "messenger" | "instagram"; externalId: string; displayName: string; token: string; expiresAt: Date | null; metaUserHash: string | null; tasksUnverified: boolean; authMethod?: "facebook" | "unified" }) {
+export async function upsertAccount(tx: Tx, deps: MetaConnectDeps, a: { workspaceId: string; userId: string; platform: "messenger" | "instagram" | "whatsapp"; externalId: string; displayName: string; token: string; expiresAt: Date | null; metaUserHash: string | null; tasksUnverified: boolean; authMethod?: "facebook" | "unified" }) {
   const authMethod = a.authMethod ?? "facebook";
   const found = async () => rowsOf(await tx.execute(sql`SELECT id, workspace_id FROM integration_accounts WHERE platform = ${a.platform} AND external_account_id = ${a.externalId}`))[0];
   let row = await found();
@@ -143,24 +143,46 @@ export async function subscribeInstagramAccount(deps: MetaConnectDeps, igId: str
   return { state: "failed", code };
 }
 
-/** Daily-ish token health: debug_token, then record the result. Invalid token (Graph error 190 family) moves the account to reauth_required. Returns false when Graph was unreachable (state unchanged). */
+/** WhatsApp: the app is subscribed to the WABA (not to a number), so the WABA id comes from the side table (read it inside a transaction, call this after the transaction has closed). */
+export const wabaOf = async (tx: Tx, workspaceId: string, accountId: string) =>
+  rowsOf(await tx.execute(sql`SELECT waba_id FROM whatsapp_accounts WHERE integration_account_id = ${accountId} AND workspace_id = ${workspaceId}`))[0]?.waba_id as string | undefined;
+export async function subscribeWhatsAppAccount(deps: MetaConnectDeps, waba: string | undefined, token: string): Promise<{ state: SubState; code: number | null }> {
+  if (!waba) return { state: "failed", code: null };
+  try {
+    return { state: (await deps.graph.subscribeWaba(waba, token)) ? "subscribed" : "failed", code: null };
+  } catch (e) {
+    return { state: "failed", code: e instanceof GraphError ? e.code : null };
+  }
+}
+
+/** Newest secret version of an account: lets a slow Graph answer detect that the account was reconnected or disconnected meanwhile. */
+const secretVersion = async (tx: Tx, workspaceId: string, accountId: string) =>
+  rowsOf(await tx.execute(sql`SELECT max(version) AS v FROM integration_secrets WHERE integration_account_id = ${accountId} AND workspace_id = ${workspaceId}`))[0]?.v as number | null | undefined ?? null;
+
+/**
+ * Daily-ish token health: debug_token, then record the result. Invalid token (Graph error 190 family) moves the account to reauth_required. Returns false when Graph was unreachable (state unchanged).
+ * No transaction (and no row lock) is open during the Graph call. The result is applied only if the account still holds the same secret version: a reconnect or disconnect that happened meanwhile wins and the stale answer is dropped.
+ */
 export async function checkAccountToken(deps: MetaConnectDeps, workspaceId: string, accountId: string, actorUserId: string | null): Promise<boolean> {
-  return withContext(deps.workerDb, { workspaceId, userId: actorUserId ?? undefined }, async (tx) => {
-    const token = await loadToken(tx, deps, workspaceId, accountId);
-    let valid = false;
-    let expiresAt: Date | null = null;
-    let code: number | null = null;
-    if (token) {
-      try {
-        const info = await deps.graph.debugToken(token);
-        valid = info.isValid;
-        expiresAt = info.expiresAt;
-        code = info.errorCode;
-      } catch (e) {
-        if (!(e instanceof GraphError) || e.kind !== "auth") return false; // throttle / network / other: try again later, change nothing
-        code = e.code;
-      }
+  const ctx = { workspaceId, userId: actorUserId ?? undefined };
+  const { token, version } = await withContext(deps.workerDb, ctx, async (tx) => ({ token: await loadToken(tx, deps, workspaceId, accountId), version: await secretVersion(tx, workspaceId, accountId) }));
+  let valid = false;
+  let expiresAt: Date | null = null;
+  let code: number | null = null;
+  if (token) {
+    try {
+      const info = await deps.graph.debugToken(token);
+      valid = info.isValid;
+      expiresAt = info.expiresAt;
+      code = info.errorCode;
+    } catch (e) {
+      if (!(e instanceof GraphError) || e.kind !== "auth") return false; // throttle / network / other: try again later, change nothing
+      code = e.code;
     }
+  }
+  return withContext(deps.workerDb, ctx, async (tx) => {
+    await tx.execute(sql`SELECT 1 FROM integration_accounts WHERE id = ${accountId} AND workspace_id = ${workspaceId} FOR UPDATE`); // serialises with connect and disconnect, DB work only
+    if ((await secretVersion(tx, workspaceId, accountId)) !== version) return true; // reconnected or disconnected while Meta answered: drop the stale result
     await tx.execute(sql`UPDATE integration_accounts SET last_token_check_at = now(), token_expires_at = ${expiresAt}, ${valid ? sql`status = status` : sql`status = CASE WHEN status = 'connected' THEN 'reauth_required' ELSE status END`}, version = version + 1, updated_at = now() WHERE id = ${accountId} AND workspace_id = ${workspaceId}`);
     await eventSql(tx, workspaceId, accountId, valid ? "token_checked" : "status_changed", actorUserId, valid ? { valid: true } : { reason: token ? "token_invalid" : "token_missing", code });
     return true;
@@ -271,9 +293,14 @@ function scopedRoutes(db: Db, deps: MetaConnectDeps | undefined, pending: Pendin
     if (!deps) return notConfigured(c);
     const a = await ownAccount(c, c.req.param("accountId") ?? "");
     if (!a) return fail(c, 404, "not_found");
+    // Messenger: unsubscribe the Page before the transaction (best effort: the account is disabled either way), so no row lock is held while Meta answers.
+    // WhatsApp: the app is subscribed per WABA, and another workspace may hold a number of the same WABA (invisible to us under RLS), so the subscription is never removed here: events for a disabled number become orphans.
+    if (a.platform === "messenger") {
+      const token = await withContext(deps.workerDb, wctx(c), (tx) => loadToken(tx, deps, a.workspaceId, a.id));
+      if (token) await deps.graph.unsubscribePage(a.externalAccountId, token).catch(() => false);
+    }
     await withContext(deps.workerDb, wctx(c), async (tx) => {
-      const token = await loadToken(tx, deps, a.workspaceId, a.id);
-      if (token && a.platform === "messenger") await deps.graph.unsubscribePage(a.externalAccountId, token).catch(() => false); // best effort: the account is disabled either way
+      await tx.execute(sql`SELECT 1 FROM integration_accounts WHERE id = ${a.id} AND workspace_id = ${a.workspaceId} FOR UPDATE`); // a reconnect racing this disconnect waits here, so it cannot leave a disabled row holding a fresh token
       await tx.execute(sql`DELETE FROM integration_secrets WHERE integration_account_id = ${a.id} AND workspace_id = ${a.workspaceId}`);
       await tx.execute(sql`UPDATE integration_accounts SET status = 'disabled', version = version + 1, updated_at = now() WHERE id = ${a.id} AND workspace_id = ${a.workspaceId}`);
       await eventSql(tx, a.workspaceId, a.id, "disconnected", c.get("userId"), { platform: a.platform });
@@ -321,11 +348,11 @@ function scopedRoutes(db: Db, deps: MetaConnectDeps | undefined, pending: Pendin
     if (!deps) return notConfigured(c);
     const a = await ownAccount(c, c.req.param("accountId") ?? "");
     if (!a || a.status === "disabled") return fail(c, 404, "not_found");
-    const sub = await withContext(deps.workerDb, wctx(c), async (tx) => {
-      const token = await loadToken(tx, deps, a.workspaceId, a.id);
-      const s = !token ? { state: "failed" as SubState, code: null } : a.authMethod === "unified" ? await subscribeInstagramAccount(deps, a.externalAccountId, token) : await subscribe(deps, a.platform, a.externalAccountId, token);
-      await eventSql(tx, a.workspaceId, a.id, "status_changed", c.get("userId"), { subscription: s.state, code: s.code });
-      return s;
+    const { token, waba } = await withContext(deps.workerDb, wctx(c), async (tx) => ({ token: await loadToken(tx, deps, a.workspaceId, a.id), waba: a.platform === "whatsapp" ? await wabaOf(tx, a.workspaceId, a.id) : undefined }));
+    const sub = !token ? { state: "failed" as SubState, code: null } : a.platform === "whatsapp" ? await subscribeWhatsAppAccount(deps, waba, token) : a.authMethod === "unified" ? await subscribeInstagramAccount(deps, a.externalAccountId, token) : await subscribe(deps, a.platform, a.externalAccountId, token); // Graph call: no transaction open
+    await withContext(deps.workerDb, wctx(c), async (tx) => {
+      const live = rowsOf(await tx.execute(sql`SELECT 1 FROM integration_accounts WHERE id = ${a.id} AND workspace_id = ${a.workspaceId} AND status <> 'disabled'`)).length > 0;
+      if (live) await eventSql(tx, a.workspaceId, a.id, "status_changed", c.get("userId"), { subscription: sub.state, code: sub.code }); // an account disconnected meanwhile gets no "subscribed" entry after "Disconnected"
     });
     return c.json({ subscription: sub.state });
   });
