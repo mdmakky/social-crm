@@ -7,7 +7,7 @@ import { can } from "@crm/core/permissions";
 import { schema, user, withContext, type Db, type Tx } from "@crm/db";
 import { emitEvent } from "../events.ts";
 import { writeAudit } from "../audit.ts";
-import { captureLeadWon } from "../capi/enqueue.ts"; // track:capi
+import { captureLeadTransition } from "../capi/mappings.ts"; // track:capi
 import { activeMember, loadContact, recordActivity } from "../crm-service.ts";
 import { lockPipeline } from "./pipelines.ts";
 import { actor, body, fail, forbidden, isUuid, query, wctx, type SC, type ScopedEnv } from "./scope.ts";
@@ -180,6 +180,7 @@ export function leadRoutes(db: Db) {
       await transition(tx, c, l!, null, { stageId: stage.id, outcome: "open" });
       await recordActivity(tx, { workspaceId, contactId: contact.id, leadId: l!.id, kind: "lead.created", actorUserId: userId, data: { title: l!.title, pipelineId: pipeline.id, stageId: stage.id } });
       await audit(c, tx, "lead.created", l!.id, { pipelineId: pipeline.id });
+      await captureLeadTransition(tx, { workspaceId, leadId: l!.id, contactId: contact.id, fromStageId: null, toStageId: stage.id, fromOutcome: null, outcome: "open", valueMinor: l!.valueMinor, currency: l!.currency, created: true }); // track:capi
       if (l!.ownerUserId) await emitEvent(tx, { workspaceId, type: "lead.owner_assigned", entityType: "lead", entityId: l!.id, actorUserId: userId, payload: { ownerUserId: l!.ownerUserId, previousOwnerUserId: null, leadTitle: l!.title } });
       return c.json(await loadDto(tx, c, l!.id), 201);
     });
@@ -286,7 +287,7 @@ export function leadRoutes(db: Db) {
       await recordActivity(tx, { workspaceId, contactId: l!.primaryContactId, leadId: id, kind, actorUserId: userId, data: { fromStageId: l!.stageId, toStageId: to.id } });
       await audit(c, tx, kind, id, { fromStageId: l!.stageId, toStageId: to.id });
       await emitEvent(tx, { workspaceId, type: "lead.stage_changed", entityType: "lead", entityId: id, actorUserId: userId, payload: { fromStageId: l!.stageId, toStageId: to.id, outcome: to.kind, pipelineId: l!.pipelineId, contactId: l!.primaryContactId, leadTitle: l!.title } });
-      if (to.kind === "won" && l!.outcome !== "won") await captureLeadWon(tx, { workspaceId, leadId: id, contactId: l!.primaryContactId, valueMinor: l!.valueMinor, currency: l!.currency }); // track:capi, the one CAPI hook (savepoint, never fails the move)
+      await captureLeadTransition(tx, { workspaceId, leadId: id, contactId: l!.primaryContactId, fromStageId: l!.stageId, toStageId: to.id, fromOutcome: l!.outcome, outcome: to.kind as "open" | "won" | "lost", valueMinor: l!.valueMinor, currency: l!.currency }); // track:capi, the one CAPI hook (savepoints, never fails the move)
       return c.json(await loadDto(tx, c, id));
     });
   });

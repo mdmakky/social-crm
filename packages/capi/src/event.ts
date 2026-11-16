@@ -4,6 +4,10 @@ import { sha256 } from "./hash.ts";
 /** Standard events a CRM can honestly send (the website Pixel owns PageView, AddToCart, ...: architecture section 2). */
 export const CAPI_EVENT_NAMES = ["Lead", "Purchase", "Schedule", "CompleteRegistration", "Contact", "SubmitApplication"] as const;
 export type CapiEventName = (typeof CAPI_EVENT_NAMES)[number];
+/** Every standard event name Meta documents on its Pixel reference (research doc section 8). The website Pixel owns most of them; a CRM mapping may still pick one, but only the six above are suggested first. */
+export const META_STANDARD_EVENTS = ["Lead", "Purchase", "Schedule", "CompleteRegistration", "Contact", "SubmitApplication", "StartTrial", "Subscribe", "InitiateCheckout", "AddPaymentInfo", "Donate", "FindLocation", "CustomizeProduct", "Search", "ViewContent", "AddToCart", "AddToWishlist"] as const;
+/** A mapping may use a standard name or a custom one of this shape (Meta needs the custom event set up in Events Manager to use it for optimization). */
+export const CUSTOM_EVENT_NAME = /^[A-Za-z][A-Za-z0-9_]{0,39}$/;
 export const ACTION_SOURCES = ["system_generated", "website", "email", "app", "phone_call", "chat", "physical_store", "business_messaging", "other"] as const;
 
 /** Meta rejects events older than 7 days (research doc). */
@@ -19,7 +23,7 @@ export const CapiUserData = z.strictObject({
 
 /** The stored and sent shape. user_data holds ONLY hashes (and fbp/fbc); raw PII has no field here and strictObject rejects extras. */
 export const CapiEvent = z.strictObject({
-  event_name: z.enum(CAPI_EVENT_NAMES),
+  event_name: z.string().regex(CUSTOM_EVENT_NAME),
   /** Unix seconds of the business event, never the retry time. */
   event_time: z.number().int().positive(),
   event_id: z.string().min(8).max(128),
