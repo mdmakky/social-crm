@@ -17,7 +17,7 @@ export const CAPABILITIES: readonly Capability[] = ["text", "vision", "transcrip
  * They are data, not logic: a workspace overrides any price (or adds a model id) in its provider config, and that override always wins. A model id added that way is text-only.
  */
 export const DEFAULT_CATALOG: readonly ModelInfo[] = [
-  { provider: "mock", id: "mock-1", label: "Mock model (no cost)", inputMicroPer1M: 0, outputMicroPer1M: 0, capabilities: ["text", "vision", "transcription", "document"] },
+  { provider: "mock", id: "mock-1", label: "Mock model (no cost)", inputMicroPer1M: 0, outputMicroPer1M: 0, capabilities: ["text", "vision", "transcription", "document"], supports: { tools: true, structuredOutput: true } },
   { provider: "anthropic", id: "claude-sonnet-4-5", label: "Claude Sonnet 4.5", inputMicroPer1M: 3_000_000, outputMicroPer1M: 15_000_000, capabilities: ["text", "vision", "document"] },
   { provider: "anthropic", id: "claude-haiku-4-5", label: "Claude Haiku 4.5", inputMicroPer1M: 1_000_000, outputMicroPer1M: 5_000_000, capabilities: ["text", "vision", "document"] },
   { provider: "openai", id: "gpt-4o", label: "GPT-4o", inputMicroPer1M: 2_500_000, outputMicroPer1M: 10_000_000, capabilities: ["text", "vision"] },
@@ -52,3 +52,10 @@ export function pickModel(provider: string, defaultModel: string | null, needs: 
   }
   return null;
 }
+
+/**
+ * Capability gates for native tool calling and structured output. Read ONLY from the stored flags (OpenRouter `supported_parameters`, confirmed by the server when the model was enabled).
+ * Catalog models of other providers carry no flags, so they are false: the JSON-in-text protocol and prompt-based JSON stay in use for them. Unknown model => false.
+ */
+export const supportsTools = (provider: string, model: string, overrides: PriceOverrides = {}): boolean => priceOf(provider, model, overrides)?.supports?.tools === true;
+export const supportsStructuredOutput = (provider: string, model: string, overrides: PriceOverrides = {}): boolean => priceOf(provider, model, overrides)?.supports?.structuredOutput === true;
