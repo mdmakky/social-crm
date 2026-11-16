@@ -160,10 +160,10 @@ function Inner({ workspaceId, myUserId, pipelines, lostReasons, initial, initial
       <PageHeader title="Leads" description="Track every lead from first contact to won or lost." actions={canCreate && active.length > 0 ? <Button variant="primary" onClick={() => setNewOpen(true)}><Plus className="size-4" aria-hidden />New lead</Button> : undefined} />
 
       {chipsPipeline && (
-        <div className="mb-3 flex gap-1.5 overflow-x-auto pb-1" role="group" aria-label="Filter by stage">
-          <button type="button" className={tabClass(!f.stage && f.status === "open")} aria-pressed={!f.stage && f.status === "open"} aria-label={`All open leads, ${n(allOpen)}`} onClick={() => go({ stage: "", status: "open" })}>All<span className="tabular-nums opacity-70">{n(allOpen)}</span></button>
+        <div className="relative mb-3 flex gap-1.5 overflow-x-auto pb-1" role="group" aria-label="Filter by stage">
+          <button type="button" className={tabClass(!f.stage && f.status === "open")} aria-pressed={!f.stage && f.status === "open"} onClick={() => go({ stage: "", status: "open" })}>All{" "}<span className="tabular-nums">{n(allOpen)}</span><span className="sr-only"> open leads</span></button>
           {chipStages.map((s) => (
-            <button key={s.id} type="button" className={tabClass(f.stage === s.id)} aria-pressed={f.stage === s.id} aria-label={`${s.name}, ${n(countOf(s.id))} ${countOf(s.id) === 1 ? "lead" : "leads"}`} onClick={() => go({ stage: s.id, status: "all" })}>{s.name}<span className="tabular-nums opacity-70">{n(countOf(s.id))}</span></button>
+            <button key={s.id} type="button" className={tabClass(f.stage === s.id)} aria-pressed={f.stage === s.id} onClick={() => go({ stage: s.id, status: "all" })}>{s.name}{" "}<span className="tabular-nums">{n(countOf(s.id))}</span><span className="sr-only"> {countOf(s.id) === 1 ? "lead" : "leads"}</span></button>
           ))}
         </div>
       )}
@@ -200,7 +200,7 @@ function Inner({ workspaceId, myUserId, pipelines, lostReasons, initial, initial
           <div className="ml-auto flex items-center gap-1">
             <Select aria-label="Sort by" wrapperClassName="w-auto max-md:min-w-[9rem] max-md:flex-1" value={f.sort} onChange={(e) => go({ sort: e.target.value as Filters["sort"] })}>{SORTS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</Select>
             <Button variant="secondary" icon aria-label={f.dir === "desc" ? "Sorted descending. Switch to ascending" : "Sorted ascending. Switch to descending"} onClick={() => go({ dir: f.dir === "desc" ? "asc" : "desc" })}>{f.dir === "desc" ? <ArrowDown className="size-4" aria-hidden /> : <ArrowUp className="size-4" aria-hidden />}</Button>
-            {filtered && <Button variant="ghost" onClick={() => window.history.pushState(null, "", window.location.pathname)} aria-label="Clear filters"><FilterX className="size-4" aria-hidden />Clear</Button>}
+            {filtered && <Button variant="ghost" onClick={() => window.history.pushState(null, "", window.location.pathname)}><FilterX className="size-4" aria-hidden />Clear</Button>}
           </div>
         </div>
       </div>

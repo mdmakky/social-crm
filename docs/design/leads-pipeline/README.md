@@ -1,5 +1,7 @@
 # Leads/Pipeline Design (Track E, design only)
 
+> Update 2026-11-17 (D170 to D179): the kanban board described in `kanban-interaction-design.md` was removed. Leads is the single view (list with stage chips, filters and bulk stage change) and the UI says "lead" everywhere, never "deal". This design set is kept as history for the data model and rules, which are unchanged.
+
 Date 2026-11-13. No code, migrations or contracts exist for this feature; production implementation is blocked until Contacts acceptance passes (see `docs/project/workstreams.md`).
 
 **Summary.** One CRM entity, table `leads` (D20, FR-35), represents both a lead and a deal: the pipeline it sits in has `kind` `lead` or `sales`, and won/lost are stage kinds (`pipeline_stages.kind`), not separate tables. Contact lifecycle stage is untouched and separate. The record carries the user-approved fields (value as integer minor units + ISO 4217 currency, expected close date, probability 0-100 with stage default and manual override, pipeline, stage, lost reason, closed date, primary contact, description, next activity date derived from tasks). Multiple pipelines are supported; each has exactly one Won and one Lost stage. Every stage change writes an immutable `stage_transitions` row (append-only by RLS, REVOKE and trigger). Concurrency uses `expectedVersion` (as contacts) and fractional `rank` for card order; totals are always per currency. Forecasting, AI scoring and commissions are out of scope.

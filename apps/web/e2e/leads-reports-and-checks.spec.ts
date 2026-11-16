@@ -66,16 +66,16 @@ test("Won and Lost chips list the closed leads, links open them, and the status 
   await page.goto(`/w/${workspaceId}/leads`);
   await expect(page.getByRole("link", { name: "Open deal" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Won deal" })).toHaveCount(0); // the default list is open leads
-  await page.getByRole("button", { name: "Won, 1 lead" }).click();
+  await page.getByRole("button", { name: "Won 1 lead" }).click();
   await expect(page).toHaveURL(/leads\?stage=/);
-  await expect(page.getByRole("button", { name: "Won, 1 lead" })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("button", { name: "Won 1 lead" })).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByRole("link", { name: "Won deal" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Open deal" })).toHaveCount(0);
   await page.getByRole("link", { name: "Won deal" }).click();
   await expect(page).toHaveURL(new RegExp(`/leads/${ids.won}$`));
   await page.goBack();
-  await expect(page.getByRole("button", { name: "Won, 1 lead" })).toHaveAttribute("aria-pressed", "true"); // the chip filter survives Back
-  await page.getByRole("button", { name: "Lost, 1 lead" }).click();
+  await expect(page.getByRole("button", { name: "Won 1 lead" })).toHaveAttribute("aria-pressed", "true"); // the chip filter survives Back
+  await page.getByRole("button", { name: "Lost 1 lead" }).click();
   await expect(page.getByRole("link", { name: "Lost deal" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Won deal" })).toHaveCount(0);
 });

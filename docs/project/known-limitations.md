@@ -206,3 +206,12 @@ Updated: 2026-11-13 (Phase 0).
 - Model list cache and the browse rate limit are in-process (one API instance). Capability confirmation on save uses that cache: after a restart or 10 minutes, a save keeps what is already stored but cannot grant new capabilities.
 - Prices cover input and output tokens only; per-request, image or reasoning fees are only covered through the reported `usage.cost` (the higher value is charged). Free models cost 0.
 - Not built (slice B): streaming, native tool calling, structured output, routing preferences, BYOK, audio transcription through OpenRouter, router aliases (`openrouter/auto`).
+## Leads only (2026-11-17)
+- No drag and drop and no board: moving leads is the row menu or bulk Change stage. The only drag-and-drop dependency (`@dnd-kit`) is unused and still listed in `apps/web/package.json`.
+- Bulk change stage takes at most 100 leads per call and only leads loaded on screen (no "select all 4,210"); 30 bulk calls per user per minute (in-process counter, one API instance).
+- Bulk moves are one transaction per lead: a request that dies midway leaves the earlier leads moved. The answer lists every lead that was handled; a dropped connection shows nothing, so the list refetches.
+- Stage chips count by stage; Won and Lost chips count all time (not the old 30-day window of the board). Counts ignore the status filter by design. With "All pipelines" selected there are no chips (stages differ per pipeline); the count text still works.
+- The value-range filter uses the pipeline currency's decimals and compares raw minor units, it does not convert between currencies. Roles that cannot see values do not get the inputs and get 403 from the API.
+- The source filter is an exact text match (sources are free text, only `manual` is written today).
+- Performance at 10,000+ leads is verified for the stage-counts query shape and time on 4,210 seeded rows only; the list itself has no dedicated index for `updated_at` sorting beyond what exists (UNVERIFIED at 10k with EXPLAIN ANALYZE on a production-sized table).
+- Old board-only strings in docs/design/leads-pipeline/* describe the removed board; they are history, not current behaviour.

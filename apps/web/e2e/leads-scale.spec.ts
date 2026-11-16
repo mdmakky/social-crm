@@ -61,10 +61,10 @@ test("stage chips show server counts and filter the list; the filter lives in th
   await page.goto(`/w/${workspaceId}/leads`);
   await expect(page.getByRole("heading", { level: 1, name: "Leads" })).toBeVisible();
   const chips = page.getByRole("group", { name: "Filter by stage" });
-  await expect(chips.getByRole("button", { name: `All open leads, ${TOTAL}` })).toHaveAttribute("aria-pressed", "true");
-  await expect(chips.getByRole("button", { name: `New, ${TOTAL - IN_QUALIFIED} leads` })).toBeVisible();
-  await expect(chips.getByRole("button", { name: `Qualified, ${IN_QUALIFIED} leads` })).toBeVisible();
-  await expect(chips.getByRole("button", { name: "Won, 0 leads" })).toBeVisible();
+  await expect(chips.getByRole("button", { name: `All ${TOTAL} open leads` })).toHaveAttribute("aria-pressed", "true");
+  await expect(chips.getByRole("button", { name: `New ${TOTAL - IN_QUALIFIED} leads` })).toBeVisible();
+  await expect(chips.getByRole("button", { name: `Qualified ${IN_QUALIFIED} leads` })).toBeVisible();
+  await expect(chips.getByRole("button", { name: "Won 0 leads" })).toBeVisible();
 
   // paging: 50 per page, visible count, appended rows
   await expect(page.getByText(`Showing 50 of ${TOTAL}`)).toBeVisible();
@@ -75,24 +75,24 @@ test("stage chips show server counts and filter the list; the filter lives in th
   await expect(page.getByRole("button", { name: "Load more" })).toHaveCount(0);
 
   // chip -> stage filter in the URL
-  await chips.getByRole("button", { name: `Qualified, ${IN_QUALIFIED} leads` }).click();
+  await chips.getByRole("button", { name: `Qualified ${IN_QUALIFIED} leads` }).click();
   await expect(page).toHaveURL(new RegExp(`leads\\?stage=${qualifiedId}`));
   await expect(page.getByText(`Showing ${IN_QUALIFIED} of ${IN_QUALIFIED}`)).toBeVisible();
-  await expect(chips.getByRole("button", { name: `Qualified, ${IN_QUALIFIED} leads` })).toHaveAttribute("aria-pressed", "true");
+  await expect(chips.getByRole("button", { name: `Qualified ${IN_QUALIFIED} leads` })).toHaveAttribute("aria-pressed", "true");
   // survives a reload (server renders the same state) and shows the same counts
   await page.reload();
-  await expect(chips.getByRole("button", { name: `Qualified, ${IN_QUALIFIED} leads` })).toHaveAttribute("aria-pressed", "true");
+  await expect(chips.getByRole("button", { name: `Qualified ${IN_QUALIFIED} leads` })).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByText(`Showing ${IN_QUALIFIED} of ${IN_QUALIFIED}`)).toBeVisible();
   // other filters narrow the counts but not each other: searching keeps every chip
   await page.getByLabel("Search leads by title").fill("Scale lead 00");
   await expect(page).toHaveURL(/q=Scale\+lead\+00/);
-  await expect(chips.getByRole("button", { name: `Qualified, 10 leads` })).toBeVisible();
+  await expect(chips.getByRole("button", { name: `Qualified 10 leads` })).toBeVisible();
   await page.getByLabel("Search leads by title").fill("");
   // Back returns to the previous chip state
-  await page.getByRole("button", { name: /^All open leads/ }).click();
+  await page.getByRole("button", { name: /^All \d+ open leads/ }).click();
   await expect(page).not.toHaveURL(/stage=/);
   await page.goBack();
-  await expect(chips.getByRole("button", { name: `Qualified, ${IN_QUALIFIED} leads` })).toHaveAttribute("aria-pressed", "true");
+  await expect(chips.getByRole("button", { name: `Qualified ${IN_QUALIFIED} leads` })).toHaveAttribute("aria-pressed", "true");
 });
 
 test("My leads toggle, last-activity and value filters exist, and the leads UI never says deal", async () => {
@@ -137,8 +137,8 @@ test("bulk change stage: select on the page, confirm, counts refresh, failures a
   await dlg.getByLabel("New stage").selectOption({ label: "Qualified" });
   await dlg.getByRole("button", { name: `Move ${n} leads` }).click();
   await expect(dlg).toBeHidden();
-  await expect(chips.getByRole("button", { name: `Qualified, ${IN_QUALIFIED + n} leads` })).toBeVisible(); // server counts refetched
-  await expect(chips.getByRole("button", { name: `New, ${TOTAL - IN_QUALIFIED - n} leads` })).toBeVisible();
+  await expect(chips.getByRole("button", { name: `Qualified ${IN_QUALIFIED + n} leads` })).toBeVisible(); // server counts refetched
+  await expect(chips.getByRole("button", { name: `New ${TOTAL - IN_QUALIFIED - n} leads` })).toBeVisible();
   await expect(page.getByRole("link", { name: "Scale lead 125" })).toHaveCount(0); // gone from the New list
 
   // a lead deleted by someone else meanwhile is reported, not skipped silently
