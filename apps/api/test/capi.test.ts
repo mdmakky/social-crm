@@ -213,7 +213,10 @@ describe("hook: lead won -> Purchase", () => {
     const d2 = await mkDataset();
     const l = ok(await as(owner).call(endpoints.createLead, { params: p(), body: { title: "no value", primaryContactId: c.id, allowDuplicate: true } as never })) as LeadDto;
     ok(await as(owner).call(endpoints.moveLead, { params: { workspaceId: A, leadId: l.id }, body: { expectedVersion: l.version, stageId: stage("won").id } }));
-    expect(await eventsOf(A, d2.id)).toHaveLength(0);
+    // same meaning as before (nothing is sent), now recorded: a skipped row with the reason, no payload
+    expect(await eventsOf(A, d2.id)).toMatchObject([{ status: "skipped", last_error: "no_value", payload: {} }]);
+    const w = run(); await w.go();
+    expect(w.adapter.calls.filter((r) => r.datasetId === d2.datasetId)).toEqual([]);
   });
   it("an agent moving the lead can enqueue even though agents cannot read the history", async () => {
     const d = await mkDataset();

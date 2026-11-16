@@ -1,7 +1,7 @@
 "use client";
 import * as React from "react";
 import { Plug, Send } from "lucide-react";
-import { CAPI_EVENT_NAMES, endpoints, type CapiDatasetDto, type CapiEventDto } from "@crm/contracts";
+import { endpoints, type CapiDatasetDto, type CapiEventDto } from "@crm/contracts";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
@@ -11,13 +11,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, EmptyState, ErrorState } from "@/components/ui/states";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import { browserApi, errorMessage } from "@/lib/client-api";
+import { CapiMappings } from "./capi-mappings";
 
 const STATUS: Record<CapiEventDto["status"], { label: string; tone: "success" | "warning" | "danger" | "neutral" }> = {
-  pending: { label: "Waiting to send", tone: "warning" }, sent: { label: "Accepted (mock)", tone: "success" }, failed: { label: "Failed", tone: "danger" }, skipped_no_consent: { label: "Skipped, no consent", tone: "neutral" }, cancelled: { label: "Cancelled, contact deleted", tone: "neutral" },
+  pending: { label: "Waiting to send", tone: "warning" }, sent: { label: "Accepted (mock)", tone: "success" }, failed: { label: "Failed", tone: "danger" }, skipped_no_consent: { label: "Skipped, no consent", tone: "neutral" }, skipped: { label: "Skipped", tone: "neutral" }, cancelled: { label: "Cancelled, contact deleted", tone: "neutral" },
 };
 const ERROR_TEXT: Record<string, string> = {
   no_consent: "No ad measurement consent recorded for the contact.", opted_out: "The contact withdrew consent.", event_too_old: "Older than 7 days, Meta would reject it.", dataset_inactive: "The dataset was disabled.",
-  mode_mismatch: "Dataset mode does not match the sender.", token_unavailable: "The stored token could not be opened.", invalid_payload: "The event failed validation.", auth: "The token was rejected.",
+  mode_mismatch: "Dataset mode does not match the sender.", token_unavailable: "The stored token could not be opened.", invalid_payload: "The event failed validation.", no_value: "The lead has no value, so a Purchase cannot be sent.", auth: "The token was rejected.",
 };
 const errorText = (code: string | null) => (code === null ? "" : ERROR_TEXT[code] ?? (code.startsWith("max_attempts:") ? "Gave up after repeated failures." : code.startsWith("http_") ? `Request failed (${code.slice(5)}).` : code));
 
@@ -35,7 +36,6 @@ export function CapiPanel({ workspaceId, canManage }: { workspaceId: string; can
   const [events, setEvents] = React.useState<CapiEventDto[] | null>(null);
   const [loadError, setLoadError] = React.useState<string | null>(null);
   const [form, setForm] = React.useState({ datasetId: "", name: "", token: "", testCode: "" });
-  const [chosen, setChosen] = React.useState<string[]>(["Purchase"]);
   const [fieldErr, setFieldErr] = React.useState<{ datasetId?: string; name?: string; token?: string }>({});
   const [busy, setBusy] = React.useState<"create" | string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
@@ -63,7 +63,7 @@ export function CapiPanel({ workspaceId, canManage }: { workspaceId: string; can
     setFieldErr(e);
     if (Object.keys(e).length) return;
     setBusy("create");
-    const r = await browserApi.call(endpoints.createCapiDataset, { params, body: { datasetId: form.datasetId.trim(), name: form.name.trim(), accessToken: form.token.trim(), ...(form.testCode.trim() ? { testEventCode: form.testCode.trim() } : {}), events: chosen as never } });
+    const r = await browserApi.call(endpoints.createCapiDataset, { params, body: { datasetId: form.datasetId.trim(), name: form.name.trim(), accessToken: form.token.trim(), ...(form.testCode.trim() ? { testEventCode: form.testCode.trim() } : {}), events: ["Purchase"] } });
     setBusy(null);
     if (!r.ok) { setError(r.error.code === "dataset_exists" ? "This dataset is already connected." : errorMessage(r.error)); return; }
     setForm({ datasetId: "", name: "", token: "", testCode: "" }); // the token is gone from the page as soon as it is accepted
@@ -99,7 +99,7 @@ export function CapiPanel({ workspaceId, canManage }: { workspaceId: string; can
                     <li key={d.id} className="flex flex-wrap items-center gap-3 rounded-control border border-line-card px-3 py-2">
                       <div className="min-w-0 flex-1">
                         <p className="truncate font-medium text-fg">{d.name} <span className="font-normal text-fg-muted">· ID {d.datasetId}</span></p>
-                        <p className="text-sm text-fg-muted">Token ending {d.tokenLast4} · Events: {d.events.length ? d.events.join(", ") : "none selected"}{d.testEventCode ? ` · Test code ${d.testEventCode}` : ""}</p>
+                        <p className="text-sm text-fg-muted">Token ending {d.tokenLast4}{d.testEventCode ? ` · Test code ${d.testEventCode}` : ""}</p>
                       </div>
                       {d.mode === "mock" && <Badge tone="warning">MOCK</Badge>}
                       <Badge tone={d.status === "active" ? "success" : d.status === "needs_reauth" ? "warning" : "neutral"}>{d.status === "active" ? "Active" : d.status === "needs_reauth" ? "Reconnect needed" : "Disabled"}</Badge>
@@ -109,6 +109,8 @@ export function CapiPanel({ workspaceId, canManage }: { workspaceId: string; can
                 </ul>
               )}
             </section>
+
+            <CapiMappings workspaceId={workspaceId} datasets={datasets} canManage={canManage} />
 
             {canManage && (
               <form onSubmit={(e) => { e.preventDefault(); void create(); }} className="flex flex-col gap-3 border-t border-line-card pt-4" noValidate>
@@ -120,15 +122,6 @@ export function CapiPanel({ workspaceId, canManage }: { workspaceId: string; can
                   <Field label="Access token" error={fieldErr.token} hint="Pasted once, kept encrypted on the server.">{(p) => <Input {...p} type="password" autoComplete="off" spellCheck={false} value={form.token} disabled={busy !== null} onChange={(e) => setForm({ ...form, token: e.target.value })} />}</Field>
                   <Field label="Test event code (optional)" hint="From the Test Events tab.">{(p) => <Input {...p} autoComplete="off" maxLength={40} value={form.testCode} disabled={busy !== null} onChange={(e) => setForm({ ...form, testCode: e.target.value })} />}</Field>
                 </div>
-                <fieldset className="flex flex-wrap gap-x-4 gap-y-1">
-                  <legend className="mb-1 text-sm font-medium text-fg">Events to send</legend>
-                  {CAPI_EVENT_NAMES.map((n) => (
-                    <label key={n} className="flex min-h-8 items-center gap-2 text-sm text-fg pointer-coarse:min-h-11">
-                      <input type="checkbox" checked={chosen.includes(n)} disabled={busy !== null} onChange={(e) => setChosen(e.target.checked ? [...chosen, n] : chosen.filter((x) => x !== n))} />{n}
-                    </label>
-                  ))}
-                  <p className="basis-full text-sm text-fg-subtle">Today a lead moved to a Won stage creates a Purchase event (it needs a value). Other events are accepted but nothing creates them yet.</p>
-                </fieldset>
                 {error && <Alert tone="error">{error}</Alert>}
                 <div><Button type="submit" variant="primary" loading={busy === "create"}><Plug className="size-4" aria-hidden />Connect dataset</Button></div>
               </form>
@@ -141,7 +134,7 @@ export function CapiPanel({ workspaceId, canManage }: { workspaceId: string; can
                 <Button onClick={() => { setEvents(null); void load(); }}>Refresh</Button>
               </div>
               {events === null ? <Skeleton className="h-24" /> : events.length === 0 ? (
-                <EmptyState icon={Send} title="No events yet" description="Events appear here when a lead with a value is moved to a Won stage and a dataset is connected. Contacts need recorded consent to be sent." />
+                <EmptyState icon={Send} title="No events yet" description="Events appear here when a rule fires, for example a lead is won. Contacts need recorded consent to be sent." />
               ) : (
                 <Table scrollLabel="Delivery history">
                   <THead><TR><TH>When</TH><TH>Dataset</TH><TH>Event</TH><TH>Status</TH><TH>Tries</TH><TH>Detail</TH></TR></THead>

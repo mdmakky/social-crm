@@ -232,6 +232,13 @@
       "when": 1794930344233,
       "tag": "0033_inbox_attachments",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1794930404233,
+      "tag": "0034_capi_event_mappings",
+      "breakpoints": true
     }
   ]
 }

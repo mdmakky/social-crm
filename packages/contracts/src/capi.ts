@@ -25,10 +25,10 @@ export const CreateCapiDatasetBody = z.object({
 export type CreateCapiDatasetBody = z.infer<typeof CreateCapiDatasetBody>;
 export const CapiDatasetList = z.object({ items: z.array(CapiDatasetDto) });
 
-export const CapiEventStatus = z.enum(["pending", "sent", "failed", "skipped_no_consent", "cancelled"]);
+export const CapiEventStatus = z.enum(["pending", "sent", "failed", "skipped_no_consent", "cancelled", "skipped"]);
 /** Delivery history row. No identifiers, no payload: only what is needed to see status and the failure code. */
 export const CapiEventDto = z.object({
-  id: Uuid, datasetId: Uuid, eventName: CapiEventName, eventId: z.string(), eventTime: z.string(), status: CapiEventStatus, attempts: z.number().int(),
+  id: Uuid, datasetId: Uuid, eventName: z.string(), eventId: z.string(), eventTime: z.string(), status: CapiEventStatus, attempts: z.number().int(),
   nextAttemptAt: z.string().nullable(), lastError: z.string().nullable(), fbtraceId: z.string().nullable(), sentAt: z.string().nullable(), createdAt: z.string(),
 });
 export type CapiEventDto = z.infer<typeof CapiEventDto>;
@@ -42,10 +42,58 @@ export const AdConsentDto = z.object({ status: z.enum(["granted", "revoked", "no
 export type AdConsentDto = z.infer<typeof AdConsentDto>;
 export const SetAdConsentBody = z.object({ status: z.enum(["granted", "revoked"]), source: z.enum(["manual", "form", "import", "api", "customer_request"]) });
 
+/** Standard names Meta documents (mirrors @crm/capi META_STANDARD_EVENTS; a test keeps them equal). A mapping may also use a custom name of CAPI_CUSTOM_EVENT_NAME shape. */
+export const META_STANDARD_EVENTS = ["Lead", "Purchase", "Schedule", "CompleteRegistration", "Contact", "SubmitApplication", "StartTrial", "Subscribe", "InitiateCheckout", "AddPaymentInfo", "Donate", "FindLocation", "CustomizeProduct", "Search", "ViewContent", "AddToCart", "AddToWishlist"] as const;
+export const CAPI_CUSTOM_EVENT_NAME = /^[A-Za-z][A-Za-z0-9_]{0,39}$/;
+export const MAX_CAPI_MAPPINGS_PER_DATASET = 50;
+export const CapiTriggerType = z.enum(["lead_created", "lead_stage_entered", "lead_won", "lead_lost"]);
+export const CapiValueMode = z.enum(["lead_value", "fixed", "none"]);
+/** One rule: when `triggerType` happens (for `lead_stage_entered`, on `stageId`) send `eventName` to the dataset, with the value picked by `valueMode`. */
+export const CapiMappingDto = z.object({
+  id: Uuid, datasetId: Uuid, triggerType: CapiTriggerType, stageId: Uuid.nullable(), eventName: z.string(), valueMode: CapiValueMode,
+  fixedValueMinor: z.number().int().nullable(), currency: z.string().nullable(), enabled: z.boolean(), createdAt: z.string(), updatedAt: z.string(),
+});
+export type CapiMappingDto = z.infer<typeof CapiMappingDto>;
+export const CapiMappingList = z.object({ items: z.array(CapiMappingDto) });
+const MappingFields = z.object({
+  triggerType: CapiTriggerType,
+  stageId: Uuid.nullable().default(null),
+  eventName: z.string().regex(CAPI_CUSTOM_EVENT_NAME, "Start with a letter; letters, digits and underscores only, up to 40 characters."),
+  valueMode: CapiValueMode.default("lead_value"),
+  fixedValueMinor: z.number().int().min(0).max(9_000_000_000_000).nullable().default(null),
+  currency: z.string().regex(/^[A-Z]{3}$/, "Use a three-letter currency code, for example USD.").nullable().default(null),
+  enabled: z.boolean().default(true),
+});
+/** Cross-field rules shared by create and update; the database repeats them as CHECK constraints. */
+const mappingRules = (b: z.infer<typeof MappingFields>, ctx: z.RefinementCtx) => {
+  if ((b.triggerType === "lead_stage_entered") !== (b.stageId !== null)) ctx.addIssue({ code: "custom", path: ["stageId"], message: b.triggerType === "lead_stage_entered" ? "Choose the stage." : "Only \"enters a stage\" uses a stage." });
+  if (b.valueMode === "fixed" && (b.fixedValueMinor === null || b.currency === null)) ctx.addIssue({ code: "custom", path: ["fixedValueMinor"], message: "Enter an amount and a currency." });
+  if (b.valueMode !== "fixed" && (b.fixedValueMinor !== null || b.currency !== null)) ctx.addIssue({ code: "custom", path: ["valueMode"], message: "An amount is only used with a fixed value." });
+  if (b.eventName === "Purchase" && b.valueMode === "none") ctx.addIssue({ code: "custom", path: ["valueMode"], message: "A Purchase needs a value." });
+};
+/** Create and update take the same fields; update replaces the whole rule. */
+export const CreateCapiMappingBody = MappingFields.superRefine(mappingRules);
+export type CreateCapiMappingBody = z.infer<typeof CreateCapiMappingBody>;
+export const UpdateCapiMappingBody = CreateCapiMappingBody;
+/** What WOULD happen if this lead met each rule's trigger. Nothing is queued. `reason` explains why a rule would not send. */
+export const CapiMappingPreviewBody = z.object({ leadId: Uuid });
+export const CapiPreviewItem = z.object({
+  mappingId: Uuid, datasetId: Uuid, datasetName: z.string(), triggerType: CapiTriggerType, stageId: Uuid.nullable(), eventName: z.string(),
+  result: z.enum(["send", "skip"]), reason: z.enum(["mapping_disabled", "dataset_inactive", "no_value", "no_consent", "opted_out"]).nullable(),
+  value: z.number().nullable(), currency: z.string().nullable(),
+});
+export const CapiMappingPreview = z.object({ items: z.array(CapiPreviewItem), consent: z.enum(["granted", "revoked", "none"]) });
+export type CapiMappingPreview = z.infer<typeof CapiMappingPreview>;
+
 export const capiEndpoints = {
   listCapiDatasets: endpoint({ method: "GET", path: `${W}/capi/datasets`, response: CapiDatasetList }),
   createCapiDataset: endpoint({ method: "POST", path: `${W}/capi/datasets`, body: CreateCapiDatasetBody, response: CapiDatasetDto }),
   disableCapiDataset: endpoint({ method: "POST", path: `${W}/capi/datasets/:datasetId/disable`, response: CapiDatasetDto }),
+  listCapiMappings: endpoint({ method: "GET", path: `${W}/capi/datasets/:datasetId/mappings`, response: CapiMappingList }),
+  createCapiMapping: endpoint({ method: "POST", path: `${W}/capi/datasets/:datasetId/mappings`, body: CreateCapiMappingBody, response: CapiMappingDto }),
+  updateCapiMapping: endpoint({ method: "PUT", path: `${W}/capi/datasets/:datasetId/mappings/:mappingId`, body: UpdateCapiMappingBody, response: CapiMappingDto }),
+  deleteCapiMapping: endpoint({ method: "DELETE", path: `${W}/capi/datasets/:datasetId/mappings/:mappingId`, response: z.object({ ok: z.literal(true) }) }),
+  previewCapiMappings: endpoint({ method: "POST", path: `${W}/capi/mappings/preview`, body: CapiMappingPreviewBody, response: CapiMappingPreview }),
   listCapiEvents: endpoint({ method: "GET", path: `${W}/capi/events`, query: CapiEventsQuery, response: CapiEventList }),
   getAdConsent: endpoint({ method: "GET", path: `${W}/contacts/:contactId/ad-consent`, response: AdConsentDto }),
   setAdConsent: endpoint({ method: "POST", path: `${W}/contacts/:contactId/ad-consent`, body: SetAdConsentBody, response: AdConsentDto }),

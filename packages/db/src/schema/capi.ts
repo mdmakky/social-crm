@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { customType, integer, jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { bigint, boolean, customType, integer, jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import { workspaces } from "./tenancy.ts";
 
 // Hand-written migration 0028 is the source of truth (checks, RLS, triggers); these definitions only type the columns.
@@ -8,7 +8,7 @@ const workspaceId = () => uuid("workspace_id").notNull().references(() => worksp
 const ts = (n: string) => timestamp(n, { withTimezone: true });
 const bytea = customType<{ data: Buffer; driverData: Buffer }>({ dataType: () => "bytea" });
 
-export const CAPI_EVENT_STATUSES = ["pending", "sent", "failed", "skipped_no_consent"] as const;
+export const CAPI_EVENT_STATUSES = ["pending", "sent", "failed", "skipped_no_consent", "cancelled", "skipped"] as const;
 
 export const capiDatasets = pgTable("capi_datasets", {
   id: id(),
@@ -63,6 +63,23 @@ export const capiEvents = pgTable("capi_events", {
   lastError: text("last_error"),
   fbtraceId: text("fbtrace_id"),
   sentAt: ts("sent_at"),
+  createdAt: ts("created_at").notNull().defaultNow(),
+  updatedAt: ts("updated_at").notNull().defaultNow(),
+});
+
+/** "When this happens, send this event to this dataset" (migration 0034 is the source of truth: checks, unique index with COALESCE(stage_id), 50 per dataset guard, RLS). */
+export const capiEventMappings = pgTable("capi_event_mappings", {
+  id: id(),
+  workspaceId: workspaceId(),
+  datasetId: uuid("dataset_id").notNull(),
+  triggerType: text("trigger_type").notNull(),
+  stageId: uuid("stage_id"),
+  eventName: text("event_name").notNull(),
+  valueMode: text("value_mode").notNull().default("lead_value"),
+  fixedValueMinor: bigint("fixed_value_minor", { mode: "number" }),
+  currency: text("currency"),
+  enabled: boolean("enabled").notNull().default(true),
+  createdBy: text("created_by"),
   createdAt: ts("created_at").notNull().defaultNow(),
   updatedAt: ts("updated_at").notNull().defaultNow(),
 });

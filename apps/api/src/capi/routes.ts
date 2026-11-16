@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { Hono } from "hono";
-import { and, desc, eq, lt, sql } from "drizzle-orm";
-import { CapiEventsQuery, CreateCapiDatasetBody, SetAdConsentBody, type AdConsentDto, type CapiDatasetDto, type CapiEventDto, type CapiEventList } from "@crm/contracts";
+import { and, asc, desc, eq, lt, sql } from "drizzle-orm";
+import { CapiEventsQuery, CapiMappingPreviewBody, CreateCapiDatasetBody, CreateCapiMappingBody, SetAdConsentBody, UpdateCapiMappingBody, type AdConsentDto, type CapiDatasetDto, type CapiEventDto, type CapiEventList, type CapiMappingDto, type CapiMappingPreview } from "@crm/contracts";
 import { CONSENT_PURPOSE } from "@crm/capi";
 import { can } from "@crm/core/permissions";
 import { schema, withContext, type Db } from "@crm/db";
@@ -9,6 +9,7 @@ import type { SecretBox } from "@crm/integrations";
 import { writeAudit } from "../audit.ts";
 import { actor, body, fail, forbidden, isUuid, query, wctx, type SC, type ScopedEnv } from "../routes/scope.ts";
 import { WindowCounter } from "../throttle.ts";
+import { previewLead, seedDefaultMapping } from "./mappings.ts";
 
 export type CapiRouteDeps = { box?: SecretBox; createsPerUser?: number };
 const iso = (d: Date | null) => (d ? d.toISOString() : null);
@@ -18,6 +19,11 @@ const toDataset = (r: typeof schema.capiDatasets.$inferSelect): CapiDatasetDto =
   id: r.id, datasetId: r.datasetId, name: r.name, mode: r.mode as CapiDatasetDto["mode"], status: r.status as CapiDatasetDto["status"], testEventCode: r.testEventCode,
   events: r.events as CapiDatasetDto["events"], tokenLast4: r.tokenLast4, createdAt: r.createdAt.toISOString(),
 });
+const toMappingDto = (r: typeof schema.capiEventMappings.$inferSelect): CapiMappingDto => ({
+  id: r.id, datasetId: r.datasetId, triggerType: r.triggerType as CapiMappingDto["triggerType"], stageId: r.stageId, eventName: r.eventName, valueMode: r.valueMode as CapiMappingDto["valueMode"],
+  fixedValueMinor: r.fixedValueMinor, currency: r.currency, enabled: r.enabled, createdAt: r.createdAt.toISOString(), updatedAt: r.updatedAt.toISOString(),
+});
+const dbCode = (e: unknown) => (e as { cause?: { code?: string } })?.cause?.code;
 const toEvent = (r: typeof schema.capiEvents.$inferSelect): CapiEventDto => ({
   id: r.id, datasetId: r.datasetId, eventName: r.eventName as CapiEventDto["eventName"], eventId: r.eventId, eventTime: r.eventTime.toISOString(), status: r.status as CapiEventDto["status"], attempts: r.attempts,
   nextAttemptAt: r.status === "pending" ? iso(r.nextAttemptAt) : null, lastError: r.lastError, fbtraceId: r.fbtraceId, sentAt: iso(r.sentAt), createdAt: r.createdAt.toISOString(),
@@ -50,6 +56,8 @@ export function capiRoutes(db: Db, deps: CapiRouteDeps = {}) {
       const row = await withContext(db, wctx(c), async (tx) => {
         // mode is always 'mock' in slice 1: no real send is possible until a real test event is recorded (docs/architecture/capi-architecture.md section 10).
         await tx.insert(schema.capiDatasets).values({ id, workspaceId, datasetId: b.data.datasetId, name: b.data.name, mode: "mock", testEventCode: b.data.testEventCode ?? null, events: b.data.events, tokenLast4: b.data.accessToken.slice(-4), createdBy: userId });
+        // The default rule (documented, editable, deletable): a lead moved to a Won stage becomes a Purchase with the lead's value. On only when the dataset opted in to Purchase, as before mappings existed.
+        await seedDefaultMapping(tx, { workspaceId, datasetId: id, userId, enabled: b.data.events.includes("Purchase") });
         await tx.insert(schema.capiDatasetSecrets).values({ workspaceId, datasetId: id, ciphertext: sealed.ciphertext, nonce: sealed.nonce, keyId: sealed.keyId });
         await writeAudit(tx, { ...actor(c), workspaceId, action: "capi.dataset.created", entityType: "capi_dataset", entityId: id, summary: { datasetId: b.data.datasetId, mode: "mock", events: b.data.events } });
         return (await tx.select().from(schema.capiDatasets).where(and(eq(schema.capiDatasets.workspaceId, workspaceId), eq(schema.capiDatasets.id, id))))[0]!;
@@ -71,6 +79,106 @@ export function capiRoutes(db: Db, deps: CapiRouteDeps = {}) {
       if (!row) return fail(c, 404, "not_found");
       await writeAudit(tx, { ...actor(c), workspaceId, action: "capi.dataset.disabled", entityType: "capi_dataset", entityId: id, summary: { datasetId: row.datasetId } });
       return c.json(toDataset(row));
+    });
+  });
+
+  // ---------------------------------------------------------------- event mappings ("when this happens, send this event")
+  type T = Parameters<Parameters<typeof withContext>[2]>[0];
+  /** Null when the dataset (and the stage, if any) belong to this workspace; otherwise the error response. */
+  const checkTargets = async (c: SC, tx: T, datasetId: string, stageId: string | null) => {
+    const { workspaceId } = wctx(c);
+    const [d] = await tx.select({ id: schema.capiDatasets.id }).from(schema.capiDatasets).where(and(eq(schema.capiDatasets.workspaceId, workspaceId), eq(schema.capiDatasets.id, datasetId)));
+    if (!d) return fail(c, 404, "not_found");
+    if (stageId) {
+      const [st] = await tx.select({ a: schema.pipelineStages.archivedAt }).from(schema.pipelineStages).where(and(eq(schema.pipelineStages.workspaceId, workspaceId), eq(schema.pipelineStages.id, stageId)));
+      if (!st || st.a) return fail(c, 400, "invalid_body", "Choose an active stage of this workspace.");
+    }
+    return null;
+  };
+  const mapErr = (c: SC, e: unknown) => {
+    if (uniqueViolation(e)) return fail(c, 409, "mapping_exists", "This rule already exists for the dataset.");
+    if (dbCode(e) === "54000") return fail(c, 409, "mapping_limit", "A dataset can have at most 50 rules.");
+    throw e;
+  };
+
+  r.get("/capi/datasets/:datasetId/mappings", async (c) => {
+    if (!can(c.get("role"), "capi.view", {})) return forbidden(c);
+    const id = c.req.param("datasetId");
+    if (!isUuid(id)) return fail(c, 404, "not_found");
+    const { workspaceId } = wctx(c);
+    return withContext(db, wctx(c), async (tx) => {
+      const bad = await checkTargets(c, tx, id, null);
+      if (bad) return bad;
+      const rows = await tx.select().from(schema.capiEventMappings).where(and(eq(schema.capiEventMappings.workspaceId, workspaceId), eq(schema.capiEventMappings.datasetId, id))).orderBy(asc(schema.capiEventMappings.id));
+      return c.json({ items: rows.map(toMappingDto) });
+    });
+  });
+
+  r.post("/capi/datasets/:datasetId/mappings", async (c) => {
+    if (!can(c.get("role"), "capi.manage", {})) return forbidden(c);
+    const id = c.req.param("datasetId");
+    if (!isUuid(id)) return fail(c, 404, "not_found");
+    const b = await body(c, CreateCapiMappingBody);
+    if (!b.ok) return b.res;
+    const { workspaceId, userId } = wctx(c);
+    try {
+      return await withContext(db, wctx(c), async (tx) => {
+        const bad = await checkTargets(c, tx, id, b.data.stageId);
+        if (bad) return bad;
+        const [row] = await tx.insert(schema.capiEventMappings).values({ workspaceId, datasetId: id, ...b.data, createdBy: userId }).returning();
+        await writeAudit(tx, { ...actor(c), workspaceId, action: "capi.mapping.created", entityType: "capi_mapping", entityId: row!.id, summary: { datasetId: id, triggerType: b.data.triggerType, eventName: b.data.eventName, valueMode: b.data.valueMode, enabled: b.data.enabled } });
+        return c.json(toMappingDto(row!), 201);
+      });
+    } catch (e) { return mapErr(c, e); }
+  });
+
+  r.put("/capi/datasets/:datasetId/mappings/:mappingId", async (c) => {
+    if (!can(c.get("role"), "capi.manage", {})) return forbidden(c);
+    const id = c.req.param("datasetId"), mid = c.req.param("mappingId");
+    if (!isUuid(id) || !isUuid(mid)) return fail(c, 404, "not_found");
+    const b = await body(c, UpdateCapiMappingBody);
+    if (!b.ok) return b.res;
+    const { workspaceId } = wctx(c);
+    try {
+      return await withContext(db, wctx(c), async (tx) => {
+        const bad = await checkTargets(c, tx, id, b.data.stageId);
+        if (bad) return bad;
+        const [row] = await tx.update(schema.capiEventMappings).set({ ...b.data, updatedAt: new Date() }).where(and(eq(schema.capiEventMappings.workspaceId, workspaceId), eq(schema.capiEventMappings.datasetId, id), eq(schema.capiEventMappings.id, mid))).returning();
+        if (!row) return fail(c, 404, "not_found");
+        await writeAudit(tx, { ...actor(c), workspaceId, action: "capi.mapping.updated", entityType: "capi_mapping", entityId: mid, summary: { datasetId: id, triggerType: b.data.triggerType, eventName: b.data.eventName, valueMode: b.data.valueMode, enabled: b.data.enabled } });
+        return c.json(toMappingDto(row));
+      });
+    } catch (e) { return mapErr(c, e); }
+  });
+
+  r.delete("/capi/datasets/:datasetId/mappings/:mappingId", async (c) => {
+    if (!can(c.get("role"), "capi.manage", {})) return forbidden(c);
+    const id = c.req.param("datasetId"), mid = c.req.param("mappingId");
+    if (!isUuid(id) || !isUuid(mid)) return fail(c, 404, "not_found");
+    const { workspaceId } = wctx(c);
+    return withContext(db, wctx(c), async (tx) => {
+      const [row] = await tx.delete(schema.capiEventMappings).where(and(eq(schema.capiEventMappings.workspaceId, workspaceId), eq(schema.capiEventMappings.datasetId, id), eq(schema.capiEventMappings.id, mid))).returning();
+      if (!row) return fail(c, 404, "not_found");
+      await writeAudit(tx, { ...actor(c), workspaceId, action: "capi.mapping.deleted", entityType: "capi_mapping", entityId: mid, summary: { datasetId: id, triggerType: row.triggerType, eventName: row.eventName } });
+      return c.json({ ok: true as const });
+    });
+  });
+
+  /** Dry run: which rules would send for this lead, which would be skipped and why. Reads only; nothing is queued. */
+  r.post("/capi/mappings/preview", async (c) => {
+    if (!can(c.get("role"), "capi.view", {})) return forbidden(c);
+    const b = await body(c, CapiMappingPreviewBody);
+    if (!b.ok) return b.res;
+    const { workspaceId } = wctx(c);
+    return withContext(db, wctx(c), async (tx) => {
+      const [l] = await tx.select({ contactId: schema.leads.primaryContactId, valueMinor: schema.leads.valueMinor, currency: schema.leads.currency }).from(schema.leads).where(and(eq(schema.leads.workspaceId, workspaceId), eq(schema.leads.id, b.data.leadId), sql`${schema.leads.deletedAt} IS NULL`));
+      if (!l) return fail(c, 404, "not_found");
+      const p = await previewLead(tx, workspaceId, l);
+      const out: CapiMappingPreview = {
+        consent: p.consent,
+        items: p.items.map((i) => ({ mappingId: i.mapping.id, datasetId: i.mapping.datasetId, datasetName: i.datasetName, triggerType: i.mapping.triggerType, stageId: i.mapping.stageId, eventName: i.mapping.eventName, result: i.result, reason: i.reason, value: i.value, currency: i.currency })),
+      };
+      return c.json(out);
     });
   });
 
