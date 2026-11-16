@@ -65,6 +65,18 @@ describe("permissions", () => {
     }
     expect(ok(await as(admin).call(endpoints.listCapiDatasets, { params: p() })).items.length).toBeGreaterThanOrEqual(2);
   });
+  it("consent history is append-only, newest first, with who and source", async () => {
+    const c = await mkContact();
+    const get = async () => ok(await as(owner).call(endpoints.getAdConsent, { params: { workspaceId: A, contactId: c.id } }));
+    expect(await get()).toMatchObject({ status: "none", history: [] });
+    ok(await grant(c, "granted", agent));
+    ok(await grant(c, "revoked", owner));
+    const g = await get();
+    expect(g).toMatchObject({ status: "revoked", source: "manual" });
+    expect(g.history.map((h) => h.status)).toEqual(["revoked", "granted"]);
+    expect(g.history[0]!.recordedBy).toBeTruthy();
+    expect(g.history[0]!.recordedBy).not.toBe(g.history[1]!.recordedBy);
+  });
   it("consent: agents may record it, viewers may not; unknown contacts are 404", async () => {
     const c = await mkContact();
     ok(await grant(c, "granted", agent));

@@ -83,7 +83,7 @@ export function CapiPanel({ workspaceId, canManage }: { workspaceId: string; can
 
   return (
     <Panel className="mt-6">
-      <PanelHeader title="Meta Conversions API" description="Send CRM outcomes, such as a won deal, back to Meta for ad measurement. Only for contacts who agreed to it." actions={<Badge tone="warning">MOCK</Badge>} />
+      <PanelHeader title="Meta Conversions API" description="Send CRM outcomes, such as a won deal, back to Meta for ad measurement. Only for contacts who agreed to it. Record consent on the contact page, under Ad measurement consent." actions={<Badge tone="warning">MOCK</Badge>} />
       <div className="flex flex-col gap-4 p-4">
         <Alert tone="warning">Mock only. Events are checked and recorded here, but nothing is sent to Meta. Live sending stays off until a real test event has been accepted and recorded.</Alert>
 

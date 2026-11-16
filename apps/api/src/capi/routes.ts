@@ -94,8 +94,9 @@ export function capiRoutes(db: Db, deps: CapiRouteDeps = {}) {
     withContext(db, wctx(c), async (tx) => {
       const [k] = await tx.select({ id: schema.contacts.id }).from(schema.contacts).where(and(eq(schema.contacts.workspaceId, c.get("workspaceId")), eq(schema.contacts.id, contactId), sql`${schema.contacts.deletedAt} IS NULL`));
       if (!k) return null;
-      const [x] = await tx.select().from(schema.consentRecords).where(and(eq(schema.consentRecords.workspaceId, c.get("workspaceId")), eq(schema.consentRecords.contactId, contactId), eq(schema.consentRecords.purpose, CONSENT_PURPOSE))).orderBy(desc(schema.consentRecords.id)).limit(1);
-      return x ? { status: x.status as "granted" | "revoked", source: x.source, recordedAt: x.recordedAt.toISOString() } : { status: "none", source: null, recordedAt: null };
+      const rows = await tx.select().from(schema.consentRecords).where(and(eq(schema.consentRecords.workspaceId, c.get("workspaceId")), eq(schema.consentRecords.contactId, contactId), eq(schema.consentRecords.purpose, CONSENT_PURPOSE))).orderBy(desc(schema.consentRecords.id)).limit(20);
+      const history = rows.map((x) => ({ status: x.status as "granted" | "revoked", source: x.source, recordedAt: x.recordedAt.toISOString(), recordedBy: x.recordedBy }));
+      return history[0] ? { ...history[0], history } : { status: "none", source: null, recordedAt: null, recordedBy: null, history };
     });
 
   r.get("/contacts/:contactId/ad-consent", async (c) => {
