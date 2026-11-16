@@ -205,4 +205,12 @@ Updated: 2026-11-13 (Phase 0).
 - The model list endpoint is assumed public. If it needs a key the browser shows an error; there is no fallback to a workspace key.
 - Model list cache and the browse rate limit are in-process (one API instance). Capability confirmation on save uses that cache: after a restart or 10 minutes, a save keeps what is already stored but cannot grant new capabilities.
 - Prices cover input and output tokens only; per-request, image or reasoning fees are only covered through the reported `usage.cost` (the higher value is charged). Free models cost 0.
-- Not built (slice B): streaming, native tool calling, structured output, routing preferences, BYOK, audio transcription through OpenRouter, router aliases (`openrouter/auto`).
+- Not built (slice B is separate): routing preferences, BYOK, audio transcription through OpenRouter, router aliases (`openrouter/auto`).
+
+## OpenRouter slice B (streaming, tools, structured output)
+- Everything is UNVERIFIED against the live service: `[DONE]`, `stream_options.include_usage`, `usage.cost` in the final chunk, the mid-stream `error` shape, `tool_calls` shape and `response_format` behaviour per model. The extended `scripts/openrouter-smoke.mjs` (opt-in) has NOT been run.
+- Only reply suggestion streams. Agent runs and other AI calls stay non-stream. Tool calls are not streamed and there is no multi-turn tool loop (single round, no `role:'tool'` results).
+- A stream cut by the client is logged with estimated tokens (4 chars per token), because no usage event arrives; the provider may bill slightly differently.
+- Capabilities are only known for OpenRouter models; other providers always use the JSON-in-text protocol and prompt-based JSON. Structured output is non-strict json_schema; the answer is validated either way.
+- The stream route answers HTTP 200 once past the shared checks, so a budget stop or provider failure arrives as an `error` event, not an HTTP status. Keepalive and abort rely on the Node server noticing a closed connection.
+- The mock agent answering plain text (no JSON) is no longer flagged `malformed`, because native tool-calling models answer plain text by design.

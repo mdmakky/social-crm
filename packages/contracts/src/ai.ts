@@ -94,4 +94,6 @@ export const aiEndpoints = {
   getAiUsage: endpoint({ method: "GET", path: `${W}/ai/usage`, query: AiUsageQuery, response: AiUsageDto }),
   getAiStatus: endpoint({ method: "GET", path: `${W}/ai/status`, response: AiStatusDto }),
   suggestReply: endpoint({ method: "POST", path: `${W}/conversations/:conversationId/ai/suggest-reply`, response: SuggestReplyResult }),
+  /** Server-Sent Events (text/event-stream): `delta` {text}, `usage`, `done`, or one `error` {code, message, status}. The web client reads it with fetch; the declared response is the raw text. */
+  suggestReplyStream: endpoint({ method: "POST", path: `${W}/conversations/:conversationId/ai/suggest-reply/stream`, response: z.string(), responseType: "text" }),
 } as const;

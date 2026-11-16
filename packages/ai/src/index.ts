@@ -12,3 +12,4 @@ export { createOpenAiCompatible } from "./providers/openai.ts";
 export { createMockProvider } from "./providers/mock.ts";
 export * from "./prompts.ts";
 export * from "./agent.ts";
+export * from "./sse.ts";

@@ -155,4 +155,6 @@ Next phase: Meta Inbox. Slice 1 (schema, RLS, per-user unread) merged to `main` 
 
 **Phase 2 progress, inbox attachments (2026-11-17, `feat/inbox-attachments`, not merged):** media received through, or sent from, Inbox conversations is stored through the `BlobStore` port (local or S3-compatible, env-driven) and available to the CRM, AI capabilities and the knowledge base without any automatic processing; WhatsApp file send is mock-only and UNVERIFIED. Next: real-bucket and real-channel verification, thumbnails and range requests, a retention job, Messenger/Instagram file send if Meta allows it.
 
-**Phase 6 progress, OpenRouter gateway slice A (2026-11-17, `feat/openrouter-gateway`, local only):** OpenRouter as a provider with error mapping, retry hints, cost reconciliation and a model browser. UNVERIFIED against the live service. Slice B (streaming, native tool calling, structured output) is next and not started.
+**Phase 6 progress, OpenRouter gateway slice A (2026-11-17, `feat/openrouter-gateway`, local only):** OpenRouter as a provider with error mapping, retry hints, cost reconciliation and a model browser. UNVERIFIED against the live service. Slice B is below.
+
+**Phase 6 progress, OpenRouter slice B (2026-11-17, `feat/openrouter-streaming-tools`, local only):** streamed reply suggestion (SSE, Stop), native tool calling for agents, `response_format` structured output, all gated by the stored model flags with fallbacks. UNVERIFIED against the live service. Next: record the opt-in smoke checks against a real key, then routing preferences and BYOK.

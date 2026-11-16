@@ -109,6 +109,20 @@ function extractJson(raw: string): unknown {
   return undefined;
 }
 
+/** The ONE validation path for a proposed action, whether it came from JSON-in-text or from a native tool call: registry, grant, args schema, max actions, approval rules. */
+function planAction<C>(name: string, args: Record<string, unknown>, i: number, grants: readonly ToolGrant[], reg: ToolRegistry<C>, planned: PlannedAction[], rejected: RejectedAction[]) {
+  if (i >= MAX_ACTIONS_PER_RUN) { rejected.push({ tool: name.slice(0, 60), reason: "too_many" }); return; }
+  const def = getTool(reg, name);
+  if (!def) { rejected.push({ tool: name.slice(0, 60), reason: "unknown_tool" }); return; }
+  const grant = grants.find((g) => g.tool === name);
+  if (!grant) { rejected.push({ tool: name, reason: "not_granted" }); return; }
+  const a = def.argsSchema.safeParse(args);
+  if (!a.success) { rejected.push({ tool: name, reason: "invalid_args" }); return; }
+  const sensitive = def.sensitivity === "sensitive";
+  const pending = sensitive || grant.mode === "approval";
+  planned.push({ tool: name, args: a.data as Record<string, unknown>, sensitivity: def.sensitivity, disposition: pending ? "pending" : "execute", pendingReason: sensitive ? "sensitive" : grant.mode === "approval" ? "approval_granted" : null });
+}
+
 /**
  * Parses the model's answer. The model's text decides NOTHING about permissions: every action is checked against the registry and against the agent
  * version's grants, so an unknown tool, an ungranted tool or bad args is rejected (never executed). More than MAX_ACTIONS_PER_RUN: the rest is rejected.
@@ -123,17 +137,56 @@ export function parseAgentReply<C>(raw: string, grants: readonly ToolGrant[], re
   env.data.actions.forEach((item, i) => {
     const call = Call.safeParse(item);
     if (!call.success) { rejected.push({ tool: "", reason: "malformed_action" }); return; }
-    const { tool: name, args } = call.data;
-    if (i >= MAX_ACTIONS_PER_RUN) { rejected.push({ tool: name.slice(0, 60), reason: "too_many" }); return; }
-    const def = getTool(reg, name);
-    if (!def) { rejected.push({ tool: name.slice(0, 60), reason: "unknown_tool" }); return; }
-    const grant = grants.find((g) => g.tool === name);
-    if (!grant) { rejected.push({ tool: name, reason: "not_granted" }); return; }
-    const a = def.argsSchema.safeParse(args);
-    if (!a.success) { rejected.push({ tool: name, reason: "invalid_args" }); return; }
-    const sensitive = def.sensitivity === "sensitive";
-    const pending = sensitive || grant.mode === "approval";
-    planned.push({ tool: name, args: a.data as Record<string, unknown>, sensitivity: def.sensitivity, disposition: pending ? "pending" : "execute", pendingReason: sensitive ? "sensitive" : grant.mode === "approval" ? "approval_granted" : null });
+    planAction(call.data.tool, call.data.args, i, grants, reg, planned, rejected);
   });
   return { reply: env.data.reply.trim(), malformed: false, planned, rejected };
+}
+
+// ----- native tool calling (OpenAI chat format) -----
+/** Wire names cannot contain dots (^[a-zA-Z0-9_-]{1,64}$): `crm.add_note` travels as `crm__add_note`. Decoding is a lookup against the granted tools, never a string replace on model output. */
+export const wireToolName = (name: string) => name.replaceAll(".", "__");
+
+/** Tool definitions generated from the SAME registry and grants the JSON-in-text protocol uses (one source of truth: the tool's zod args schema). */
+export function toolSpecs<C>(grants: readonly ToolGrant[], reg: ToolRegistry<C>): { type: "function"; function: { name: string; description: string; parameters: Record<string, unknown> } }[] {
+  return grantedTools(grants, reg).map(({ tool }) => {
+    const j = z.toJSONSchema(tool.argsSchema) as Record<string, unknown>;
+    delete j.$schema;
+    return { type: "function" as const, function: { name: wireToolName(tool.name), description: `${tool.description}${tool.sensitivity === "sensitive" ? " (needs human approval)" : ""}`.slice(0, 1000), parameters: j } };
+  });
+}
+
+/** JSON schema of the JSON-in-text envelope, for `response_format` on models with structured output. Validation of the parsed result is unchanged (parseAgentReply). */
+export const AGENT_REPLY_JSON_SCHEMA: Record<string, unknown> = {
+  type: "object",
+  properties: { reply: { type: "string" }, actions: { type: "array", maxItems: MAX_ACTIONS_PER_RUN, items: { type: "object", properties: { tool: { type: "string" }, args: { type: "object" } }, required: ["tool", "args"] } } },
+  required: ["reply", "actions"],
+};
+
+/** System prompt for native tool calling: same sections, but the answer is plain draft text and actions are tool calls. */
+export function composeNativeSystemPrompt<C>(def: AgentDefinition, reg: ToolRegistry<C>): string {
+  return composeSystemPrompt(def, reg).replace(/TOOLS\n[\s\S]*$/, `TOOLS\nCall the provided functions when a CRM action is needed (at most ${MAX_ACTIONS_PER_RUN}). Tools marked as needing approval are only proposed to a human.\n\nOUTPUT FORMAT\nAnswer with the draft reply for the customer as plain text. Do not describe tool calls in the text.`);
+}
+
+/**
+ * Turns a native answer (text + tool_calls) into the same ParsedReply the JSON-in-text protocol produces, through the SAME validation (planAction).
+ * `arguments` that is not valid JSON, or not an object, is rejected as invalid_args; a name that is not a granted wire name is unknown_tool / not_granted.
+ * No tool_calls at all: the text is tried as the JSON-in-text envelope (a model that ignored the tools may still have answered that way); otherwise it is the plain draft.
+ */
+export function parseNativeReply<C>(text: string, calls: readonly { name: string; arguments: string }[] | undefined, grants: readonly ToolGrant[], reg: ToolRegistry<C>): ParsedReply {
+  if (!calls?.length) {
+    const p = parseAgentReply(text, grants, reg);
+    return p.malformed ? { reply: text.trim().slice(0, 8000), malformed: false, planned: [], rejected: [] } : p;
+  }
+  const byWire = new Map(grantedTools(grants, reg).map(({ tool }) => [wireToolName(tool.name), tool.name]));
+  const planned: PlannedAction[] = [];
+  const rejected: RejectedAction[] = [];
+  calls.forEach((c, i) => {
+    const real = byWire.get(c.name);
+    if (!real) { rejected.push({ tool: c.name.slice(0, 60), reason: getTool(reg, c.name.replaceAll("__", ".")) ? "not_granted" : "unknown_tool" }); return; }
+    let args: unknown;
+    try { args = JSON.parse(c.arguments); } catch { rejected.push({ tool: real, reason: "invalid_args" }); return; }
+    if (!args || typeof args !== "object" || Array.isArray(args)) { rejected.push({ tool: real, reason: "invalid_args" }); return; }
+    planAction(real, args as Record<string, unknown>, i, grants, reg, planned, rejected);
+  });
+  return { reply: text.trim().slice(0, 8000), malformed: false, planned, rejected };
 }

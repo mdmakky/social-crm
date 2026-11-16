@@ -1,7 +1,7 @@
 import { AiError } from "../types.ts";
 
 /** `gateway`: OpenRouter semantics (402 payment_required, 403 blocked, 502/503 retryable, errors inside a 200 body, Retry-After). Off for every other provider. */
-export type HttpOptions = { fetch?: typeof fetch; timeoutMs?: number; gateway?: boolean };
+export type HttpOptions = { fetch?: typeof fetch; timeoutMs?: number; gateway?: boolean; /** Extra abort source (the caller went away), combined with the timeout. */ signal?: AbortSignal };
 
 export const MAX_RETRY_AFTER_MS = 30_000;
 
@@ -42,7 +42,7 @@ export async function post(url: string, headers: Record<string, string>, body: B
   const f = o.fetch ?? fetch;
   let res: Response;
   try {
-    res = await f(url, { method: "POST", headers, body, signal: AbortSignal.timeout(o.timeoutMs ?? 30_000) });
+    res = await f(url, { method: "POST", headers, body, signal: o.signal ? AbortSignal.any([o.signal, AbortSignal.timeout(o.timeoutMs ?? 30_000)]) : AbortSignal.timeout(o.timeoutMs ?? 30_000) });
   } catch (e) {
     const name = (e as { name?: string })?.name;
     throw new AiError(name === "TimeoutError" || name === "AbortError" ? "timeout" : "provider_error");
