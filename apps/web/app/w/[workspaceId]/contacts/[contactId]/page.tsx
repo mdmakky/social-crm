@@ -46,7 +46,7 @@ export default async function ContactPage({ params }: { params: Promise<{ worksp
       stages={dataOf(stages) ?? []}
       members={dataOf(members) ?? []}
       fields={(dataOf(fields) ?? []).filter((f) => !f.archived)}
-      perms={{ edit: can(workspace.role, "contact.edit", {}), delete: can(workspace.role, "contact.delete", {}) }}
+      perms={{ edit: can(workspace.role, "contact.edit", {}), delete: can(workspace.role, "contact.delete", {}), consent: can(workspace.role, "consent.edit", {}) }}
     />
   );
 }

@@ -145,7 +145,7 @@ Updated: 2026-11-13 (Phase 0).
 ## Meta Conversions API, slice 1 (2026-11-16, branch feat/capi-foundation)
 - MOCK ONLY. Nothing is sent to Meta, no real Test Events delivery has been recorded, so no claim of live operation. "Accepted" in the UI means the mock accepted it.
 - One hook (lead Won becomes Purchase; needs a lead value; 2-decimal currencies assumed except common zero-decimal ones, 3-decimal currencies such as KWD would be 10x off). Lead, Schedule, form leads, appointments are not wired. No per-workspace mapping or field allowlist; no LDU/region rules; no sensitive-category denylist.
-- Consent can be recorded through the API (`/contacts/:id/ad-consent`) but there is no web or mobile control for it yet, so on the web every event is `skipped_no_consent` until consent is recorded by API. Consent granted after a skip does not replay the event.
+- Ad measurement consent can be recorded on the web contact page (owner, admin, agent) but there is no mobile control yet. Consent granted after a skip does not replay the event. The history shows the last 20 records.
 - One event per request (no batching or bisection), no manual retry or dead-letter view, no `needs_reauth` flip on an auth error (the event fails with `auth`), no test-event send button. The token is not validated against Meta on connect (mock).
 - Contact deletion does not purge or redact queue rows yet; hashed identifiers stay in `capi_events.payload` of sent rows (no retention job). Hashes are pseudonymous, not anonymous.
 - The worker is an in-process 15 s loop on the single API instance (same shortcut as the inbox worker); dataset create rate limit is in process.

@@ -36,7 +36,9 @@ export const CapiEventsQuery = z.object({ datasetId: Uuid.optional(), status: Ca
 export const CapiEventList = z.object({ items: z.array(CapiEventDto), nextCursor: Uuid.nullable() });
 export type CapiEventList = z.infer<typeof CapiEventList>;
 
-export const AdConsentDto = z.object({ status: z.enum(["granted", "revoked", "none"]), source: z.string().nullable(), recordedAt: z.string().nullable() });
+export const AdConsentEntry = z.object({ status: z.enum(["granted", "revoked"]), source: z.string(), recordedAt: z.string(), recordedBy: z.string().nullable() });
+/** Current state plus the append-only history (newest first, last 20). `recordedBy` is a user id the client resolves against members. */
+export const AdConsentDto = z.object({ status: z.enum(["granted", "revoked", "none"]), source: z.string().nullable(), recordedAt: z.string().nullable(), recordedBy: z.string().nullable(), history: z.array(AdConsentEntry) });
 export type AdConsentDto = z.infer<typeof AdConsentDto>;
 export const SetAdConsentBody = z.object({ status: z.enum(["granted", "revoked"]), source: z.enum(["manual", "form", "import", "api", "customer_request"]) });
 
