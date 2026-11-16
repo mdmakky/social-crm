@@ -47,7 +47,7 @@ export default async function Home({ params }: { params: Promise<{ workspaceId: 
     <>
       <PageHeader title={ws.name} description={`${plural(ws.memberCount, "member")} · ${ws.timezone} · Created ${formatDate(ws.createdAt, ws.timezone)}`} />
 
-      <p className="mb-4 text-lg font-medium tracking-title text-fg">
+      <p className="mb-4 text-md font-medium tracking-title text-fg">
         <span className={s && s.overdue > 0 ? "text-danger-fg" : undefined}>{lead}</span>{" "}
         <span className="text-fg-subtle">{dataOf(contacts)?.total ?? 0} contacts{r ? `, ${plural(r.openTotal.count, "open deal")}${r.valuesVisible && sum(r.openTotal.values) ? ` worth ${sum(r.openTotal.values)}` : ""}` : ""}.</span>
       </p>

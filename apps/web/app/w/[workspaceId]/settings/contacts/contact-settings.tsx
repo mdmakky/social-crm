@@ -101,7 +101,7 @@ export function ContactSettings({ workspaceId, canManage, stages: s0, tags: t0, 
       {!canManage && <Alert tone="info">Only owners and admins can change these settings.</Alert>}
 
       <Panel>
-        <PanelHeader title="Lifecycle stages" description="Where a contact is in your relationship with them. Independent of any sales pipeline." />
+        <PanelHeader title="Lifecycle stages" description="Where a contact is in your relationship." />
         <ul>
           {stages.map((s, i) => (
             <li key={s.id} className="flex flex-wrap items-center gap-2 border-b border-line px-4 py-2.5 last:border-b-0">
@@ -138,7 +138,7 @@ export function ContactSettings({ workspaceId, canManage, stages: s0, tags: t0, 
       </Panel>
 
       <Panel>
-        <PanelHeader title="Custom fields" description="Extra information to keep on every contact. Archiving hides a field but keeps its stored values." />
+        <PanelHeader title="Custom fields" description="Extra information on every contact." />
         {fields.length === 0 ? <p className="px-4 py-4 text-sm text-fg-muted">No custom fields yet.</p> : (
           <ul>
             {fields.map((f) => (
@@ -156,7 +156,7 @@ export function ContactSettings({ workspaceId, canManage, stages: s0, tags: t0, 
         {canManage && (
           <form onSubmit={addField} className="grid items-start gap-3 border-t border-line p-4 sm:grid-cols-2">
             <Field label="Label">{(x) => <Input {...x} value={nf.label} onChange={(e) => setNf({ ...nf, label: e.target.value, key: keyTouched ? nf.key : slug(e.target.value) })} maxLength={60} />}</Field>
-            <Field label="Key" hint="Used in imports and exports. Lowercase letters, numbers and underscores.">{(x) => <Input {...x} value={nf.key} onChange={(e) => { setKeyTouched(true); setNf({ ...nf, key: e.target.value }); }} maxLength={40} />}</Field>
+            <Field label="Key" hint="Lowercase letters, numbers, underscores.">{(x) => <Input {...x} value={nf.key} onChange={(e) => { setKeyTouched(true); setNf({ ...nf, key: e.target.value }); }} maxLength={40} />}</Field>
             <Field label="Type">{(x) => <Select {...x} value={nf.type} onChange={(e) => setNf({ ...nf, type: e.target.value })}>{CUSTOM_FIELD_TYPES.map((t) => <option key={t} value={t}>{TYPE_LABEL[t]}</option>)}</Select>}</Field>
             {(nf.type === "select" || nf.type === "multiselect") && <Field label="Options" hint="One per line or comma-separated.">{(x) => <Input {...x} value={nf.options} onChange={(e) => setNf({ ...nf, options: e.target.value })} />}</Field>}
             <div className="flex items-center sm:col-span-2"><Checkbox label="Required when adding a contact" checked={nf.required} onChange={(e) => setNf({ ...nf, required: e.target.checked })} /></div>
@@ -166,7 +166,7 @@ export function ContactSettings({ workspaceId, canManage, stages: s0, tags: t0, 
       </Panel>
 
       <Panel>
-        <PanelHeader title="Tags" description="Anyone who can edit contacts can create tags. Renaming and deleting is limited to admins." />
+        <PanelHeader title="Tags" description="Anyone who edits contacts can add tags." />
         {tags.length === 0 ? <p className="px-4 py-4 text-sm text-fg-muted">No tags yet. Add one from any contact.</p> : (
           <ul>
             {tags.map((t) => (

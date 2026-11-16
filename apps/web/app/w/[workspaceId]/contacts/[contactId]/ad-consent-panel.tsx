@@ -42,10 +42,10 @@ export function AdConsentPanel({ workspaceId, contactId, canEdit, timeZone, memb
 
   return (
     <Panel>
-      <PanelHeader title="Ad measurement consent" description="Whether we may send this contact's hashed identifiers to Meta for ad measurement." actions={consent && <Badge tone={STATE[consent.status].tone}>{STATE[consent.status].label}</Badge>} />
+      <PanelHeader title="Ad measurement consent" description="Allow sending this contact to Meta for ad measurement." actions={consent && <Badge tone={STATE[consent.status].tone}>{STATE[consent.status].label}</Badge>} />
       <div className="flex flex-col gap-3 p-4" aria-live="polite">
         {!canEdit ? (
-          <Alert>You do not have permission to view or change ad measurement consent. Ask an owner, admin or agent. Until consent is recorded, nothing about this contact is sent to Meta.</Alert>
+          <Alert>You do not have permission to change consent. Nothing is sent without it.</Alert>
         ) : loadError ? (
           <ErrorState title="Could not load consent" description={loadError} onRetry={() => void load()} />
         ) : consent === null ? (
@@ -75,8 +75,8 @@ export function AdConsentPanel({ workspaceId, contactId, canEdit, timeZone, memb
         <DialogContent
           title={pending === "granted" ? "Record ad measurement consent?" : "Record withdrawal of consent?"}
           description={pending === "granted"
-            ? "Confirm only if this contact agreed. It allows the CRM to send hashed identifiers (email, phone) and conversion events, such as a won deal, to Meta through the Conversions API for ad measurement."
-            : "This stops any further sending of this contact's identifiers to Meta. Events already waiting are skipped. Earlier records stay in the history."}
+            ? "Confirm only if this contact agreed. It lets us send hashed identifiers and won deals to Meta."
+            : "Nothing more is sent to Meta for this contact. Waiting events are skipped."}
         >
           {error && <Alert tone="error" className="mb-3">{error}</Alert>}
           <DialogActions>

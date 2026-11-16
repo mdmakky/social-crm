@@ -113,7 +113,7 @@ export function AutomationSettings({ workspaceId, timeZone, members }: { workspa
       <Panel>
         <PanelHeader title="Rules" description="A rule runs when its trigger happens and its conditions match." actions={<Button variant="primary" size="sm" onClick={() => setEditing("new")}><Plus />New rule</Button>} />
         {rules.length === 0 ? (
-          <EmptyState icon={Workflow} title="No rules yet" description="Create a rule, for example: when a contact is created, add a tag and open a follow-up task." action={<Button variant="primary" onClick={() => setEditing("new")}><Plus />New rule</Button>} />
+          <EmptyState icon={Workflow} title="No rules yet" description="For example, tag a new contact and open a follow-up task." action={<Button variant="primary" onClick={() => setEditing("new")}><Plus />New rule</Button>} />
         ) : (
           <ul className="divide-y divide-line">
             {rules.map((r) => (
@@ -207,7 +207,7 @@ function RuleDialog({ workspaceId, rule, members, onSaved }: { workspaceId: stri
   }
 
   return (
-    <DialogContent title={rule ? "Edit rule" : "New rule"} description="When the trigger happens and all conditions match, the actions run (after approval, if required)." className="max-h-[90vh] w-full max-w-2xl overflow-y-auto">
+    <DialogContent title={rule ? "Edit rule" : "New rule"} description="Actions run when the trigger and all conditions match." className="max-h-[90vh] w-full max-w-2xl overflow-y-auto">
       <form onSubmit={save} className="space-y-4" noValidate>
         <Field label="Name">{(p) => <Input {...p} value={name} maxLength={120} onChange={(e) => setName(e.target.value)} placeholder="Welcome new contacts" />}</Field>
         <Field label="When">{(p) => (
@@ -278,7 +278,7 @@ function RuleDialog({ workspaceId, rule, members, onSaved }: { workspaceId: stri
             </div>
           ))}
           {actions.length < 5 && <Button size="sm" onClick={() => setActions((c) => [...c, blank("add_tag")])}><Plus />Add action</Button>}
-          <p className="text-xs text-fg-subtle">Actions apply to the contact (for a lead, its primary contact) and run with the permissions of the person who approves, or of the rule's author when approval is off.</p>
+          <p className="text-xs text-fg-subtle">Actions run with the approver's permissions.</p>
         </fieldset>
 
         <div className="flex flex-col gap-1">

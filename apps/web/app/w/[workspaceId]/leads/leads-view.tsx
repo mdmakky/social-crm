@@ -124,7 +124,7 @@ function Inner({ initialOutcome, workspaceId, myUserId, pipelines, initial, memb
       ) : page.items.length === 0 ? (
         <Panel>
           {filtered ? <EmptyState icon={BarChart3} title="No leads match these filters" description="Try a different search or clear the filters." action={<Button onClick={() => setF(DEFAULTS)}>Clear filters</Button>} />
-            : <EmptyState icon={BarChart3} title="No open leads" description={active.length === 0 ? "An admin needs to set up a pipeline first." : "Create one to start tracking it through the pipeline. Won and lost ones are under Status."} action={canCreate && active.length > 0 ? <Button variant="primary" onClick={() => setNewOpen(true)}><Plus className="size-4" aria-hidden />New {noun(labelKind).toLowerCase()}</Button> : undefined} />}
+            : <EmptyState icon={BarChart3} title="No open leads" description={active.length === 0 ? "An admin needs to set up a pipeline first." : "Create one to start tracking. Won and lost are under Status."} action={canCreate && active.length > 0 ? <Button variant="primary" onClick={() => setNewOpen(true)}><Plus className="size-4" aria-hidden />New {noun(labelKind).toLowerCase()}</Button> : undefined} />}
         </Panel>
       ) : (
         <div className={status === "loading" ? "opacity-60 transition-opacity" : "transition-opacity"} aria-busy={status === "loading"}>

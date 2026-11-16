@@ -65,7 +65,7 @@ function Inner({ workspaceId }: { workspaceId: string }) {
       <Panel>
         <PanelHeader title="Agents" description={`${data.activeCount} of ${data.maxActive} active agents used.`} actions={<Button variant="primary" onClick={() => setSelected("new")}><Plus className="size-4" aria-hidden />New agent</Button>} />
         {data.agents.length === 0 ? (
-          <EmptyState icon={Bot} title="No agents yet" description="Create one, give it instructions and the tools it may use, then test it before activating." action={<Button variant="primary" onClick={() => setSelected("new")}>Create an agent</Button>} />
+          <EmptyState icon={Bot} title="No agents yet" description="Create one, then test it before activating." action={<Button variant="primary" onClick={() => setSelected("new")}>Create an agent</Button>} />
         ) : (
           <Table scrollLabel="Agents">
             <THead><TR><TH>Name</TH><TH>Status</TH><TH>Version</TH><TH><span className="sr-only">Actions</span></TH></TR></THead>
@@ -144,7 +144,7 @@ function Editor({ params, data, agent, onSaved, onClose, onActions }: P & { data
   return (
     <>
       <Panel>
-        <PanelHeader title={agent ? `Edit: ${agent.name}` : "New agent"} description={agent ? "Saving creates a new version; the live version does not change until you activate one." : "Created as a draft. Test it, then activate it."} actions={<Button size="sm" onClick={onClose}>Close</Button>} />
+        <PanelHeader title={agent ? `Edit: ${agent.name}` : "New agent"} description={agent ? "Saving makes a new version. Activate it to go live." : "Created as a draft. Test it, then activate it."} actions={<Button size="sm" onClick={onClose}>Close</Button>} />
         <form onSubmit={(e) => { e.preventDefault(); void save(); }} className="flex flex-col gap-4 p-4" noValidate>
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Name">{(p) => <Input {...p} value={f.name} maxLength={80} disabled={busy !== null} onChange={(e) => set({ name: e.target.value })} />}</Field>
@@ -170,7 +170,7 @@ function Editor({ params, data, agent, onSaved, onClose, onActions }: P & { data
           </div>
           <fieldset className="flex flex-col gap-2">
             <legend className="text-sm font-medium text-fg">Tools</legend>
-            <p className="text-xs text-fg-subtle">An agent can only use the tools you turn on. Sensitive tools always wait for a person, whatever the mode.</p>
+            <p className="text-xs text-fg-subtle">Sensitive tools always wait for a person.</p>
             <Table scrollLabel="Tools">
               <THead><TR><TH>Tool</TH><TH>Type</TH><TH>Mode</TH></TR></THead>
               <TBody>
@@ -248,7 +248,7 @@ function TestPanel({ params, agent, contacts, onActions }: P & { agent: AgentDto
 
   return (
     <Panel>
-      <PanelHeader title="Test playground" description="Try the agent on a made-up customer message. In a dry run nothing is changed: write tools only show what they would do." />
+      <PanelHeader title="Test playground" description="Try it on a sample message. A dry run changes nothing." />
       <form onSubmit={(e) => { e.preventDefault(); void run(); }} className="flex flex-col gap-3 p-4" noValidate>
         <Field label="Customer message">{(p) => <Textarea {...p} rows={3} maxLength={4000} value={input} disabled={busy} onChange={(e) => setInput(e.target.value)} />}</Field>
         <Field label="Contact (needed for tools that change a contact)">{(p) => (
@@ -258,7 +258,7 @@ function TestPanel({ params, agent, contacts, onActions }: P & { agent: AgentDto
           </Select>
         )}</Field>
         <Checkbox label="Dry run (change nothing)" checked={dryRun} disabled={busy} onChange={(e) => setDryRun(e.target.checked)} />
-        {!dryRun && <Alert tone="warning">Live test: automatic write tools will really run on the chosen contact, and sensitive ones will be queued for approval below.</Alert>}
+        {!dryRun && <Alert tone="warning">Live test: write tools will really run. Sensitive ones wait for approval.</Alert>}
         {error && <Alert tone="error">{error}</Alert>}
         <div><Button type="submit" variant="primary" loading={busy}><Play className="size-4" aria-hidden />Run test</Button></div>
       </form>
@@ -300,7 +300,7 @@ function RunsPanel({ params, agent }: P & { agent: AgentDto }) {
   React.useEffect(() => { void load(); }, [load]); // eslint-disable-line react-hooks/set-state-in-effect
   return (
     <Panel>
-      <PanelHeader title="Recent runs" description="Status, tokens, cost and speed of this agent's model calls (no prompts or replies are stored)." actions={<Button size="sm" onClick={() => void load()}>Refresh</Button>} />
+      <PanelHeader title="Recent runs" description="Status, tokens, cost and speed. No text is stored." actions={<Button size="sm" onClick={() => void load()}>Refresh</Button>} />
       {error ? <ErrorState title="Could not load runs" description={error} onRetry={() => void load()} /> : !rows ? <div role="status" aria-label="Loading runs" className="p-4"><Skeleton className="h-16" /></div> : rows.length === 0 ? <EmptyState title="No runs yet" description="Run a test to see usage here." /> : (
         <Table scrollLabel="Runs">
           <THead><TR><TH>When</TH><TH>Status</TH><TH>Version</TH><TH>Model</TH><TH>Tokens</TH><TH>Cost (USD)</TH><TH>Time</TH></TR></THead>
@@ -341,7 +341,7 @@ function PendingPanel({ params, tick, onChanged }: P & { tick: number; onChanged
   }
   return (
     <Panel>
-      <PanelHeader title="Pending approvals" description="Actions agents proposed that need a person to approve them. Approving runs the action as you." />
+      <PanelHeader title="Pending approvals" description="Proposed actions waiting for you. Approving runs them as you." />
       {error && <div className="p-4 pb-0"><Alert tone="error">{error}</Alert></div>}
       {!items ? <div role="status" aria-label="Loading approvals" className="p-4"><Skeleton className="h-12" /></div> : items.length === 0 ? <EmptyState title="Nothing waiting" description="Proposed actions that need approval appear here." /> : (
         <ul className="divide-y divide-line-card">

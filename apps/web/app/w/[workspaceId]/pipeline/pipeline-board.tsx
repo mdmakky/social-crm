@@ -120,7 +120,7 @@ function Inner({ workspaceId, pipelines, lostReasons, current, initialLeads, won
   if (!current) return (
     <>
       <PageHeader title="Pipeline" />
-      <EmptyState icon={Kanban} title="No pipeline yet" description="An owner or admin needs to create a pipeline in Settings before leads can be tracked." />
+      <EmptyState icon={Kanban} title="No pipeline yet" description="An owner or admin can create one in Settings." />
     </>
   );
   const dragged = leads.find((l) => l.id === dragId) ?? null;

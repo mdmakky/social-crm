@@ -225,7 +225,7 @@ export function Thread({ conversationId }: { conversationId: string }) {
     if (!r.ok) {
       // Keep the draft AND the client id: pressing Send again is a retry of the same request, which the server dedupes.
       const st = r.error.status;
-      toast(st === 409 || st === 422 ? errorMessage(r.error) : r.error.kind === "network" || r.error.kind === "timeout" ? "No answer from the server. Your message may have been sent: check the conversation before sending it again." : errorMessage(r.error), "error");
+      toast(st === 409 || st === 422 ? errorMessage(r.error) : r.error.kind === "network" || r.error.kind === "timeout" ? "No answer from the server. It may have sent: check before resending." : errorMessage(r.error), "error");
       if (st === 409 || st === 422) { clientId.current = null; void refresh(false); }
       return;
     }
@@ -235,7 +235,7 @@ export function Thread({ conversationId }: { conversationId: string }) {
     if (st === "failed") setDraft((d) => (d === "" ? text : d)); // the text is not lost: edit and send again as a new message
     else { setDraft(""); setAiDraft(null); }
     if (files.length) { uploads.clear(); void refreshAtt(); }
-    if (st === "unknown") toast("Meta did not confirm this message. See the message below before sending it again.", "error");
+    if (st === "unknown") toast("Meta did not confirm this message. Check it before resending.", "error");
     void refresh(false);
     composerRef.current?.focus();
   }
@@ -334,7 +334,7 @@ export function Thread({ conversationId }: { conversationId: string }) {
         <footer className="px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-1">
           {!canReply ? <p className="py-3 text-sm text-fg-muted">You have read-only access.</p> : (
             <>
-              {detail.replyWindow === "closed" && <Alert tone="warning" className="mb-2">You can&apos;t reply: more than 24 hours have passed since {name}&apos;s last message. {detail.platform === "whatsapp" ? "WhatsApp only allows free-form replies within 24 hours of the customer's last message (template messages are not available yet)." : "Meta only allows replies within 24 hours."} You can reply as soon as {name} writes again.</Alert>}
+              {detail.replyWindow === "closed" && <Alert tone="warning" className="mb-2">You can&apos;t reply: more than 24 hours have passed since {name}&apos;s last message. {detail.platform === "whatsapp" ? "WhatsApp allows replies only within 24 hours of the customer's last message." : "Meta only allows replies within 24 hours."} You can reply as soon as {name} writes again.</Alert>}
               {detail.replyWindow === "none" && <Alert tone="info" className="mb-2">There is no reply window yet. You can reply after {name} writes first.</Alert>}
               {left !== null && left < 120 && <Alert tone="warning" className="mb-2">The 24-hour reply window closes in {Math.floor(left / 60)} h {left % 60} min. After that you can&apos;t reply until {name} writes again.</Alert>}
               {left !== null && left >= 120 && <p className="mb-1.5 flex items-center gap-2 px-1 text-xs text-fg-subtle"><Badge tone="success">Reply window open</Badge>You can reply for {Math.floor(left / 60)} more hours.</p>}

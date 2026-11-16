@@ -17,13 +17,13 @@ export default async function AuditLogPage({ params }: { params: Promise<{ works
   if (!can(ws.role, "audit.view", {})) {
     return (
       <SettingsPage title="Audit log" description="A permanent record of security and administration changes.">
-        <Panel><EmptyState icon={Lock} title="Only owners and admins can view the audit log" description="Ask an owner or admin if you need to know what changed in this workspace." /></Panel>
+        <Panel><EmptyState icon={Lock} title="Only owners and admins can view the audit log" description="Ask an owner or admin." /></Panel>
       </SettingsPage>
     );
   }
   const first = { data: dataOf(await api.call(endpoints.auditLog, { params: { workspaceId }, query: { limit: 25 } })) };
   return (
-    <SettingsPage title="Audit log" description="A permanent record of security and administration changes. Entries cannot be edited or deleted.">
+    <SettingsPage title="Audit log" description="A permanent record of administration changes.">
       <Panel>
         {first.data ? <AuditList workspaceId={workspaceId} timeZone={ws.timezone} initial={first.data} /> : <ErrorState title="The audit log could not be loaded" description="Reload the page to try again." />}
       </Panel>

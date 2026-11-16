@@ -29,7 +29,7 @@ const STATUS = { pending: { tone: "accent", label: "Indexing" }, ready: { tone: 
 const ERROR_TEXT: Record<string, string> = {
   fetch_failed: "The address could not be reached.", fetch_timeout: "The website took too long to answer.", fetch_status: "The website returned an error.", url_blocked: "The address is not allowed.",
   unsupported_content_type: "The page is not a web page or text file.", too_large: "The content is too large.", empty_content: "No text was found.", too_many_redirects: "Too many redirects.",
-  capability_not_configured: "No AI provider with this capability is set up. An owner or admin can add one in Settings, AI.", budget_exceeded: "The monthly AI budget was used up.",
+  capability_not_configured: "No AI provider with this capability. Add one in Settings, AI.", budget_exceeded: "The monthly AI budget was used up.",
   unsupported_media: "The file is not a valid PDF, image or audio file of its type.", ai_unavailable: "The AI provider could not process the file.", rate_limited: "Too many files in a short time.",
 };
 /** The server's message for our own errors (it is written for people), the generic text otherwise. */
@@ -79,7 +79,7 @@ export function KnowledgeSettings({ workspaceId, timeZone, canManage }: { worksp
       <Panel>
         <PanelHeader title="Sources" description={`${fmtNumber(data.usage.sources)} of ${fmtNumber(data.usage.maxSources)} sources, ${fmtNumber(data.usage.chars)} of ${fmtNumber(data.usage.maxChars)} characters used.`} actions={addButton} />
         {data.items.length === 0 ? (
-          <EmptyState icon={BookOpen} title="No knowledge yet" description={canManage ? "Add a policy, price list, FAQ or web page. Text is split into passages that can be searched." : "Ask an owner or admin to add documents. You can still test retrieval below once they do."} action={canManage ? <Button variant="primary" onClick={() => setAdding(true)}>Add source</Button> : undefined} />
+          <EmptyState icon={BookOpen} title="No knowledge yet" description={canManage ? "Add a policy, price list, FAQ or web page." : "Ask an owner or admin to add documents."} action={canManage ? <Button variant="primary" onClick={() => setAdding(true)}>Add source</Button> : undefined} />
         ) : (
           <Table scrollLabel="Knowledge sources">
             <THead><TR className="hover:bg-transparent"><TH>Title</TH><TH>Type</TH><TH>Status</TH><TH className="text-right">Passages</TH><TH>Added</TH>{canManage && <TH><span className="sr-only">Actions</span></TH>}</TR></THead>
@@ -149,7 +149,7 @@ function TestRetrieval({ workspaceId, hasSources }: { workspaceId: string; hasSo
 
   return (
     <Panel>
-      <PanelHeader title="Test retrieval" description="See which passages the assistant would find for a question, and where each one comes from." />
+      <PanelHeader title="Test retrieval" description="See which passages a question would find." />
       <form onSubmit={submit} noValidate className="flex flex-wrap items-start gap-2 px-4 pt-4">
         <Field label="Question or keywords" error={error} className="min-w-60 flex-1">
           {(p) => <Input {...p} type="search" value={text} maxLength={KNOWLEDGE_SEARCH_MAX_QUERY} placeholder="What is the refund policy?" onChange={(e) => setText(e.target.value)} />}
@@ -219,7 +219,7 @@ function AddDialog({ workspaceId, onDone, onCancel, onFailed }: { workspaceId: s
   }
 
   return (
-    <DialogContent title="Add a source" description="The text is split into passages and indexed so it can be searched. It is never shared with other workspaces." className="max-h-[90vh] w-full max-w-xl overflow-y-auto">
+    <DialogContent title="Add a source" description="Split into passages and indexed. Never shared." className="max-h-[90vh] w-full max-w-xl overflow-y-auto">
       <form onSubmit={save} className="space-y-4" noValidate>
         <Field label="Source type">{(p) => (
           <Select {...p} value={kind} onChange={(e) => { setKind(e.target.value as typeof kind); setError(null); }}>
@@ -233,12 +233,12 @@ function AddDialog({ workspaceId, onDone, onCancel, onFailed }: { workspaceId: s
         </Field>
         {kind === "text" && <Field label="Text" hint={`Up to ${fmtNumber(KNOWLEDGE_LIMITS.maxCharsPerSource)} characters.`}>{(p) => <Textarea {...p} rows={8} value={text} onChange={(e) => setText(e.target.value)} placeholder="Paste the document text here" />}</Field>}
         {kind === "file" && (
-          <Field label="File" hint="Text (.txt), Markdown (.md), CSV (.csv) or HTML (.html), up to 2 MB. With an AI provider that supports it: PDF (10 MB), images such as .png or .jpg (5 MB, text is read from them), and audio such as .mp3 or .wav (20 MB, transcribed). Word files are not supported yet.">
+          <Field label="File" hint="TXT, MD, CSV or HTML up to 2 MB. With AI support: PDF, images, audio (transcribed).">
             {(p) => <Input {...p} type="file" accept={FILE_TYPES.join(",")} onChange={(e) => pick(e.target.files?.[0] ?? null)} />}
           </Field>
         )}
         {kind === "url" && (
-          <Field label="Web address" hint="One public page (http or https). Pages on private networks are blocked and links on the page are not followed.">
+          <Field label="Web address" hint="One public http(s) page.">
             {(p) => <Input {...p} type="url" inputMode="url" value={url} maxLength={2048} onChange={(e) => setUrl(e.target.value)} placeholder="https://example.com/returns" />}
           </Field>
         )}

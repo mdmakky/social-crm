@@ -17,7 +17,7 @@ export default async function AutomationsPage({ params }: { params: Promise<{ wo
   const [ws, members] = await Promise.all([api.call(endpoints.getWorkspace, { params: p }), api.call(endpoints.listMembers, { params: p })]);
   const w = must(ws);
   return (
-    <SettingsPage title="Automations" description="Rules that react to changes in your CRM. Every run waits for a person to approve it unless you turn that off for a rule.">
+    <SettingsPage title="Automations" description="Rules that react to CRM changes. Runs wait for approval by default.">
       {can(w.role, "workflow.manage", {}) ? (
         <AutomationSettings workspaceId={workspaceId} timeZone={w.timezone} members={(dataOf(members) ?? []).filter((m) => m.status === "active").map((m) => ({ id: m.userId, name: m.name }))} />
       ) : (

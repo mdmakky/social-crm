@@ -85,7 +85,7 @@ function Browser({ workspaceId, picked, onPicked, defaultModel, onDefault, onClo
     : [];
 
   return (
-    <DialogContent title="Browse OpenRouter models" description="Prices are per 1M tokens in USD. Capabilities are read from OpenRouter's list and are UNVERIFIED: not tested against the live service." className="md:max-w-2xl">
+    <DialogContent title="Browse OpenRouter models" description="Prices are per 1M tokens in USD." className="md:max-w-2xl">
       <div className="flex flex-col gap-3">
         {state.kind === "loading" && <div role="status" aria-label="Loading models" className="flex flex-col gap-2"><Skeleton className="h-10" /><Skeleton className="h-10" /><Skeleton className="h-10" /></div>}
         {state.kind === "error" && <ErrorState title="Could not load models" description={state.message} onRetry={() => { setState({ kind: "loading" }); void load(); }} />}

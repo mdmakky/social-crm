@@ -229,7 +229,7 @@ function Inner({ workspaceId, timeZone, role, myUserId, initial, pipelines, lost
         </DialogContent>
       </Dialog>
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-        <DialogContent title={`Delete this ${label.toLowerCase()}?`} description="It disappears from lists and the board. An owner or admin can restore it.">
+        <DialogContent title={`Delete this ${label.toLowerCase()}?`} description="It leaves lists and the board. An admin can restore it.">
           <DialogActions><Button onClick={() => setDeleteOpen(false)}>Cancel</Button><Button variant="danger" onClick={() => void remove()}>Delete</Button></DialogActions>
         </DialogContent>
       </Dialog>
@@ -341,7 +341,7 @@ function ValueAccess({ workspaceId, leadId, grants, setGrants, members }: { work
   }
   return (
     <Panel>
-      <PanelHeader title="Deal value access" description="Owners and admins always see it. Agents only with access granted here." />
+      <PanelHeader title="Deal value access" description="Owners and admins always see it." />
       <div className="flex flex-col gap-3 p-4 text-sm">
         {grants.length === 0 && <p className="text-fg-muted">No agents have access.</p>}
         {grants.map((g) => (

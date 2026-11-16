@@ -19,9 +19,9 @@ const TEMPLATE = "Name,Email,Phone,Company,Lifecycle stage,Owner email,Tags\nAna
 const DUP_LABEL: Record<Dup, string> = { skip: "Skip them", update: "Update the existing contact", create: "Import them anyway" };
 
 const IMPORT_MESSAGES: Record<string, string> = {
-  too_large: "That file is too large to upload. Split it into smaller files of up to 5 MB and 5,000 rows each.",
-  rate_limited: "You have started too many imports in a short time. Wait a few minutes, then try again.",
-  import_expired: "This upload expired before it was imported. Nothing was imported; upload the file again.",
+  too_large: "That file is too large. Split it into files up to 5 MB and 5,000 rows.",
+  rate_limited: "You started too many imports. Wait a few minutes and try again.",
+  import_expired: "This upload expired. Nothing was imported. Upload it again.",
   already_committed: "This import has already been completed. Check your contacts, or upload another file.",
   import_busy: "Another import is running in this workspace. Wait a moment, then try again.",
 };
@@ -119,7 +119,7 @@ export function ImportWizard({ workspaceId }: { workspaceId: string }) {
       {step === 1 && (
         <Panel className="p-6">
           <h2 ref={headingRef} tabIndex={-1} className="text-md font-semibold text-fg outline-none">Choose a CSV file</h2>
-          <p className="mt-1 text-sm text-fg-muted">Up to 5,000 rows and 5 MB. The first row must be column names. Commas, semicolons and tabs all work.</p>
+          <p className="mt-1 text-sm text-fg-muted">Up to 5,000 rows and 5 MB, with column names in the first row.</p>
           <div className="mt-4 flex flex-wrap items-center gap-3">
             <label className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-control bg-accent px-3 text-base font-medium text-on-accent hover:bg-accent-hover pointer-coarse:h-11 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-focus">
               <FileUp className="size-4" aria-hidden />
@@ -128,7 +128,7 @@ export function ImportWizard({ workspaceId }: { workspaceId: string }) {
             </label>
             <Button asChild variant="ghost"><a download="contacts-template.csv" href={`data:text/csv;charset=utf-8,${encodeURIComponent(TEMPLATE)}`}>Download a template</a></Button>
           </div>
-          <p className="mt-4 text-sm text-fg-subtle">Nothing is saved until the last step. Phone numbers keep the way you wrote them; email and phone are used to spot duplicates.</p>
+          <p className="mt-4 text-sm text-fg-subtle">Nothing is saved until the last step.</p>
         </Panel>
       )}
 
@@ -223,7 +223,7 @@ export function ImportWizard({ workspaceId }: { workspaceId: string }) {
           {!!preview.warnings?.length && (
             <Panel className="p-4">
               <h3 className="text-base font-semibold text-fg">{preview.warnings.length}{preview.truncated ? "+" : ""} {preview.warnings.length === 1 ? "row" : "rows"} will be skipped</h3>
-              <p className="mt-0.5 text-sm text-fg-muted">These rows are not problems with the file, but they cannot be imported with the choices above.</p>
+              <p className="mt-0.5 text-sm text-fg-muted">These rows cannot be imported with the choices above.</p>
               <ul className="mt-2 max-h-56 overflow-y-auto text-sm">
                 {preview.warnings.map((w) => <li key={w.row}><span className="font-medium">Row {w.row + 1}:</span> {w.message}</li>)}
               </ul>

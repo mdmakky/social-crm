@@ -58,7 +58,7 @@ export function NewLeadDialog({ open, onOpenChange, workspaceId, pipelines, canS
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent title={`New ${label.toLowerCase()}`} description="Every one is linked to a primary contact and starts in the first stage of its pipeline.">
+      <DialogContent title={`New ${label.toLowerCase()}`} description="Linked to a contact. Starts in the first stage.">
         <form className="flex flex-col gap-4" onSubmit={(e) => { e.preventDefault(); void submit(false); }} noValidate>
           {error && <Alert tone="error">{error}</Alert>}
           {dupes && (

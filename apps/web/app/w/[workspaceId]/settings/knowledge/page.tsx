@@ -12,7 +12,7 @@ export default async function KnowledgePage({ params }: { params: Promise<{ work
   const api = await serverApi();
   const w = must(await api.call(endpoints.getWorkspace, { params: { workspaceId } }));
   return (
-    <SettingsPage title="Knowledge" description="Documents, pasted text and web pages your assistant can look things up in. Everything stays inside this workspace.">
+    <SettingsPage title="Knowledge" description="Sources the assistant can look things up in.">
       <KnowledgeSettings workspaceId={workspaceId} timeZone={w.timezone} canManage={can(w.role, "ai.configure", {})} />
     </SettingsPage>
   );
