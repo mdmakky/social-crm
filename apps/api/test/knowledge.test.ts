@@ -203,10 +203,8 @@ describe("tenant isolation", () => {
     const hitsA = await search(secretWord, owner, A);
     expect(hitsA.map((x) => x.sourceId)).toEqual([s.id]);
     // B cannot reach A's workspace by URL
-    for (const call of [
-      () => as(ownerB).call(endpoints.getKnowledgeSource, { params: { workspaceId: A, sourceId: s.id } }),
-      () => as(ownerB).call(endpoints.searchKnowledge, { params: { workspaceId: A }, query: { q: secretWord } }),
-    ]) expect(failure(await call()).status).toBe(404);
+    expect(failure(await as(ownerB).call(endpoints.getKnowledgeSource, { params: { workspaceId: A, sourceId: s.id } })).status).toBe(404);
+    expect(failure(await as(ownerB).call(endpoints.searchKnowledge, { params: { workspaceId: A }, query: { q: secretWord } })).status).toBe(404);
     // B's own workspace with A's source id: not found, nothing changes
     expect(failure(await as(ownerB).call(endpoints.getKnowledgeSource, { params: { workspaceId: B, sourceId: s.id } })).status).toBe(404);
     expect(failure(await as(ownerB).call(endpoints.reindexKnowledgeSource, { params: { workspaceId: B, sourceId: s.id } })).status).toBe(404);

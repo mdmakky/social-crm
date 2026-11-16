@@ -38,7 +38,7 @@ export async function searchKnowledge(db: Db, scope: KnowledgeScope, query: stri
     let res = await run(tx, q);
     // 'simple' has no stop words, so a plain question ("what is your refund policy") rarely has all its words in one chunk. When the exact query finds
     // nothing and uses no operators, retry matching ANY of its longer words; ranking still puts chunks with more of them first.
-    if (!res.rows.length && !/["\-]|\bor\b/i.test(q)) {
+    if (!res.rows.length && !/["-]|\bor\b/i.test(q)) {
       const words = [...new Set(q.toLowerCase().match(/[\p{L}\p{N}\p{M}]{3,}/gu) ?? [])].slice(0, 12);
       if (words.length > 1) res = await run(tx, words.join(" or "));
     }
