@@ -14,6 +14,7 @@ import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import { ToastProvider, useToast } from "@/components/ui/toast";
 import { browserApi, errorMessage } from "@/lib/client-api";
 import { formatMicro, parseMicro } from "@/lib/ai-money";
+import { CapabilitiesPanel, MediaPlayground } from "./media-panels";
 
 type Data = { providers: AiProviderDto[]; prompts: AiPromptDto[]; budget: AiBudgetDto; usage: AiUsageDto };
 
@@ -46,6 +47,8 @@ function Inner({ workspaceId }: { workspaceId: string }) {
   return (
     <div className="flex max-w-3xl flex-col gap-6">
       <ProviderPanel params={params} providers={data.providers} onSaved={load} />
+      <CapabilitiesPanel workspaceId={workspaceId} providers={data.providers} />
+      <MediaPlayground workspaceId={workspaceId} />
       <PromptPanel params={params} prompts={data.prompts} onSaved={load} />
       <BudgetPanel params={params} budget={data.budget} usage={data.usage} onSaved={load} />
       <UsagePanel usage={data.usage} />

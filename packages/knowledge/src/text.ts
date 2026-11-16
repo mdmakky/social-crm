@@ -19,6 +19,7 @@ export class KnowledgeError extends Error {
 }
 export type KnowledgeErrorCode =
   | "unsupported_type" | "empty_content" | "too_large" | "too_many_chunks" | "invalid_encoding"
+  | "unsupported_media" | "capability_not_configured" | "budget_exceeded" | "ai_unavailable" | "rate_limited"
   | "url_invalid" | "url_blocked" | "fetch_failed" | "fetch_timeout" | "fetch_status" | "too_many_redirects" | "unsupported_content_type";
 
 /**

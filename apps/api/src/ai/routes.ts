@@ -1,7 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { Hono } from "hono";
+import { bodyLimit } from "hono/body-limit";
+import type { z } from "zod";
 import { and, asc, desc, eq, sql } from "drizzle-orm";
-import { ActivateAiPromptBody, AiUsageQuery, SetAiBudgetBody, SetAiPromptBody, SetAiProviderBody, type AiBudgetDto, type AiPromptDto, type AiProviderDto, type AiStatusDto, type AiUsageDto, type SuggestReplyResult } from "@crm/contracts";
+import { ActivateAiPromptBody, AiUsageQuery, MediaAskBody, MediaDescribeBody, MediaExtractBody, MediaTranscribeBody, type AiCapabilities, type MediaResult, SetAiBudgetBody, SetAiPromptBody, SetAiProviderBody, type AiBudgetDto, type AiPromptDto, type AiProviderDto, type AiStatusDto, type AiUsageDto, type SuggestReplyResult } from "@crm/contracts";
 import { checkTemplate, modelsFor, priceOf, PROMPTS, PROVIDERS, promptDef, providerDef, renderTemplate, REPLY_SUGGESTION_KEY, TemplateError, type PriceOverrides } from "@crm/ai";
 import { can } from "@crm/core/permissions";
 import { schema, withContext, type Db, type Tx } from "@crm/db";
@@ -9,8 +11,9 @@ import { writeAudit } from "../audit.ts";
 import { actor, body, fail, forbidden, isUuid, query, wctx, type SC, type ScopedEnv } from "../routes/scope.ts";
 import { WindowCounter } from "../throttle.ts";
 import { runAi, type AiDeps } from "./run.ts";
+import { MEDIA_FAILURES, type MediaOutcome, type MediaService } from "./media.ts";
 
-export type AiRouteDeps = { ai?: AiDeps; configsPerUser?: number; suggestionsPerUser?: number };
+export type AiRouteDeps = { ai?: AiDeps; media?: MediaService; configsPerUser?: number; suggestionsPerUser?: number };
 const rowsOf = (r: unknown) => (r as { rows: Record<string, unknown>[] }).rows;
 const uniqueViolation = (e: unknown) => (e as { cause?: { code?: string } })?.cause?.code === "23505";
 const MESSAGES_CONTEXT = 12;
@@ -264,6 +267,48 @@ export function aiRoutes(db: Db, deps: AiRouteDeps = {}) {
       case "auth": case "key_unavailable": return fail(c, 502, "ai_key_rejected", "The AI provider key was rejected or cannot be read. An owner or admin should check it in Settings, AI.");
       default: return fail(c, 502, "ai_unavailable", "The suggestion could not be generated. Write your reply by hand or try again.");
     }
+  });
+
+  // ---- Multimodal (slice 1): describe / ask / extract / transcribe, and the capability matrix that drives the UI. ----
+  const MB = 1024 * 1024;
+  const respond = (c: SC, out: MediaOutcome) => {
+    if (out.ok) {
+      const res: MediaResult = { text: out.text, provider: out.provider, model: out.model, mock: out.mock, runId: out.runId, usage: out.usage };
+      return c.json(res);
+    }
+    const f = MEDIA_FAILURES[out.code];
+    if (out.code === "rate_limited") c.header("Retry-After", "60");
+    return fail(c, f.status, out.code === "not_configured" ? "capability_not_configured" : out.code, f.message);
+  };
+  /** Shared gate: size cap on the stream, ai.use, a configured server, then the typed body. */
+  const mediaRoute = <S extends z.ZodType>(path: string, maxBody: number, schema: S, run: (ms: MediaService, who: { workspaceId: string; userId: string }, b: z.output<S>) => Promise<MediaOutcome>) =>
+    r.post(path, bodyLimit({ maxSize: maxBody, onError: (c) => fail(c as SC, 413, "media_too_large", MEDIA_FAILURES.media_too_large.message) }), async (c) => {
+      if (!can(c.get("role"), "ai.use", {})) return forbidden(c);
+      if (!deps.media) return fail(c, 503, "ai_not_configured", "AI is not configured on this server.");
+      const b = await body(c, schema);
+      if (!b.ok) return b.res;
+      return respond(c, await run(deps.media, wctx(c), b.data));
+    });
+  const file = (b: { mime: string; contentBase64: string }) => ({ mime: b.mime, bytes: new Uint8Array(Buffer.from(b.contentBase64, "base64")) });
+  mediaRoute("/ai/media/describe", 8 * MB, MediaDescribeBody, (ms, who, b) => ms.describeImage(who, file(b)));
+  mediaRoute("/ai/media/ask", 8 * MB, MediaAskBody, (ms, who, b) => ms.askAboutImage(who, file(b), b.question));
+  mediaRoute("/ai/media/extract", 15 * MB, MediaExtractBody, (ms, who, b) => ms.extractDocumentText(who, file(b)));
+  mediaRoute("/ai/media/transcribe", 28 * MB, MediaTranscribeBody, (ms, who, b) => ms.transcribeAudio(who, file(b), b.language));
+
+  r.get("/ai/capabilities", async (c) => {
+    if (!can(c.get("role"), "ai.use", {})) return forbidden(c);
+    const rows = await withContext(db, wctx(c), (tx) => tx.select().from(schema.aiProviderConfigs).where(and(eq(schema.aiProviderConfigs.workspaceId, c.get("workspaceId")), eq(schema.aiProviderConfigs.enabled, true))).orderBy(desc(schema.aiProviderConfigs.isDefault), asc(schema.aiProviderConfigs.id)));
+    const providers = rows.flatMap((cfg) => {
+      const def = providerDef(cfg.provider);
+      if (!def) return [];
+      return [{
+        provider: cfg.provider, label: def.label, mock: def.mock, unverified: !def.mock, isDefault: cfg.isDefault, defaultModel: cfg.defaultModel,
+        models: modelsFor(cfg.provider, (cfg.modelPrices ?? {}) as PriceOverrides).map((m) => ({ id: m.id, label: m.label, capabilities: [...m.capabilities], transcriptionMicroPerMinute: m.transcriptionMicroPerMinute ?? null })),
+      }];
+    });
+    const has = (cap: string) => providers.some((p) => p.models.some((m) => (m.capabilities as string[]).includes(cap)));
+    const out: AiCapabilities = { providers, available: { vision: has("vision"), ocr: has("document") || has("vision"), transcription: has("transcription") } };
+    return c.json(out);
   });
 
   return r;

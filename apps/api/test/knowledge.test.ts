@@ -121,7 +121,7 @@ describe("text, files and retrieval", () => {
   it("rejects oversize files and text, and NUL characters", async () => {
     const big = Buffer.alloc(KB_LIMITS.maxFileBytes + 1, 97).toString("base64");
     expect(failure(await as(owner).call(endpoints.createKnowledgeFile, { params: p(), body: { filename: "big.txt", contentBase64: big } })).status).toBeGreaterThanOrEqual(400);
-    const huge = await h.app.request(`/v1/workspaces/${A}/knowledge/sources/file`, { method: "POST", headers: { "content-type": "application/json", origin: "http://localhost:3000", cookie: owner.cookie }, body: JSON.stringify({ filename: "x.txt", content: "a".repeat(5 * 1024 * 1024) }) });
+    const huge = await h.app.request(`/v1/workspaces/${A}/knowledge/sources/file`, { method: "POST", headers: { "content-type": "application/json", origin: "http://localhost:3000", cookie: owner.cookie }, body: JSON.stringify({ filename: "x.txt", content: "a".repeat(29 * 1024 * 1024) }) });
     expect(huge.status).toBe(413);
     expect((await raw("text", { title: "x", text: "a".repeat(KB_LIMITS.maxCharsPerSource + 1) })).status).toBe(400);
     expect((await raw("text", { title: "x", text: "bad\u0000text" })).status).toBe(400);

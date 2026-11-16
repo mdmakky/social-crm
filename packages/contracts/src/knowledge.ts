@@ -28,12 +28,13 @@ export type KnowledgeSourceList = z.infer<typeof KnowledgeSourceList>;
 const Title = z.string().trim().min(1, "Enter a title.").max(200, "Use at most 200 characters for the title.");
 export const CreateKnowledgeTextBody = z.object({ title: Title, text: z.string().min(1, "Paste some text.").max(KNOWLEDGE_LIMITS.maxCharsPerSource, "The text is too long.") });
 export type CreateKnowledgeTextBody = z.infer<typeof CreateKnowledgeTextBody>;
-/** Send the file as `content` (text) or `contentBase64` (any bytes), not both. Supported: .txt, .md, .csv, .html. */
+/** Send the file as `content` (text) or `contentBase64` (any bytes), not both. Supported: .txt, .md, .csv, .html; with an AI provider that has the capability also .pdf, images (OCR) and audio (transcription). */
 export const CreateKnowledgeFileBody = z.object({
   filename: z.string().trim().min(1).max(255),
   title: Title.optional(),
   content: z.string().max(KNOWLEDGE_LIMITS.maxFileBytes).optional(),
-  contentBase64: z.string().max(Math.ceil((KNOWLEDGE_LIMITS.maxFileBytes * 4) / 3) + 8).optional(),
+  // Text formats are capped at maxFileBytes by the server after decoding; PDF, image and audio files (AI media extractors) may be up to the media caps (audio 20 MB).
+  contentBase64: z.string().max(Math.ceil((20 * 1024 * 1024 * 4) / 3) + 8).optional(),
 }).refine((b) => (b.content === undefined) !== (b.contentBase64 === undefined), "Send the file content.");
 export type CreateKnowledgeFileBody = z.infer<typeof CreateKnowledgeFileBody>;
 export const CreateKnowledgeUrlBody = z.object({ url: z.string().trim().min(1, "Enter a web address.").max(2048), title: Title.optional() });

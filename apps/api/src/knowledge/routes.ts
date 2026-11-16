@@ -8,21 +8,26 @@ import { extractFile, fetchPublicPage, htmlToText, KB_LIMITS, KnowledgeError, pr
 import { writeAudit } from "../audit.ts";
 import { actor, body, fail, forbidden, isUuid, query, wctx, type ErrStatus, type SC, type ScopedEnv } from "../routes/scope.ts";
 import { WindowCounter } from "../throttle.ts";
+import type { MediaService } from "../ai/media.ts";
+import { isMediaFile, mediaExtractors } from "./media-extractors.ts";
 import { searchKnowledge } from "./search.ts";
 
 export type KnowledgeDeps = {
   /** Injected in tests so URL ingestion never touches the network. */
   net?: SafeFetchDeps;
+  /** AI media service: when present, PDF, image (OCR) and audio files are accepted and processed through it. Absent => those types stay `unsupported_type`. */
+  media?: MediaService;
   limits?: { ingestPerUser?: number; urlPerUser?: number; searchPerUser?: number; windowMs?: number };
 };
 
 // Base64 of a 2 MB file is 2.8 MB; JSON escaping of a text body can add up to 6x in the worst case, so the cap is on the stream, before any parsing.
-const FILE_BODY_MAX = 4 * 1024 * 1024 + 64 * 1024;
+// Media files (audio up to 20 MB) are 27 MB as base64; the 2 MB rule for text formats is enforced after decoding.
+const FILE_BODY_MAX = 28 * 1024 * 1024;
 const TEXT_BODY_MAX = 6 * 1024 * 1024;
 const URL_BODY_MAX = 16 * 1024;
 const INSERT_BATCH = 200;
 
-const STATUS_OF: Partial<Record<string, ErrStatus>> = { too_large: 413 };
+const STATUS_OF: Partial<Record<string, ErrStatus>> = { too_large: 413, capability_not_configured: 409, budget_exceeded: 409, rate_limited: 429, ai_unavailable: 502 };
 const toDto = (r: Omit<typeof schema.knowledgeSources.$inferSelect, "body">, createdByName: string | null): KnowledgeSourceDto => ({
   id: r.id, type: r.type as KnowledgeSourceDto["type"], title: r.title, sourceRef: r.sourceRef, status: r.status as KnowledgeSourceDto["status"], error: r.error,
   charCount: r.charCount, chunkCount: r.chunkCount, createdBy: r.createdBy, createdByName, createdAt: r.createdAt.toISOString(), updatedAt: r.updatedAt.toISOString(),
@@ -89,6 +94,15 @@ export function knowledgeRoutes(db: Db, deps: KnowledgeDeps = {}) {
   const created = async (c: SC, a: Omit<Parameters<typeof store>[2], "action">) =>
     guarded(c, async (tx) => { const id = await store(tx, c, { ...a, action: "knowledge.source.created" }); return c.json((await dto(tx, wctx(c).workspaceId, id))!, 201); });
 
+  /** A source row for an upload that could not be processed: status failed, the failure code, no text and no passages. */
+  async function recordFailed(c: SC, title: string, sourceRef: string, error: string) {
+    const { workspaceId, userId } = wctx(c);
+    await withContext(db, wctx(c), async (tx) => {
+      const [row] = await tx.insert(schema.knowledgeSources).values({ workspaceId, type: "file", title, sourceRef, status: "failed", error, createdBy: userId }).returning({ id: schema.knowledgeSources.id });
+      await writeAudit(tx, { ...actor(c), workspaceId, action: "knowledge.source.failed", entityType: "knowledge_source", entityId: row!.id, summary: { type: "file", title, error } });
+    });
+  }
+
   r.get("/knowledge/sources", async (c) => {
     if (!can(c.get("role"), "workspace.view", {})) return forbidden(c);
     const { workspaceId } = wctx(c);
@@ -119,16 +133,23 @@ export function knowledgeRoutes(db: Db, deps: KnowledgeDeps = {}) {
     } catch (e) { if (e instanceof KnowledgeError) return kfail(c, e); throw e; }
   });
 
-  r.post("/knowledge/sources/file", bodyLimit({ maxSize: FILE_BODY_MAX, onError: (c) => fail(c as SC, 413, "too_large", "The file is larger than 2 MB.") }), async (c) => {
+  r.post("/knowledge/sources/file", bodyLimit({ maxSize: FILE_BODY_MAX, onError: (c) => fail(c as SC, 413, "too_large", "The file is too large.") }), async (c) => {
     if (!manage(c)) return forbidden(c);
     if (!ingests.allow(`${wctx(c).workspaceId}:${wctx(c).userId}`)) return limited(c);
     const b = await body(c, CreateKnowledgeFileBody);
     if (!b.ok) return b.res;
     try {
       const bytes = b.data.contentBase64 !== undefined ? Buffer.from(b.data.contentBase64, "base64") : Buffer.from(b.data.content ?? "", "utf8");
-      const ex = await extractFile({ filename: b.data.filename, bytes });
-      const { text, chunks } = prepareSource(ex.text);
-      return await created(c, { type: "file", title: b.data.title ?? b.data.filename, sourceRef: b.data.filename, text, keepBody: true, chunks });
+      const viaMedia = !!deps.media && isMediaFile(b.data.filename);
+      // The provider call happens here, before any transaction opens. A media failure still leaves a visible failed source (code only) so the person can see what went wrong.
+      try {
+        const ex = await extractFile({ filename: b.data.filename, bytes }, viaMedia ? mediaExtractors(deps.media!, wctx(c)) : undefined);
+        const { text, chunks } = prepareSource(ex.text);
+        return await created(c, { type: "file", title: b.data.title ?? b.data.filename, sourceRef: b.data.filename, text, keepBody: true, chunks });
+      } catch (e) {
+        if (viaMedia && e instanceof KnowledgeError && e.code !== "rate_limited") await recordFailed(c, b.data.title ?? b.data.filename, b.data.filename, e.code);
+        throw e;
+      }
     } catch (e) { if (e instanceof KnowledgeError) return kfail(c, e); throw e; }
   });
 

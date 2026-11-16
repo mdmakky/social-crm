@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { AiError, costMicro, fingerprint, getProvider, priceOf, promptDef, providerDef, renderTemplate, safeError, TemplateError, type AiProvider, type PriceOverrides } from "@crm/ai";
+import { AiError, costMicro, estimateAudioSeconds, estimateMediaTokens, fingerprint, fingerprintBytes, getProvider, invokeMedia, perMinuteCostMicro, pickModel, priceOf, promptDef, providerDef, renderTemplate, safeError, TemplateError, type AiProvider, type Capability, type MediaInput, type ModelInfo, type PriceOverrides } from "@crm/ai";
 import { schema, withContext, type Db, type Tx } from "@crm/db";
 import type { SecretBox } from "@crm/integrations";
 
@@ -33,8 +33,13 @@ export type RunInput = {
   provider?: string | null;
   model?: string | null;
   agent?: { id: string; version: number };
+  /**
+   * Media calls (vision, OCR, transcription): the SAME path as text, so the budget hard stop, retries and run log apply unchanged. `needs` lists acceptable capabilities in order of preference;
+   * the workspace's default provider is tried first, then its other enabled ones. Bytes are sent and dropped: the run row keeps only mime, size and a hash.
+   */
+  media?: { needs: Capability[]; prompt: string; input: MediaInput; language?: string };
 };
-export type RunFailure = "not_configured" | "budget_exceeded" | "rate_limit" | "timeout" | "auth" | "invalid_request" | "provider_error" | "template_invalid" | "key_unavailable";
+export type RunFailure = "not_configured" | "budget_exceeded" | "rate_limit" | "timeout" | "auth" | "invalid_request" | "provider_error" | "template_invalid" | "key_unavailable" | "capability_not_configured" | "unsupported_capability";
 export type RunResult =
   | { ok: true; text: string; runId: string; provider: string; model: string; mock: boolean; usage: { inputTokens: number; outputTokens: number; costMicro: number } }
   | { ok: false; code: RunFailure; runId?: string };
@@ -45,7 +50,7 @@ const RETRYABLE = new Set(["rate_limit", "timeout"]);
 
 type Prepared =
   | { kind: "stop"; result: RunResult }
-  | { kind: "go"; provider: string; model: string; baseUrl: string | null; price: { inputMicroPer1M: number; outputMicroPer1M: number }; promptVersion: number; template: string; key: string | null; mock: boolean };
+  | { kind: "go"; provider: string; model: string; baseUrl: string | null; price: ModelInfo; via: Capability; promptVersion: number; template: string; key: string | null; mock: boolean };
 
 type RunRow = { provider: string; model: string; status: "ok" | "error" | "blocked_budget"; promptVersion: number; inputTokens?: number; outputTokens?: number; costMicro?: number; latencyMs?: number; attempts?: number; errorCode?: string; inputHash?: string; summary?: string };
 
@@ -69,15 +74,31 @@ export async function runAi(deps: AiDeps, r: RunInput): Promise<RunResult> {
   const now = deps.now ?? Date.now;
   const ctx = { workspaceId: r.workspaceId, userId: r.userId };
   const prep: Prepared = await withContext(deps.workerDb, ctx, async (tx): Promise<Prepared> => {
-    const cfg = rowsOf(await tx.execute(r.provider
-      ? sql`SELECT id, provider, base_url, default_model, model_prices FROM ai_provider_configs WHERE workspace_id = ${r.workspaceId} AND provider = ${r.provider} AND enabled`
-      : sql`SELECT id, provider, base_url, default_model, model_prices FROM ai_provider_configs WHERE workspace_id = ${r.workspaceId} AND is_default AND enabled`))[0];
+    const cols = sql`id, provider, base_url, default_model, model_prices`;
+    const cfgs = rowsOf(await tx.execute(r.provider
+      ? sql`SELECT ${cols} FROM ai_provider_configs WHERE workspace_id = ${r.workspaceId} AND provider = ${r.provider} AND enabled`
+      : r.media ? sql`SELECT ${cols} FROM ai_provider_configs WHERE workspace_id = ${r.workspaceId} AND enabled ORDER BY is_default DESC, id`
+      : sql`SELECT ${cols} FROM ai_provider_configs WHERE workspace_id = ${r.workspaceId} AND is_default AND enabled`));
+    const none: Prepared = { kind: "stop", result: { ok: false, code: r.media ? "capability_not_configured" : "not_configured" } };
+    let cfg: Record<string, unknown> | undefined = cfgs[0];
+    let model = "";
+    let price: ModelInfo | null = null;
+    let via: Capability = "text";
+    if (r.media) {
+      // First config (default first) with a model that has a wanted capability; a pinned r.model must itself qualify.
+      cfg = undefined;
+      for (const c of cfgs) {
+        if (!providerDef(c.provider as string)) continue;
+        const hit = pickModel(c.provider as string, r.model ?? (c.default_model as string | null), r.media.needs, c.model_prices as PriceOverrides);
+        if (hit && (!r.model || hit.model.id === r.model)) { cfg = c; model = hit.model.id; price = hit.model; via = hit.via; break; }
+      }
+    } else if (cfg) {
+      model = r.model ?? (cfg.default_model as string);
+      price = priceOf(cfg.provider as string, model, cfg.model_prices as PriceOverrides);
+    }
     const def = cfg ? providerDef(cfg.provider as string) : null;
-    if (!cfg || !def || !cfg.default_model) return { kind: "stop", result: { ok: false, code: "not_configured" } };
+    if (!cfg || !def || !cfg.default_model || !price) return none;
     const provider = cfg.provider as string;
-    const model = r.model ?? (cfg.default_model as string);
-    const price = priceOf(provider, model, cfg.model_prices as PriceOverrides);
-    if (!price) return { kind: "stop", result: { ok: false, code: "not_configured" } };
     const pr = r.system === undefined ? rowsOf(await tx.execute(sql`SELECT version, template FROM ai_prompts WHERE workspace_id = ${r.workspaceId} AND key = ${r.promptKey} AND active`))[0] : undefined;
     const builtin = promptDef(r.promptKey);
     if (r.system === undefined && !pr && !builtin) return { kind: "stop", result: { ok: false, code: "not_configured" } };
@@ -103,7 +124,7 @@ export async function runAi(deps: AiDeps, r: RunInput): Promise<RunResult> {
         return { kind: "stop", result: { ok: false, code: "key_unavailable", runId } };
       }
     }
-    return { kind: "go", provider, model, baseUrl: (cfg.base_url as string | null) ?? null, price, promptVersion, template, key, mock: def.mock };
+    return { kind: "go", provider, model, baseUrl: (cfg.base_url as string | null) ?? null, price, via, promptVersion, template, key, mock: def.mock };
   });
   if (prep.kind === "stop") return prep.result;
 
@@ -115,20 +136,30 @@ export async function runAi(deps: AiDeps, r: RunInput): Promise<RunResult> {
     const runId = await withContext(deps.workerDb, ctx, (tx) => record(tx, r, { ...base, status: "error", errorCode: e instanceof TemplateError ? "template_invalid" : "template_error" }));
     return { ok: false, code: "template_invalid", runId };
   }
-  const inputHash = fingerprint(system + "\n" + r.input);
-  const summary = `in ${system.length + r.input.length} chars`;
+  // Media runs keep only mime, size and a hash of the bytes: never the bytes, the prompt or the output.
+  const m = r.media?.input;
+  const inputHash = m ? fingerprintBytes(m.bytes) : fingerprint(system + "\n" + r.input);
+  const summary = m ? `media ${m.kind} ${m.mime} ${m.bytes.byteLength} bytes` : `in ${system.length + r.input.length} chars`;
   const timeoutMs = deps.timeoutMs ?? 30_000;
   const adapter = (deps.providerFor ?? ((id, o) => getProvider(id, o)))(prep.provider, { baseUrl: prep.baseUrl ?? undefined, timeoutMs });
 
   const t0 = now();
   const maxRetries = deps.maxRetries ?? 2;
   let attempts = 0;
-  let outcome: { ok: true; text: string; inputTokens: number; outputTokens: number } | { ok: false; code: string } | null = null;
+  let outcome: { ok: true; text: string; inputTokens: number; outputTokens: number; cost: number } | { ok: false; code: string } | null = null;
   while (outcome === null) {
     attempts++;
     try {
-      const g = await adapter.generate({ apiKey: prep.key ?? "", model: prep.model, maxOutputTokens: r.maxOutputTokens ?? 400, temperature: r.temperature ?? 0.4, messages: [{ role: "system", content: system }, { role: "user", content: r.input }] });
-      outcome = { ok: true, text: g.text, inputTokens: g.usage.inputTokens, outputTokens: g.usage.outputTokens };
+      if (r.media) {
+        const g = await invokeMedia(adapter, prep.via, { apiKey: prep.key ?? "", model: prep.model, media: r.media.input, prompt: r.media.prompt, maxOutputTokens: r.maxOutputTokens ?? 1500, language: r.media.language });
+        // Tokens as the provider reported them; a documented estimate only when it reported none. Transcription adds the per-minute price over the reported (else estimated) duration.
+        const inputTokens = g.usage.inputTokens || (prep.via === "transcription" ? 0 : estimateMediaTokens(r.media.input.kind, r.media.input.bytes.byteLength));
+        const perMin = prep.via === "transcription" && prep.price.transcriptionMicroPerMinute ? perMinuteCostMicro(prep.price.transcriptionMicroPerMinute, g.durationSec ?? estimateAudioSeconds(r.media.input.bytes.byteLength)) : 0;
+        outcome = { ok: true, text: g.text, inputTokens, outputTokens: g.usage.outputTokens, cost: costMicro(prep.price, { inputTokens, outputTokens: g.usage.outputTokens }) + perMin };
+      } else {
+        const g = await adapter.generate({ apiKey: prep.key ?? "", model: prep.model, maxOutputTokens: r.maxOutputTokens ?? 400, temperature: r.temperature ?? 0.4, messages: [{ role: "system", content: system }, { role: "user", content: r.input }] });
+        outcome = { ok: true, text: g.text, inputTokens: g.usage.inputTokens, outputTokens: g.usage.outputTokens, cost: costMicro(prep.price, g.usage) };
+      }
     } catch (e) {
       const code = e instanceof AiError ? e.code : "provider_error";
       if (RETRYABLE.has(code) && attempts <= maxRetries) { await (deps.sleep ?? ((ms) => new Promise((res) => setTimeout(res, ms))))((deps.backoffMs ?? 500) * 2 ** (attempts - 1)); continue; }
@@ -140,11 +171,11 @@ export async function runAi(deps: AiDeps, r: RunInput): Promise<RunResult> {
   let runId: string | undefined;
   try {
     runId = await withContext(deps.workerDb, ctx, (tx) => record(tx, r, outcome.ok
-      ? { ...base, status: "ok", inputTokens: outcome.inputTokens, outputTokens: outcome.outputTokens, costMicro: costMicro(prep.price, outcome), latencyMs, attempts, inputHash, summary: `${summary}, out ${outcome.text.length} chars` }
+      ? { ...base, status: "ok", inputTokens: outcome.inputTokens, outputTokens: outcome.outputTokens, costMicro: outcome.cost, latencyMs, attempts, inputHash, summary: `${summary}, out ${outcome.text.length} chars` }
       : { ...base, status: "error", latencyMs, attempts, errorCode: outcome.code, inputHash, summary }));
   } catch (e) {
     console.error(JSON.stringify({ msg: "ai run record failed", error: safeError(e) }));
   }
   if (!outcome.ok) return { ok: false, code: outcome.code as RunFailure, runId };
-  return { ok: true, text: outcome.text, runId: runId ?? "", provider: prep.provider, model: prep.model, mock: prep.mock, usage: { inputTokens: outcome.inputTokens, outputTokens: outcome.outputTokens, costMicro: costMicro(prep.price, outcome) } };
+  return { ok: true, text: outcome.text, runId: runId ?? "", provider: prep.provider, model: prep.model, mock: prep.mock, usage: { inputTokens: outcome.inputTokens, outputTokens: outcome.outputTokens, costMicro: outcome.cost } };
 }

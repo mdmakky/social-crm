@@ -2,6 +2,12 @@
 export type ModelPrice = { inputMicroPer1M: number; outputMicroPer1M: number };
 
 /** Cost of one call in micro-units, rounded UP to a whole micro-unit so many tiny calls can never under-count. */
+/** Per-minute pricing (transcription): integer micro-units per minute, the call rounded UP to a whole micro-unit like token costs. */
+export function perMinuteCostMicro(microPerMinute: number, seconds: number): number {
+  for (const n of [microPerMinute, seconds]) if (!Number.isSafeInteger(n) || n < 0) throw new RangeError("cost inputs must be non-negative integers");
+  return Number((BigInt(microPerMinute) * BigInt(seconds) + 59n) / 60n);
+}
+
 export function costMicro(price: ModelPrice, usage: { inputTokens: number; outputTokens: number }): number {
   for (const n of [price.inputMicroPer1M, price.outputMicroPer1M, usage.inputTokens, usage.outputTokens]) {
     if (!Number.isSafeInteger(n) || n < 0) throw new RangeError("cost inputs must be non-negative integers");
