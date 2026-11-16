@@ -80,11 +80,13 @@ test.describe.serial("Inbox (mock fixtures)", () => {
     await page.goto(`/w/${wsInbox}/inbox`);
     await page.getByRole("link", { name: /Priya Nair/ }).click();
     await expect(page.getByRole("log", { name: /Messages with Priya Nair/ })).toBeVisible();
-    await page.getByLabel("Status").last().selectOption("resolved");
+    await page.getByRole("button", { name: "More actions" }).click();
+    await page.getByRole("menuitem", { name: "Resolved" }).click();
     await page.getByLabel("Assignee").last().selectOption({ label: "Agent Two" });
-    await expect(page.getByLabel("Status").last()).toHaveValue("resolved");
+    const resolved = page.getByRole("banner").or(page.locator("header")).getByText("Resolved", { exact: true }).first();
+    await expect(resolved).toBeVisible();
     await page.reload();
-    await expect(page.getByLabel("Status").last()).toHaveValue("resolved");
+    await expect(page.locator("header").getByText("Resolved", { exact: true }).first()).toBeVisible();
     await expect(page.getByLabel("Assignee").last().locator("option:checked")).toHaveText("Agent Two");
     // the resolved conversation leaves the default Open list
     await page.goto(`/w/${wsInbox}/inbox`);
@@ -99,6 +101,31 @@ test.describe.serial("Inbox (mock fixtures)", () => {
     await agent.page.getByLabel("Assignee").last().selectOption({ label: "Me" });
     await agent.page.reload();
     await expect(agent.page.getByLabel("Assignee").last().locator("option:checked")).toHaveText("Me");
+  });
+
+  test("lead stage: create, move with Undo, mark lost with a reason", async () => {
+    const page = owner.page;
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(`/w/${wsInbox}/inbox`);
+    await page.getByRole("link", { name: /Maria Lopez/ }).click();
+    await expect(page.getByRole("log", { name: /Messages with Maria Lopez/ })).toBeVisible();
+    const stage = page.locator("header").getByRole("button", { name: /^Stage/ });
+    await expect(stage).toContainText("No lead");
+    await stage.click();
+    await page.getByRole("menuitem", { name: "Create lead" }).click();
+    await expect(stage).toContainText("New");
+    await stage.click();
+    await page.getByRole("menuitem", { name: "Qualified" }).click();
+    await expect(stage).toContainText("Qualified");
+    await page.getByRole("button", { name: "Undo" }).click();
+    await expect(stage).toContainText("New");
+    await page.reload(); // persisted, not just optimistic
+    await expect(page.locator("header").getByRole("button", { name: /^Stage/ })).toContainText("New");
+    await page.locator("header").getByRole("button", { name: /^Stage/ }).click();
+    await page.getByRole("menuitem", { name: "Lost" }).click();
+    await page.getByLabel("Lost reason").selectOption({ label: "No response" });
+    await page.getByRole("button", { name: "Mark lost" }).click();
+    await expect(page.locator("header").getByRole("button", { name: /^Stage/ })).toContainText("Lost");
   });
 
   test("mobile 375: single pane with back, no overflow, axe", async () => {

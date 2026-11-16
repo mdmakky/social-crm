@@ -12,7 +12,7 @@ export default async function InboxLayout({ children, params }: { children: Reac
   const user = must(me);
   if (!can(ws.role, "conversation.view", {})) return <Alert tone="info">You don&apos;t have access to the inbox. Ask an owner to change your role.</Alert>;
   return (
-    <InboxShell workspaceId={workspaceId} myUserId={user.id} canReply={can(ws.role, "conversation.reply", {})} canAssignAny={ws.role === "owner" || ws.role === "admin"} members={dataOf(members) ?? []}>
+    <InboxShell workspaceId={workspaceId} myUserId={user.id} canReply={can(ws.role, "conversation.reply", {})} canAssignAny={ws.role === "owner" || ws.role === "admin"} canEditLead={can(ws.role, "lead.edit", {})} members={dataOf(members) ?? []}>
       {children}
     </InboxShell>
   );

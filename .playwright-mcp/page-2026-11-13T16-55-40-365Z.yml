@@ -1,0 +1,352 @@
+- generic [ref=f3e2]:
+  - 'heading "Integrations: 3 design options" [level=1] [ref=f3e3]'
+  - paragraph [ref=f3e4]: "Same content in all three, so the comparison is about structure. Real data: Page “Testingdemo” (ID 1159034060634693) is connected for Messenger; Instagram has no linked professional account yet; WhatsApp and Telegram are not built. Every control either works or is shown disabled with a reason. Status is never colour alone (dot + text). Mockups only, no code changed."
+  - generic [ref=f3e5]:
+    - generic [ref=f3e6]:
+      - heading "A. Channel cards" [level=2] [ref=f3e7]
+      - generic [ref=f3e8]: Most scannable
+    - paragraph [ref=f3e9]: One card per channel in a two-column grid. Each card is a self-contained panel with its own status, details and actions. States are shown side by side, so “which channels work” reads in one glance.
+    - paragraph [ref=f3e10]: "Trade-off: great for 4 to 6 channels, gets long with many accounts per channel (a Page list inside a card). Details stay shallow, no history."
+    - generic [ref=f3e11]:
+      - generic [ref=f3e12]:
+        - generic [ref=f3e13]: localhost:3000 / settings / integrations · 1440
+        - generic [ref=f3e14]:
+          - generic [ref=f3e15]:
+            - heading "Integrations" [level=3] [ref=f3e16]
+            - paragraph [ref=f3e17]: Connect the channels your customers write to you on.
+          - generic [ref=f3e18]:
+            - article "Facebook Messenger" [ref=f3e19]:
+              - generic [ref=f3e20]:
+                - generic [ref=f3e24]:
+                  - generic [ref=f3e25]: Facebook Messenger
+                  - generic [ref=f3e26]: Testingdemo · Page 1159034060634693
+                - generic [ref=f3e27]: Connected
+              - generic [ref=f3e29]:
+                - term [ref=f3e30]: Webhook
+                - definition [ref=f3e31]: Subscribed · 5 events
+                - term [ref=f3e32]: Token
+                - definition [ref=f3e33]: Valid, no expiry · checked 2 min ago
+                - term [ref=f3e34]: Access
+                - definition [ref=f3e35]: Messaging, page list, metadata
+              - generic [ref=f3e36]:
+                - button "Check token" [ref=f3e37] [cursor=pointer]
+                - button "Connect another Page" [ref=f3e40] [cursor=pointer]
+                - button "Disconnect" [ref=f3e41] [cursor=pointer]
+            - article "Instagram" [ref=f3e42]:
+              - generic [ref=f3e43]:
+                - generic [ref=f3e47]:
+                  - generic [ref=f3e48]: Instagram
+                  - generic [ref=f3e49]: Professional account linked to a Page
+                - generic [ref=f3e50]: Not connected
+              - paragraph [ref=f3e52]: We found no Instagram professional account linked to “Testingdemo”. Link it to the Page in Instagram settings, then connect.
+              - button "Connect Instagram" [ref=f3e54] [cursor=pointer]
+              - paragraph [ref=f3e55]: Needs “Allow access to messages” turned on in Instagram.
+            - article "WhatsApp" [ref=f3e56]:
+              - generic [ref=f3e57]:
+                - generic [ref=f3e61]:
+                  - generic [ref=f3e62]: WhatsApp
+                  - generic [ref=f3e63]: Business messaging
+                - generic [ref=f3e64]: Coming soon
+              - paragraph [ref=f3e65]: Not available yet. Planned after Messenger and Instagram. It needs a Business portfolio and a verified phone number.
+              - button "Connect WhatsApp" [disabled] [ref=f3e67]
+              - paragraph [ref=f3e68]: "Unavailable: channel not built yet."
+            - article "Telegram" [ref=f3e69]:
+              - generic [ref=f3e70]:
+                - generic [ref=f3e74]:
+                  - generic [ref=f3e75]: Telegram
+                  - generic [ref=f3e76]: Bot messaging
+                - generic [ref=f3e77]: Coming soon
+              - paragraph [ref=f3e78]: Not available yet. Will connect through a Telegram bot you create.
+              - button "Connect Telegram" [disabled] [ref=f3e80]
+              - paragraph [ref=f3e81]: "Unavailable: channel not built yet."
+          - generic [ref=f3e82]: Other states a card can be in
+          - generic [ref=f3e83]:
+            - article [ref=f3e84]:
+              - generic [ref=f3e85]:
+                - generic [ref=f3e89]:
+                  - generic [ref=f3e90]: Facebook Messenger
+                  - generic [ref=f3e91]: Spring Bakery · Page 1180023349911204
+                - generic [ref=f3e92]: Reconnect needed
+              - generic [ref=f3e94]:
+                - generic [ref=f3e95]: ⚠
+                - generic [ref=f3e96]: Meta stopped accepting this connection. New messages are not arriving. Reconnect to resume.
+              - generic [ref=f3e97]:
+                - button "Reconnect" [ref=f3e98] [cursor=pointer]
+                - button "Disconnect" [ref=f3e99] [cursor=pointer]
+            - article [ref=f3e100]:
+              - generic [ref=f3e101]:
+                - generic [ref=f3e105]:
+                  - generic [ref=f3e106]: Facebook Messenger
+                  - generic [ref=f3e107]: Old Shop · Page 1170011122233344
+                - generic [ref=f3e108]: Disconnected
+              - paragraph [ref=f3e110]: Disconnected on 12 Nov. History is kept. No new messages arrive.
+              - button "Reconnect" [ref=f3e112] [cursor=pointer]
+      - generic [ref=f3e113]:
+        - generic [ref=f3e114]: "375"
+        - generic [ref=f3e115]:
+          - generic [ref=f3e116]:
+            - heading "Integrations" [level=3] [ref=f3e117]
+            - paragraph [ref=f3e118]: Connect the channels your customers write to you on.
+          - generic [ref=f3e119]:
+            - article [ref=f3e120]:
+              - generic [ref=f3e125]:
+                - generic [ref=f3e126]: Facebook Messenger
+                - generic [ref=f3e127]: Testingdemo · 1159034060634693
+              - generic [ref=f3e128]: Connected
+              - generic [ref=f3e131]:
+                - term [ref=f3e132]: Webhook
+                - definition [ref=f3e133]: Subscribed · 5 events
+                - term [ref=f3e134]: Token
+                - definition [ref=f3e135]: Valid · checked 2 min ago
+              - generic [ref=f3e136]:
+                - button "Check token" [ref=f3e137] [cursor=pointer]
+                - button "Disconnect" [ref=f3e138] [cursor=pointer]
+            - article [ref=f3e139]:
+              - generic [ref=f3e144]:
+                - generic [ref=f3e145]: Instagram
+                - generic [ref=f3e146]: Not connected
+              - paragraph [ref=f3e147]: No linked professional account found.
+              - button "Connect Instagram" [ref=f3e149] [cursor=pointer]
+            - article [ref=f3e150]:
+              - generic [ref=f3e151]:
+                - generic [ref=f3e155]:
+                  - generic [ref=f3e156]: WhatsApp
+                  - generic [ref=f3e157]: Coming soon
+                - generic [ref=f3e158]: Soon
+            - article [ref=f3e159]:
+              - generic [ref=f3e160]:
+                - generic [ref=f3e164]:
+                  - generic [ref=f3e165]: Telegram
+                  - generic [ref=f3e166]: Coming soon
+                - generic [ref=f3e167]: Soon
+  - generic [ref=f3e168]:
+    - generic [ref=f3e169]:
+      - heading "B. Channel rail + detail pane" [level=2] [ref=f3e170]
+      - generic [ref=f3e171]: Best for depth
+    - paragraph [ref=f3e172]: A left rail lists channels with a status dot; the right pane is one channel at a time, with its accounts, webhook subscription, health and recent activity. Each channel really is “its own UI”, and adding Telegram later is one more rail item.
+    - paragraph [ref=f3e173]: "Trade-off: you cannot see all channels’ detail at once, only status dots. On a phone it becomes list, then detail (two screens). More work to build than A."
+    - generic [ref=f3e174]:
+      - generic [ref=f3e175]:
+        - generic [ref=f3e176]: localhost:3000 / settings / integrations / messenger · 1440
+        - generic [ref=f3e177]:
+          - generic [ref=f3e178]:
+            - heading "Integrations" [level=3] [ref=f3e179]
+            - paragraph [ref=f3e180]: Pick a channel to see its connection and health.
+          - generic [ref=f3e181]:
+            - navigation "Channels" [ref=f3e182]:
+              - generic [ref=f3e183]:
+                - generic [ref=f3e187]:
+                  - text: Messenger
+                  - generic [ref=f3e188]: 1 Page connected
+                - generic "Connected" [ref=f3e189]
+              - generic [ref=f3e190]:
+                - generic [ref=f3e194]:
+                  - text: Instagram
+                  - generic [ref=f3e195]: Not connected
+                - generic "Not connected" [ref=f3e196]
+              - generic [ref=f3e197]:
+                - generic [ref=f3e201]:
+                  - text: WhatsApp
+                  - generic [ref=f3e202]: Coming soon
+                - generic [ref=f3e203]: Soon
+              - generic [ref=f3e204]:
+                - generic [ref=f3e208]:
+                  - text: Telegram
+                  - generic [ref=f3e209]: Coming soon
+                - generic [ref=f3e210]: Soon
+            - generic [ref=f3e211]:
+              - generic [ref=f3e212]:
+                - generic [ref=f3e216]:
+                  - generic [ref=f3e217]: Facebook Messenger
+                  - generic [ref=f3e218]: Receive and answer messages sent to your Facebook Pages
+                - button "Connect another Page" [ref=f3e219] [cursor=pointer]
+              - generic [ref=f3e220]:
+                - heading "Connected Pages" [level=4] [ref=f3e221]
+                - table [ref=f3e222]:
+                  - rowgroup [ref=f3e223]:
+                    - row [ref=f3e224]:
+                      - columnheader "Page" [ref=f3e225]
+                      - columnheader "Status" [ref=f3e226]
+                      - columnheader "Webhook" [ref=f3e227]
+                      - columnheader "Last token check" [ref=f3e228]
+                      - columnheader [ref=f3e229]
+                  - rowgroup [ref=f3e230]:
+                    - row [ref=f3e231]:
+                      - cell "Testingdemo 1159034060634693" [ref=f3e232]: Testingdemo1159034060634693
+                      - cell "Connected" [ref=f3e233]
+                      - cell "Subscribed" [ref=f3e236]
+                      - cell "2 min ago" [ref=f3e237]
+                      - cell [ref=f3e238]:
+                        - button "Check" [ref=f3e239] [cursor=pointer]
+                        - button "Disconnect" [ref=f3e242] [cursor=pointer]
+              - generic [ref=f3e243]:
+                - heading "Webhook subscription" [level=4] [ref=f3e244]
+                - generic [ref=f3e245]:
+                  - generic [ref=f3e246]: ✓ messages
+                  - generic [ref=f3e247]: ✓ message_echoes
+                  - generic [ref=f3e248]: ✓ messaging_postbacks
+                  - generic [ref=f3e249]: ✓ message_reads
+                  - generic [ref=f3e250]: ✓ message_deliveries
+                - paragraph [ref=f3e251]: Subscribed through Meta’s API. If it ever shows failed, a Retry button appears here.
+              - generic [ref=f3e252]:
+                - heading "Recent activity" [level=4] [ref=f3e253]
+                - list [ref=f3e254]:
+                  - listitem [ref=f3e255]:
+                    - time [ref=f3e256]: 22:48
+                    - generic [ref=f3e257]: Webhook subscribed (5 events)
+                  - listitem [ref=f3e258]:
+                    - time [ref=f3e259]: 22:48
+                    - generic [ref=f3e260]: Page connected by Meta Real Test
+                  - listitem [ref=f3e261]:
+                    - time [ref=f3e262]: 22:50
+                    - generic [ref=f3e263]: "Token checked: valid, no expiry"
+      - generic [ref=f3e264]:
+        - generic [ref=f3e265]: 375 · list screen, then detail screen
+        - generic [ref=f3e266]:
+          - heading "Integrations" [level=3] [ref=f3e268]
+          - navigation "Channels" [ref=f3e269]:
+            - generic [ref=f3e270]:
+              - generic [ref=f3e274]:
+                - text: Messenger
+                - generic [ref=f3e275]: 1 Page connected
+              - generic [ref=f3e276]: "On"
+            - generic [ref=f3e278]:
+              - generic [ref=f3e282]:
+                - text: Instagram
+                - generic [ref=f3e283]: Not connected
+              - generic [ref=f3e284]: "Off"
+            - generic [ref=f3e285]:
+              - generic [ref=f3e289]:
+                - text: WhatsApp
+                - generic [ref=f3e290]: Coming soon
+              - generic [ref=f3e291]: Soon
+            - generic [ref=f3e292]:
+              - generic [ref=f3e296]:
+                - text: Telegram
+                - generic [ref=f3e297]: Coming soon
+              - generic [ref=f3e298]: Soon
+          - paragraph [ref=f3e299]: Tap Messenger →
+          - generic [ref=f3e300]:
+            - paragraph [ref=f3e301]: ‹ Integrations
+            - generic [ref=f3e302]: Facebook Messenger
+            - generic [ref=f3e308]:
+              - heading "Testingdemo" [level=4] [ref=f3e309]
+              - generic [ref=f3e310]: Connected
+              - generic [ref=f3e312]:
+                - term [ref=f3e313]: Webhook
+                - definition [ref=f3e314]: Subscribed
+                - term [ref=f3e315]: Token
+                - definition [ref=f3e316]: Checked 2 min ago
+              - generic [ref=f3e317]:
+                - button "Check token" [ref=f3e318] [cursor=pointer]
+                - button "Disconnect" [ref=f3e319] [cursor=pointer]
+            - button "Connect another Page" [ref=f3e321] [cursor=pointer]
+  - generic [ref=f3e322]:
+    - generic [ref=f3e323]:
+      - heading "C. Health first, grouped rows" [level=2] [ref=f3e324]
+      - generic [ref=f3e325]: Operator view
+    - paragraph [ref=f3e326]: "A one-line health summary on top, then rows grouped by what you can do: Connected, Available, Coming soon. A row expands in place to its panel. Anything that needs attention floats to the top with the fix next to it."
+    - paragraph [ref=f3e327]: "Trade-off: the densest and quickest for someone who checks channels daily and wants “is anything broken?” answered first. Less inviting for a first-time user than the cards in A."
+    - generic [ref=f3e328]:
+      - generic [ref=f3e329]:
+        - generic [ref=f3e330]: localhost:3000 / settings / integrations · 1440
+        - generic [ref=f3e331]:
+          - generic [ref=f3e332]:
+            - heading "Integrations" [level=3] [ref=f3e333]
+            - paragraph [ref=f3e334]: Everything is working. Connect more channels below.
+          - generic [ref=f3e335]:
+            - generic [ref=f3e336]:
+              - generic [ref=f3e337]: "1"
+              - text: Connected
+            - generic [ref=f3e338]:
+              - generic [ref=f3e339]: "0"
+              - text: Need attention
+            - generic [ref=f3e340]:
+              - generic [ref=f3e341]: "3"
+              - text: Not connected yet
+          - generic [ref=f3e342]: Connected
+          - generic [ref=f3e344]:
+            - generic [ref=f3e345]:
+              - generic [ref=f3e349]:
+                - generic [ref=f3e350]: Facebook Messenger
+                - generic [ref=f3e351]: Testingdemo · Page 1159034060634693
+              - generic [ref=f3e352]:
+                - generic [ref=f3e353]: Connected
+                - button "Details ▴" [expanded] [ref=f3e355] [cursor=pointer]
+            - generic [ref=f3e356]:
+              - generic [ref=f3e357]:
+                - term [ref=f3e358]: Webhook
+                - definition [ref=f3e359]: Subscribed · 5 events
+                - term [ref=f3e360]: Token
+                - definition [ref=f3e361]: Valid, no expiry · checked 2 min ago
+                - term [ref=f3e362]: Recent
+                - definition [ref=f3e363]: 22:50 token checked · 22:48 webhook subscribed
+              - generic [ref=f3e364]:
+                - button "Check token" [ref=f3e365] [cursor=pointer]
+                - button "Connect another Page" [ref=f3e368] [cursor=pointer]
+                - button "Disconnect" [ref=f3e369] [cursor=pointer]
+          - generic [ref=f3e370]: Available to connect
+          - generic [ref=f3e373]:
+            - generic [ref=f3e377]:
+              - generic [ref=f3e378]: Instagram
+              - generic [ref=f3e379]: No professional account linked to “Testingdemo” yet
+            - button "Connect Instagram" [ref=f3e381] [cursor=pointer]
+          - generic [ref=f3e382]: Coming soon
+          - generic [ref=f3e383]:
+            - generic [ref=f3e385]:
+              - generic [ref=f3e389]:
+                - generic [ref=f3e390]: WhatsApp
+                - generic [ref=f3e391]: Not built yet. Needs a Business portfolio and a verified number.
+              - generic [ref=f3e392]: Coming soon
+            - generic [ref=f3e394]:
+              - generic [ref=f3e398]:
+                - generic [ref=f3e399]: Telegram
+                - generic [ref=f3e400]: Not built yet. Connects through a bot you create.
+              - generic [ref=f3e401]: Coming soon
+          - paragraph [ref=f3e402]: When something breaks, the summary turns into “1 needs attention”, the row moves to the top and shows “Reconnect needed” with a Reconnect button, no digging.
+      - generic [ref=f3e403]:
+        - generic [ref=f3e404]: "375"
+        - generic [ref=f3e405]:
+          - generic [ref=f3e406]:
+            - heading "Integrations" [level=3] [ref=f3e407]
+            - paragraph [ref=f3e408]: Everything is working.
+          - generic [ref=f3e409]:
+            - generic [ref=f3e410]:
+              - generic [ref=f3e411]: "1"
+              - text: Connected
+            - generic [ref=f3e412]:
+              - generic [ref=f3e413]: "0"
+              - text: Attention
+            - generic [ref=f3e414]:
+              - generic [ref=f3e415]: "3"
+              - text: Not yet
+          - generic [ref=f3e416]: Connected
+          - generic [ref=f3e418]:
+            - generic [ref=f3e419]:
+              - generic [ref=f3e423]:
+                - generic [ref=f3e424]: Messenger
+                - generic [ref=f3e425]: Testingdemo
+              - generic [ref=f3e426]: "On"
+            - generic [ref=f3e428]:
+              - generic [ref=f3e429]:
+                - term [ref=f3e430]: Webhook
+                - definition [ref=f3e431]: Subscribed
+                - term [ref=f3e432]: Token
+                - definition [ref=f3e433]: Checked 2 min ago
+              - generic [ref=f3e434]:
+                - button "Check token" [ref=f3e435] [cursor=pointer]
+                - button "Disconnect" [ref=f3e436] [cursor=pointer]
+          - generic [ref=f3e437]: Available
+          - generic [ref=f3e439]:
+            - generic [ref=f3e444]:
+              - generic [ref=f3e445]: Instagram
+              - generic [ref=f3e446]: No linked account yet
+            - button "Connect Instagram" [ref=f3e448] [cursor=pointer]
+          - generic [ref=f3e449]: Coming soon
+          - generic [ref=f3e450]:
+            - generic [ref=f3e452]:
+              - generic [ref=f3e456]: WhatsApp
+              - generic [ref=f3e458]: Soon
+            - generic [ref=f3e460]:
+              - generic [ref=f3e464]: Telegram
+              - generic [ref=f3e466]: Soon

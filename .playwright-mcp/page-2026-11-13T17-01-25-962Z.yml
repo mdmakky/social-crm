@@ -1,0 +1,35 @@
+- generic [active] [ref=f8e1]:
+  - link "Skip to content" [ref=f8e2] [cursor=pointer]:
+    - /url: "#main"
+  - generic [ref=f8e3]:
+    - text: RE RE MT
+    - generic [ref=f8e4]:
+      - banner [ref=f8e5]:
+        - button "Open navigation" [ref=f8e6]
+        - generic [ref=f8e8]: Social CRM
+        - button "Open command menu" [ref=f8e14]
+        - link "Notifications" [ref=f8e18] [cursor=pointer]:
+          - /url: /w/01a1d5cd-2a7e-738f-b9f8-52239cfc4811/notifications
+        - status [ref=f8e22]
+        - button "Account menu" [ref=f8e23]:
+          - generic [aria-hidden] [ref=f8e25]: MT
+      - main [ref=f8e26]:
+        - region "Conversations" [ref=f8e29]:
+          - generic [ref=f8e30]:
+            - heading "Inbox" [level=1] [ref=f8e32]
+            - textbox "Search conversations" [ref=f8e34]:
+              - /placeholder: Search name or message
+            - generic [ref=f8e35]:
+              - combobox "Status" [ref=f8e37]:
+                - option "Open" [selected]
+                - option "Pending"
+                - option "Resolved"
+                - option "All statuses"
+              - combobox "Assignee" [ref=f8e39]:
+                - option "Anyone" [selected]
+                - option "Me"
+                - option "Unassigned"
+              - button "Unread" [ref=f8e40]
+          - status "Loading conversations" [ref=f8e42]
+          - status [ref=f8e73]: Loading conversations
+  - button "Open Next.js Dev Tools" [ref=f8e79] [cursor=pointer]

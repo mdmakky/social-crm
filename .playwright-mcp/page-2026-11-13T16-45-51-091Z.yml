@@ -1,0 +1,22 @@
+- generic [ref=e1]:
+  - button "Open Next.js Dev Tools" [ref=e39] [cursor=pointer]:
+    - generic [ref=e42]:
+      - text: Rendering
+      - generic [ref=e43]:
+        - generic [ref=e44]: .
+        - generic [ref=e45]: .
+        - generic [ref=e46]: .
+  - alert [ref=e47]: Create your workspace
+  - main [ref=e48]:
+    - generic [ref=e49]: Social CRM
+    - generic [ref=e56]:
+      - generic [ref=e57]:
+        - heading "Create your workspace" [level=1] [ref=e58]
+        - paragraph [ref=e59]: A workspace keeps one business’s customers, conversations and settings separate from everyone else’s. You can create more later.
+      - generic [ref=e60]:
+        - generic [ref=e61]: Workspace name
+        - textbox "Workspace name" [active] [ref=e63]
+        - paragraph [ref=e64]: Usually your business or brand name, for example Northwind Studio.
+      - generic [ref=e65]:
+        - button "Sign out" [ref=e66]
+        - button "Create workspace" [ref=e67]

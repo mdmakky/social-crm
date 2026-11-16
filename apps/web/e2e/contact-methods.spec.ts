@@ -36,6 +36,13 @@ test.describe.serial("Detected phone/email (mock Meta)", () => {
     await expect.poll(async () => { const c = await contactOf(user); return c ? (await methodsOf(c.id)).length : -1; }, { timeout: 20_000 }).toBe(expected);
     return (await contactOf(user))!;
   }
+  /** The contact panel is closed by default and remembers the last choice per browser: open it only when it is closed. */
+  const openThread = async (page: Page, url: string) => {
+    await page.goto(url);
+    const toggle = page.getByRole("button", { name: "Contact", exact: true });
+    await expect(toggle).toBeVisible();
+    if ((await toggle.getAttribute("aria-expanded")) !== "true") await toggle.click();
+  };
   const panel = (page: Page) => page.getByRole("region", { name: "Detected phone numbers and emails" });
 
   test.beforeAll(async ({ browser }) => {
@@ -59,7 +66,7 @@ test.describe.serial("Detected phone/email (mock Meta)", () => {
     const c = await settle(u, 1);
     expect(c.phone).toBe("+8801712345678");
     await owner.page.setViewportSize({ width: 1440, height: 900 });
-    await owner.page.goto(`/w/${ws}/inbox/${c.conv}`);
+    await openThread(owner.page, `/w/${ws}/inbox/${c.conv}`);
     const detected = panel(owner.page);
     await expect(detected).toBeVisible();
     await expect(detected.getByRole("link", { name: "+8801712345678" })).toBeVisible();
@@ -75,7 +82,7 @@ test.describe.serial("Detected phone/email (mock Meta)", () => {
     await deliver(u, "you can mail me: Rahim.Uddin@Example.com thanks");
     const c = await settle(u, 1);
     expect(c.email).toBe("rahim.uddin@example.com");
-    await owner.page.goto(`/w/${ws}/inbox/${c.conv}`);
+    await openThread(owner.page, `/w/${ws}/inbox/${c.conv}`);
     await expect(panel(owner.page).getByRole("link", { name: "rahim.uddin@example.com" })).toBeVisible();
     await expect(panel(owner.page)).toContainText(/Messenger .* auto-detected 95%/);
   });
@@ -85,7 +92,7 @@ test.describe.serial("Detected phone/email (mock Meta)", () => {
     await deliver(u, "Number 01812345678 and email team@shop.com.bd please");
     const c = await settle(u, 2);
     expect((await methodsOf(c.id)).map((m) => [m.kind, m.value])).toEqual([["email", "team@shop.com.bd"], ["phone", "+8801812345678"]]);
-    await owner.page.goto(`/w/${ws}/inbox/${c.conv}`);
+    await openThread(owner.page, `/w/${ws}/inbox/${c.conv}`);
     await expect(panel(owner.page).getByRole("link", { name: "team@shop.com.bd" })).toBeVisible();
     await expect(panel(owner.page).getByRole("link", { name: "+8801812345678" })).toBeVisible();
   });
@@ -100,7 +107,7 @@ test.describe.serial("Detected phone/email (mock Meta)", () => {
     const c = await settle(u, 2);
     expect([c.phone, c.email]).toEqual(["01999999999", "owner@shop.com"]); // what a person entered is never overwritten
     expect((await methodsOf(c.id)).every((m) => m.is_primary === false)).toBe(true);
-    await owner.page.goto(`/w/${ws}/inbox/${c.conv}`);
+    await openThread(owner.page, `/w/${ws}/inbox/${c.conv}`);
     await expect(owner.page.getByRole("link", { name: "01999999999" })).toBeVisible();
     await expect(owner.page.getByRole("link", { name: "owner@shop.com" }).first()).toBeVisible();
     await expect(panel(owner.page).getByRole("link", { name: "+8801555000111" })).toBeVisible();
@@ -116,7 +123,7 @@ test.describe.serial("Detected phone/email (mock Meta)", () => {
     await deliver(u, "third message without any number"); // a later message lands after the duplicates were handled
     await expect.poll(async () => Number((await q("SELECT count(*) FROM messages m JOIN conversations c ON c.id = m.conversation_id WHERE c.id = $1", [c.conv]))[0].count), { timeout: 20_000 }).toBe(3);
     expect(await methodsOf(c.id)).toHaveLength(1);
-    await owner.page.goto(`/w/${ws}/inbox/${c.conv}`);
+    await openThread(owner.page, `/w/${ws}/inbox/${c.conv}`);
     await expect(panel(owner.page).getByRole("listitem")).toHaveCount(1);
   });
 

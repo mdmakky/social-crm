@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Inbox option B: Queue (work-list + drawer)</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Noto+Sans+Bengali:wght@400;500&display=swap">
+<link rel="stylesheet" href="base.css">
+<style>
+/* B: the inbox is a queue of "who needs an answer", full width. Thread opens in a drawer; list stays visible. */
+.wrap{flex:1;min-width:0;display:flex;flex-direction:column;background:var(--surface);position:relative}
+.bar{display:flex;align-items:center;gap:12px;padding:14px 24px 0}
+.bar h1{margin:0;font-size:20px;font-weight:600;letter-spacing:-.01em;margin-right:8px}
+.seg{display:flex;gap:2px;background:var(--canvas);border-radius:var(--r);padding:3px}
+.seg button{border:0;background:none;height:28px;padding:0 12px;border-radius:6px;font-weight:500;font-size:13px;color:var(--fg-2);display:flex;gap:6px;align-items:center}
+.seg button b{font-weight:500;color:var(--fg-3);font-size:12px}
+.seg button.on{background:#fff;color:var(--fg);box-shadow:0 0 0 1px var(--line)}
+.seg button.on b{color:var(--accent)}
+.bar .sp{flex:1}
+.srch{display:flex;align-items:center;gap:8px;height:32px;width:260px;padding:0 10px;border-radius:var(--r);border:1px solid var(--line-2);color:var(--fg-3)}
+.srch input{border:0;outline:0;background:none;flex:1;min-width:0;color:var(--fg)}
+.fbar{display:flex;gap:8px;padding:12px 24px;border-bottom:1px solid var(--line);align-items:center}
+.pill{height:28px;padding:0 10px;border-radius:99px;border:1px solid var(--line-2);background:#fff;font-size:13px;color:var(--fg-2);display:inline-flex;gap:6px;align-items:center}
+.pill.on{background:var(--accent-subtle);border-color:var(--accent-line);color:#3B33B5}
+.pill b{font-weight:500;color:var(--fg)}
+.tbl{flex:1;overflow:auto}
+.gh{position:sticky;top:0;z-index:2;background:var(--canvas);border-bottom:1px solid var(--line);padding:6px 24px;font-size:12px;font-weight:600;color:var(--fg-2);display:flex;gap:8px;align-items:center}
+.gh span{font-weight:500;color:var(--fg-3)}
+.r{display:grid;grid-template-columns:20px 260px minmax(0,1fr) 130px 64px;align-items:center;gap:14px;height:56px;padding:0 24px;border-bottom:1px solid var(--line);cursor:pointer;position:relative}
+.r:hover{background:var(--hover)}
+.r.on{background:var(--accent-subtle)}.r.on::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent)}
+.r input{accent-color:var(--accent);opacity:0}.r:hover input,.r input:checked{opacity:1}
+.who{display:flex;gap:10px;align-items:center;min-width:0}
+.who b{font-weight:500;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
+.who small{display:block;font-size:12px;color:var(--fg-3);font-weight:400}
+.r.un .who b,.r.un .pv{font-weight:600;color:var(--fg)}
+.pv{font-size:13px;color:var(--fg-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.5}
+.pv i{font-style:normal;color:var(--fg-3)}
+.as{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--fg-3)}
+.age{text-align:right;font-size:13px;color:var(--fg-3);font-variant-numeric:tabular-nums}
+.age.late{color:var(--warn);font-weight:600}
+.foot{border-top:1px solid var(--line);padding:8px 24px;font-size:12px;color:var(--fg-3);display:flex;gap:16px;align-items:center}
+.foot .kbd{margin:0 4px 0 0}
+.bulk{position:absolute;left:50%;bottom:52px;transform:translateX(-50%);background:var(--fg);color:#fff;border-radius:var(--r-lg);padding:8px 8px 8px 16px;display:none;align-items:center;gap:8px;font-size:13px;box-shadow:0 8px 24px rgba(22,24,29,.25);z-index:5}
+.bulk.show{display:flex}
+.bulk .btn{background:#2A2D35;border-color:#3A3E48;color:#fff}
+.dr{width:0;overflow:hidden;flex:none;border-left:1px solid var(--line);background:var(--canvas);display:flex;flex-direction:column;transition:width .18s ease-out}
+.dr.open{width:520px}
+.dr>*{min-width:520px}
+.dh{background:#fff;border-bottom:1px solid var(--line);padding:14px 20px 0}
+.dh .l1{display:flex;gap:12px;align-items:center}
+.dh .l1 b{display:block;font-size:15px;font-weight:600}.dh .l1 small{color:var(--fg-3);font-size:12px}
+.dh .sp{flex:1}
+.facts{display:flex;gap:6px;flex-wrap:wrap;padding:12px 0}
+.facts .chip{height:26px;background:#fff;border:1px solid var(--line);color:var(--fg-2)}
+.facts .chip.acc{background:var(--accent-subtle);border-color:var(--accent-line);color:#3B33B5}
+.act{display:flex;gap:8px;padding-bottom:12px}
+.dm{flex:1;min-height:0;overflow:auto;padding:16px 20px;display:flex;flex-direction:column;gap:10px}
+.msg{max-width:80%;font-size:14px;padding:8px 12px;border-radius:12px;line-height:1.6}
+.msg.in{background:#fff;border:1px solid var(--line);align-self:flex-start}
+.msg.out{background:var(--accent-subtle);border:1px solid var(--accent-line);align-self:flex-end}
+.msg small{display:block;font-size:11px;color:var(--fg-3);margin-top:2px;text-align:right}
+.dc{background:#fff;border-top:1px solid var(--line);padding:12px 20px 16px}
+.dc textarea{width:100%;height:64px;border:1px solid var(--line-2);border-radius:var(--r);padding:8px 12px;resize:none;outline:0;font-size:14px}
+.dc textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-subtle)}
+.dc .rw{display:flex;align-items:center;gap:8px;margin-top:8px}
+.dc .rw .note{flex:1}
+@media (max-width:1280px){.r{grid-template-columns:20px 220px minmax(0,1fr) 64px}.r .as{display:none}.dr.open{width:440px}.dr>*{min-width:440px}}
+</style></head>
+<body>
+<div class="app"><aside class="side" id="side"></aside>
+<div class="main"><header class="top" id="top"></header>
+<div class="page">
+<section class="wrap" aria-label="Inbox queue">
+  <div class="bar">
+    <h1>Inbox</h1>
+    <div class="seg" role="tablist"><button class="on">Needs reply <b>3</b></button><button>Waiting on customer <b>4</b></button><button>Done <b>12</b></button></div>
+    <div class="sp"></div>
+    <label class="srch"><span id="s1"></span><input placeholder="Search name or message" aria-label="Search"></label>
+  </div>
+  <div class="fbar"><span class="pill on">Assigned to <b>Anyone</b> <span id="p1"></span></span><span class="pill">Channel <b>All</b> <span id="p2"></span></span><span class="pill">Unread only</span><span class="note" style="margin-left:auto">Longest wait first</span></div>
+  <div class="tbl" id="tbl"></div>
+  <div class="bulk" id="bulk"><span id="bn">0 selected</span><button class="btn">Assign to me</button><button class="btn">Mark done</button></div>
+  <div class="foot"><span><span class="kbd">J</span><span class="kbd">K</span>move</span><span><span class="kbd">Enter</span>open</span><span><span class="kbd">R</span>reply</span><span><span class="kbd">E</span>done</span><span style="margin-left:auto">Delivery state is shown as Meta reports it</span></div>
+</section>
+<aside class="dr" id="dr" aria-label="Conversation"></aside>
+</div></div></div>
+<div class="demo">Option B · demo data · <a href="index.html">all options</a></div>
+<script src="base.js"></script>
+<script>
+const $=id=>document.getElementById(id);
+$('s1').innerHTML=I('search');$('p1').innerHTML=I('down','sm');$('p2').innerHTML=I('down','sm');
+const C=[
+{g:'Needs reply',n:3},
+{id:0,nm:'Md. Arafatuzzaman',ch:'ig',av:'MA',t:'',pv:'hey',out:1,age:'7m',un:0,as:null,msgs:[['out','hey','20:45']],em:'makky.cse@gmail.com',ph:'+880 1760 345030',stage:'Qualified'},
+{id:1,nm:'Sadia Rahman',ch:'m',av:'SR',t:'t2',pv:'Is the blue one still available?',age:'24m',un:1,as:null,msgs:[['in','Hi! Is the blue one still available?','20:28'],['in','I need it by Friday','20:28']],em:'sadia.r@example.com',ph:'+880 1711 000214',stage:'New'},
+{id:2,nm:'Imran Hossain',ch:'m',av:'IH',t:'t3',pv:'Price for 3 units to Chattogram?',age:'1h',un:1,as:'MM',msgs:[['in','Price for 3 units to Chattogram?','19:52']],em:'imran@example.com',ph:'+880 1819 000731',stage:'Contacted'},
+{g:'Waiting on customer',n:4},
+{id:3,nm:'Md. Arafatuzzaman',ch:'m',av:'MA',t:'',pv:'আমাদের একজন সহকর্মীকে যুক্ত করছি — উনি অর্ডার, ডেলিভারি আর পেমেন্ট নিয়ে…',out:1,age:'5h',late:1,un:0,as:null,msgs:[['out','Apnar Email ta amader k pathan','15:26'],['in','makky.cse@gmail.com','15:26'],['out','thank you will get your service soon','15:27'],['out','আমাদের একজন সহকর্মীকে যুক্ত করছি — উনি অর্ডার, ডেলিভারি আর পেমেন্ট নিয়ে আপনাকে সঠিক তথ্য দেবেন। একটু অপেক্ষা করুন 🙏','15:44']],em:'makky.cse@gmail.com',ph:'+880 1760 345030',stage:'Qualified'},
+{id:4,nm:'Tanvir Ahmed',ch:'m',av:'TA',t:'t4',pv:'We can deliver on Thursday.',out:1,age:'1d',late:1,un:0,as:'MM',msgs:[['out','We can deliver on Thursday.','Sun 11:02']],em:'—',ph:'+880 1912 000456',stage:'Contacted'},
+{id:5,nm:'Nusrat Jahan',ch:'ig',av:'NJ',t:'t5',pv:'Thanks! Received it today.',age:'2d',un:0,as:'MM',msgs:[['in','Thanks! Received it today.','Mon 16:40']],em:'nusrat@example.com',ph:'—',stage:'Won'}];
+const mk=c=>`<span class="mark ${c.ch=='ig'?'ig':'m'}">${I(c.ch=='ig'?'cam':'msg')}</span>`;
+const sel=new Set();
+$('tbl').innerHTML=C.map(c=>c.g?`<div class="gh">${c.g} <span>${c.n}</span></div>`:`<div class="r ${c.un?'un':''}" data-id="${c.id}" tabindex="0"><input type="checkbox" aria-label="Select ${c.nm}"><div class="who"><div class="avatar s40 ${c.t}">${c.av}${mk(c)}</div><div style="min-width:0"><b>${c.nm}</b><small>${c.ch=='ig'?'Instagram':'Messenger'} · Testingdemo</small></div></div><div class="pv bn">${c.out?'<i>You: </i>':''}${c.pv}</div><div class="as">${c.as?`<span class="avatar s24 me-av">${c.as}</span>Mr. Matrix`:'Unassigned'}</div><div class="age ${c.late?'late':''}">${c.age}</div></div>`).join('');
+function open(id){const c=C.find(x=>x.id===id);document.querySelectorAll('.r').forEach(r=>r.classList.toggle('on',+r.dataset.id===id));
+$('dr').innerHTML=`<div class="dh"><div class="l1"><div class="avatar s40 ${c.t}">${c.av}${mk(c)}</div><div><b>${c.nm}</b><small>${c.ch=='ig'?'Instagram':'Messenger'} · Testingdemo</small></div><div class="sp"></div><button class="btn icon ghost" id="cl" aria-label="Close">${I('x')}</button></div>
+<div class="facts"><span class="chip">${I('mail','sm')}${c.em}</span><span class="chip">${I('phone','sm')}${c.ph}</span><span class="chip acc">Lead · ${c.stage}</span></div>
+<div class="act"><button class="btn">${I('user','sm')}${c.as?'Mr. Matrix':'Assign to me'}</button><button class="btn">${I('ccheck','sm')}Mark done</button><button class="btn ghost">Open contact ${I('up','sm')}</button></div></div>
+<div class="dm bn"><span class="note" style="text-align:center">Today</span>${c.msgs.map(m=>`<div class="msg ${m[0]}">${m[1]}<small>${m[2]}</small></div>`).join('')}</div>
+<div class="dc"><textarea class="bn" placeholder="Write a reply…" aria-label="Reply"></textarea><div class="rw"><button class="btn icon ghost" aria-label="Attach">${I('clip')}</button><button class="btn icon ghost" aria-label="Internal note">${I('lock')}</button><span class="note">Enter to send</span><button class="btn pri">Send</button></div></div>`;
+$('dr').classList.add('open');$('cl').onclick=()=>{$('dr').classList.remove('open');document.querySelectorAll('.r').forEach(r=>r.classList.remove('on'))}}
+document.querySelectorAll('.r').forEach(r=>{r.onclick=e=>{if(e.target.type==='checkbox'){e.target.checked?sel.add(r.dataset.id):sel.delete(r.dataset.id);$('bulk').classList.toggle('show',sel.size>0);$('bn').textContent=sel.size+' selected';return}open(+r.dataset.id)};r.onkeydown=e=>{if(e.key==='Enter')open(+r.dataset.id)}});
+open(3);
+document.querySelectorAll('.seg button').forEach(b=>b.onclick=()=>{document.querySelectorAll('.seg button').forEach(x=>x.classList.remove('on'));b.classList.add('on')});
+</script></body></html>

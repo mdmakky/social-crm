@@ -103,6 +103,10 @@ Mock Graph and fake fetch only. No real Meta request, no real message, no Playwr
 - Results in the delivery report.
 ### Pre-merge review of feat/instagram-unified-login (2026-11-14)
 Fixed and regression-tested: a storage failure for one of several shared accounts was silently reported as success (now "partial", retry connects the rest without duplicates); accounts beyond the 10-per-login cap are reported; reconnect after a rejected token keeps the account, conversations and messages and replying works again. See the delivery report for counts.
+### Inbox redesign, option A (2026-11-14)
+- `apps/web/test/inbox.test.ts` (+3): message runs (`continuesRun`) and tab-to-filter mapping. Web suite and lint pass.
+- `e2e/inbox.spec.ts` (6) and `e2e/contact-methods.spec.ts` (6, `E2E_META_MOCK=1`) pass, with axe at 1440 and 375. Updated: status is set from the "More actions" menu; the contact panel is opened before reading it. Fixed during the run: contrast failures while text faded in (entrances no longer touch opacity) and a label-in-name mismatch on the Stage button.
+- `e2e/inbox.spec.ts` now has 7 tests: the new one creates a lead from the Stage menu, moves it, undoes, reloads to prove it persisted, and marks it lost with a reason.
 
 ## WhatsApp slice 1: webhook foundation (2026-11-14, branch feat/whatsapp-foundation)
 Fixtures only. No real WhatsApp request, no real message, no Playwright.

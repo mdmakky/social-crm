@@ -1,7 +1,7 @@
 import * as React from "react";
 import type { Member } from "@crm/contracts";
 
-export type InboxCtx = { workspaceId: string; myUserId: string; canReply: boolean; canAssignAny: boolean; members: Member[] };
+export type InboxCtx = { workspaceId: string; myUserId: string; canReply: boolean; canAssignAny: boolean; canEditLead: boolean; members: Member[] };
 export const InboxContext = React.createContext<InboxCtx | null>(null);
 export function useInbox(): InboxCtx {
   const v = React.useContext(InboxContext);

@@ -135,6 +135,13 @@
 @keyframes scrim-out { from { opacity: 1; } to { opacity: 0; } }
 @keyframes drawer-in { from { transform: translateX(-12px); } to { transform: none; } }
 @keyframes toast-in { from { transform: translateY(8px); } to { transform: none; } }
+/* Entrances move a few px and never touch opacity: text stays at full contrast while it animates (axe samples mid-animation). */
+@keyframes rise { from { transform: translateY(6px); } to { transform: none; } }
+@keyframes fade-in { from { transform: translateY(4px); } to { transform: none; } }
+@keyframes grow-x { from { transform: scaleX(0); } to { transform: none; } }
+.rise { animation: rise var(--dur-slow) var(--ease-out) both; animation-delay: calc(var(--i, 0) * 24ms); }
+.fade-in { animation: fade-in var(--dur-slow) var(--ease-out) both; }
+.grow-x { transform-origin: left; animation: grow-x var(--dur-slow) var(--ease-out) both; animation-delay: calc(var(--i, 0) * 60ms); }
 @keyframes page-in { from { transform: translateY(4px); } to { transform: none; } }
 .pop { animation: pop-in var(--dur-base) var(--ease-out); }
 .pop[data-state="closed"] { animation: pop-out var(--dur-fast) ease-in forwards; }

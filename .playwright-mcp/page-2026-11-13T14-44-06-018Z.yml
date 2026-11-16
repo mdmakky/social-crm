@@ -1,0 +1,74 @@
+- generic [active] [ref=f1e1]:
+  - link "Skip to content" [ref=f1e2] [cursor=pointer]:
+    - /url: "#main"
+  - generic [ref=f1e3]:
+    - complementary [ref=f1e4]:
+      - generic [ref=f1e5]: Social CRM
+      - text: MW
+      - 'button "Switch workspace, current: Mock Workspace Owner" [ref=f1e13]':
+        - generic [aria-hidden] [ref=f1e15]: MW
+        - generic [ref=f1e16]:
+          - generic [ref=f1e17]: "Switch workspace, current:"
+          - generic [ref=f1e18]: Mock Workspace
+          - generic [ref=f1e19]: Owner
+      - navigation "Main" [ref=f1e24]:
+        - link "Home" [ref=f1e27] [cursor=pointer]:
+          - /url: /w/01a1d55d-943d-7af0-b08d-f8d5398be94a
+        - generic [ref=f1e32]:
+          - paragraph [ref=f1e33]: Customers
+          - link "Contacts" [ref=f1e35] [cursor=pointer]:
+            - /url: /w/01a1d55d-943d-7af0-b08d-f8d5398be94a/contacts
+          - link "Tasks" [ref=f1e42] [cursor=pointer]:
+            - /url: /w/01a1d55d-943d-7af0-b08d-f8d5398be94a/tasks
+          - link "Leads" [ref=f1e48] [cursor=pointer]:
+            - /url: /w/01a1d55d-943d-7af0-b08d-f8d5398be94a/leads
+          - link "Pipeline" [ref=f1e53] [cursor=pointer]:
+            - /url: /w/01a1d55d-943d-7af0-b08d-f8d5398be94a/pipeline
+          - link "Reports" [ref=f1e57] [cursor=pointer]:
+            - /url: /w/01a1d55d-943d-7af0-b08d-f8d5398be94a/reports
+        - generic [ref=f1e62]:
+          - paragraph [ref=f1e63]: Workspace
+          - link "Integrations" [ref=f1e65] [cursor=pointer]:
+            - /url: /w/01a1d55d-943d-7af0-b08d-f8d5398be94a/settings/integrations
+          - link "Members" [ref=f1e70] [cursor=pointer]:
+            - /url: /w/01a1d55d-943d-7af0-b08d-f8d5398be94a/members
+          - link "Audit log" [ref=f1e78] [cursor=pointer]:
+            - /url: /w/01a1d55d-943d-7af0-b08d-f8d5398be94a/audit-log
+          - link "Settings" [ref=f1e84] [cursor=pointer]:
+            - /url: /w/01a1d55d-943d-7af0-b08d-f8d5398be94a/settings
+        - group [ref=f1e89]:
+          - generic "Coming soon" [ref=f1e90] [cursor=pointer]
+    - generic [ref=f1e93]:
+      - banner [ref=f1e94]:
+        - button "Search or jump to ⌘K" [ref=f1e95]:
+          - generic [ref=f1e99]: Search or jump to
+          - generic [ref=f1e100]: ⌘K
+        - link "Notifications" [ref=f1e101] [cursor=pointer]:
+          - /url: /w/01a1d55d-943d-7af0-b08d-f8d5398be94a/notifications
+        - status [ref=f1e105]
+        - button "Account menu" [ref=f1e106]:
+          - generic [aria-hidden] [ref=f1e108]: MO
+      - main [ref=f1e109]:
+        - generic [ref=f1e111]:
+          - navigation "Settings sections" [ref=f1e112]:
+            - link "General" [ref=f1e113] [cursor=pointer]:
+              - /url: /w/01a1d55d-943d-7af0-b08d-f8d5398be94a/settings
+            - link "Contacts" [ref=f1e114] [cursor=pointer]:
+              - /url: /w/01a1d55d-943d-7af0-b08d-f8d5398be94a/settings/contacts
+            - link "Pipelines" [ref=f1e115] [cursor=pointer]:
+              - /url: /w/01a1d55d-943d-7af0-b08d-f8d5398be94a/settings/pipelines
+            - link "Notifications" [ref=f1e116] [cursor=pointer]:
+              - /url: /w/01a1d55d-943d-7af0-b08d-f8d5398be94a/settings/notifications
+          - generic [ref=f1e117]:
+            - generic [ref=f1e119]:
+              - heading "Integrations" [level=1] [ref=f1e120]
+              - paragraph [ref=f1e121]: Connect Facebook Pages and linked Instagram accounts to this workspace.
+            - generic [ref=f1e122]:
+              - generic [ref=f1e123]: "Mock mode: no real Meta connection"
+              - heading "Connected accounts" [level=2] [ref=f1e126]
+              - generic [ref=f1e128]:
+                - heading "No accounts connected" [level=3] [ref=f1e131]
+                - paragraph [ref=f1e132]: Connect a Facebook Page to receive its Messenger messages here.
+                - button "Connect with Meta" [ref=f1e134]
+  - button "Open Next.js Dev Tools" [ref=f1e142] [cursor=pointer]
+  - alert [ref=f1e146]
