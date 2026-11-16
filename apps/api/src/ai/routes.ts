@@ -4,7 +4,7 @@ import { bodyLimit } from "hono/body-limit";
 import type { z } from "zod";
 import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { ActivateAiPromptBody, AiUsageQuery, MediaAskBody, MediaDescribeBody, MediaExtractBody, MediaTranscribeBody, type AiCapabilities, type MediaResult, SetAiBudgetBody, SetAiPromptBody, SetAiProviderBody, type AiBudgetDto, type AiPromptDto, type AiProviderDto, type AiStatusDto, type AiUsageDto, type SuggestReplyResult } from "@crm/contracts";
-import { checkTemplate, modelsFor, priceOf, PROMPTS, PROVIDERS, promptDef, providerDef, renderTemplate, REPLY_SUGGESTION_KEY, TemplateError, type PriceOverrides } from "@crm/ai";
+import { checkTemplate, modelsFor, priceOf, PROMPTS, PROVIDERS, promptDef, providerDef, renderTemplate, REPLY_SUGGESTION_KEY, TemplateError, type Capability, type PriceOverrides, type StoredModel } from "@crm/ai";
 import { can } from "@crm/core/permissions";
 import { schema, withContext, type Db, type Tx } from "@crm/db";
 import { writeAudit } from "../audit.ts";
@@ -12,8 +12,9 @@ import { actor, body, fail, forbidden, isUuid, query, wctx, type SC, type Scoped
 import { WindowCounter } from "../throttle.ts";
 import { runAi, type AiDeps } from "./run.ts";
 import { MEDIA_FAILURES, type MediaOutcome, type MediaService } from "./media.ts";
+import { createModelBrowser, type ModelBrowser, type ModelList } from "./openrouter-browser.ts";
 
-export type AiRouteDeps = { ai?: AiDeps; media?: MediaService; configsPerUser?: number; suggestionsPerUser?: number };
+export type AiRouteDeps = { ai?: AiDeps; media?: MediaService; configsPerUser?: number; suggestionsPerUser?: number; browser?: ModelBrowser; browsesPerUser?: number };
 const rowsOf = (r: unknown) => (r as { rows: Record<string, unknown>[] }).rows;
 const uniqueViolation = (e: unknown) => (e as { cause?: { code?: string } })?.cause?.code === "23505";
 const MESSAGES_CONTEXT = 12;
@@ -42,10 +43,37 @@ const toProvider = (id: string, cfg?: typeof schema.aiProviderConfigs.$inferSele
   const prices = (cfg?.modelPrices ?? {}) as PriceOverrides;
   return {
     id, label: def.label, mock: def.mock, customBaseUrl: def.customBaseUrl,
-    models: modelsFor(id, prices).map((m) => ({ id: m.id, label: m.label, inputMicroPer1M: m.inputMicroPer1M, outputMicroPer1M: m.outputMicroPer1M })),
+    models: modelsFor(id, prices).map((m) => ({ id: m.id, label: m.label, inputMicroPer1M: m.inputMicroPer1M, outputMicroPer1M: m.outputMicroPer1M, capabilities: [...m.capabilities], ...(m.contextLength ? { contextLength: m.contextLength } : {}), ...(m.supports ? { supports: m.supports } : {}) })),
     configured: !!cfg, enabled: cfg?.enabled ?? false, isDefault: cfg?.isDefault ?? false, defaultModel: cfg?.defaultModel ?? null, keyLast4: cfg?.keyLast4 ?? null, baseUrl: cfg?.baseUrl ?? null, modelPrices: prices,
   };
 };
+
+const ROUTER_OR_BAD_ID = (id: string) => id.startsWith("openrouter/") || !/^[\w.:~@+-]+(\/[\w.:~@+-]+)+$/.test(id);
+
+/**
+ * What gets stored per enabled model. Prices come from the request. For OpenRouter the extra fields are never trusted from the client: capabilities are the client's choice INTERSECTED with what the
+ * server can confirm (the list it fetched itself, else what this workspace already has stored for that id; nothing confirmable = text only), and context length / tool support are copied from that same source.
+ * Router aliases (`openrouter/...`) are refused. Every other provider keeps prices only.
+ */
+export function sanitizeModelPrices(provider: string, input: Record<string, StoredModel>, existing: PriceOverrides, cached: ModelList | null): { ok: true; prices: PriceOverrides } | { ok: false; message: string } {
+  const entries = Object.entries(input);
+  if (provider !== "openrouter") {
+    if (entries.length > 20) return { ok: false, message: "At most 20 model prices" };
+    return { ok: true, prices: Object.fromEntries(entries.map(([id, p]) => [id, { inputMicroPer1M: p.inputMicroPer1M, outputMicroPer1M: p.outputMicroPer1M }])) };
+  }
+  const prices: PriceOverrides = {};
+  for (const [id, p] of entries) {
+    if (ROUTER_OR_BAD_ID(id)) return { ok: false, message: `"${id}" is not a model id that can be enabled (router aliases such as openrouter/auto are not supported).` };
+    const known = cached?.items.find((m) => m.id === id);
+    const prev = existing[id];
+    const allowed: readonly Capability[] = known ? known.capabilities : prev?.capabilities ?? [];
+    const caps = (p.capabilities ?? []).filter((c, i, a) => c !== "text" && allowed.includes(c) && a.indexOf(c) === i) as Capability[];
+    const contextLength = known ? known.contextLength ?? undefined : prev?.contextLength;
+    const supports = known ? known.supports : prev?.supports;
+    prices[id] = { inputMicroPer1M: p.inputMicroPer1M, outputMicroPer1M: p.outputMicroPer1M, ...(caps.length ? { capabilities: caps } : {}), ...(contextLength ? { contextLength } : {}), ...(supports ? { supports } : {}) };
+  }
+  return { ok: true, prices };
+}
 
 /**
  * AI settings and the reply-suggestion capability. Permissions: ai.configure (owner, admin) manages providers, prompts and budget; ai.use (owner, admin, agent) asks for a draft.
@@ -55,7 +83,22 @@ export function aiRoutes(db: Db, deps: AiRouteDeps = {}) {
   const r = new Hono<ScopedEnv>();
   const configs = new WindowCounter(deps.configsPerUser ?? 20, 10 * 60_000);
   const suggestions = new WindowCounter(deps.suggestionsPerUser ?? 20, 60_000);
+  const browses = new WindowCounter(deps.browsesPerUser ?? 30, 10 * 60_000);
+  const browser = deps.browser ?? createModelBrowser();
   const manage = (c: SC) => can(c.get("role"), "ai.configure", {});
+
+  /** OpenRouter model browser: the public list, no key, no database transaction (the fetch happens here, outside any). Owner and admin only. */
+  r.get("/ai/providers/openrouter/models", async (c) => {
+    if (!manage(c)) return forbidden(c);
+    if (!browses.allow(`${c.get("workspaceId")}:${c.get("userId")}`)) { c.header("Retry-After", "600"); return fail(c, 429, "rate_limited", "Too many model list requests. Try again in a few minutes."); }
+    try {
+      const l = await browser.list();
+      return c.json({ items: l.items, syncedAt: l.syncedAt, mock: browser.mock, unverified: true });
+    } catch (e) {
+      console.error(JSON.stringify({ msg: "openrouter model list failed", error: (e as Error).name }));
+      return fail(c, 502, "models_unavailable", "The OpenRouter model list could not be loaded. Try again in a moment.");
+    }
+  });
 
   r.get("/ai/providers", async (c) => {
     if (!manage(c)) return forbidden(c);
@@ -82,9 +125,14 @@ export function aiRoutes(db: Db, deps: AiRouteDeps = {}) {
     return withContext(db, wctx(c), async (tx) => {
       const [existing] = await tx.select().from(schema.aiProviderConfigs).where(and(eq(schema.aiProviderConfigs.workspaceId, workspaceId), eq(schema.aiProviderConfigs.provider, providerId)));
       if (!existing && !def.mock && d.apiKey === undefined) return fail(c, 400, "key_required", "Add the provider's API key to connect it.");
-      const prices = (d.modelPrices ?? existing?.modelPrices ?? {}) as PriceOverrides;
+      let prices = (existing?.modelPrices ?? {}) as PriceOverrides;
+      if (d.modelPrices) {
+        const s = sanitizeModelPrices(providerId, d.modelPrices as Record<string, StoredModel>, prices, browser.peek());
+        if (!s.ok) return fail(c, 400, "invalid_body", s.message);
+        prices = s.prices;
+      }
       const model = d.defaultModel ?? existing?.defaultModel ?? modelsFor(providerId, prices)[0]?.id ?? null;
-      if (!model || !priceOf(providerId, model, prices)) return fail(c, 400, "unknown_model", "Choose a listed model, or add its price so spend can be counted.");
+      if (!model || !priceOf(providerId, model, prices)) return fail(c, 400, "unknown_model", providerId === "openrouter" ? "Enable at least one model and choose one of the enabled models as the default." : "Choose a listed model, or add its price so spend can be counted.");
       const enabled = d.enabled ?? existing?.enabled ?? true;
       const others = await tx.select({ id: schema.aiProviderConfigs.id, isDefault: schema.aiProviderConfigs.isDefault, enabled: schema.aiProviderConfigs.enabled }).from(schema.aiProviderConfigs).where(eq(schema.aiProviderConfigs.workspaceId, workspaceId));
       const hasOtherDefault = others.some((o) => o.isDefault && o.id !== existing?.id && o.enabled);
@@ -264,6 +312,8 @@ export function aiRoutes(db: Db, deps: AiRouteDeps = {}) {
       case "not_configured": return fail(c, 409, "ai_not_configured", "No AI provider is set up for this workspace. An owner or admin can add one in Settings, AI.");
       case "budget_exceeded": return fail(c, 409, "budget_exceeded", "The monthly AI budget is used up. An owner or admin can raise it in Settings, AI.");
       case "rate_limit": return fail(c, 429, "ai_busy", "The AI provider is busy. Try again in a moment.");
+      case "payment_required": return fail(c, 402, "payment_required", MEDIA_FAILURES.payment_required.message);
+      case "blocked": return fail(c, 422, "blocked", MEDIA_FAILURES.blocked.message);
       case "auth": case "key_unavailable": return fail(c, 502, "ai_key_rejected", "The AI provider key was rejected or cannot be read. An owner or admin should check it in Settings, AI.");
       default: return fail(c, 502, "ai_unavailable", "The suggestion could not be generated. Write your reply by hand or try again.");
     }

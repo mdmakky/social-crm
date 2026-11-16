@@ -8,11 +8,14 @@ export type AiDeps = {
   workerDb: Db;
   box: SecretBox;
   /** Tests inject a fake provider. Production resolves from the registry. */
-  providerFor?: (id: string, o: { baseUrl?: string; timeoutMs: number }) => AiProvider;
+  providerFor?: (id: string, o: { baseUrl?: string; timeoutMs: number; referer?: string; title?: string }) => AiProvider;
+  /** Optional OpenRouter attribution headers (OPENROUTER_REFERER, OPENROUTER_TITLE). Passed to the adapter, never required. */
+  referer?: string;
+  title?: string;
   sleep?: (ms: number) => Promise<void>;
   now?: () => number;
   timeoutMs?: number;
-  /** Extra tries after the first, for rate_limit and timeout only. */
+  /** Extra tries after the first, for rate_limit and timeout, and for errors the adapter marks retryable (OpenRouter 502/503). */
   maxRetries?: number;
   backoffMs?: number;
 };
@@ -39,7 +42,7 @@ export type RunInput = {
    */
   media?: { needs: Capability[]; prompt: string; input: MediaInput; language?: string };
 };
-export type RunFailure = "not_configured" | "budget_exceeded" | "rate_limit" | "timeout" | "auth" | "invalid_request" | "provider_error" | "template_invalid" | "key_unavailable" | "capability_not_configured" | "unsupported_capability";
+export type RunFailure = "not_configured" | "budget_exceeded" | "rate_limit" | "timeout" | "auth" | "invalid_request" | "provider_error" | "template_invalid" | "key_unavailable" | "capability_not_configured" | "unsupported_capability" | "payment_required" | "blocked";
 export type RunResult =
   | { ok: true; text: string; runId: string; provider: string; model: string; mock: boolean; usage: { inputTokens: number; outputTokens: number; costMicro: number } }
   | { ok: false; code: RunFailure; runId?: string };
@@ -47,6 +50,7 @@ export type RunResult =
 const rowsOf = (r: unknown) => (r as { rows: Record<string, unknown>[] }).rows;
 const monthStart = (ms: number) => { const d = new Date(ms); return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1)); };
 const RETRYABLE = new Set(["rate_limit", "timeout"]);
+const MAX_WAIT_MS = 30_000;
 
 type Prepared =
   | { kind: "stop"; result: RunResult }
@@ -141,12 +145,14 @@ export async function runAi(deps: AiDeps, r: RunInput): Promise<RunResult> {
   const inputHash = m ? fingerprintBytes(m.bytes) : fingerprint(system + "\n" + r.input);
   const summary = m ? `media ${m.kind} ${m.mime} ${m.bytes.byteLength} bytes` : `in ${system.length + r.input.length} chars`;
   const timeoutMs = deps.timeoutMs ?? 30_000;
-  const adapter = (deps.providerFor ?? ((id, o) => getProvider(id, o)))(prep.provider, { baseUrl: prep.baseUrl ?? undefined, timeoutMs });
+  const adapter = (deps.providerFor ?? ((id, o) => getProvider(id, o)))(prep.provider, { baseUrl: prep.baseUrl ?? undefined, timeoutMs, referer: deps.referer, title: deps.title });
 
   const t0 = now();
   const maxRetries = deps.maxRetries ?? 2;
   let attempts = 0;
-  let outcome: { ok: true; text: string; inputTokens: number; outputTokens: number; cost: number } | { ok: false; code: string } | null = null;
+  let outcome: { ok: true; text: string; inputTokens: number; outputTokens: number; cost: number; routedModel?: string } | { ok: false; code: string } | null = null;
+  // The budget counts the HIGHER of our estimate (catalog or workspace price) and the provider's own reported cost: a wrong or stale price can never undercount.
+  const charge = (estimated: number, reported?: number) => Math.max(estimated, reported ?? 0);
   while (outcome === null) {
     attempts++;
     try {
@@ -155,14 +161,16 @@ export async function runAi(deps: AiDeps, r: RunInput): Promise<RunResult> {
         // Tokens as the provider reported them; a documented estimate only when it reported none. Transcription adds the per-minute price over the reported (else estimated) duration.
         const inputTokens = g.usage.inputTokens || (prep.via === "transcription" ? 0 : estimateMediaTokens(r.media.input.kind, r.media.input.bytes.byteLength));
         const perMin = prep.via === "transcription" && prep.price.transcriptionMicroPerMinute ? perMinuteCostMicro(prep.price.transcriptionMicroPerMinute, g.durationSec ?? estimateAudioSeconds(r.media.input.bytes.byteLength)) : 0;
-        outcome = { ok: true, text: g.text, inputTokens, outputTokens: g.usage.outputTokens, cost: costMicro(prep.price, { inputTokens, outputTokens: g.usage.outputTokens }) + perMin };
+        outcome = { ok: true, text: g.text, inputTokens, outputTokens: g.usage.outputTokens, cost: charge(costMicro(prep.price, { inputTokens, outputTokens: g.usage.outputTokens }) + perMin, g.usage.reportedCostMicro), ...(g.routedModel ? { routedModel: g.routedModel } : {}) };
       } else {
         const g = await adapter.generate({ apiKey: prep.key ?? "", model: prep.model, maxOutputTokens: r.maxOutputTokens ?? 400, temperature: r.temperature ?? 0.4, messages: [{ role: "system", content: system }, { role: "user", content: r.input }] });
-        outcome = { ok: true, text: g.text, inputTokens: g.usage.inputTokens, outputTokens: g.usage.outputTokens, cost: costMicro(prep.price, g.usage) };
+        outcome = { ok: true, text: g.text, inputTokens: g.usage.inputTokens, outputTokens: g.usage.outputTokens, cost: charge(costMicro(prep.price, g.usage), g.usage.reportedCostMicro), ...(g.routedModel ? { routedModel: g.routedModel } : {}) };
       }
     } catch (e) {
       const code = e instanceof AiError ? e.code : "provider_error";
-      if (RETRYABLE.has(code) && attempts <= maxRetries) { await (deps.sleep ?? ((ms) => new Promise((res) => setTimeout(res, ms))))((deps.backoffMs ?? 500) * 2 ** (attempts - 1)); continue; }
+      const retryable = e instanceof AiError && e.retryable !== undefined ? e.retryable : RETRYABLE.has(code);
+      // Wait = the larger of our backoff and the provider's Retry-After, never more than 30 s. Retries stay bounded by maxRetries.
+      if (retryable && attempts <= maxRetries) { await (deps.sleep ?? ((ms) => new Promise((res) => setTimeout(res, ms))))(Math.min(MAX_WAIT_MS, Math.max((deps.backoffMs ?? 500) * 2 ** (attempts - 1), e instanceof AiError ? e.retryAfterMs ?? 0 : 0))); continue; }
       outcome = { ok: false, code };
     }
   }
@@ -171,7 +179,7 @@ export async function runAi(deps: AiDeps, r: RunInput): Promise<RunResult> {
   let runId: string | undefined;
   try {
     runId = await withContext(deps.workerDb, ctx, (tx) => record(tx, r, outcome.ok
-      ? { ...base, status: "ok", inputTokens: outcome.inputTokens, outputTokens: outcome.outputTokens, costMicro: outcome.cost, latencyMs, attempts, inputHash, summary: `${summary}, out ${outcome.text.length} chars` }
+      ? { ...base, status: "ok", inputTokens: outcome.inputTokens, outputTokens: outcome.outputTokens, costMicro: outcome.cost, latencyMs, attempts, inputHash, summary: `${summary}, out ${outcome.text.length} chars${outcome.routedModel && outcome.routedModel !== prep.model ? `, routed to ${outcome.routedModel.slice(0, 100)}` : ""}` }
       : { ...base, status: "error", latencyMs, attempts, errorCode: outcome.code, inputHash, summary }));
   } catch (e) {
     console.error(JSON.stringify({ msg: "ai run record failed", error: safeError(e) }));

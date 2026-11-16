@@ -3,7 +3,10 @@ import { createAnthropic } from "./providers/anthropic.ts";
 import { createMockProvider } from "./providers/mock.ts";
 import { createOpenAiCompatible } from "./providers/openai.ts";
 
-export type ProviderOptions = { fetch?: typeof fetch; timeoutMs?: number; baseUrl?: string };
+/** `referer` and `title` become OpenRouter's optional HTTP-Referer and X-OpenRouter-Title attribution headers. */
+export type ProviderOptions = { fetch?: typeof fetch; timeoutMs?: number; baseUrl?: string; referer?: string; title?: string };
+/** Fixed: a workspace can never point the OpenRouter provider elsewhere (customBaseUrl is false). */
+export const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
 export type ProviderDef = {
   id: string;
   label: string;
@@ -19,6 +22,10 @@ export const PROVIDERS: Readonly<Record<string, ProviderDef>> = {
   mock: { id: "mock", label: "Mock (offline)", mock: true, customBaseUrl: false, create: () => createMockProvider() },
   anthropic: { id: "anthropic", label: "Anthropic", mock: false, customBaseUrl: false, create: (o) => createAnthropic({ ...o, baseUrl: undefined }) },
   openai: { id: "openai", label: "OpenAI-compatible", mock: false, customBaseUrl: true, create: (o) => createOpenAiCompatible(o) },
+  openrouter: {
+    id: "openrouter", label: "OpenRouter", mock: false, customBaseUrl: false,
+    create: (o) => createOpenAiCompatible({ fetch: o?.fetch, timeoutMs: o?.timeoutMs, baseUrl: OPENROUTER_BASE_URL, id: "openrouter", gateway: true, extraHeaders: { ...(o?.referer ? { "HTTP-Referer": o.referer } : {}), ...(o?.title ? { "X-OpenRouter-Title": o.title } : {}) } }),
+  },
 };
 
 export const PROVIDER_IDS = Object.keys(PROVIDERS) as [string, ...string[]];

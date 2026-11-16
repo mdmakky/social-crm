@@ -11,7 +11,7 @@ export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{1
 export const wctx = (c: SC) => ({ userId: c.get("userId"), workspaceId: c.get("workspaceId") });
 export const actor = (c: SC) => ({ actorUserId: c.get("userId"), requestId: c.get("requestId"), ip: c.req.header("x-forwarded-for")?.split(",")[0]?.trim() });
 
-export type ErrStatus = 400 | 403 | 404 | 409 | 413 | 422 | 429 | 500 | 502 | 503;
+export type ErrStatus = 400 | 402 | 403 | 404 | 409 | 413 | 422 | 429 | 500 | 502 | 503;
 export const fail = (c: SC, status: ErrStatus, code: string, message?: string, details?: unknown) => c.json({ error: { code, message, ...(details !== undefined ? { details } : {}) } }, status);
 export const forbidden = (c: SC) => fail(c, 403, "forbidden", "You don't have permission to do that.");
 

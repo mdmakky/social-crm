@@ -43,7 +43,9 @@ export function createMediaService(deps: AiDeps, o: { perWorkspace?: number; win
 }
 
 /** HTTP status and a message the UI can show, per failure. Shared by the media routes and the knowledge upload. */
-export const MEDIA_FAILURES: Record<MediaFailure, { status: 400 | 409 | 413 | 422 | 429 | 502; message: string }> = {
+export const MEDIA_FAILURES: Record<MediaFailure, { status: 400 | 402 | 409 | 413 | 422 | 429 | 502; message: string }> = {
+  payment_required: { status: 402, message: "The provider account is out of credits" },
+  blocked: { status: 422, message: "The AI provider blocked this request (a guardrail or moderation rule). Change the content or the provider settings and try again." },
   empty_media: { status: 422, message: "The file is empty." },
   unsupported_media: { status: 422, message: "This file type is not supported here. Images: png, jpeg, webp, gif. Audio: mp3, wav, m4a, ogg, webm. Documents: pdf." },
   mime_mismatch: { status: 422, message: "The file does not match its declared type." },

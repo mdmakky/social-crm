@@ -1,13 +1,25 @@
 import { z } from "zod";
 import { endpoint } from "./endpoint.ts";
+import { AiCapability } from "./ai-media.ts";
 
 const W = "/v1/workspaces/:workspaceId";
 
 /** Money is integer micro-units (1 000 000 = 1 currency unit). Never a float. */
 const Micro = z.number().int().min(0).max(1_000_000_000_000_000);
-const Price = z.object({ inputMicroPer1M: Micro, outputMicroPer1M: Micro });
+const Supports = z.object({ tools: z.boolean(), structuredOutput: z.boolean() });
+/**
+ * A stored model price. The optional fields only matter for OpenRouter (models added from the browser): the server intersects them with the model list it fetched itself and drops
+ * what it cannot confirm, so an added model without confirmed capabilities is text only.
+ */
+const Price = z.object({
+  inputMicroPer1M: Micro, outputMicroPer1M: Micro,
+  capabilities: z.array(AiCapability).max(4).optional(), contextLength: z.number().int().min(0).max(100_000_000).optional(), supports: Supports.optional(),
+});
 
-export const AiModelDto = z.object({ id: z.string(), label: z.string(), inputMicroPer1M: Micro, outputMicroPer1M: Micro });
+export const AiModelDto = z.object({
+  id: z.string(), label: z.string(), inputMicroPer1M: Micro, outputMicroPer1M: Micro,
+  capabilities: z.array(AiCapability).optional(), contextLength: z.number().int().optional(), supports: Supports.optional(),
+});
 export type AiModelDto = z.infer<typeof AiModelDto>;
 
 /** One provider as the workspace sees it: the registry entry plus this workspace's config. The API key is never part of any response; only its last four characters. */
@@ -26,9 +38,19 @@ export const SetAiProviderBody = z.object({
   defaultModel: z.string().trim().min(1).max(100).optional(),
   enabled: z.boolean().optional(),
   isDefault: z.boolean().optional(),
-  modelPrices: z.record(z.string().trim().min(1).max(100), Price).refine((o) => Object.keys(o).length <= 20, "At most 20 model prices").optional(),
+  /** At most 50 entries here; every provider except OpenRouter is held to 20 by the route. */
+  modelPrices: z.record(z.string().trim().min(1).max(100), Price).refine((o) => Object.keys(o).length <= 50, "At most 50 models").optional(),
 });
 export type SetAiProviderBody = z.infer<typeof SetAiProviderBody>;
+
+/** OpenRouter model browser (read only). `syncedAt` = when the server fetched the list; `unverified` is always true: the list shape is documented, never recorded against the live service. */
+export const OpenRouterModelDto = z.object({
+  id: z.string(), name: z.string(), contextLength: z.number().int().nullable(), inputMicroPer1M: Micro, outputMicroPer1M: Micro,
+  capabilities: z.array(AiCapability), supports: Supports,
+});
+export type OpenRouterModelDto = z.infer<typeof OpenRouterModelDto>;
+export const OpenRouterModelList = z.object({ items: z.array(OpenRouterModelDto), syncedAt: z.string(), mock: z.boolean(), unverified: z.boolean() });
+export type OpenRouterModelList = z.infer<typeof OpenRouterModelList>;
 
 export const AiPromptVersion = z.object({ version: z.number().int(), template: z.string(), active: z.boolean(), createdAt: z.string(), createdBy: z.string().nullable() });
 export const AiPromptDto = z.object({
@@ -63,6 +85,7 @@ export type SuggestReplyResult = z.infer<typeof SuggestReplyResult>;
 export const aiEndpoints = {
   listAiProviders: endpoint({ method: "GET", path: `${W}/ai/providers`, response: AiProviderList }),
   setAiProvider: endpoint({ method: "PUT", path: `${W}/ai/providers/:provider`, body: SetAiProviderBody, response: AiProviderDto }),
+  listOpenRouterModels: endpoint({ method: "GET", path: `${W}/ai/providers/openrouter/models`, response: OpenRouterModelList }),
   listAiPrompts: endpoint({ method: "GET", path: `${W}/ai/prompts`, response: AiPromptList }),
   setAiPrompt: endpoint({ method: "PUT", path: `${W}/ai/prompts/:key`, body: SetAiPromptBody, response: AiPromptDto }),
   activateAiPrompt: endpoint({ method: "POST", path: `${W}/ai/prompts/:key/activate`, body: ActivateAiPromptBody, response: AiPromptDto }),
