@@ -10,11 +10,12 @@ import { schema, withContext, type Db, type Tx } from "@crm/db";
 import { writeAudit } from "../audit.ts";
 import { actor, body, fail, forbidden, isUuid, query, wctx, type SC, type ScopedEnv } from "../routes/scope.ts";
 import { WindowCounter } from "../throttle.ts";
-import { runAi, type AiDeps } from "./run.ts";
+import { streamSSE } from "hono/streaming";
+import { runAi, runAiStream, type AiDeps, type RunInput } from "./run.ts";
 import { MEDIA_FAILURES, type MediaOutcome, type MediaService } from "./media.ts";
 import { createModelBrowser, type ModelBrowser, type ModelList } from "./openrouter-browser.ts";
 
-export type AiRouteDeps = { ai?: AiDeps; media?: MediaService; configsPerUser?: number; suggestionsPerUser?: number; browser?: ModelBrowser; browsesPerUser?: number };
+export type AiRouteDeps = { ai?: AiDeps; media?: MediaService; configsPerUser?: number; suggestionsPerUser?: number; browser?: ModelBrowser; browsesPerUser?: number; streamKeepaliveMs?: number };
 const rowsOf = (r: unknown) => (r as { rows: Record<string, unknown>[] }).rows;
 const uniqueViolation = (e: unknown) => (e as { cause?: { code?: string } })?.cause?.code === "23505";
 const MESSAGES_CONTEXT = 12;
@@ -271,13 +272,16 @@ export function aiRoutes(db: Db, deps: AiRouteDeps = {}) {
     return c.json(out);
   });
 
-  /** Draft only. This route creates no message and calls no send path: the person edits the text and sends it through the normal composer. */
-  r.post("/conversations/:conversationId/ai/suggest-reply", async (c) => {
-    if (!can(c.get("role"), "ai.use", {})) return forbidden(c);
-    const id = c.req.param("conversationId");
-    if (!isUuid(id)) return fail(c, 404, "not_found");
-    if (!deps.ai) return fail(c, 503, "ai_not_configured", "AI is not configured on this server.");
-    if (!suggestions.allow(`${c.get("workspaceId")}:${c.get("userId")}`)) { c.header("Retry-After", "60"); return fail(c, 429, "rate_limited", "Too many suggestions. Try again in a minute."); }
+  /**
+   * Shared by suggest-reply and its stream: permission, id, configured server, rate limit (ONE counter for both, so streaming is no way around the limit), then the conversation context.
+   * The transcript is sent to the provider and then dropped: it is never stored or logged. Returns the run input, or the failure response.
+   */
+  const suggestInput = async (c: SC) => {
+    if (!can(c.get("role"), "ai.use", {})) return { res: forbidden(c) };
+    const id = c.req.param("conversationId") ?? "";
+    if (!isUuid(id)) return { res: fail(c, 404, "not_found") };
+    if (!deps.ai) return { res: fail(c, 503, "ai_not_configured", "AI is not configured on this server.") };
+    if (!suggestions.allow(`${c.get("workspaceId")}:${c.get("userId")}`)) { c.header("Retry-After", "60"); return { res: fail(c, 429, "rate_limited", "Too many suggestions. Try again in a minute.") }; }
     const { workspaceId, userId } = wctx(c);
     const ctx = await withContext(db, wctx(c), async (tx) => {
       const conv = rowsOf(await tx.execute(sql`
@@ -289,9 +293,9 @@ export function aiRoutes(db: Db, deps: AiRouteDeps = {}) {
       const msgs = rowsOf(await tx.execute(sql`SELECT direction, body FROM messages WHERE workspace_id = ${workspaceId} AND conversation_id = ${id} AND body IS NOT NULL AND body <> '' ORDER BY seq DESC LIMIT ${MESSAGES_CONTEXT}`));
       return { name: conv.contact_name as string, platform: conv.platform as string, msgs: msgs.reverse().map((m) => ({ out: m.direction === "out", body: m.body as string })) };
     });
-    if (!ctx) return fail(c, 404, "not_found");
-    if (!ctx.msgs.some((m) => !m.out)) return fail(c, 422, "no_customer_message", "There is no customer message to reply to yet.");
-    // Newest messages win the character budget; each message is clipped. The transcript is sent to the provider and then dropped: it is never stored or logged.
+    if (!ctx) return { res: fail(c, 404, "not_found") };
+    if (!ctx.msgs.some((m) => !m.out)) return { res: fail(c, 422, "no_customer_message", "There is no customer message to reply to yet.") };
+    // Newest messages win the character budget; each message is clipped.
     let left = CONTEXT_CHARS;
     const lines: string[] = [];
     for (const m of [...ctx.msgs].reverse()) {
@@ -300,23 +304,75 @@ export function aiRoutes(db: Db, deps: AiRouteDeps = {}) {
       left -= line.length;
       lines.unshift(line);
     }
-    const res = await runAi(deps.ai, {
+    const input: RunInput = {
       workspaceId, userId, capability: "reply_suggestion", promptKey: REPLY_SUGGESTION_KEY, vars: { contact_name: ctx.name.slice(0, 80), channel: ctx.platform },
       input: `Conversation (oldest first):\n<<<\n${lines.join("\n")}\n>>>`, entity: { type: "conversation", id }, maxOutputTokens: 400,
-    });
+    };
+    return { input };
+  };
+  /** One mapping of run failures to HTTP status, error code and message, used by the JSON route (as the response) and the stream route (as the `error` event). */
+  const suggestFailure = (code: string): { status: 402 | 409 | 422 | 429 | 502; code: string; message: string } => {
+    switch (code) {
+      case "not_configured": return { status: 409, code: "ai_not_configured", message: "No AI provider is set up for this workspace. An owner or admin can add one in Settings, AI." };
+      case "budget_exceeded": return { status: 409, code: "budget_exceeded", message: "The monthly AI budget is used up. An owner or admin can raise it in Settings, AI." };
+      case "rate_limit": return { status: 429, code: "ai_busy", message: "The AI provider is busy. Try again in a moment." };
+      case "payment_required": return { status: 402, code: "payment_required", message: MEDIA_FAILURES.payment_required.message };
+      case "blocked": return { status: 422, code: "blocked", message: MEDIA_FAILURES.blocked.message };
+      case "auth": case "key_unavailable": return { status: 502, code: "ai_key_rejected", message: "The AI provider key was rejected or cannot be read. An owner or admin should check it in Settings, AI." };
+      default: return { status: 502, code: "ai_unavailable", message: "The suggestion could not be generated. Write your reply by hand or try again." };
+    }
+  };
+
+  /** Draft only. This route creates no message and calls no send path: the person edits the text and sends it through the normal composer. */
+  r.post("/conversations/:conversationId/ai/suggest-reply", async (c) => {
+    const s = await suggestInput(c);
+    if (!s.input) return s.res;
+    const res = await runAi(deps.ai!, s.input);
     if (res.ok) {
       const out: SuggestReplyResult = { draft: res.text.trim(), provider: res.provider, model: res.model, mock: res.mock, runId: res.runId };
       return c.json(out);
     }
-    switch (res.code) {
-      case "not_configured": return fail(c, 409, "ai_not_configured", "No AI provider is set up for this workspace. An owner or admin can add one in Settings, AI.");
-      case "budget_exceeded": return fail(c, 409, "budget_exceeded", "The monthly AI budget is used up. An owner or admin can raise it in Settings, AI.");
-      case "rate_limit": return fail(c, 429, "ai_busy", "The AI provider is busy. Try again in a moment.");
-      case "payment_required": return fail(c, 402, "payment_required", MEDIA_FAILURES.payment_required.message);
-      case "blocked": return fail(c, 422, "blocked", MEDIA_FAILURES.blocked.message);
-      case "auth": case "key_unavailable": return fail(c, 502, "ai_key_rejected", "The AI provider key was rejected or cannot be read. An owner or admin should check it in Settings, AI.");
-      default: return fail(c, 502, "ai_unavailable", "The suggestion could not be generated. Write your reply by hand or try again.");
-    }
+    const f = suggestFailure(res.code);
+    return fail(c, f.status, f.code, f.message);
+  });
+
+  /**
+   * Same draft as suggest-reply, as Server-Sent Events: `event: delta` {text}, then `usage`, then `done`; a failure is one `event: error` {code, message, status}. Always HTTP 200 once past the shared checks
+   * (the budget hard stop is applied before the provider is contacted and arrives as an `error` event). `: keepalive` comments every 15 s. Headers stop proxies from buffering or transforming the stream.
+   * The request's abort (client gone, Stop pressed) aborts the upstream call and the run is logged as client_aborted. Draft only, like the JSON route.
+   */
+  r.post("/conversations/:conversationId/ai/suggest-reply/stream", async (c) => {
+    const s = await suggestInput(c);
+    if (!s.input) return s.res;
+    const input = s.input;
+    const res = streamSSE(c, async (stream) => {
+      const ac = new AbortController();
+      const stop = () => ac.abort();
+      stream.onAbort(stop);
+      c.req.raw.signal.addEventListener("abort", stop, { once: true });
+      const ka = setInterval(() => { stream.write(": keepalive\n\n").catch(stop); }, deps.streamKeepaliveMs ?? 15_000);
+      try {
+        for await (const ev of runAiStream(deps.ai!, input, ac.signal)) {
+          if (ac.signal.aborted) break;
+          if (ev.type === "delta") await stream.writeSSE({ event: "delta", data: JSON.stringify({ text: ev.text }) });
+          else if (ev.type === "done") {
+            await stream.writeSSE({ event: "usage", data: JSON.stringify(ev.usage) });
+            await stream.writeSSE({ event: "done", data: JSON.stringify({ provider: ev.provider, model: ev.model, mock: ev.mock, runId: ev.runId, finishReason: ev.finishReason }) });
+          } else if (ev.code !== "client_aborted") {
+            const f = suggestFailure(ev.code);
+            await stream.writeSSE({ event: "error", data: JSON.stringify({ code: f.code, message: f.message, status: f.status }) });
+          }
+        }
+      } catch {
+        stop(); // the client closed the connection mid-write
+      } finally {
+        clearInterval(ka);
+        c.req.raw.signal.removeEventListener("abort", stop);
+      }
+    });
+    res.headers.set("Cache-Control", "no-cache, no-transform");
+    res.headers.set("X-Accel-Buffering", "no");
+    return res;
   });
 
   // ---- Multimodal (slice 1): describe / ask / extract / transcribe, and the capability matrix that drives the UI. ----

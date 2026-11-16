@@ -68,6 +68,8 @@ export const AgentRunResult = z.object({
   /** A DRAFT. Nothing is ever sent to the customer. */
   reply: z.string(), malformed: z.boolean(), dryRun: z.boolean(), actions: z.array(AgentActionOutcome),
   agentVersion: z.number().int(), provider: z.string(), model: z.string(), mock: z.boolean(), runId: z.string(),
+  /** How the model was asked: native tool calls, response_format json_schema, or the prompt-only JSON-in-text protocol. */
+  via: z.enum(["native_tools", "json_schema", "text"]).optional(),
   usage: z.object({ inputTokens: z.number().int(), outputTokens: z.number().int(), costMicro: Micro }),
 });
 export type AgentRunResult = z.infer<typeof AgentRunResult>;

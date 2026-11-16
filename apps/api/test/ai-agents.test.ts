@@ -141,7 +141,8 @@ describe("tool execution", () => {
     expect(await notes(cid)).toBe(0);
     expect(await q("SELECT 1 FROM contact_tags WHERE contact_id=$1", [cid])).toHaveLength(0);
     nextReply = "not json at all";
-    expect(ok(await test(owner, a.id, { contactId: cid, dryRun: false }))).toMatchObject({ malformed: true, reply: "not json at all", actions: [] });
+    // The mock model supports native tool calls, where plain text IS the normal draft (not malformed). Prompt-only models still flag it: see ai-streaming.test.ts.
+    expect(ok(await test(owner, a.id, { contactId: cid, dryRun: false }))).toMatchObject({ malformed: false, reply: "not json at all", actions: [] });
   });
 
   it("sensitive => pending => approve executes once, repeat approve does not; reject executes none", async () => {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
-import { AgentDefinition, AiError, composeNativeSystemPrompt, createMockProvider, createOpenAiCompatible, defineTool, getProvider, MAX_ACTIONS_PER_RUN, parseNativeReply, sseData, supportsStructuredOutput, supportsTools, toolRegistry, toolSpecs, wireToolName, type StreamEvent } from "../src/index.ts";
+import { AgentDefinition, AiError, composeNativeSystemPrompt, createMockProvider, createOpenAiCompatible, defineTool, getProvider, MAX_ACTIONS_PER_RUN, parseNativeReply, sseData, supportsStructuredOutput, supportsTools, toolRegistry, toolSpecs, wireToolName, type GenerateRequest, type StreamEvent } from "../src/index.ts";
 
 // Everything here uses a FAKE fetch or in-memory streams: nothing touches the network.
 const enc = new TextEncoder();
@@ -52,7 +52,7 @@ describe("sseData parser", () => {
 const chunk = (delta: unknown, extra: Record<string, unknown> = {}) => `data: ${JSON.stringify({ model: "openai/gpt-4o-mini", choices: [{ delta, finish_reason: null }], ...extra })}\n\n`;
 const sseRes = (parts: string[], status = 200) => new Response(bytesStream(parts), { status, headers: { "content-type": "text/event-stream" } });
 const or = (f: (url: string, init: RequestInit) => Response | Promise<Response>, o: { streamIdleMs?: number; streamTimeoutMs?: number } = {}) => createOpenAiCompatible({ id: "openrouter", gateway: true, baseUrl: "https://openrouter.ai/api/v1", fetch: (async (u: string, i: RequestInit) => f(u, i)) as unknown as typeof fetch, ...o });
-const run = (p: ReturnType<typeof or>, r = req) => collect(p.generateStream!(r));
+const run = (p: ReturnType<typeof or>, r: GenerateRequest = req) => collect(p.generateStream!(r));
 
 describe("openai-compatible generateStream (fake fetch)", () => {
   const good = [

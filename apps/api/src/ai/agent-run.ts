@@ -1,12 +1,12 @@
 import { and, desc, eq, sql } from "drizzle-orm";
 import type { AgentActionOutcome, AgentRunResult } from "@crm/contracts";
-import { AgentDefinition, composeSystemPrompt, fenceData, getTool, parseAgentReply, type ParsedReply, type PlannedAction, type ToolRegistry } from "@crm/ai";
+import { AGENT_REPLY_JSON_SCHEMA, AgentDefinition, composeNativeSystemPrompt, composeSystemPrompt, fenceData, getTool, grantedTools, parseAgentReply, parseNativeReply, toolSpecs, type ParsedReply, type PlannedAction, type ToolRegistry } from "@crm/ai";
 import { can, type Role } from "@crm/core/permissions";
 import { schema, withContext, type Db, type Tx } from "@crm/db";
 import { writeAudit } from "../audit.ts";
 import { killSwitchOn } from "../automation/kill-switch.ts";
 import { PermanentError } from "../automation/actions.ts";
-import { runAi, type AiDeps, type RunFailure } from "./run.ts";
+import { runAi, type AiDeps, type RunFailure, type RunVia } from "./run.ts";
 import { TOOLS, type AttachToolDeps, type ToolCtx } from "./tools/index.ts";
 
 export type AgentDeps = { db: Db; ai: AiDeps; tools?: ToolRegistry<ToolCtx>; /** Blob store and media service for the media tools. */ attach?: AttachToolDeps };
@@ -48,7 +48,7 @@ export async function contactContext(tx: Tx, workspaceId: string, contactId: str
 export type PrepareFailure = { ok: false; code: "not_found" | "inactive" | "kill_switch_on" | RunFailure };
 export type Prepared = {
   ok: true; agent: { id: string; name: string }; versionId: string; versionNo: number; def: AgentDefinition; parsed: ParsedReply;
-  run: { runId: string; provider: string; model: string; mock: boolean; usage: { inputTokens: number; outputTokens: number; costMicro: number } };
+  run: { runId: string; provider: string; model: string; mock: boolean; usage: { inputTokens: number; outputTokens: number; costMicro: number }; /** How the model was asked: native tool calls, response_format json_schema, or the prompt-only JSON-in-text protocol. */ via: RunVia };
 };
 
 /**
@@ -75,12 +75,17 @@ export async function prepareAgentRun(
   if (loaded === "kill_switch_on" || loaded === "inactive") return { ok: false, code: loaded };
   const { agent, v } = loaded;
   const def = AgentDefinition.parse({ instructions: v.instructions, personality: v.personality, language: v.language, responseStyle: v.responseStyle, provider: v.provider, model: v.model, temperature: v.temperature, maxOutputTokens: v.maxOutputTokens, toolGrants: v.toolGrants });
+  // The default is the JSON-in-text protocol. runAi upgrades it ONLY when the chosen model's stored flags allow: native tool calls (when the agent has granted tools) or response_format json_schema.
+  // Either way the model's output is parsed and validated by the same rules (grants, approvals, dry run, max actions).
   const res = await runAi(deps.ai, {
     workspaceId: p.workspaceId, userId: p.userId, capability: AGENT_CAPABILITY, promptKey: AGENT_PROMPT_KEY, vars: {}, system: composeSystemPrompt(def, tools), input: p.userContent,
     entity: p.entity, maxOutputTokens: def.maxOutputTokens, temperature: def.temperature, provider: def.provider, model: def.model, agent: { id: agent.id, version: v.version },
+    ...(grantedTools(def.toolGrants, tools).length ? { native: { tools: toolSpecs(def.toolGrants, tools), system: composeNativeSystemPrompt(def, tools) } } : {}),
+    responseSchema: { name: "agent_reply", schema: AGENT_REPLY_JSON_SCHEMA },
   });
   if (!res.ok) return { ok: false, code: res.code };
-  return { ok: true, agent: { id: agent.id, name: agent.name }, versionId: v.id, versionNo: v.version, def, parsed: parseAgentReply(res.text, def.toolGrants, tools), run: { runId: res.runId, provider: res.provider, model: res.model, mock: res.mock, usage: res.usage } };
+  const parsed = res.via === "native_tools" ? parseNativeReply(res.text, res.toolCalls, def.toolGrants, tools) : parseAgentReply(res.text, def.toolGrants, tools);
+  return { ok: true, agent: { id: agent.id, name: agent.name }, versionId: v.id, versionNo: v.version, def, parsed, run: { runId: res.runId, provider: res.provider, model: res.model, mock: res.mock, usage: res.usage, via: res.via } };
 }
 
 /** Automation: runs the agent over the trigger's contact (name only; the trigger names what happened). The caller records the outcome; nothing is sent or executed. */
@@ -141,7 +146,7 @@ export async function applyPlan(tx: Tx, deps: AgentDeps, prep: Prepared, a: Appl
   const outcomes: AgentActionOutcome[] = prep.parsed.rejected.map((r) => ({ tool: r.tool, args: {}, status: "rejected", detail: r.reason, result: null, actionId: null }));
   for (const [idx, act] of prep.parsed.planned.entries()) outcomes.push(await applyOne(tx, deps.db, tools, prep, a, act, idx, deps.attach, pre?.get(idx)));
   return {
-    reply: prep.parsed.reply, malformed: prep.parsed.malformed, dryRun: a.dryRun, actions: outcomes, agentVersion: prep.versionNo, provider: prep.run.provider, model: prep.run.model, mock: prep.run.mock, runId: prep.run.runId, usage: prep.run.usage,
+    reply: prep.parsed.reply, malformed: prep.parsed.malformed, dryRun: a.dryRun, actions: outcomes, agentVersion: prep.versionNo, provider: prep.run.provider, model: prep.run.model, mock: prep.run.mock, runId: prep.run.runId, usage: prep.run.usage, via: prep.run.via,
   };
 }
 
