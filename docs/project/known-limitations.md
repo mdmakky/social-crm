@@ -176,10 +176,23 @@ Updated: 2026-11-13 (Phase 0).
 
 ## AI multimodal, slice 1
 - No real provider was contacted: Anthropic vision/PDF and OpenAI-compatible vision/transcription are UNVERIFIED (fake fetch only), and the catalog capability and price flags are from memory. The UI labels them UNVERIFIED. A workspace-added model id is text only (no capability override yet).
-- No inbox attachment storage: `messages.attachments` holds platform references, nothing downloads or keeps the bytes, so agents cannot reference media by id and the agent tools `media.describe_image` / `media.extract_text` are not built. Media is uploaded per request, held in memory and dropped.
+- (Superseded by Inbox attachments below, D130 to D139.) No inbox attachment storage: `messages.attachments` holds platform references, nothing downloads or keeps the bytes, so agents cannot reference media by id and the agent tools `media.describe_image` / `media.extract_text` are not built. Media is uploaded per request, held in memory and dropped.
 - No streaming, no voice agent, no video, no real-time audio; requests are synchronous in the API process (a 20 MB audio file is a 27 MB JSON body and a long provider call).
 - Size caps: image 5 MB (png, jpeg, webp, gif), audio 20 MB (mp3, wav, m4a, ogg, webm), PDF 10 MB. Detection is by magic bytes only: a corrupt but correctly-headed file reaches the provider, and `.m4a` accepts any `ftyp` container.
 - Media cost uses provider-reported tokens when present, otherwise rough documented estimates; the per-minute transcription price uses the provider duration or an estimate from file size (128 kbit/s). All UNVERIFIED.
 - Rate limit (60 media calls per workspace per minute) is in-process (single API instance). OCR and transcription output is returned and indexed as text and is customer-controlled content: it can contain prompt-injection text; agents treat it as data, not instructions.
 - A failed media upload leaves a `failed` knowledge source (code only) that counts toward the 200-source limit until deleted; re-index of such a source reports `empty_content` (delete and upload again).
 - The knowledge file route now accepts a 28 MB request body (text formats are still capped at 2 MB after decoding).
+
+## Inbox attachments (2026-11-17, branch `feat/inbox-attachments`)
+- No real storage and no real channel media were contacted: the S3 store is tested against a fake endpoint (UNVERIFIED against R2, S3 and MinIO), the WhatsApp media lookup and media send are mock Graph only (UNVERIFIED), and Messenger/Instagram CDN downloads are tested with a fake fetch. The Meta CDN host allowlist is a guess and fails closed.
+- Hosted free tier: Render free has no persistent disk and Neon holds no blobs, so a hosted deployment needs an S3-compatible bucket (for example the Cloudflare R2 free tier, terms UNVERIFIED). Without `STORAGE_DRIVER` received media stays metadata and uploads answer `storage_not_configured`.
+- Media received while no storage is configured stays `pending` and is downloaded later only if the provider link is still valid (WhatsApp media ids expire; Messenger/Instagram links are short-lived); otherwise it becomes `failed` (`media_expired`) and can be retried.
+- The download worker runs after stored events and on the slow safety-net interval (default 15 minutes): a transient failure's backoff (30 s, 2 min, ...) is only honoured when something wakes the worker, so a retry can wait up to one interval. Reconcile runs every 6 hours with the token checks.
+- Sending files: WhatsApp only, one file per message, a documented subset of types, no template fallback outside the 24 hour window. Instagram and Messenger refuse with `unsupported_channel_media`. Audio sent as a file is not a voice note.
+- No HTTP range support on `content` (video seeking buffers the whole file), no thumbnails, no antivirus scan (executables and scripts are refused by their bytes only), no signed URLs, no per-workspace storage quota, no retention job for old media (only delete, contact delete and reconcile).
+- Knowledge from an attachment: images, PDF and audio need an AI provider with the capability; txt and csv work without one; docx, xlsx, pptx and video are `unsupported_type`. OCR and transcription output is customer-controlled content and can contain instructions.
+- Media agent tools run inside the apply transaction, which stays open during the provider call (the only tools that do network work). The media service rate limit (60 per minute per workspace) is in-process like the others.
+- A `ready` row whose blob vanishes answers `file_missing` on read until reconcile marks it `missing`; the application role cannot change that status itself.
+- A delete that crashes between the row update and the blob delete leaves an orphan blob; reconcile reports it only for the local store (providers do not list keys here).
+- Upload progress is a status (Uploading, Ready, Failed), not a percentage: the upload is one JSON request.
