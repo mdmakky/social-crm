@@ -76,3 +76,13 @@ export async function captureLeadWon(tx: Tx, l: { workspaceId: string; leadId: s
     console.error(JSON.stringify({ msg: "capi enqueue failed", error: (err as Error).name })); // name only: the message could carry a payload
   }
 }
+
+/**
+ * Contact deletion (soft delete) cleanup, in the delete's own transaction, AFTER contacts.deleted_at is set (the RLS policy requires it). No network.
+ * Pending rows become `cancelled` (never sent); every other row keeps its delivery metadata but loses its payload (hashed identifiers). consent_records is left alone: append-only, no PII.
+ * ponytail: a row the worker already claimed and is sending at this instant may still go out once; closing that needs a lock shared with the worker.
+ */
+export async function purgeContactCapi(tx: Tx, workspaceId: string, contactId: string): Promise<void> {
+  await tx.execute(sql`UPDATE capi_events SET status = 'cancelled', payload = '{}'::jsonb, last_error = 'contact_deleted', updated_at = now() WHERE workspace_id = ${workspaceId} AND contact_id = ${contactId} AND status = 'pending'`);
+  await tx.execute(sql`UPDATE capi_events SET payload = '{}'::jsonb, updated_at = now() WHERE workspace_id = ${workspaceId} AND contact_id = ${contactId} AND payload <> '{}'::jsonb`);
+}

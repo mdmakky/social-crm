@@ -326,3 +326,56 @@ describe("history", () => {
     expect(ok(await as(owner).call(endpoints.listCapiEvents, { params: p(), query: { datasetId: d.id, status: "sent" } })).items).toEqual([]);
   });
 });
+
+describe("contact deletion cleanup", () => {
+  const del = (c: ContactDetail, u = owner, ws = A) => as(u).call(endpoints.deleteContact, { params: { workspaceId: ws, contactId: c.id } });
+  it("cancels pending, scrubs sent payloads, keeps delivery history and consent, leaves others alone", async () => {
+    const d = await mkDataset();
+    const c = await mkContact("erase.me@example.com", "Erase Me", A, owner, "+8801799900077");
+    const other = await mkContact("keep.me@example.com", "Keep Me", A, owner, "+8801799900078");
+    ok(await grant(c)); ok(await grant(other));
+    await winLead(c); await winLead(other);
+    const w = run(); await w.go(); // both events go out: sent
+    expect((await eventsOf(A, d.id)).every((e) => e.status === "sent")).toBe(true);
+    const c2 = await mkContact("second@example.com", "Second", A, owner, "+8801799900079");
+    ok(await grant(c2)); await winLead(c2); // stays pending (worker not run)
+    expect((await q("SELECT id FROM capi_events WHERE workspace_id=$1 AND status='pending' AND contact_id=$2", [A, c2.id])).length).toBeGreaterThan(0);
+    const consentBefore = await q("SELECT id, status, source FROM consent_records WHERE workspace_id=$1 AND contact_id=$2", [A, c.id]);
+
+    ok(await del(c));
+    ok(await del(c2));
+    const gone = await q("SELECT * FROM capi_events WHERE workspace_id=$1 AND contact_id = ANY($2)", [A, [c.id, c2.id]]);
+    for (const e of gone) {
+      expect(e.payload).toEqual({});
+      expect(JSON.stringify(e).toLowerCase()).not.toMatch(/"em"|"ph"|"fn"|[0-9a-f]{64}/);
+    }
+    expect(gone.filter((e) => e.contact_id === c2.id).every((e) => e.status === "cancelled" && e.last_error === "contact_deleted" && e.sent_at === null)).toBe(true);
+    const sent = gone.filter((e) => e.contact_id === c.id && e.dataset_id === d.id);
+    expect(sent.length).toBeGreaterThan(0);
+    expect(sent.every((e) => e.status === "sent" && e.sent_at && e.event_name === "Purchase" && e.event_id)).toBe(true);
+    const w2 = run(); await w2.go(); // nothing further is sent
+    expect(w2.adapter.calls).toEqual([]);
+    const hist = ok(await as(owner).call(endpoints.listCapiEvents, { params: p(), query: { datasetId: d.id } })).items;
+    const goneD = gone.filter((g) => g.dataset_id === d.id);
+    expect(hist.filter((i) => goneD.some((g) => g.id === i.id)).map((i) => i.status).sort()).toEqual(goneD.map((g) => g.status).sort());
+    expect(JSON.stringify(hist)).not.toMatch(/erase|example\.com/i);
+    expect(await q("SELECT id, status, source FROM consent_records WHERE workspace_id=$1 AND contact_id=$2", [A, c.id])).toEqual(consentBefore);
+    await expect(h.admin.query("UPDATE consent_records SET status='revoked' WHERE contact_id=$1", [c.id])).rejects.toThrow(/append-only/);
+    const kept = await q("SELECT payload FROM capi_events WHERE workspace_id=$1 AND contact_id=$2", [A, other.id]);
+    expect(kept.length).toBeGreaterThan(0);
+    expect(kept.every((e) => e.payload.user_data?.em?.length === 1)).toBe(true);
+  });
+  it("another workspace's pending events are untouched; agents cannot delete", async () => {
+    const dB = await mkDataset(ownerB, B, {}, TOKEN_B);
+    const cB = await mkContact("b.person@example.com", "B Person", B, ownerB, "+8801799900091");
+    ok(await grant(cB, "granted", ownerB, B));
+    const pb = ok(await as(ownerB).call(endpoints.listPipelines, { params: p(B) })).pipelines[0]!;
+    const lead = ok(await as(ownerB).call(endpoints.createLead, { params: p(B), body: { title: "D", primaryContactId: cB.id, allowDuplicate: true, valueMinor: 100, currency: "USD" } as never })) as LeadDto;
+    ok(await as(ownerB).call(endpoints.moveLead, { params: { workspaceId: B, leadId: lead.id }, body: { expectedVersion: lead.version, stageId: pb.stages.find((s) => s.kind === "won")!.id } }));
+    const cA = await mkContact("a.person@example.com", "A Person");
+    ok(await del(cA));
+    expect(failure(await del(cB, owner, A)).status).toBe(404); // B's contact id is unknown in workspace A
+    expect((await eventsOf(B, dB.id)).every((e) => e.status === "pending" && e.payload.user_data?.em?.length === 1)).toBe(true);
+    expect(failure(await del(await mkContact(), agent)).status).toBe(403);
+  });
+});

@@ -116,7 +116,7 @@ describe("capi_events", () => {
     expect(await q(app, ctx(U.ownerB, A), sql`SELECT id FROM capi_events`)).toEqual([]);
   });
   it("the app role cannot update or delete events", async () => {
-    await rejects(q(app, ctx(U.owner, A), sql`UPDATE capi_events SET status = 'sent'`), /permission denied/);
+    await rejects(q(app, ctx(U.owner, A), sql`UPDATE capi_events SET event_id = 'x'`), /permission denied/); // only status/payload/last_error/updated_at are granted (0029), and only for deleted contacts
     await rejects(q(app, ctx(U.owner, A), sql`DELETE FROM capi_events`), /permission denied/);
     await expect(root.query(`DELETE FROM capi_events`)).rejects.toThrow(/append-only/);
   });
@@ -136,5 +136,28 @@ describe("capi_events", () => {
     expect((await q(worker, ctx(), sql`SELECT workspace_id FROM capi_events WHERE status = 'pending'`)).length).toBeGreaterThan(0);
     expect(await q(worker, ctx(), sql`SELECT id FROM capi_datasets`)).toEqual([]);
     expect(await q(worker, ctx(undefined, B), sql`SELECT id FROM capi_datasets WHERE id = ${dsA}`)).toEqual([]);
+  });
+});
+
+describe("capi contact cleanup (0029)", () => {
+  it("the app role can cancel or scrub events only for a soft-deleted contact, and only in the allowed shape", async () => {
+    const c = (await root.query(`INSERT INTO contacts(workspace_id,name,lifecycle_stage_id,source) VALUES ($1,'D',(SELECT id FROM lifecycle_stages WHERE workspace_id=$1 LIMIT 1),'manual') RETURNING id`, [A])).rows[0].id as string;
+    const mk = async (status: string) => (await root.query(`INSERT INTO capi_events(workspace_id,dataset_id,contact_id,event_name,event_id,crm_event_ref,event_time,payload,status,sent_at) VALUES ($1,$2,$3,'Lead',$4,'r',now(),$5::jsonb,$6,${status === "sent" ? "now()" : "NULL"}) RETURNING id`, [A, dsA, c, `x${run}${n++}`, payload, status])).rows[0].id as string;
+    const pend = await mk("pending"), sent = await mk("sent");
+    const stat = async (id: string) => (await root.query(`SELECT status, payload FROM capi_events WHERE id=$1`, [id])).rows[0];
+    await q(app, ctx(U.owner, A), sql`UPDATE capi_events SET status='cancelled', payload='{}'::jsonb WHERE id = ${pend}`);
+    expect((await stat(pend)).status).toBe("pending"); // contact is live: the policy matches no row
+    await root.query(`UPDATE contacts SET deleted_at = now() WHERE id=$1`, [c]);
+    await q(app, ctx(U.agent, A), sql`UPDATE capi_events SET payload='{}'::jsonb WHERE id = ${sent}`);
+    expect((await stat(sent)).payload).not.toEqual({}); // agent: no row matches
+    await rejects(q(app, ctx(U.owner, A), sql`UPDATE capi_events SET status='failed' WHERE id = ${pend}`), /./); // not a cancel: the guard refuses
+    await rejects(q(app, ctx(U.owner, A), sql`UPDATE capi_events SET status='failed', payload='{}'::jsonb WHERE id = ${sent}`), /is final/);
+    await rejects(q(app, ctx(U.owner, A), sql`UPDATE capi_events SET status='cancelled' WHERE id = ${pend}`), /must have its payload purged/);
+    await q(app, ctx(U.owner, A), sql`UPDATE capi_events SET status='cancelled', payload='{}'::jsonb, last_error='contact_deleted' WHERE id = ${pend}`);
+    await q(app, ctx(U.owner, A), sql`UPDATE capi_events SET payload='{}'::jsonb WHERE id = ${sent}`);
+    expect(await stat(pend)).toEqual({ status: "cancelled", payload: {} });
+    expect(await stat(sent)).toEqual({ status: "sent", payload: {} });
+    await rejects(q(app, ctx(U.owner, A), sql`UPDATE capi_events SET status='sent' WHERE id = ${pend}`), /./);
+    await expect(root.query(`DELETE FROM capi_events WHERE id=$1`, [sent])).rejects.toThrow(/append-only/);
   });
 });

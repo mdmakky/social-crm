@@ -13,7 +13,7 @@ import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import { browserApi, errorMessage } from "@/lib/client-api";
 
 const STATUS: Record<CapiEventDto["status"], { label: string; tone: "success" | "warning" | "danger" | "neutral" }> = {
-  pending: { label: "Waiting to send", tone: "warning" }, sent: { label: "Accepted (mock)", tone: "success" }, failed: { label: "Failed", tone: "danger" }, skipped_no_consent: { label: "Skipped, no consent", tone: "neutral" },
+  pending: { label: "Waiting to send", tone: "warning" }, sent: { label: "Accepted (mock)", tone: "success" }, failed: { label: "Failed", tone: "danger" }, skipped_no_consent: { label: "Skipped, no consent", tone: "neutral" }, cancelled: { label: "Cancelled, contact deleted", tone: "neutral" },
 };
 const ERROR_TEXT: Record<string, string> = {
   no_consent: "No ad measurement consent recorded for the contact.", opted_out: "The contact withdrew consent.", event_too_old: "Older than 7 days, Meta would reject it.", dataset_inactive: "The dataset was disabled.",

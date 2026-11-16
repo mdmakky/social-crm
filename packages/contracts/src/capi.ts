@@ -25,7 +25,7 @@ export const CreateCapiDatasetBody = z.object({
 export type CreateCapiDatasetBody = z.infer<typeof CreateCapiDatasetBody>;
 export const CapiDatasetList = z.object({ items: z.array(CapiDatasetDto) });
 
-export const CapiEventStatus = z.enum(["pending", "sent", "failed", "skipped_no_consent"]);
+export const CapiEventStatus = z.enum(["pending", "sent", "failed", "skipped_no_consent", "cancelled"]);
 /** Delivery history row. No identifiers, no payload: only what is needed to see status and the failure code. */
 export const CapiEventDto = z.object({
   id: Uuid, datasetId: Uuid, eventName: CapiEventName, eventId: z.string(), eventTime: z.string(), status: CapiEventStatus, attempts: z.number().int(),
