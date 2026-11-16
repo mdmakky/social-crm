@@ -161,3 +161,6 @@ Next phase: Meta Inbox. Slice 1 (schema, RLS, per-user unread) merged to `main` 
 **Phase 6 progress, OpenRouter gateway slice A (2026-11-17, `feat/openrouter-gateway`, local only):** OpenRouter as a provider with error mapping, retry hints, cost reconciliation and a model browser. UNVERIFIED against the live service. Slice B is below.
 
 **Phase 6 progress, OpenRouter slice B (2026-11-17, `feat/openrouter-streaming-tools`, local only):** streamed reply suggestion (SSE, Stop), native tool calling for agents, `response_format` structured output, all gated by the stored model flags with fallbacks. UNVERIFIED against the live service. Next: record the opt-in smoke checks against a real key, then routing preferences and BYOK.
+
+## Update 2026-11-17: invitations (FR-46 done)
+FR-46 (invitations by email, accept, resend, revoke; Mailer optional) is built on branch `feat/invitations` (migration 0035, D210 to D219). Delivery is link-based; email only with a configured mailer (known-limitations). Not merged or deployed.

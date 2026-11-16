@@ -50,7 +50,7 @@ beforeAll(async () => {
   app = createApp(auth, { allowedOrigins: [ORIGIN], db, invitations: { mailer } });
   appNoMail = createApp(auth, { allowedOrigins: [ORIGIN], db });
   limited = createApp(auth, { allowedOrigins: [ORIGIN], db, invitations: { limits: { createPerUser: 2, previewPerIp: 3, acceptPerUser: 2 } } });
-  [owner, adminU, agent, viewer, outsider, ownerB] = await Promise.all(["owner", "adm", "agent", "viewer", "outsider", "ownerb"].map((l) => register(l)));
+  [owner, adminU, agent, viewer, outsider, ownerB] = (await Promise.all(["owner", "adm", "agent", "viewer", "outsider", "ownerb"].map((l) => register(l)))) as [U, U, U, U, U, U];
   ws = (await (await call(app, "POST", "/v1/workspaces", owner.cookie, { name: "Invite Co" })).json()).id;
   wsB = (await (await call(app, "POST", "/v1/workspaces", ownerB.cookie, { name: "Other Co" })).json()).id;
   await addMember(ws, adminU.id, "admin");
