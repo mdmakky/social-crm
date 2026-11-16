@@ -53,12 +53,20 @@ export const MOCK_OPENROUTER_MODELS = {
 /** OPENROUTER_MOCK=1 only: the mock provider under the `openrouter` id, with labelled output, a routed model and a reported cost. Offline, deterministic. */
 export function mockOpenRouterProvider(): AiProvider {
   const base = createMockProvider();
-  return {
+  const provider: AiProvider = {
     ...base, id: "openrouter",
     async generate(req) {
       const g = await base.generate(req);
       return { ...g, text: g.text.replace("[MOCK DRAFT]", "[MOCK OPENROUTER DRAFT]"), usage: { ...g.usage, reportedCostMicro: 1 }, routedModel: req.model };
     },
+    /** Same labelled text, streamed in 8-character chunks, with the reported cost and routed model on the final events. */
+    async *generateStream(req) {
+      const g = await provider.generate(req);
+      for (let i = 0; i < g.text.length; i += 8) { if (req.signal?.aborted) return; yield { type: "delta", text: g.text.slice(i, i + 8) }; await new Promise((r) => setTimeout(r, 25)); }
+      yield { type: "usage", ...g.usage };
+      yield { type: "done", finishReason: "stop", routedModel: g.routedModel };
+    },
   };
+  return provider;
 }
 export const mockModelsFetch =(async () => new Response(JSON.stringify(MOCK_OPENROUTER_MODELS), { status: 200, headers: { "content-type": "application/json" } })) as unknown as typeof fetch;
