@@ -11,3 +11,5 @@ export * from "./inbox.ts";
 export * from "./automation.ts";
 // --- track:capi ---
 export * from "./capi.ts";
+// --- track:ai ---
+export * from "./ai.ts";

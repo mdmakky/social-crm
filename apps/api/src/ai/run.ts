@@ -1,0 +1,142 @@
+import { sql } from "drizzle-orm";
+import { AiError, costMicro, fingerprint, getProvider, priceOf, promptDef, providerDef, renderTemplate, safeError, TemplateError, type AiProvider, type PriceOverrides } from "@crm/ai";
+import { schema, withContext, type Db, type Tx } from "@crm/db";
+import type { SecretBox } from "@crm/integrations";
+
+export type AiDeps = {
+  /** crm_worker connection: reads the sealed key and appends runs. The app role can do neither. */
+  workerDb: Db;
+  box: SecretBox;
+  /** Tests inject a fake provider. Production resolves from the registry. */
+  providerFor?: (id: string, o: { baseUrl?: string; timeoutMs: number }) => AiProvider;
+  sleep?: (ms: number) => Promise<void>;
+  now?: () => number;
+  timeoutMs?: number;
+  /** Extra tries after the first, for rate_limit and timeout only. */
+  maxRetries?: number;
+  backoffMs?: number;
+};
+
+export type RunInput = {
+  workspaceId: string;
+  userId: string;
+  capability: string;
+  promptKey: string;
+  vars: Record<string, string>;
+  /** The data the model works on (for example the conversation). It is sent, never stored. */
+  input: string;
+  entity?: { type: string; id: string };
+  maxOutputTokens?: number;
+};
+export type RunFailure = "not_configured" | "budget_exceeded" | "rate_limit" | "timeout" | "auth" | "invalid_request" | "provider_error" | "template_invalid" | "key_unavailable";
+export type RunResult =
+  | { ok: true; text: string; runId: string; provider: string; model: string; mock: boolean }
+  | { ok: false; code: RunFailure; runId?: string };
+
+const rowsOf = (r: unknown) => (r as { rows: Record<string, unknown>[] }).rows;
+const monthStart = (ms: number) => { const d = new Date(ms); return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1)); };
+const RETRYABLE = new Set(["rate_limit", "timeout"]);
+
+type Prepared =
+  | { kind: "stop"; result: RunResult }
+  | { kind: "go"; provider: string; model: string; baseUrl: string | null; price: { inputMicroPer1M: number; outputMicroPer1M: number }; promptVersion: number; template: string; key: string | null; mock: boolean };
+
+type RunRow = { provider: string; model: string; status: "ok" | "error" | "blocked_budget"; promptVersion: number; inputTokens?: number; outputTokens?: number; costMicro?: number; latencyMs?: number; attempts?: number; errorCode?: string; inputHash?: string; summary?: string };
+
+async function record(tx: Tx, r: RunInput, row: RunRow): Promise<string> {
+  const [x] = await tx.insert(schema.aiRuns).values({
+    workspaceId: r.workspaceId, capability: r.capability, provider: row.provider, model: row.model, promptKey: r.promptKey, promptVersion: row.promptVersion, status: row.status,
+    inputTokens: row.inputTokens ?? 0, outputTokens: row.outputTokens ?? 0, costMicro: row.costMicro ?? 0, latencyMs: row.latencyMs ?? 0, attempts: row.attempts ?? 0, errorCode: row.errorCode ?? null,
+    requestedBy: r.userId, entityType: r.entity?.type ?? null, entityId: r.entity?.id ?? null, inputHash: row.inputHash ?? null, summary: row.summary ?? null,
+  }).returning({ id: schema.aiRuns.id });
+  return x!.id;
+}
+
+/**
+ * Runs one AI call for a workspace. Order matters:
+ *  1. ONE short transaction as crm_worker: config, sealed key, active prompt, budget and month usage. The hard stop is decided here; a blocked call is logged and the provider is NOT contacted.
+ *  2. The provider call, with NO transaction open, a timeout, and bounded retry (rate_limit and timeout only, exponential backoff).
+ *  3. A second short transaction appends the run (tokens, cost, latency). Prompts, replies and keys are never stored or logged.
+ * Soft edge: calls already in flight when the cap is crossed still finish, so spend can overshoot the cap by what is in flight.
+ */
+export async function runAi(deps: AiDeps, r: RunInput): Promise<RunResult> {
+  const now = deps.now ?? Date.now;
+  const ctx = { workspaceId: r.workspaceId, userId: r.userId };
+  const prep: Prepared = await withContext(deps.workerDb, ctx, async (tx): Promise<Prepared> => {
+    const cfg = rowsOf(await tx.execute(sql`SELECT id, provider, base_url, default_model, model_prices FROM ai_provider_configs WHERE workspace_id = ${r.workspaceId} AND is_default AND enabled`))[0];
+    const def = cfg ? providerDef(cfg.provider as string) : null;
+    if (!cfg || !def || !cfg.default_model) return { kind: "stop", result: { ok: false, code: "not_configured" } };
+    const provider = cfg.provider as string;
+    const model = cfg.default_model as string;
+    const price = priceOf(provider, model, cfg.model_prices as PriceOverrides);
+    if (!price) return { kind: "stop", result: { ok: false, code: "not_configured" } };
+    const pr = rowsOf(await tx.execute(sql`SELECT version, template FROM ai_prompts WHERE workspace_id = ${r.workspaceId} AND key = ${r.promptKey} AND active`))[0];
+    const builtin = promptDef(r.promptKey);
+    if (!pr && !builtin) return { kind: "stop", result: { ok: false, code: "not_configured" } };
+    const promptVersion = pr ? Number(pr.version) : 0;
+    const template = pr ? (pr.template as string) : builtin!.defaultTemplate;
+
+    const b = rowsOf(await tx.execute(sql`SELECT monthly_cap_micro, hard_stop FROM ai_budgets WHERE workspace_id = ${r.workspaceId}`))[0];
+    if (b && b.hard_stop && b.monthly_cap_micro !== null) {
+      const used = rowsOf(await tx.execute(sql`SELECT coalesce(sum(cost_micro), 0)::bigint AS used FROM ai_runs WHERE workspace_id = ${r.workspaceId} AND created_at >= ${monthStart(now()).toISOString()}::timestamptz`))[0]!;
+      if (BigInt(used.used as string | number) >= BigInt(b.monthly_cap_micro as string | number)) {
+        const runId = await record(tx, r, { provider, model, status: "blocked_budget", promptVersion, errorCode: "budget_exceeded" });
+        return { kind: "stop", result: { ok: false, code: "budget_exceeded", runId } };
+      }
+    }
+    let key: string | null = null;
+    if (!def.mock) {
+      const s = rowsOf(await tx.execute(sql`SELECT ciphertext, nonce, key_id FROM ai_provider_secrets WHERE workspace_id = ${r.workspaceId} AND config_id = ${cfg.id as string} ORDER BY id DESC LIMIT 1`))[0];
+      try {
+        if (!s) throw new Error("no key");
+        key = deps.box.open({ ciphertext: s.ciphertext as Buffer, nonce: s.nonce as Buffer, keyId: s.key_id as string }, cfg.id as string);
+      } catch {
+        const runId = await record(tx, r, { provider, model, status: "error", promptVersion, errorCode: "key_unavailable" });
+        return { kind: "stop", result: { ok: false, code: "key_unavailable", runId } };
+      }
+    }
+    return { kind: "go", provider, model, baseUrl: (cfg.base_url as string | null) ?? null, price, promptVersion, template, key, mock: def.mock };
+  });
+  if (prep.kind === "stop") return prep.result;
+
+  const base = { provider: prep.provider, model: prep.model, promptVersion: prep.promptVersion };
+  let system: string;
+  try {
+    system = renderTemplate(prep.template, r.vars);
+  } catch (e) {
+    const runId = await withContext(deps.workerDb, ctx, (tx) => record(tx, r, { ...base, status: "error", errorCode: e instanceof TemplateError ? "template_invalid" : "template_error" }));
+    return { ok: false, code: "template_invalid", runId };
+  }
+  const inputHash = fingerprint(system + "\n" + r.input);
+  const summary = `in ${system.length + r.input.length} chars`;
+  const timeoutMs = deps.timeoutMs ?? 30_000;
+  const adapter = (deps.providerFor ?? ((id, o) => getProvider(id, o)))(prep.provider, { baseUrl: prep.baseUrl ?? undefined, timeoutMs });
+
+  const t0 = now();
+  const maxRetries = deps.maxRetries ?? 2;
+  let attempts = 0;
+  let outcome: { ok: true; text: string; inputTokens: number; outputTokens: number } | { ok: false; code: string } | null = null;
+  while (outcome === null) {
+    attempts++;
+    try {
+      const g = await adapter.generate({ apiKey: prep.key ?? "", model: prep.model, maxOutputTokens: r.maxOutputTokens ?? 400, temperature: 0.4, messages: [{ role: "system", content: system }, { role: "user", content: r.input }] });
+      outcome = { ok: true, text: g.text, inputTokens: g.usage.inputTokens, outputTokens: g.usage.outputTokens };
+    } catch (e) {
+      const code = e instanceof AiError ? e.code : "provider_error";
+      if (RETRYABLE.has(code) && attempts <= maxRetries) { await (deps.sleep ?? ((ms) => new Promise((res) => setTimeout(res, ms))))((deps.backoffMs ?? 500) * 2 ** (attempts - 1)); continue; }
+      outcome = { ok: false, code };
+    }
+  }
+  const latencyMs = Math.max(0, now() - t0);
+
+  let runId: string | undefined;
+  try {
+    runId = await withContext(deps.workerDb, ctx, (tx) => record(tx, r, outcome.ok
+      ? { ...base, status: "ok", inputTokens: outcome.inputTokens, outputTokens: outcome.outputTokens, costMicro: costMicro(prep.price, outcome), latencyMs, attempts, inputHash, summary: `${summary}, out ${outcome.text.length} chars` }
+      : { ...base, status: "error", latencyMs, attempts, errorCode: outcome.code, inputHash, summary }));
+  } catch (e) {
+    console.error(JSON.stringify({ msg: "ai run record failed", error: safeError(e) }));
+  }
+  if (!outcome.ok) return { ok: false, code: outcome.code as RunFailure, runId };
+  return { ok: true, text: outcome.text, runId: runId ?? "", provider: prep.provider, model: prep.model, mock: prep.mock };
+}

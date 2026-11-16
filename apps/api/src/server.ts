@@ -10,6 +10,7 @@ import { automationConsumer, processRuns } from "./automation/engine.ts";
 import { metaWebhookRoutes } from "./inbox/webhook.ts";
 import { startInboxWorker } from "./inbox/process.ts";
 import { createMockAdapter } from "@crm/capi"; // track:capi
+import type { AiDeps } from "./ai/run.ts"; // track:ai
 import { startCapiWorker } from "./capi/worker.ts"; // track:capi
 import { recoverStuckSends } from "./inbox/send.ts";
 import { createShutdown } from "./shutdown.ts";
@@ -81,7 +82,9 @@ if (workerDb && env.SECRETS_ENCRYPTION_KEY && env.META_APP_SECRET && ((env.META_
 }
 let ingestDb: ReturnType<typeof createDb> | null = null;
 let inboxWorker: ReturnType<typeof startInboxWorker> | null = null; // assigned below; ingress signals it after it stores an event
-const app = createApp(auth, { allowedOrigins: origins, db, meta });
+// AI runs as crm_worker with the sealed provider key; without the worker URL and the encryption key AI stays off (the settings page says so).
+const ai: AiDeps | undefined = workerDb && env.SECRETS_ENCRYPTION_KEY ? { workerDb, box: createSecretBox({ [env.SECRETS_KEY_ID]: env.SECRETS_ENCRYPTION_KEY }, env.SECRETS_KEY_ID) } : undefined;
+const app = createApp(auth, { allowedOrigins: origins, db, meta, ai });
 if (meta && workerDb && env.META_APP_SECRET) {
   app.route("/meta/callbacks", metaUserCallbackRoutes({ appSecrets: [env.META_APP_SECRET, ...(env.META_APP_SECRET_PREVIOUS ? [env.META_APP_SECRET_PREVIOUS] : [])], workerDb, userHashKey: meta.userHashKey, statusKey: createHmac("sha256", env.META_APP_SECRET).update("crm-deletion-status-v1").digest(), publicBaseUrl: env.META_PUBLIC_BASE_URL }));
 }
