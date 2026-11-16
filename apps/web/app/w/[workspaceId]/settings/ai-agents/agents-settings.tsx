@@ -34,7 +34,7 @@ export function AgentsSettings({ workspaceId }: { workspaceId: string }) {
   return <ToastProvider><Inner workspaceId={workspaceId} /></ToastProvider>;
 }
 
-type Data = { agents: AgentDto[]; activeCount: number; maxActive: number; tools: AgentToolDto[]; models: { id: string; label: string; provider: string }[]; contacts: ContactSummary[] };
+type Data = { agents: AgentDto[]; activeCount: number; maxActive: number; tools: AgentToolDto[]; models: { id: string; label: string; provider: string; supports?: { tools: boolean; structuredOutput: boolean } }[]; defaultKey: string | null; contacts: ContactSummary[] };
 
 function Inner({ workspaceId }: { workspaceId: string }) {
   const params = { workspaceId };
@@ -52,7 +52,7 @@ function Inner({ workspaceId }: { workspaceId: string }) {
     if (bad && !bad.ok) { setLoadError(errorMessage(bad.error)); return; }
     if (l.ok && t.ok && p.ok && c.ok) {
       setLoadError(null);
-      setData({ agents: l.data.items, activeCount: l.data.activeCount, maxActive: l.data.maxActive, tools: t.data.items, contacts: c.data.items, models: p.data.items.filter((x: AiProviderDto) => x.configured && x.enabled).flatMap((x: AiProviderDto) => x.models.map((m) => ({ id: m.id, label: `${m.label} (${x.label})`, provider: x.id }))) });
+      setData({ agents: l.data.items, activeCount: l.data.activeCount, maxActive: l.data.maxActive, tools: t.data.items, contacts: c.data.items, models: p.data.items.filter((x: AiProviderDto) => x.configured && x.enabled).flatMap((x: AiProviderDto) => x.models.map((m) => ({ id: m.id, label: `${m.label} (${x.label})`, provider: x.id, supports: m.supports }))), defaultKey: ((d) => (d?.defaultModel ? `${d.id}|${d.defaultModel}` : null))(p.data.items.find((x: AiProviderDto) => x.configured && x.enabled && x.isDefault)) });
     }
   }, [workspaceId]);
   React.useEffect(() => { void load(); }, [load]); // eslint-disable-line react-hooks/set-state-in-effect
@@ -96,6 +96,31 @@ function formOf(a: AgentDto | null): Form {
   const v = a?.versions.find((x) => x.id === a.activeVersionId) ?? a?.versions[0];
   if (!a || !v) return emptyForm();
   return { name: a.name, description: a.description, instructions: v.instructions, personality: v.personality, language: v.language, responseStyle: v.responseStyle, model: v.model ? `${v.provider ?? ""}|${v.model}` : "", temperature: String(v.temperature), grants: Object.fromEntries(v.toolGrants.map((g) => [g.tool, g.mode])) };
+}
+
+/**
+ * How this agent will ask the chosen model, from the capabilities stored when the model was enabled (OpenRouter `supported_parameters`; UNVERIFIED for any other provider, which stores none).
+ * Native tool calls need a granted tool and a model that takes tools; otherwise the JSON-in-text protocol is used, and structured output (response_format) is added only where supported. Answers are validated the same way in every case.
+ */
+function ModelCaps({ data, model, hasTools }: { data: Data; model: string; hasTools: boolean }) {
+  const key = model || data.defaultKey;
+  const m = key ? data.models.find((x) => `${x.provider}|${x.id}` === key) : undefined;
+  const tools = m?.supports?.tools === true, structured = m?.supports?.structuredOutput === true;
+  const native = hasTools && tools;
+  return (
+    <div className="flex flex-col gap-1.5 sm:col-span-2" data-testid="model-caps">
+      <div className="flex flex-wrap items-center gap-2 text-xs text-fg-muted">
+        <span className="font-medium text-fg">This model will use:</span>
+        <Badge tone={native ? "success" : "neutral"}>{native ? "Native tool calls" : "JSON tool protocol"}</Badge>
+        <Badge tone={!native && structured ? "success" : "neutral"}>{!native && structured ? "Structured output" : "Prompt-based JSON"}</Badge>
+      </div>
+      <p className="text-xs text-fg-subtle">
+        {!m ? "Choose a model, or connect a provider, to see this." : native ? "The model calls tools through the provider's tool-call format. Grants, approvals and the 3-action limit apply exactly as before."
+          : hasTools && !tools ? "This model does not advertise tool calling, so the agent asks it for a JSON answer and validates it. Grants and approvals are unchanged."
+          : structured ? "No tools are turned on, so the reply is requested as structured JSON and still validated." : "The agent asks for a JSON answer in the prompt and validates it. Capabilities are only known for OpenRouter models."}
+      </p>
+    </div>
+  );
 }
 
 function Editor({ params, data, agent, onSaved, onClose, onActions }: P & { data: Data; agent: AgentDto | null; onSaved: (id: string) => Promise<void>; onClose: () => void; onActions: () => void }) {
@@ -165,6 +190,7 @@ function Editor({ params, data, agent, onSaved, onClose, onActions }: P & { data
                 {data.models.map((m) => <option key={`${m.provider}|${m.id}`} value={`${m.provider}|${m.id}`}>{m.label}</option>)}
               </Select>
             )}</Field>
+            <ModelCaps data={data} model={f.model} hasTools={Object.values(f.grants).some((m) => m !== "off")} />
             {!STYLES.includes(f.responseStyle) && <Field label="Custom style">{(p) => <Input {...p} value={f.responseStyle} maxLength={60} disabled={busy !== null} onChange={(e) => set({ responseStyle: e.target.value })} />}</Field>}
             <Field label="Creativity (0 to 1)" hint="Lower is more predictable.">{(p) => <Input {...p} inputMode="decimal" value={f.temperature} disabled={busy !== null} onChange={(e) => set({ temperature: e.target.value })} />}</Field>
           </div>
@@ -282,7 +308,7 @@ function TestPanel({ params, agent, contacts, onActions }: P & { agent: AgentDto
               ))}
             </ul>
           )}
-          <p className="text-xs text-fg-subtle">Version {res.agentVersion} · {res.model} · {res.usage.inputTokens} in / {res.usage.outputTokens} out tokens · cost {formatMicro(res.usage.costMicro)} USD</p>
+          <p className="text-xs text-fg-subtle">Version {res.agentVersion} · {res.model}{res.via ? ` · ${res.via === "native_tools" ? "native tool calls" : res.via === "json_schema" ? "structured output" : "JSON in text"}` : ""} ·{res.usage.inputTokens} in / {res.usage.outputTokens} out tokens · cost {formatMicro(res.usage.costMicro)} USD</p>
         </div>
       )}
     </Panel>

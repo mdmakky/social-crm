@@ -1,7 +1,7 @@
 "use client";
 import * as React from "react";
 import Link from "next/link";
-import { ArrowDown, Check, ChevronLeft, Copy, MoreHorizontal, PanelRight, Send, Sparkles, X } from "lucide-react";
+import { ArrowDown, Check, ChevronLeft, Copy, MoreHorizontal, PanelRight, Send, Sparkles, Square, X } from "lucide-react";
 import { endpoints, MAX_REPLY_LENGTH, type AttachmentDto, type ConversationDetail, type MessageDto, type UpdateConversationBody } from "@crm/contracts";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,7 @@ import { Alert, ErrorState } from "@/components/ui/states";
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/cn";
 import { browserApi, errorMessage } from "@/lib/client-api";
+import { streamSuggestion } from "@/lib/ai-stream";
 import { continuesRun, dayLabel, isSendKey, relTime, replyUsage, sameDay, useNow, windowMinutesLeft } from "@/lib/inbox";
 import { notifyInboxChanged, useInbox } from "./context";
 import { Attachments, ChannelBadge, DeliveryStatus } from "./parts";
@@ -24,6 +25,8 @@ import { StageControl, useContactLead } from "./stage";
 const PAGE = 50;
 const POLL_MS = 10_000;
 const byId = (a: MessageDto, b: MessageDto) => a.seq - b.seq;
+/** AI failures the person can fix (settings, credits, content): shown as a warning, not an error. */
+const AI_WARNING = new Set(["budget_exceeded", "ai_not_configured", "payment_required", "blocked"]);
 const hhmm = (iso: string) => new Date(iso).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
 
 const subscribeLg = (cb: () => void) => { const m = window.matchMedia("(min-width: 1024px)"); m.addEventListener("change", cb); return () => m.removeEventListener("change", cb); };
@@ -180,25 +183,53 @@ export function Thread({ conversationId }: { conversationId: string }) {
   const inFlight = React.useRef(false);
   const composerRef = React.useRef<HTMLTextAreaElement>(null);
   // AI suggestion (draft only): the text lands in the composer, marked as an AI draft. Nothing is sent until the person presses Send.
-  const [suggesting, setSuggesting] = React.useState(false);
+  // The draft streams into the composer as it arrives: "connecting" (request sent, nothing yet), "streaming" (text arriving), then idle. Stop aborts the request and keeps what arrived (editable).
+  const [suggestPhase, setSuggestPhase] = React.useState<"idle" | "connecting" | "streaming">("idle");
+  const suggesting = suggestPhase !== "idle";
+  const suggestAbort = React.useRef<AbortController | null>(null);
   const [aiDraft, setAiDraft] = React.useState<{ mock: boolean } | null>(null);
   const [aiProblem, setAiProblem] = React.useState<{ tone: "warning" | "error"; text: string } | null>(null);
+  React.useEffect(() => () => suggestAbort.current?.abort(), []); // leaving the conversation stops the stream (and the provider call)
+  const fitComposer = () => requestAnimationFrame(() => { const t = composerRef.current; if (t) { t.style.height = "auto"; t.style.height = `${Math.min(t.scrollHeight, 160)}px`; } });
   async function suggest() {
     if (suggesting) return;
     if (draft.trim() && !window.confirm("Replace what you have written with an AI draft?")) return;
-    setSuggesting(true); setAiProblem(null);
-    const r = await browserApi.call(endpoints.suggestReply, { params: { workspaceId, conversationId } });
-    setSuggesting(false);
-    if (!r.ok) {
-      const blocked = r.error.code === "budget_exceeded" || r.error.code === "ai_not_configured";
-      setAiProblem({ tone: blocked ? "warning" : "error", text: r.error.code === "forbidden" ? "You don't have permission to use AI suggestions." : errorMessage(r.error) });
+    const previous = draft;
+    const ac = new AbortController();
+    suggestAbort.current = ac;
+    setSuggestPhase("connecting"); setAiProblem(null);
+    const r = await streamSuggestion(workspaceId, conversationId, {
+      signal: ac.signal,
+      onDelta: (t) => { setSuggestPhase("streaming"); setDraft(t); setAiDraft((a) => a ?? { mock: false }); clientId.current = null; fitComposer(); },
+    });
+    suggestAbort.current = null;
+    if ("fallback" in r) {
+      // The stream route is not available: the same draft through the plain endpoint, shown all at once.
+      const j = await browserApi.call(endpoints.suggestReply, { params: { workspaceId, conversationId } });
+      setSuggestPhase("idle");
+      if (!j.ok) { setAiProblem({ tone: AI_WARNING.has(j.error.code) ? "warning" : "error", text: j.error.code === "forbidden" ? "You don't have permission to use AI suggestions." : errorMessage(j.error) }); return; }
+      setDraft(j.data.draft); setAiDraft({ mock: j.data.mock }); clientId.current = null;
+      setAnnounce("AI draft added to the reply box. Review and edit it before sending.");
+      requestAnimationFrame(() => { composerRef.current?.focus(); fitComposer(); });
       return;
     }
-    setDraft(r.data.draft);
-    setAiDraft({ mock: r.data.mock });
-    clientId.current = null; // a new text is a new message
-    setAnnounce("AI draft added to the reply box. Review and edit it before sending.");
-    requestAnimationFrame(() => { const t = composerRef.current; if (t) { t.focus(); t.style.height = "auto"; t.style.height = `${Math.min(t.scrollHeight, 160)}px`; } });
+    setSuggestPhase("idle");
+    if (r.ok) {
+      setDraft(r.text); setAiDraft({ mock: r.mock });
+      setAnnounce("AI draft added to the reply box. Review and edit it before sending."); // once, at the end: not per chunk
+      requestAnimationFrame(() => { composerRef.current?.focus(); fitComposer(); });
+      return;
+    }
+    if ("aborted" in r) {
+      if (r.text) { setAnnounce("Stopped. The part of the draft that arrived is in the reply box."); } else { setDraft(previous); setAiDraft(null); setAnnounce("Stopped."); }
+      requestAnimationFrame(() => composerRef.current?.focus());
+      return;
+    }
+    // A failure after some text arrived keeps nothing half-written: restore what the person had.
+    setDraft(previous); setAiDraft(null);
+    setAiProblem({ tone: AI_WARNING.has(r.code) ? "warning" : "error", text: r.code === "forbidden" ? "You don't have permission to use AI suggestions." : r.status === 429 && r.code === "rate_limited" ? "Too many suggestions. Try again in a minute." : r.message });
+    setAnnounce("The AI suggestion could not be completed.");
+    fitComposer();
   }
   const merge =(msg: MessageDto) => {
     setMsgs((old) => { const map = new Map(old.map((x) => [x.id, x])); map.set(msg.id, msg); return [...map.values()].sort(byId); });
@@ -339,11 +370,11 @@ export function Thread({ conversationId }: { conversationId: string }) {
               {left !== null && left < 120 && <Alert tone="warning" className="mb-2">The 24-hour reply window closes in {Math.floor(left / 60)} h {left % 60} min. After that you can&apos;t reply until {name} writes again.</Alert>}
               {left !== null && left >= 120 && <p className="mb-1.5 flex items-center gap-2 px-1 text-xs text-fg-subtle"><Badge tone="success">Reply window open</Badge>You can reply for {Math.floor(left / 60)} more hours.</p>}
               <form onSubmit={(e) => { e.preventDefault(); void submit(); }} className={cn("rounded-xl border border-line-strong bg-surface transition-[border-color,box-shadow] duration-[var(--dur-fast)] focus-within:border-accent focus-within:ring-[3px] focus-within:ring-accent/20", !canType && "bg-hover")}>
-                {aiDraft && (
+                {(aiDraft || suggesting) && (
                   <div className="flex items-center gap-2 px-3 pt-2.5 text-xs text-fg-muted">
-                    <Badge tone="accent"><Sparkles className="size-3" aria-hidden />AI draft{aiDraft.mock ? " (mock)" : ""}</Badge>
-                    <span className="min-w-0 flex-1">Review and edit before sending. Nothing is sent automatically.</span>
-                    <button type="button" onClick={() => { setAiDraft(null); setDraft(""); }} className="rounded px-1.5 py-0.5 text-fg-muted underline-offset-2 hover:text-fg hover:underline focus-visible:outline-2" aria-label="Discard AI draft">Discard</button>
+                    <Badge tone="accent"><Sparkles className="size-3" aria-hidden />AI draft{aiDraft?.mock ? " (mock)" : ""}</Badge>
+                    <span className="min-w-0 flex-1" data-testid="ai-draft-status">{suggestPhase === "connecting" ? "Connecting to the AI provider…" : suggestPhase === "streaming" ? "Writing a draft… You can stop at any time." : "Review and edit before sending. Nothing is sent automatically."}</span>
+                    {!suggesting && <button type="button" onClick={() => { setAiDraft(null); setDraft(""); }} className="rounded px-1.5 py-0.5 text-fg-muted underline-offset-2 hover:text-fg hover:underline focus-visible:outline-2" aria-label="Discard AI draft">Discard</button>}
                   </div>
                 )}
                 <UploadList uploads={uploads} notice={pickNotice} />
@@ -355,15 +386,18 @@ export function Thread({ conversationId }: { conversationId: string }) {
                   onChange={(e) => { setDraft(e.target.value); if (e.target.value === "") setAiDraft(null); const t = e.currentTarget; t.style.height = "auto"; t.style.height = `${Math.min(t.scrollHeight, 160)}px`; }}
                   onKeyDown={(e) => { if (isSendKey({ key: e.key, shiftKey: e.shiftKey, altKey: e.altKey, isComposing: e.nativeEvent.isComposing })) { e.preventDefault(); void submit(); } }}
                   disabled={!canType}
+                  readOnly={suggesting}
                   placeholder={canType ? "Write a reply" : "Replies are unavailable for this conversation"}
                   className="min-h-14 resize-none rounded-xl border-0 bg-transparent px-4 pt-3 shadow-none hover:border-0 focus-visible:ring-0"
                   rows={2}
                 />
                 <div className="flex items-center gap-2 px-3 pb-2.5">
                   <AttachControls uploads={uploads} platform={detail.platform} storageConfigured={att?.storageConfigured ?? false} disabled={!canType || submitting} />
-                  <Button type="button" size="sm" loading={suggesting} disabled={!canType || submitting} onClick={() => void suggest()} aria-label="Suggest reply with AI"><Sparkles aria-hidden />Suggest reply</Button>
+                  {suggesting
+                    ? <Button type="button" size="sm" onClick={() => suggestAbort.current?.abort()} aria-label="Stop AI suggestion"><Square aria-hidden />Stop</Button>
+                    : <Button type="button" size="sm" disabled={!canType || submitting} onClick={() => void suggest()} aria-label="Suggest reply with AI"><Sparkles aria-hidden />Suggest reply</Button>}
                   <p id="composer-hint" className="min-w-0 flex-1 text-xs text-fg-subtle max-sm:sr-only">Enter to send, Shift+Enter for a new line.{usage.used > usage.max * 0.8 ? ` ${usage.used}/${usage.max} ${usage.unit}` : ""}{usage.over ? <span className="text-danger-fg"> Too long for {detail.platform === "instagram" ? "Instagram" : detail.platform === "whatsapp" ? "WhatsApp" : "Messenger"}: shorten it to send.</span> : null}</p>
-                  <Button type="submit" variant="primary" loading={submitting} disabled={!canType || (draft.trim() === "" && uploads.ready.length === 0) || uploads.busy || usage.over}><Send aria-hidden />Send</Button>
+                  <Button type="submit" variant="primary" loading={submitting} disabled={!canType || suggesting || (draft.trim() === "" && uploads.ready.length === 0) || uploads.busy || usage.over}><Send aria-hidden />Send</Button>
                 </div>
               </form>
               {aiProblem && <Alert tone={aiProblem.tone} className="mt-2">{aiProblem.text}</Alert>}
