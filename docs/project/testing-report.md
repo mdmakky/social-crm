@@ -125,3 +125,6 @@ Mock Graph only; no real Meta request. Playwright `e2e/integrations.spec.ts` on 
 
 ### WhatsApp slice 2 final review (2026-11-16)
 New API tests: no Graph call while a worker transaction is open (counting Proxy on the worker db; WhatsApp and Messenger paths: connect, check-token, re-subscribe, disconnect), stale token check dropped after a reconnect, number held by another workspace (flag, no identity leak, 409 message, reservation survives disconnect). Verified the three transaction tests FAIL on the previous code and pass now. Playwright adds the unavailable-number case.
+
+### WhatsApp slice 3, outbound text (2026-11-16)
+Mock Graph only; no real Meta request. Private DB `wa_send`. `apps/api/test/whatsapp-send.test.ts` 7/7 (send to wa_id from phone number id, no text or token in attempt/audit, concurrent client-id repeat sends once, window open/closed/none/edge, not-connected 409, timeout UNKNOWN and refusal failed, viewer 403 and cross-tenant 404, delivered status moves watermark); `whatsapp.test.ts` and `send.test.ts` still pass; `packages/integrations` send tests 12/12 (+2 WhatsApp request shape); web `inbox.test.ts` 14/14; lint, typecheck and `next build` clean. Playwright not run.

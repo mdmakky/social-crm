@@ -129,3 +129,9 @@ Updated: 2026-11-13 (Phase 0).
 - Token expiry options of system user tokens are not documented; an expired token shows as "Reconnect needed" after the daily token check. The connect and lookup routes are rate limited in process only (per API instance; a shared store is needed before running more than one instance).
 - Number release: a disconnected number is reserved to its old workspace and WABA. Safe release needs an ops script run as the DB owner (delete side row, secrets and account of a `disabled` account with no conversations); in-app release would need a DELETE grant and a migration. Not built.
 - `/numbers` marks a number held by another workspace "unavailable" (advisory; `/connect` stays authoritative, 409). The UI does not show the WABA id of a connected number.
+
+## WhatsApp, slice 3: outbound text (2026-11-16, branch feat/whatsapp-send)
+- NEVER run against real Meta: the send request and the `messages[0].id` response are UNVERIFIED (mock and fake-fetch tests only).
+- Text only, inside the 24 h window. No templates, media, buttons or reactions; after 24 h the composer is disabled until the customer writes again.
+- WhatsApp `sent` and `failed` statuses are not applied to the message (only `delivered`/`read` watermarks). A `failed` status after an accepted send is therefore not shown; WhatsApp-specific error codes (131xxx) are not mapped and show a generic failure line.
+- `window_closed` is 422 for WhatsApp but 409 for Messenger/Instagram (kept for existing clients).

@@ -254,7 +254,7 @@ describe("worker: delivery statuses", () => {
 });
 
 describe("the other channels and the API surface", () => {
-  it("shows a WhatsApp conversation in the inbox API, refuses replies with a clear error, and Messenger and Instagram bodies still take their own path", async () => {
+  it("shows a WhatsApp conversation in the inbox API, and Messenger and Instagram bodies still take their own path", async () => {
     const a = await waAccount(ws);
     const from = digits();
     await post(msg(a.phone, from, "can you reply?"));
@@ -264,9 +264,6 @@ describe("the other channels and the API surface", () => {
     expect(list.status).toBe(200);
     const items = (await list.json()).items as { id: string; platform: string }[];
     expect(items.find((i) => i.id === c.id)?.platform).toBe("whatsapp");
-    const send = await h.app.request(`/v1/workspaces/${ws}/conversations/${c.id}/messages`, { method: "POST", headers: { cookie: owner.cookie, origin: "http://localhost:3000", "content-type": "application/json" }, body: JSON.stringify({ body: "hello", clientMsgId: crypto.randomUUID() }) });
-    expect(send.status).toBe(422);
-    expect((await send.json()).error?.code ?? "unsupported_channel").toBe("unsupported_channel");
     expect(await q("SELECT 1 FROM messages WHERE conversation_id = $1 AND direction = 'out'", [c.id])).toEqual([]);
 
     // a Messenger-shaped body on the WhatsApp path is still handled as Messenger (the channel comes from the signed `object`, as before)
