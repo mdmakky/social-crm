@@ -44,7 +44,7 @@ export function estimateMediaTokens(kind: MediaKind, bytes: number): number {
 export const estimateAudioSeconds = (bytes: number): number => Math.max(1, Math.ceil(bytes / 16_000));
 
 /** Runs one capability on a provider; a missing method, or a media kind that capability does not take, is `unsupported_capability`. */
-export async function invokeMedia(p: AiProvider, via: Capability, a: { apiKey: string; model: string; media: MediaInput; prompt: string; maxOutputTokens: number; language?: string }): Promise<{ text: string; usage: TokenUsage; durationSec?: number }> {
+export async function invokeMedia(p: AiProvider, via: Capability, a: { apiKey: string; model: string; media: MediaInput; prompt: string; maxOutputTokens: number; language?: string }): Promise<{ text: string; usage: TokenUsage; durationSec?: number; routedModel?: string }> {
   const { apiKey, model, media, prompt, maxOutputTokens } = a;
   if (via === "transcription") {
     if (!p.transcribe || media.kind !== "audio") throw new AiError("unsupported_capability");

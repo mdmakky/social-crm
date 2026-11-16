@@ -186,6 +186,8 @@ export function agentRoutes(db: Db, deps: AgentRouteDeps = {}) {
       case "not_configured": return fail(c, 409, "ai_not_configured", "No AI provider (or model) is set up for this agent. An owner or admin can add one in Settings, AI.");
       case "budget_exceeded": return fail(c, 409, "budget_exceeded", "The monthly AI budget is used up. An owner or admin can raise it in Settings, AI.");
       case "rate_limit": return fail(c, 429, "ai_busy", "The AI provider is busy. Try again in a moment.");
+      case "payment_required": return fail(c, 402, "payment_required", "The provider account is out of credits");
+      case "blocked": return fail(c, 422, "blocked", "The AI provider blocked this request (a guardrail or moderation rule). Change the content or the provider settings and try again.");
       case "auth": case "key_unavailable": return fail(c, 502, "ai_key_rejected", "The AI provider key was rejected or cannot be read. An owner or admin should check it in Settings, AI.");
       default: return fail(c, 502, "ai_unavailable", "The agent could not answer. Try again.");
     }

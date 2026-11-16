@@ -11,6 +11,8 @@ import { metaWebhookRoutes } from "./inbox/webhook.ts";
 import { startInboxWorker } from "./inbox/process.ts";
 import { createMockAdapter } from "@crm/capi"; // track:capi
 import type { AiDeps } from "./ai/run.ts"; // track:ai
+import { getProvider } from "@crm/ai"; // track:ai
+import { createModelBrowser, mockModelsFetch, mockOpenRouterProvider } from "./ai/openrouter-browser.ts"; // track:ai
 import { startCapiWorker } from "./capi/worker.ts"; // track:capi
 import { recoverStuckSends } from "./inbox/send.ts";
 import { createAttachmentRunner, DEFAULT_MEDIA_HOSTS, mockMediaNet, reconcileAttachments } from "./inbox/attachments.ts";
@@ -47,6 +49,10 @@ const env = z
     META_GRAPH_VERSION: z.string().regex(/^v[0-9]{2}\.0$/).default("v25.0"),
     META_OAUTH_REDIRECT_URI: z.string().url().optional(),
     META_MOCK: z.enum(["0", "1"]).default("0"),
+    // OpenRouter: optional attribution headers; OPENROUTER_MOCK=1 serves a fixed offline model list and a fake adapter (never the network; refused in production). No OpenRouter key lives in env: keys are per workspace.
+    OPENROUTER_REFERER: z.string().url().optional(),
+    OPENROUTER_TITLE: z.string().max(100).optional(),
+    OPENROUTER_MOCK: z.enum(["0", "1"]).default("0"),
     // Direct Instagram connection (Unified Login, no Facebook Page): the id of a Facebook Login for Business configuration marked "Instagram Login Compatible" (App Dashboard > Facebook Login for Business > Configurations), and its redirect URL.
     META_IG_CONFIG_ID: z.string().regex(/^[0-9]{5,30}$/).optional(),
     META_IG_OAUTH_REDIRECT_URI: z.string().url().optional(),
@@ -98,7 +104,12 @@ if (workerDb && env.SECRETS_ENCRYPTION_KEY && env.META_APP_SECRET && ((env.META_
 let ingestDb: ReturnType<typeof createDb> | null = null;
 let inboxWorker: ReturnType<typeof startInboxWorker> | null = null; // assigned below; ingress signals it after it stores an event
 // AI runs as crm_worker with the sealed provider key; without the worker URL and the encryption key AI stays off (the settings page says so).
-const ai: AiDeps | undefined = workerDb && env.SECRETS_ENCRYPTION_KEY ? { workerDb, box: createSecretBox({ [env.SECRETS_KEY_ID]: env.SECRETS_ENCRYPTION_KEY }, env.SECRETS_KEY_ID) } : undefined;
+if (env.NODE_ENV === "production" && env.OPENROUTER_MOCK === "1") throw new Error("OPENROUTER_MOCK is not allowed in production");
+const orMock = env.OPENROUTER_MOCK === "1";
+const ai: AiDeps | undefined = workerDb && env.SECRETS_ENCRYPTION_KEY ? {
+  workerDb, box: createSecretBox({ [env.SECRETS_KEY_ID]: env.SECRETS_ENCRYPTION_KEY }, env.SECRETS_KEY_ID), referer: env.OPENROUTER_REFERER, title: env.OPENROUTER_TITLE,
+  ...(orMock ? { providerFor: (id, o) => (id === "openrouter" ? mockOpenRouterProvider() : getProvider(id, o)) } : {}),
+} : undefined;
 const store = createBlobStore(env);
 const attachmentLimits = Object.fromEntries(([["image", env.ATTACHMENT_MAX_IMAGE_BYTES], ["audio", env.ATTACHMENT_MAX_AUDIO_BYTES], ["video", env.ATTACHMENT_MAX_VIDEO_BYTES], ["document", env.ATTACHMENT_MAX_DOCUMENT_BYTES]] as const).filter(([, v]) => v !== undefined));
 const attachments: AttachmentRouteDeps = { store, limits: attachmentLimits };
@@ -109,7 +120,7 @@ async function reconcileAll(w: NonNullable<typeof workerDb>, st: NonNullable<typ
   const ws = (await w.execute(sql`SELECT DISTINCT workspace_id FROM integration_accounts WHERE status <> 'disabled' LIMIT 500`)).rows as { workspace_id: string }[];
   for (const x of ws) await reconcileAttachments(w, st, x.workspace_id).catch(() => undefined);
 }
-const app = createApp(auth, { allowedOrigins: origins, db, meta, ai, attachments });
+const app = createApp(auth, { allowedOrigins: origins, db, meta, ai, attachments, openrouterBrowser: orMock ? createModelBrowser({ fetch: mockModelsFetch, mock: true }) : undefined });
 if (meta && workerDb && env.META_APP_SECRET) {
   app.route("/meta/callbacks", metaUserCallbackRoutes({ appSecrets: [env.META_APP_SECRET, ...(env.META_APP_SECRET_PREVIOUS ? [env.META_APP_SECRET_PREVIOUS] : [])], workerDb, userHashKey: meta.userHashKey, statusKey: createHmac("sha256", env.META_APP_SECRET).update("crm-deletion-status-v1").digest(), publicBaseUrl: env.META_PUBLIC_BASE_URL }));
 }

@@ -2,7 +2,14 @@ import type { ModelPrice } from "./cost.ts";
 import type { Capability } from "./types.ts";
 
 /** `capabilities` and `transcriptionMicroPerMinute` (integer micro-units per minute of audio) are catalog data, UNVERIFIED like the prices. */
-export type ModelInfo = ModelPrice & { provider: string; id: string; label: string; capabilities: readonly Capability[]; transcriptionMicroPerMinute?: number };
+export type ModelInfo = ModelPrice & { provider: string; id: string; label: string; capabilities: readonly Capability[]; transcriptionMicroPerMinute?: number; contextLength?: number; supports?: { tools: boolean; structuredOutput: boolean } };
+
+/**
+ * What a workspace stores per model id. Prices are always read from it. `capabilities`, `contextLength` and `supports` are honoured only for model ids ADDED by the workspace (not catalog ones),
+ * and the API only stores them for OpenRouter, after intersecting with the model list it fetched itself. Absent capabilities = text only.
+ */
+export type StoredModel = ModelPrice & { capabilities?: Capability[]; contextLength?: number; supports?: { tools: boolean; structuredOutput: boolean } };
+export const CAPABILITIES: readonly Capability[] = ["text", "vision", "transcription", "document"];
 
 /**
  * Default model list and indicative prices (micro-USD per 1M tokens). UNVERIFIED: written from memory, not checked against the vendors' price pages.
@@ -18,11 +25,15 @@ export const DEFAULT_CATALOG: readonly ModelInfo[] = [
   { provider: "openai", id: "whisper-1", label: "Whisper (speech to text)", inputMicroPer1M: 0, outputMicroPer1M: 0, capabilities: ["transcription"], transcriptionMicroPerMinute: 6_000 },
 ];
 
-export type PriceOverrides = Record<string, ModelPrice>;
+export type PriceOverrides = Record<string, StoredModel>;
 
 export function modelsFor(provider: string, overrides: PriceOverrides = {}): ModelInfo[] {
-  const base = DEFAULT_CATALOG.filter((m) => m.provider === provider).map((m) => ({ ...m, ...(overrides[m.id] ?? {}) }));
-  const extra = Object.entries(overrides).filter(([id]) => !base.some((m) => m.id === id)).map(([id, p]): ModelInfo => ({ provider, id, label: id, capabilities: ["text"], ...p }));
+  const base = DEFAULT_CATALOG.filter((m) => m.provider === provider).map((m) => { const o = overrides[m.id]; return o ? { ...m, inputMicroPer1M: o.inputMicroPer1M, outputMicroPer1M: o.outputMicroPer1M } : m; });
+  const extra = Object.entries(overrides).filter(([id]) => !base.some((m) => m.id === id)).map(([id, p]): ModelInfo => ({
+    provider, id, label: id, inputMicroPer1M: p.inputMicroPer1M, outputMicroPer1M: p.outputMicroPer1M,
+    capabilities: ["text", ...(p.capabilities ?? []).filter((c, i, a) => c !== "text" && CAPABILITIES.includes(c) && a.indexOf(c) === i)],
+    ...(p.contextLength ? { contextLength: p.contextLength } : {}), ...(p.supports ? { supports: p.supports } : {}),
+  }));
   return [...base, ...extra];
 }
 
