@@ -112,3 +112,11 @@ Updated: 2026-11-13 (Phase 0).
 - A token that is still valid but whose Instagram account was removed from the business portfolio is not detected by Check token; sends then fail with a channel-access error until reconnected.
 - Instagram echo dedupe (2026-11-15): the id Meta returns from the Instagram send call differs from the id on the echo webhook (seen on a real Unified Login account), so an echo is matched to our own reply by text: within 10 minutes, an echo is dropped while we have recorded more CRM replies with that exact text than stored echoes. A message typed in the Instagram app with the same text as a CRM reply inside that window is therefore not shown separately. Messenger matches by id and is unchanged. One duplicate "Sent from another app" bubble created before this fix stays in the hosted data.
 - Inbox redesign (2026-11-14): tab counts exist only for Unread (the API returns no other totals); no internal notes, saved replies, tasks panel or "also on Instagram" link (no API yet); the stage control uses the contact's newest open lead, so a contact with several open leads shows only one; undoing a move out of Won or Lost needs the reopen permission and shows the server's error otherwise. Not checked on a real phone, only at 375 px in Chromium.
+
+## WhatsApp, slice 1: webhook foundation (2026-11-14, branch feat/whatsapp-foundation)
+- NEVER run against real WhatsApp (fixtures built from Meta's documented field lists only). Details and the verified/inferred split: `docs/integrations/whatsapp-cloud-api.md`.
+- A WhatsApp number cannot be connected from the UI yet, and replies are refused (`422 unsupported_channel`; the Inbox shows a notice). Incoming events for a number nobody connected are kept as orphans.
+- Senders that have only a business-scoped user id (username users without a visible phone number) are not turned into conversations (`bsuid_only`).
+- Media is shown as "Attachment, not available" (id kept, no download); locations are placeholders; reactions and system notices are ignored; `sent`/`failed`/`played` statuses are ignored.
+- The contact name stays `WhatsApp user NNNN`; the WhatsApp profile name is not used yet.
+- Whether Meta delivers WhatsApp events to a separate callback URL and the exact payload of real messages are unverified.

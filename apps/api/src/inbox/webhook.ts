@@ -6,11 +6,11 @@ import type { Db } from "@crm/db";
 import { WindowCounter } from "../throttle.ts";
 
 export const MAX_WEBHOOK_BYTES = 1024 * 1024;
-const PLATFORMS = ["messenger", "instagram"] as const;
+const PLATFORMS = ["messenger", "instagram", "whatsapp"] as const;
 type Platform = (typeof PLATFORMS)[number];
 // Meta names the object "page" for Messenger. The channel of an event is taken from the signed payload's `object`, not from the callback path: it is UNVERIFIED (C8) whether Meta
 // sends Instagram events to a separate URL or to the one configured for Messenger, and the signature already proves the body came from Meta for our app.
-const OBJECT_OF: Record<Platform, string> = { messenger: "page", instagram: "instagram" };
+const OBJECT_OF: Record<Platform, string> = { messenger: "page", instagram: "instagram", whatsapp: "whatsapp_business_account" };
 
 export type IngressConfig = {
   /** Current app secret first, previous one second while rotating. */
@@ -49,7 +49,7 @@ export async function readLimited(req: Request, max: number): Promise<Buffer | n
 }
 
 /**
- * Meta webhook ingress. One callback path per platform (/webhooks/meta/messenger and /webhooks/meta/instagram). ASSUMPTION, UNVERIFIED (C8): that Meta allows one callback URL per object type.
+ * Meta webhook ingress. One callback path per platform (/webhooks/meta/messenger, /webhooks/meta/instagram and /webhooks/meta/whatsapp). WhatsApp is signed with the same X-Hub-Signature-256 / app secret scheme (Meta, create-webhook-endpoint page) and its account key is the phone number id of each changes[] item, never entry.id (the WABA id). ASSUMPTION, UNVERIFIED (C8): that Meta allows one callback URL per object type.
  * The request does no Graph API call and no processing: verify, store durably, answer 200. The worker routes and processes (see process.ts).
  */
 export function metaWebhookRoutes(cfg: IngressConfig) {

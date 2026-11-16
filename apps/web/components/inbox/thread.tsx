@@ -297,7 +297,7 @@ export function Thread({ conversationId }: { conversationId: string }) {
         <p role="status" aria-live="polite" className="sr-only">{announce}</p>
 
         <footer className="px-4 pb-4 pt-1">
-          {!canReply ? <p className="py-3 text-sm text-fg-muted">You have read-only access.</p> : (
+          {!canReply ? <p className="py-3 text-sm text-fg-muted">You have read-only access.</p> : detail.platform === "whatsapp" ? <Alert tone="info">Replying on WhatsApp is not available yet. Incoming WhatsApp messages are shown here; sending comes in a later step.</Alert> : (
             <>
               {detail.replyWindow === "closed" && <Alert tone="warning" className="mb-2">You can&apos;t reply: more than 24 hours have passed since {name}&apos;s last message. Meta only allows replies within 24 hours. You can reply as soon as {name} writes again.</Alert>}
               {detail.replyWindow === "none" && <Alert tone="info" className="mb-2">There is no reply window yet. You can reply after {name} writes first.</Alert>}
@@ -365,7 +365,7 @@ function Bubble({ m, now, run, onDecide, deciding }: { m: MessageDto; now: numbe
   );
 }
 
-const SOURCE_LABEL: Record<string, string> = { messenger: "Messenger", instagram: "Instagram", manual: "Added by hand", import: "Imported", other: "Other" };
+const SOURCE_LABEL: Record<string, string> = { messenger: "Messenger", instagram: "Instagram", whatsapp: "WhatsApp", manual: "Added by hand", import: "Imported", other: "Other" };
 
 function CopyButton({ value, label }: { value: string; label: string }) {
   const toast = useToast();

@@ -176,6 +176,13 @@
       "when": 1794670724233,
       "tag": "0024_instagram_unified_login",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1794757124233,
+      "tag": "0025_whatsapp_foundation",
+      "breakpoints": true
     }
   ]
 }

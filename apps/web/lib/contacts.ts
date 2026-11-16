@@ -15,7 +15,7 @@ export const SORT_OPTIONS = [
 ] as const;
 export const sortOptionFor = (sort: string | undefined, dir: string | undefined) => SORT_OPTIONS.find((o) => o.value === `${sort}:${dir}`)?.value ?? "custom";
 
-export const SOURCE_LABEL: Record<string, string> = { manual: "Added manually", import: "CSV import", messenger: "Messenger", instagram: "Instagram", facebook_lead_ad: "Facebook lead ad", web_form: "Web form", referral: "Referral", other: "Other" };
+export const SOURCE_LABEL: Record<string, string> = { manual: "Added manually", import: "CSV import", messenger: "Messenger", instagram: "Instagram", whatsapp: "WhatsApp", facebook_lead_ad: "Facebook lead ad", web_form: "Web form", referral: "Referral", other: "Other" };
 export const sourceLabel = (s: string) => SOURCE_LABEL[s] ?? s;
 export const TAG_TONE: Record<TagColor, "neutral" | "accent" | "success" | "warning" | "danger"> = { neutral: "neutral", accent: "accent", success: "success", warning: "warning", danger: "danger" };
 

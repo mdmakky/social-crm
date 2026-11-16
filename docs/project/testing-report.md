@@ -107,3 +107,10 @@ Fixed and regression-tested: a storage failure for one of several shared account
 - `apps/web/test/inbox.test.ts` (+3): message runs (`continuesRun`) and tab-to-filter mapping. Web suite and lint pass.
 - `e2e/inbox.spec.ts` (6) and `e2e/contact-methods.spec.ts` (6, `E2E_META_MOCK=1`) pass, with axe at 1440 and 375. Updated: status is set from the "More actions" menu; the contact panel is opened before reading it. Fixed during the run: contrast failures while text faded in (entrances no longer touch opacity) and a label-in-name mismatch on the Stage button.
 - `e2e/inbox.spec.ts` now has 7 tests: the new one creates a lead from the Stage menu, moves it, undoes, reloads to prove it persisted, and marks it lost with a reason.
+
+## WhatsApp slice 1: webhook foundation (2026-11-14, branch feat/whatsapp-foundation)
+Fixtures only. No real WhatsApp request, no real message, no Playwright.
+- `packages/integrations/test/whatsapp-parse.test.ts` (9): routing key, per-change split, media by id without url, other types, BSUID sender, statuses, malformed input, Messenger/Instagram parsing unchanged.
+- `apps/api/test/whatsapp.test.ts` (13): handshake, bad signatures (no body stored), unusable bodies, per-change rows, contact/conversation/message creation, idempotent redelivery, media reference, routing by phone number id (never entry.id), two workspaces in one POST, orphan and replay, disabled number, BSUID sender, status watermarks (forward only, unknown id, other account), inbox listing, refused reply, channel taken from the signed object.
+- `packages/db/test/whatsapp-schema.test.ts` (6): platform checks, worker contact/method policies and name guard, `whatsapp_accounts` isolation (members, other workspace, no context), no writes for the app/ingest roles, worker writes only in its workspace, guard trigger and checks.
+- Results (serial API run): lint and typecheck 18/18; core 98, db 149, integrations 44, api-client 18, design-tokens 48, web 45; API 524 passed, 14 skipped (37 files passed, 2 skipped; the skips pre-date this work). Messenger, Instagram Page-based and Unified Login suites unchanged and green.

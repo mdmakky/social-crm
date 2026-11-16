@@ -138,6 +138,17 @@ async function applyEvent(tx: Tx, ctx: Ctx, ev: MetaEvent): Promise<void> {
     if (inbound && ev.text) await saveExtracted(tx, { workspaceId: ctx.workspaceId, platform: ctx.platform, contactId: conv.contactId, conversationId: conv.id, messageId: inserted[0]!.id as string, text: ev.text });
     return;
   }
+  if (ev.kind === "status") {
+    // WhatsApp: a status names one of OUR messages by id. It only counts if that message exists on this account, so a status for a message we do not know (sent from the phone app, another number) changes nothing.
+    const col = ev.status === "read" ? sql`contact_read_at` : sql`contact_delivered_at`;
+    const at = msToIso(ev.timestampMs);
+    await tx.execute(sql`
+      UPDATE conversations SET ${col} = GREATEST(coalesce(${col}, ${at}::timestamptz), ${at}::timestamptz), version = version + 1, updated_at = now()
+      WHERE workspace_id = ${ctx.workspaceId} AND integration_account_id = ${ctx.accountId}
+        AND id = (SELECT conversation_id FROM messages WHERE workspace_id = ${ctx.workspaceId} AND integration_account_id = ${ctx.accountId} AND external_id = ${ev.mid} AND direction = 'out')
+        AND ${col} IS DISTINCT FROM GREATEST(coalesce(${col}, ${at}::timestamptz), ${at}::timestamptz)`);
+    return;
+  }
   // read / delivery receipts: watermark moves forward only, for a conversation that already exists
   const col = ev.kind === "read" ? sql`contact_read_at` : sql`contact_delivered_at`;
   const at = msToIso(ev.watermarkMs);
@@ -165,7 +176,7 @@ async function ensureConversation(tx: Tx, ctx: Ctx, userId: string): Promise<{ i
     const stage = rowsOf(await tx.execute(sql`SELECT id FROM lifecycle_stages WHERE workspace_id = ${ctx.workspaceId} AND archived_at IS NULL ORDER BY position LIMIT 1`))[0];
     if (!stage) throw new EventError("no_lifecycle_stage");
     // Placeholder name until profile enrichment exists; deliberately contains no platform-provided text.
-    const label = ctx.platform === "instagram" ? "Instagram" : "Messenger";
+    const label = ctx.platform === "instagram" ? "Instagram" : ctx.platform === "whatsapp" ? "WhatsApp" : "Messenger";
     const contact = rowsOf(
       await tx.execute(sql`INSERT INTO contacts (workspace_id, name, lifecycle_stage_id, source) VALUES (${ctx.workspaceId}, ${`${label} user ${userId.slice(-4)}`}, ${stage.id}, ${ctx.platform}) RETURNING id`),
     )[0]!;
