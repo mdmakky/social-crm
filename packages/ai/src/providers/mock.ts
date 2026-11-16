@@ -9,7 +9,9 @@ export function createMockProvider(): AiProvider {
     async generate(req) {
       const last = [...req.messages].reverse().find((m) => m.role === "user")?.content ?? "";
       const words = last.trim().split(/\s+/).filter(Boolean).length;
-      const text = `[MOCK DRAFT] Thanks for your message (${words} words). A teammate will follow up shortly.`;
+      // Test hook: `[[MOCK_REPLY:{...}]]` in the user message makes the mock answer with exactly that text, so agent tool-call flows are deterministic offline.
+      const forced = /\[\[MOCK_REPLY:([\s\S]*?)\]\]$/m.exec(last)?.[1];
+      const text = forced ?? `[MOCK DRAFT] Thanks for your message (${words} words). A teammate will follow up shortly.`;
       return { text, usage: { inputTokens: est(req.messages.map((m) => m.content).join("\n")), outputTokens: est(text) }, finishReason: "stop" };
     },
   };

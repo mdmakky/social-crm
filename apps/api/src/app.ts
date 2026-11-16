@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { capiRoutes } from "./capi/routes.ts"; // track:capi
 import { aiRoutes } from "./ai/routes.ts"; // track:ai
+import { agentRoutes } from "./ai/agents.ts"; // track:ai
 import type { AiDeps } from "./ai/run.ts"; // track:ai
 import type { KnowledgeDeps } from "./knowledge/routes.ts"; // track:knowledge
 import { whatsappConnect, type WhatsAppLimits } from "./inbox/whatsapp-connect.ts";
@@ -21,7 +22,7 @@ import { WindowCounter } from "./throttle.ts";
 const GENERIC_RESET_RESPONSE = { status: true, message: "If this email exists in our system, check your email for the reset link" };
 const sha = async (s: string) => Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s.trim().toLowerCase()))), (b) => b.toString(16).padStart(2, "0")).join("");
 
-export function createApp(auth: Auth, opts: { allowedOrigins: string[]; db: Db; resetThrottle?: { perEmail: number; perIp: number; windowMs: number; tokenAttemptsPerIp?: number }; testHooks?: { waLimits?: Partial<WhatsAppLimits>; capiCreatesPerUser?: number; import?: ImportHooks; extraSearchProviders?: SearchProvider[]; aiConfigsPerUser?: number; aiSuggestionsPerUser?: number; knowledge?: KnowledgeDeps }; meta?: MetaConnectDeps; ai?: AiDeps }) {
+export function createApp(auth: Auth, opts: { allowedOrigins: string[]; db: Db; resetThrottle?: { perEmail: number; perIp: number; windowMs: number; tokenAttemptsPerIp?: number }; testHooks?: { waLimits?: Partial<WhatsAppLimits>; capiCreatesPerUser?: number; import?: ImportHooks; extraSearchProviders?: SearchProvider[]; aiConfigsPerUser?: number; aiSuggestionsPerUser?: number; aiAgentRunsPerUser?: number; knowledge?: KnowledgeDeps }; meta?: MetaConnectDeps; ai?: AiDeps }) {
   const app = new Hono<{ Variables: Vars }>();
   // Mutating requests that carry an Origin header must come from an allowed origin (native apps send none).
   app.use("*", async (c, next) => {
@@ -99,7 +100,7 @@ export function createApp(auth: Auth, opts: { allowedOrigins: string[]; db: Db; 
   const igUnified = instagramUnified(opts.db, opts.meta); // track:inbox
   v1.route("/", meta.callback);
   v1.route("/", igUnified.callback);
-  v1.route("/workspaces", workspaceRoutes(opts.db, { ...opts.testHooks, metaScoped: new Hono<ScopedEnv>().route("/", meta.scoped).route("/", igUnified.scoped).route("/", whatsappConnect(opts.db, opts.meta, opts.testHooks?.waLimits)).route("/", capiRoutes(opts.db, { box: opts.meta?.box, createsPerUser: opts.testHooks?.capiCreatesPerUser })).route("/", aiRoutes(opts.db, { ai: opts.ai, configsPerUser: opts.testHooks?.aiConfigsPerUser, suggestionsPerUser: opts.testHooks?.aiSuggestionsPerUser })), sendDeps: opts.meta }));
+  v1.route("/workspaces", workspaceRoutes(opts.db, { ...opts.testHooks, metaScoped: new Hono<ScopedEnv>().route("/", meta.scoped).route("/", igUnified.scoped).route("/", whatsappConnect(opts.db, opts.meta, opts.testHooks?.waLimits)).route("/", capiRoutes(opts.db, { box: opts.meta?.box, createsPerUser: opts.testHooks?.capiCreatesPerUser })).route("/", aiRoutes(opts.db, { ai: opts.ai, configsPerUser: opts.testHooks?.aiConfigsPerUser, suggestionsPerUser: opts.testHooks?.aiSuggestionsPerUser })).route("/", agentRoutes(opts.db, { ai: opts.ai, runsPerUser: opts.testHooks?.aiAgentRunsPerUser })), sendDeps: opts.meta }));
   app.route("/v1", v1);
   return app;
 }

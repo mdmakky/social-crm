@@ -1,13 +1,13 @@
 import { can, type Role } from "./permissions.ts";
 
 /** Pure helpers for the approvals queue (mobile and any other client). Structural types so this file does not depend on @crm/contracts. */
-export type ApprovalAction = { type: "create_task"; title: string } | { type: "add_tag"; tagName: string } | { type: "assign_owner"; ownerUserId: string };
+export type ApprovalAction = { type: "create_task"; title: string } | { type: "add_tag"; tagName: string } | { type: "assign_owner"; ownerUserId: string } | { type: "run_ai_agent"; agentId: string };
 
 /** Only owner/admin may approve or reject runs (`approval.decide`). Agents and viewers get a read-only list. */
 export const canDecideApprovals = (role: Role): boolean => can(role, "approval.decide", {});
 
 export const describeApprovalAction = (a: ApprovalAction, memberName?: (id: string) => string | undefined): string =>
-  a.type === "create_task" ? `Create task "${a.title}"` : a.type === "add_tag" ? `Add tag "${a.tagName}"` : `Assign owner ${memberName?.(a.ownerUserId) ?? "(unknown member)"}`;
+  a.type === "create_task" ? `Create task "${a.title}"` : a.type === "add_tag" ? `Add tag "${a.tagName}"` : a.type === "run_ai_agent" ? "Run an AI agent (draft only)" : `Assign owner ${memberName?.(a.ownerUserId) ?? "(unknown member)"}`;
 
 export const summarizeApprovalActions = (actions: ApprovalAction[], memberName?: (id: string) => string | undefined): string =>
   actions.length === 0 ? "No actions" : actions.map((a) => describeApprovalAction(a, memberName)).join(", ");

@@ -31,9 +31,11 @@ export const AutomationAction = z.discriminatedUnion("type", [
   z.object({ type: z.literal("create_task"), title: z.string().trim().min(1).max(200), description: z.string().trim().max(2000).optional(), dueInHours: z.number().int().min(1).max(8760).optional(), priority: z.enum(["low", "normal", "high", "urgent"]).optional(), assigneeUserId: z.string().min(1).max(100).optional() }).strict(),
   z.object({ type: z.literal("add_tag"), tagName: z.string().trim().min(1).max(50) }).strict(),
   z.object({ type: z.literal("assign_owner"), ownerUserId: z.string().min(1).max(100) }).strict(),
+  /** Runs an active AI agent over the trigger's contact; records a draft note and queues proposed tool calls for approval. Never sends a message. */
+  z.object({ type: z.literal("run_ai_agent"), agentId: z.string().uuid() }).strict(),
 ]);
 export type AutomationAction = z.infer<typeof AutomationAction>;
-export const AUTOMATION_ACTION_TYPES = { create_task: "Create a task", add_tag: "Add a tag", assign_owner: "Assign the contact's owner" } as const;
+export const AUTOMATION_ACTION_TYPES = { create_task: "Create a task", add_tag: "Add a tag", assign_owner: "Assign the contact's owner", run_ai_agent: "Run an AI agent (draft note and proposed actions)" } as const;
 
 const Name = z.string().trim().min(1, "Give the rule a name").max(120);
 const Actions = z.array(AutomationAction).min(1, "Add at least one action").max(5);

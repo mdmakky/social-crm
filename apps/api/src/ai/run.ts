@@ -27,10 +27,16 @@ export type RunInput = {
   input: string;
   entity?: { type: string; id: string };
   maxOutputTokens?: number;
+  /** Agent runs: the already composed system text (skips the prompt template), sampling temperature, an optional provider/model override and the agent that made the call. */
+  system?: string;
+  temperature?: number;
+  provider?: string | null;
+  model?: string | null;
+  agent?: { id: string; version: number };
 };
 export type RunFailure = "not_configured" | "budget_exceeded" | "rate_limit" | "timeout" | "auth" | "invalid_request" | "provider_error" | "template_invalid" | "key_unavailable";
 export type RunResult =
-  | { ok: true; text: string; runId: string; provider: string; model: string; mock: boolean }
+  | { ok: true; text: string; runId: string; provider: string; model: string; mock: boolean; usage: { inputTokens: number; outputTokens: number; costMicro: number } }
   | { ok: false; code: RunFailure; runId?: string };
 
 const rowsOf = (r: unknown) => (r as { rows: Record<string, unknown>[] }).rows;
@@ -47,7 +53,7 @@ async function record(tx: Tx, r: RunInput, row: RunRow): Promise<string> {
   const [x] = await tx.insert(schema.aiRuns).values({
     workspaceId: r.workspaceId, capability: r.capability, provider: row.provider, model: row.model, promptKey: r.promptKey, promptVersion: row.promptVersion, status: row.status,
     inputTokens: row.inputTokens ?? 0, outputTokens: row.outputTokens ?? 0, costMicro: row.costMicro ?? 0, latencyMs: row.latencyMs ?? 0, attempts: row.attempts ?? 0, errorCode: row.errorCode ?? null,
-    requestedBy: r.userId, entityType: r.entity?.type ?? null, entityId: r.entity?.id ?? null, inputHash: row.inputHash ?? null, summary: row.summary ?? null,
+    requestedBy: r.userId, agentId: r.agent?.id ?? null, agentVersion: r.agent?.version ?? null, entityType: r.entity?.type ?? null, entityId: r.entity?.id ?? null, inputHash: row.inputHash ?? null, summary: row.summary ?? null,
   }).returning({ id: schema.aiRuns.id });
   return x!.id;
 }
@@ -63,18 +69,20 @@ export async function runAi(deps: AiDeps, r: RunInput): Promise<RunResult> {
   const now = deps.now ?? Date.now;
   const ctx = { workspaceId: r.workspaceId, userId: r.userId };
   const prep: Prepared = await withContext(deps.workerDb, ctx, async (tx): Promise<Prepared> => {
-    const cfg = rowsOf(await tx.execute(sql`SELECT id, provider, base_url, default_model, model_prices FROM ai_provider_configs WHERE workspace_id = ${r.workspaceId} AND is_default AND enabled`))[0];
+    const cfg = rowsOf(await tx.execute(r.provider
+      ? sql`SELECT id, provider, base_url, default_model, model_prices FROM ai_provider_configs WHERE workspace_id = ${r.workspaceId} AND provider = ${r.provider} AND enabled`
+      : sql`SELECT id, provider, base_url, default_model, model_prices FROM ai_provider_configs WHERE workspace_id = ${r.workspaceId} AND is_default AND enabled`))[0];
     const def = cfg ? providerDef(cfg.provider as string) : null;
     if (!cfg || !def || !cfg.default_model) return { kind: "stop", result: { ok: false, code: "not_configured" } };
     const provider = cfg.provider as string;
-    const model = cfg.default_model as string;
+    const model = r.model ?? (cfg.default_model as string);
     const price = priceOf(provider, model, cfg.model_prices as PriceOverrides);
     if (!price) return { kind: "stop", result: { ok: false, code: "not_configured" } };
-    const pr = rowsOf(await tx.execute(sql`SELECT version, template FROM ai_prompts WHERE workspace_id = ${r.workspaceId} AND key = ${r.promptKey} AND active`))[0];
+    const pr = r.system === undefined ? rowsOf(await tx.execute(sql`SELECT version, template FROM ai_prompts WHERE workspace_id = ${r.workspaceId} AND key = ${r.promptKey} AND active`))[0] : undefined;
     const builtin = promptDef(r.promptKey);
-    if (!pr && !builtin) return { kind: "stop", result: { ok: false, code: "not_configured" } };
+    if (r.system === undefined && !pr && !builtin) return { kind: "stop", result: { ok: false, code: "not_configured" } };
     const promptVersion = pr ? Number(pr.version) : 0;
-    const template = pr ? (pr.template as string) : builtin!.defaultTemplate;
+    const template = pr ? (pr.template as string) : builtin?.defaultTemplate ?? "";
 
     const b = rowsOf(await tx.execute(sql`SELECT monthly_cap_micro, hard_stop FROM ai_budgets WHERE workspace_id = ${r.workspaceId}`))[0];
     if (b && b.hard_stop && b.monthly_cap_micro !== null) {
@@ -102,7 +110,7 @@ export async function runAi(deps: AiDeps, r: RunInput): Promise<RunResult> {
   const base = { provider: prep.provider, model: prep.model, promptVersion: prep.promptVersion };
   let system: string;
   try {
-    system = renderTemplate(prep.template, r.vars);
+    system = r.system ?? renderTemplate(prep.template, r.vars);
   } catch (e) {
     const runId = await withContext(deps.workerDb, ctx, (tx) => record(tx, r, { ...base, status: "error", errorCode: e instanceof TemplateError ? "template_invalid" : "template_error" }));
     return { ok: false, code: "template_invalid", runId };
@@ -119,7 +127,7 @@ export async function runAi(deps: AiDeps, r: RunInput): Promise<RunResult> {
   while (outcome === null) {
     attempts++;
     try {
-      const g = await adapter.generate({ apiKey: prep.key ?? "", model: prep.model, maxOutputTokens: r.maxOutputTokens ?? 400, temperature: 0.4, messages: [{ role: "system", content: system }, { role: "user", content: r.input }] });
+      const g = await adapter.generate({ apiKey: prep.key ?? "", model: prep.model, maxOutputTokens: r.maxOutputTokens ?? 400, temperature: r.temperature ?? 0.4, messages: [{ role: "system", content: system }, { role: "user", content: r.input }] });
       outcome = { ok: true, text: g.text, inputTokens: g.usage.inputTokens, outputTokens: g.usage.outputTokens };
     } catch (e) {
       const code = e instanceof AiError ? e.code : "provider_error";
@@ -138,5 +146,5 @@ export async function runAi(deps: AiDeps, r: RunInput): Promise<RunResult> {
     console.error(JSON.stringify({ msg: "ai run record failed", error: safeError(e) }));
   }
   if (!outcome.ok) return { ok: false, code: outcome.code as RunFailure, runId };
-  return { ok: true, text: outcome.text, runId: runId ?? "", provider: prep.provider, model: prep.model, mock: prep.mock };
+  return { ok: true, text: outcome.text, runId: runId ?? "", provider: prep.provider, model: prep.model, mock: prep.mock, usage: { inputTokens: outcome.inputTokens, outputTokens: outcome.outputTokens, costMicro: costMicro(prep.price, outcome) } };
 }

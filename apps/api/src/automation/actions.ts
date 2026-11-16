@@ -3,11 +3,13 @@ import type { AutomationAction } from "@crm/contracts";
 import { schema, user, type Tx } from "@crm/db";
 import { activeMember, recordActivity } from "../crm-service.ts";
 import { emitEvent } from "../events.ts";
+import type { Prepared, PrepareFailure } from "../ai/agent-run.ts";
 
 /** A failure that retrying cannot fix (missing contact, unknown member): the run fails at once instead of backing off. */
 export class PermanentError extends Error {}
 
-export type ActionContext = { tx: Tx; workspaceId: string; actorUserId: string; runId: string; contactId: string | null };
+/** `agentRun` is the model call for a run_ai_agent action, made by the engine BEFORE the transaction opened (no network inside a DB transaction). */
+export type ActionContext = { tx: Tx; workspaceId: string; actorUserId: string; runId: string; contactId: string | null; idx?: number; agentRun?: Prepared | PrepareFailure | null };
 type Handler<T extends AutomationAction["type"]> = (ctx: ActionContext, a: Extract<AutomationAction, { type: T }>) => Promise<Record<string, unknown>>;
 
 /** Events an action emits carry this marker; the automation consumer ignores them, so rules cannot trigger each other in a loop. */
@@ -58,8 +60,38 @@ const assignOwner: Handler<"assign_owner"> = async (ctx, a) => {
   return { contactId: contact.id, ownerUserId: a.ownerUserId };
 };
 
+const TRANSIENT_AI = new Set(["rate_limit", "timeout", "provider_error"]);
+
+/**
+ * Records what an AI agent drafted for the trigger's contact: an internal note with the draft reply and, for every proposed tool call, a PENDING approval
+ * (ai_agent_actions). Nothing is sent and nothing proposed is executed here. Idempotent per automation run: a replay inserts no second approval.
+ */
+const runAiAgent: Handler<"run_ai_agent"> = async (ctx) => {
+  const { tx, workspaceId, actorUserId } = ctx;
+  const contact = await contactOf(ctx);
+  const p = ctx.agentRun;
+  if (!p) throw new PermanentError("AI is not available on this server.");
+  if (!p.ok) {
+    if (TRANSIENT_AI.has(p.code)) throw new Error(`The AI provider could not answer (${p.code}).`);
+    throw new PermanentError(`The agent could not run (${p.code}).`);
+  }
+  const body = `AI draft from agent "${p.agent.name}" (not sent to the customer):\n\n${p.parsed.reply || "(no reply)"}`.slice(0, 2000);
+  const [n] = await tx.insert(schema.notes).values({ workspaceId, contactId: contact.id, authorUserId: actorUserId, body }).returning({ id: schema.notes.id });
+  await recordActivity(tx, { workspaceId, contactId: contact.id, kind: "note.added", actorUserId, data: { noteId: n!.id, preview: body.slice(0, 120), via: "ai_agent", runId: ctx.runId } });
+  let queued = 0;
+  for (const [i, act] of p.parsed.planned.entries()) {
+    if (act.sensitivity === "read") continue; // reads have no effect to approve
+    const ins = await tx.insert(schema.aiAgentActions).values({
+      workspaceId, agentId: p.agent.id, agentVersionId: p.versionId, source: "automation", sourceRef: `automation:${ctx.runId}`, idx: (ctx.idx ?? 0) * 10 + i, contactId: contact.id, tool: act.tool, args: act.args,
+      reason: act.pendingReason ?? "approval_granted", requestedBy: actorUserId, aiRunId: p.run.runId || null,
+    }).onConflictDoNothing().returning({ id: schema.aiAgentActions.id });
+    queued += ins.length;
+  }
+  return { contactId: contact.id, noteId: n!.id, agentId: p.agent.id, agentVersion: p.versionNo, pendingActions: queued, rejectedActions: p.parsed.rejected.length };
+};
+
 /** The action registry. Adding an action = a zod variant in @crm/contracts plus one handler here; nothing is dispatched by string eval. */
-export const ACTION_HANDLERS: { [K in AutomationAction["type"]]: Handler<K> } = { create_task: createTask, add_tag: addTag, assign_owner: assignOwner };
+export const ACTION_HANDLERS: { [K in AutomationAction["type"]]: Handler<K> } = { create_task: createTask, add_tag: addTag, assign_owner: assignOwner, run_ai_agent: runAiAgent };
 
 export function runAction(ctx: ActionContext, a: AutomationAction): Promise<Record<string, unknown>> {
   return (ACTION_HANDLERS[a.type] as (c: ActionContext, x: AutomationAction) => Promise<Record<string, unknown>>)(ctx, a);

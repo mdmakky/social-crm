@@ -112,7 +112,7 @@ const server = serve({
 // CAPI queue worker. MOCK adapter only (slice 1): nothing is sent to Meta, datasets are created in mock mode, and the UI says so.
 const capiWorker = workerDb && meta ? startCapiWorker(workerDb, { adapter: createMockAdapter(), box: meta.box }) : null;
 // In-process event relay (decision D7: moves to a pg-boss worker app later; dispatchPending is the unit of work).
-const dispatcher = startDispatcher(db, { consumers: [notificationsConsumer, automationConsumer], afterDispatch: () => processRuns(db), intervalMs: env.EVENT_DISPATCH_INTERVAL_MS, idleIntervalMs: env.EVENT_DISPATCH_IDLE_INTERVAL_MS, isActive, retentionDays: env.EVENT_RETENTION_DAYS });
+const dispatcher = startDispatcher(db, { consumers: [notificationsConsumer, automationConsumer], afterDispatch: () => processRuns(db, { ai }), intervalMs: env.EVENT_DISPATCH_INTERVAL_MS, idleIntervalMs: env.EVENT_DISPATCH_IDLE_INTERVAL_MS, isActive, retentionDays: env.EVENT_RETENTION_DAYS });
 dispatcherRef = dispatcher;
 const shutdown = createShutdown({
   server,

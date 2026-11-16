@@ -164,3 +164,11 @@ Updated: 2026-11-13 (Phase 0).
 - Rate limits are in-process (single API instance; move to a shared store before running more than one). Ingestion runs in the request, so a 1 MB source holds a request for about a second.
 - A `failed` source keeps its previous passages searchable by design. Failed adds are not stored, so there is no list of past failures.
 - The retrieval function exists but no AI agent calls it yet; nothing in the assistant uses the knowledge base.
+
+## AI agent builder, slice 1
+- Single-round tool use: tool results (for example `knowledge.search` hits) are shown in the playground, not fed back to the model, so an agent cannot answer from a search it asked for in the same run. Multi-turn loops are not built.
+- The JSON protocol depends on the model following instructions. Real providers are UNVERIFIED: how often each real model returns valid JSON is unknown. Invalid output is shown as plain draft text with no actions (flagged "not valid JSON").
+- Agents only DRAFT. There is no auto-send, no scheduled agent and no agent-to-customer messaging. The automation `run_ai_agent` action records a note and pending approvals only; it never executes a proposed write. Delays are not available in the automation engine.
+- Tools act on one contact (the context contact) and cannot pick another; the inbox "Suggest reply" button has no agent picker yet. `crm.assign_owner` is the only sensitive tool; there is no approval expiry or edit-and-approve.
+- Approved actions run as the approver, not the requester. Action arguments (for example a note body) are stored in `ai_agent_actions` so they can be executed; they are model output, not customer transcripts.
+- Test/run rate limit (20 per user per minute) is in-process (single API instance). Prompt-injection defence is structural (grants live in the version, customer text is fenced as data, tools are validated), not a guarantee against a model being talked into a harmful but granted action.
