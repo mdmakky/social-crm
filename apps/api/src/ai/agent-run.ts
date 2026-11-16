@@ -7,9 +7,9 @@ import { writeAudit } from "../audit.ts";
 import { killSwitchOn } from "../automation/kill-switch.ts";
 import { PermanentError } from "../automation/actions.ts";
 import { runAi, type AiDeps, type RunFailure } from "./run.ts";
-import { TOOLS, type ToolCtx } from "./tools/index.ts";
+import { TOOLS, type AttachToolDeps, type ToolCtx } from "./tools/index.ts";
 
-export type AgentDeps = { db: Db; ai: AiDeps; tools?: ToolRegistry<ToolCtx> };
+export type AgentDeps = { db: Db; ai: AiDeps; tools?: ToolRegistry<ToolCtx>; /** Blob store and media service for the media tools. */ attach?: AttachToolDeps };
 const rowsOf = (r: unknown) => (r as { rows: Record<string, unknown>[] }).rows;
 const MESSAGES_CONTEXT = 12;
 const MESSAGE_CHARS = 600;
@@ -94,6 +94,7 @@ export async function prepareForAutomation(deps: AgentDeps, p: { workspaceId: st
 export async function executeTool(tx: Tx, tools: ToolRegistry<ToolCtx>, ctx: Omit<ToolCtx, "tx">, name: string, args: Record<string, unknown>): Promise<{ ok: true; result: Record<string, unknown> } | { ok: false; error: string }> {
   const t = getTool(tools, name);
   if (!t) return { ok: false, error: "This tool no longer exists." };
+  if (ctx.pre) return ctx.pre;
   try {
     const result = await tx.transaction((sp) => t.execute({ ...ctx, tx: sp }, args as never));
     return { ok: true, result };
@@ -108,20 +109,47 @@ export type ApplyInput = { workspaceId: string; userId: string; role: Role; sour
  * Phase 3: one transaction as the requesting user. Read tools run and return their result. In a dry run write tools only report "would execute" / "would pend" and change nothing.
  * Live: auto write tools execute here (once, in this transaction); approval-granted and sensitive ones are stored as pending for a human. Rejected actions are only reported.
  */
-export async function applyPlan(tx: Tx, deps: AgentDeps, prep: Prepared, a: ApplyInput): Promise<AgentRunResult> {
+export type MediaPre = Map<number, NonNullable<ToolCtx["pre"]>>;
+export const isMediaTool = (name: string) => name.startsWith("media.");
+
+/**
+ * Runs the media tools of a plan (blob read + provider call) BEFORE any transaction is open, keyed by the action's index. applyOne then only records the stored result.
+ * Network and blob I/O never run inside a database transaction, and no tool holds a second pool connection while a transaction waits.
+ */
+export async function precomputeMedia(deps: AgentDeps, prep: Prepared, a: ApplyInput): Promise<MediaPre> {
+  const tools = deps.tools ?? TOOLS;
+  const out: MediaPre = new Map();
+  for (const [idx, act] of prep.parsed.planned.entries()) {
+    if (!isMediaTool(act.tool) || act.disposition === "pending") continue;
+    const def = getTool(tools, act.tool);
+    if (!def || !can(a.role, def.requiredPermission as "contact.edit", {})) continue;
+    out.set(idx, await runToolOutsideTx(deps, tools, { workspaceId: a.workspaceId, userId: a.userId, contactId: a.contactId, conversationId: a.conversationId }, act.tool, act.args));
+  }
+  return out;
+}
+export async function runToolOutsideTx(deps: AgentDeps, tools: ToolRegistry<ToolCtx>, c: { workspaceId: string; userId: string; contactId: string | null; conversationId: string | null }, name: string, args: Record<string, unknown>): Promise<NonNullable<ToolCtx["pre"]>> {
+  const t = getTool(tools, name)!;
+  try {
+    return { ok: true, result: await t.execute({ db: deps.db, ref: "media", attach: deps.attach, tx: undefined as never, ...c }, args as never) };
+  } catch (e) {
+    return { ok: false, error: errText(e) };
+  }
+}
+
+export async function applyPlan(tx: Tx, deps: AgentDeps, prep: Prepared, a: ApplyInput, pre?: MediaPre): Promise<AgentRunResult> {
   const tools = deps.tools ?? TOOLS;
   const outcomes: AgentActionOutcome[] = prep.parsed.rejected.map((r) => ({ tool: r.tool, args: {}, status: "rejected", detail: r.reason, result: null, actionId: null }));
-  for (const [idx, act] of prep.parsed.planned.entries()) outcomes.push(await applyOne(tx, deps.db, tools, prep, a, act, idx));
+  for (const [idx, act] of prep.parsed.planned.entries()) outcomes.push(await applyOne(tx, deps.db, tools, prep, a, act, idx, deps.attach, pre?.get(idx)));
   return {
     reply: prep.parsed.reply, malformed: prep.parsed.malformed, dryRun: a.dryRun, actions: outcomes, agentVersion: prep.versionNo, provider: prep.run.provider, model: prep.run.model, mock: prep.run.mock, runId: prep.run.runId, usage: prep.run.usage,
   };
 }
 
-async function applyOne(tx: Tx, db: Db, tools: ToolRegistry<ToolCtx>, prep: Prepared, a: ApplyInput, act: PlannedAction, idx: number): Promise<AgentActionOutcome> {
+async function applyOne(tx: Tx, db: Db, tools: ToolRegistry<ToolCtx>, prep: Prepared, a: ApplyInput, act: PlannedAction, idx: number, attach?: AttachToolDeps, pre?: ToolCtx["pre"]): Promise<AgentActionOutcome> {
   const base = { tool: act.tool, args: act.args };
   const def = getTool(tools, act.tool)!;
   if (!can(a.role, def.requiredPermission as "contact.edit", {})) return { ...base, status: "rejected", detail: "forbidden", result: null, actionId: null };
-  const ctx = { db, workspaceId: a.workspaceId, userId: a.userId, contactId: a.contactId, ref: prep.run.runId };
+  const ctx = { db, workspaceId: a.workspaceId, userId: a.userId, contactId: a.contactId, ref: prep.run.runId, conversationId: a.conversationId, attach, pre };
   if (act.disposition === "pending") {
     if (a.dryRun) return { ...base, status: "would_pend", detail: act.pendingReason, result: null, actionId: null };
     const [row] = await tx.insert(schema.aiAgentActions).values({

@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import type { Db, Tx } from "@crm/db";
 import { parseMetaWebhook, type MetaEvent } from "@crm/integrations";
 import { saveExtracted } from "./extract.ts";
+import { recordInboundAttachments } from "./attachments.ts";
 
 /** After this many failed attempts an event stays `failed` (dead letter) until an admin replays it (failed -> received). */
 export const MAX_ATTEMPTS = 5;
@@ -126,6 +127,8 @@ async function applyEvent(tx: Tx, ctx: Ctx, ev: MetaEvent): Promise<void> {
         RETURNING id`),
     );
     if (inserted.length === 0) return; // duplicate delivery: nothing else changes (unread, timestamps, events)
+    // Media of a customer's message: metadata only, the bytes are fetched later outside this transaction. A media-only message keeps its preview text through messages.attachments, as before.
+    if (inbound && ev.attachments.length) await recordInboundAttachments(tx, { workspaceId: ctx.workspaceId, conversationId: conv.id, messageId: inserted[0]!.id as string, attachments: ev.attachments });
     // Forward-only: a late older message never moves the conversation backwards. A new inbound message reopens a resolved conversation.
     await tx.execute(sql`
       UPDATE conversations SET

@@ -1,7 +1,8 @@
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { and, desc, eq, isNull, sql } from "drizzle-orm";
-import { CreateKnowledgeFileBody, CreateKnowledgeTextBody, CreateKnowledgeUrlBody, KnowledgeSearchQuery, type KnowledgeSourceDto, type KnowledgeSourceList } from "@crm/contracts";
+import { AddAttachmentToKnowledgeBody, CreateKnowledgeFileBody, CreateKnowledgeTextBody, CreateKnowledgeUrlBody, KnowledgeSearchQuery, type KnowledgeSourceDto, type KnowledgeSourceList } from "@crm/contracts";
+import { attachmentKey, type BlobStore } from "@crm/core";
 import { can } from "@crm/core/permissions";
 import { schema, user, withContext, type Db, type Tx } from "@crm/db";
 import { extractFile, fetchPublicPage, htmlToText, KB_LIMITS, KnowledgeError, prepareSource, type Chunk, type SafeFetchDeps } from "@crm/knowledge";
@@ -9,6 +10,7 @@ import { writeAudit } from "../audit.ts";
 import { actor, body, fail, forbidden, isUuid, query, wctx, type ErrStatus, type SC, type ScopedEnv } from "../routes/scope.ts";
 import { WindowCounter } from "../throttle.ts";
 import type { MediaService } from "../ai/media.ts";
+import { extOf, loadAttachment } from "../attachments/service.ts";
 import { isMediaFile, mediaExtractors } from "./media-extractors.ts";
 import { searchKnowledge } from "./search.ts";
 
@@ -17,6 +19,8 @@ export type KnowledgeDeps = {
   net?: SafeFetchDeps;
   /** AI media service: when present, PDF, image (OCR) and audio files are accepted and processed through it. Absent => those types stay `unsupported_type`. */
   media?: MediaService;
+  /** Blob store of the Inbox attachments. `from-attachment` reads a file through it (no copy is made); absent => `storage_not_configured`. */
+  blobs?: BlobStore;
   limits?: { ingestPerUser?: number; urlPerUser?: number; searchPerUser?: number; windowMs?: number };
 };
 
@@ -148,6 +152,46 @@ export function knowledgeRoutes(db: Db, deps: KnowledgeDeps = {}) {
         return await created(c, { type: "file", title: b.data.title ?? b.data.filename, sourceRef: b.data.filename, text, keepBody: true, chunks });
       } catch (e) {
         if (viaMedia && e instanceof KnowledgeError && e.code !== "rate_limited") await recordFailed(c, b.data.title ?? b.data.filename, b.data.filename, e.code);
+        throw e;
+      }
+    } catch (e) { if (e instanceof KnowledgeError) return kfail(c, e); throw e; }
+  });
+
+  /**
+   * Adds an Inbox attachment to the knowledge base. The source REFERENCES the file (source_ref = "attachment:<id>"): the bytes are read through the store for extraction only and are not copied;
+   * what is kept is the extracted text and its passages, like any file source. Deleting the attachment removes the source (database trigger). Text, csv and pdf, image (OCR) and audio (transcription,
+   * through the AI media service) are supported; office documents and video answer `unsupported_type` (no extractor yet).
+   */
+  r.post("/knowledge/sources/from-attachment", bodyLimit({ maxSize: URL_BODY_MAX, onError: (c) => fail(c as SC, 413, "too_large", "The request is too large.") }), async (c) => {
+    if (!manage(c)) return forbidden(c);
+    if (!ingests.allow(`${wctx(c).workspaceId}:${wctx(c).userId}`)) return limited(c);
+    const b = await body(c, AddAttachmentToKnowledgeBody);
+    if (!b.ok) return b.res;
+    if (!deps.blobs) return fail(c, 503, "storage_not_configured", "File storage is not set up on this server.");
+    const { workspaceId } = wctx(c);
+    const found = await withContext(db, wctx(c), async (tx) => {
+      const a = await loadAttachment(tx, workspaceId, b.data.attachmentId);
+      const dup = a ? (await tx.execute(sql`SELECT 1 FROM knowledge_sources WHERE workspace_id = ${workspaceId} AND source_ref = ${`attachment:${a.id}`} AND deleted_at IS NULL AND status <> 'failed'`)).rows.length > 0 : false;
+      return { a, dup };
+    });
+    if (!found.a) return fail(c, 404, "not_found");
+    if (found.dup) return fail(c, 409, "already_in_knowledge", "This file is already in the knowledge base.");
+    const att = found.a;
+    if (att.status !== "ready" || !att.mime) return fail(c, 409, "attachment_not_ready", "The file is not available yet.");
+    const blob = await deps.blobs.get(attachmentKey(workspaceId, att.id));
+    if (!blob) return fail(c, 409, "file_missing", "The stored file could not be found.");
+    const ref = `attachment:${att.id}`;
+    const title = b.data.title ?? att.filename ?? "Attachment";
+    try {
+      const ext = extOf(att.mime);
+      if (!ext) throw new KnowledgeError("unsupported_type", "This type of file cannot be added to the knowledge base yet. Use an image, PDF, audio, text or csv file.");
+      const viaMedia = !!deps.media && isMediaFile(`x.${ext}`);
+      try {
+        const ex = await extractFile({ filename: `attachment.${ext}`, bytes: blob.bytes }, viaMedia ? mediaExtractors(deps.media!, wctx(c)) : undefined);
+        const { text, chunks } = prepareSource(ex.text);
+        return await created(c, { type: "file", title, sourceRef: ref, text, keepBody: true, chunks });
+      } catch (e) {
+        if (viaMedia && e instanceof KnowledgeError && e.code !== "rate_limited") await recordFailed(c, title, ref, e.code);
         throw e;
       }
     } catch (e) { if (e instanceof KnowledgeError) return kfail(c, e); throw e; }

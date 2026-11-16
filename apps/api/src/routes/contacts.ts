@@ -1,11 +1,12 @@
 import { Hono } from "hono";
 import { and, desc, eq, inArray, isNull, lt, sql } from "drizzle-orm";
 import { AddContactTagBody, ContactListQuery, CreateContactBody, NoteBody, PageQuery, UpdateContactBody } from "@crm/contracts";
-import { normalizeEmail, normalizePhone, toCsv, validateCustomValues } from "@crm/core";
+import { normalizeEmail, normalizePhone, toCsv, validateCustomValues, type BlobStore } from "@crm/core";
 import { can } from "@crm/core/permissions";
 import { schema, user, withContext, type Db, type Tx } from "@crm/db";
 import { writeAudit } from "../audit.ts";
 import { purgeContactCapi } from "../capi/enqueue.ts";
+import { deleteAttachmentBlobs } from "../inbox/attachments.ts";
 import { emitEvent } from "../events.ts";
 import { activeMember, activeStages, customDefs, findDuplicates, loadContact, lockContactWrites, recordActivity, toDetail, toFieldDef, toSummaries } from "../crm-service.ts";
 import { filters, type Q } from "../contact-query.ts";
@@ -26,7 +27,7 @@ const dec = (s: string): { k: string; id: string; sort: string; dir: string } | 
   }
 };
 
-export function contactRoutes(db: Db) {
+export function contactRoutes(db: Db, hooks: { blobs?: BlobStore } = {}) {
   const r = new Hono<ScopedEnv>();
 
   async function page(c: SC, tx: Tx, q: Q) {
@@ -233,14 +234,20 @@ export function contactRoutes(db: Db) {
     const id = c.req.param("contactId");
     if (!isUuid(id)) return fail(c, 404, "not_found");
     const { workspaceId } = wctx(c);
-    return withContext(db, wctx(c), async (tx) => {
+    let purged: string[] = [];
+    const res = await withContext(db, wctx(c), async (tx) => {
       const cur = await loadContact(tx, workspaceId, id);
       if (!cur) return fail(c, 404, "not_found");
       await tx.update(schema.contacts).set({ deletedAt: new Date(), updatedAt: new Date(), version: sql`${schema.contacts.version} + 1` }).where(and(eq(schema.contacts.workspaceId, workspaceId), eq(schema.contacts.id, id)));
       await purgeContactCapi(tx, workspaceId, id);
-      await writeAudit(tx, { ...actor(c), workspaceId, action: "contact.deleted", entityType: "contact", entityId: id, summary: { name: cur.name } });
+      // Files of this contact's conversations go with the contact: rows are soft-deleted here (which also removes knowledge sources derived from them), the blobs right after the commit.
+      const gone = await tx.execute(sql`UPDATE attachments SET status = 'deleted', deleted_at = now(), updated_at = now() WHERE workspace_id = ${workspaceId} AND status <> 'deleted' AND conversation_id IN (SELECT id FROM conversations WHERE workspace_id = ${workspaceId} AND contact_id = ${id}) RETURNING id`);
+      purged = (gone.rows as { id: string }[]).map((x) => x.id);
+      await writeAudit(tx, { ...actor(c), workspaceId, action: "contact.deleted", entityType: "contact", entityId: id, summary: { name: cur.name, attachments: purged.length } });
       return c.body(null, 204);
     });
+    await deleteAttachmentBlobs(hooks.blobs, workspaceId, purged);
+    return res;
   });
 
   // ----- tags on a contact -----

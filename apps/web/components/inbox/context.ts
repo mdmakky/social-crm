@@ -1,7 +1,7 @@
 import * as React from "react";
 import type { Member } from "@crm/contracts";
 
-export type InboxCtx = { workspaceId: string; myUserId: string; canReply: boolean; canAssignAny: boolean; canEditLead: boolean; members: Member[] };
+export type InboxCtx = { workspaceId: string; myUserId: string; canReply: boolean; canAssignAny: boolean; canEditLead: boolean; /** ai.use: owner, admin, agent. */ canUseAi: boolean; /** ai.configure: owner, admin (adds files to the knowledge base). */ canManageKnowledge: boolean; members: Member[] };
 export const InboxContext = React.createContext<InboxCtx | null>(null);
 export function useInbox(): InboxCtx {
   const v = React.useContext(InboxContext);

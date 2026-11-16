@@ -92,7 +92,8 @@ function parseWaMessage(m: unknown, phoneNumberId: string): MetaEvent {
     if (typeof o.id === "string" && MEDIA_ID.test(o.id)) a.mediaId = o.id;
     const mime = short(o.mime_type, 100);
     if (mime) a.mime = mime;
-    const name = short(o.filename, 200);
+    // eslint-disable-next-line no-control-regex -- stripping control characters is the point
+    const name = short(o.filename, 200)?.replace(/[\u0000-\u001f\u007f]/g, ""); // NUL would make the jsonb insert fail for the whole event
     if (name) a.name = name;
     attachments.push(a);
     text = body(o.caption); // the caption is the message text

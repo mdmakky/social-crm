@@ -60,6 +60,12 @@ export interface MetaGraph {
    */
   sendText(pageId: string, pageToken: string, psid: string, text: string, channel?: "messenger" | "instagram" | "instagram_unified" | "whatsapp"): Promise<{ messageId: string }>;
   /**
+   * WhatsApp media message (UNVERIFIED until a recorded real request): step 1 uploads the file, POST /{phone-number-id}/media (multipart: messaging_product, type, file) -> {id};
+   * step 2 sends POST /{phone-number-id}/messages {messaging_product:"whatsapp", to, type:"image"|"audio"|"video"|"document", <type>:{id, caption?, filename?}}.
+   * A failure in step 1 is a `rejected` SendError (nothing was sent: an upload is not a message). Step 2 has the same outcomes as sendText (never retried by callers).
+   */
+  sendWhatsAppMedia(phoneNumberId: string, token: string, to: string, media: { kind: "image" | "audio" | "video" | "document"; mime: string; bytes: Uint8Array; filename: string | null; caption: string | null }): Promise<{ messageId: string }>;
+  /**
    * Unified Login: GET me/assigned_instagram_accounts?fields=id,username with the system-user token (migration guide, 2026-11-14). The id is the Instagram professional account id used in webhooks.
    * Throws GraphError. At most 25 accounts are read.
    */
@@ -69,6 +75,11 @@ export interface MetaGraph {
    * Throws GraphError (190 invalid token, 100/200 family: no access to that WABA). At most 25 numbers are read. Shapes follow Meta's reference, UNVERIFIED until a recorded real request.
    */
   listWhatsAppNumbers(token: string, wabaId: string): Promise<WhatsAppNumber[]>;
+  /**
+   * WhatsApp Cloud API media lookup: GET /{media-id} with the token returns {url, mime_type, file_size, ...}; the url is then fetched with the SAME Bearer token (done by the caller through the SSRF-safe downloader).
+   * Throws GraphError (a 404 means the media expired or was never ours). Response shape follows Meta's reference, UNVERIFIED until a recorded real request.
+   */
+  getWhatsAppMedia(mediaId: string, token: string): Promise<{ url: string; mime: string | null; size: number | null }>;
   /** POST /{waba-id}/subscribed_apps with the token: subscribes THIS app to the WABA's webhooks (fields are configured on the app). */
   subscribeWaba(wabaId: string, token: string): Promise<boolean>;
   /** Instagram professional account details for the connect screen (best effort: null on any failure). Fields as in the Graph IG User object; UNVERIFIED against the pages read 2026-11-14. */
@@ -187,6 +198,39 @@ export function createMetaGraph(cfg: { appId: string; appSecret: string; version
       // A 4xx with a readable Graph error is a refusal. A 5xx (or an unreadable body) may hide a request that was processed.
       throw new SendError(res.status >= 400 && res.status < 500 && code !== null ? "rejected" : "ambiguous", res.status, code, sub);
     },
+    async sendWhatsAppMedia(phoneNumberId, token, to, m) {
+      let mediaId: string;
+      try {
+        const form = new FormData();
+        form.set("messaging_product", "whatsapp");
+        form.set("type", m.mime);
+        form.set("file", new Blob([m.bytes as BlobPart], { type: m.mime }), m.filename ?? "file");
+        const up = await f(`${base}/${encodeURIComponent(phoneNumberId)}/media`, { method: "POST", headers: { authorization: `Bearer ${token}` }, body: form, signal: AbortSignal.timeout(60_000) });
+        const uj = (await up.json().catch(() => null)) as { id?: unknown; error?: { code?: unknown; error_subcode?: unknown } } | null;
+        if (!up.ok || typeof uj?.id !== "string" || !uj.id) throw new SendError("rejected", up.status, typeof uj?.error?.code === "number" ? uj.error.code : null, typeof uj?.error?.error_subcode === "number" ? uj.error.error_subcode : null);
+        mediaId = uj.id;
+      } catch (e) {
+        throw e instanceof SendError ? e : new SendError("rejected", null, null, null);
+      }
+      const obj: Record<string, unknown> = { id: mediaId };
+      if (m.caption && m.kind !== "audio") obj.caption = m.caption;
+      if (m.kind === "document" && m.filename) obj.filename = m.filename;
+      let res: Response;
+      try {
+        res = await f(`${base}/${encodeURIComponent(phoneNumberId)}/messages`, { method: "POST", headers: { authorization: `Bearer ${token}`, "content-type": "application/json" }, body: JSON.stringify({ messaging_product: "whatsapp", recipient_type: "individual", to, type: m.kind, [m.kind]: obj }), signal: AbortSignal.timeout(15_000) });
+      } catch {
+        throw new SendError("ambiguous", null, null, null);
+      }
+      const json = (await res.json().catch(() => null)) as { error?: { code?: unknown; error_subcode?: unknown }; messages?: { id?: unknown }[] } | null;
+      if (res.ok && !json?.error) {
+        const id = json?.messages?.[0]?.id;
+        if (typeof id === "string" && id) return { messageId: id };
+        throw new SendError("ambiguous", res.status, null, null);
+      }
+      const code = typeof json?.error?.code === "number" ? json.error.code : null;
+      const sub = typeof json?.error?.error_subcode === "number" ? json.error.error_subcode : null;
+      throw new SendError(res.status >= 400 && res.status < 500 && code !== null ? "rejected" : "ambiguous", res.status, code, sub);
+    },
     async listAssignedInstagramAccounts(token) {
       const j = (await call("/me/assigned_instagram_accounts", { token, query: { fields: "id,username", limit: "25" } })) as { data?: Record<string, unknown>[] };
       const out: { id: string; username: string | null }[] = [];
@@ -204,6 +248,11 @@ export function createMetaGraph(cfg: { appId: string; appSecret: string; version
         out.push({ id: n.id, displayPhoneNumber: n.display_phone_number.replace(/[^0-9+()\- ]/g, "").slice(0, 32), verifiedName: cleanProfileName(n.verified_name) });
       }
       return out;
+    },
+    async getWhatsAppMedia(mediaId, token) {
+      const j = await call(`/${encodeURIComponent(mediaId)}`, { token });
+      if (typeof j.url !== "string" || !j.url.startsWith("https://") || j.url.length > 2000) throw new GraphError(null, 200, "other");
+      return { url: j.url, mime: typeof j.mime_type === "string" && j.mime_type.length <= 127 ? j.mime_type : null, size: typeof j.file_size === "number" && Number.isSafeInteger(j.file_size) ? j.file_size : null };
     },
     async subscribeWaba(wabaId, token) {
       const j = await call(`/${encodeURIComponent(wabaId)}/subscribed_apps`, { method: "POST", token });
@@ -235,7 +284,7 @@ export function createMetaGraph(cfg: { appId: string; appSecret: string; version
 }
 
 /** MOCK ONLY: in-memory Graph for tests and mock mode. Behaviour is whatever the test configures; it proves our code, not Meta's. */
-export function createMockGraph(state: { pages?: GraphPage[]; validCodes?: Set<string>; tokenInfo?: Map<string, TokenInfo>; failSubscribe?: boolean; /** WhatsApp: token and numbers per WABA id; failSubscribeWaba makes the webhook subscription fail */ whatsapp?: { wabas: Map<string, { token: string; numbers: WhatsAppNumber[] }>; failSubscribeWaba?: boolean }; metaUserId?: string | null; profiles?: Map<string, UserProfile | null | GraphError>; instagram?: Map<string, InstagramAccountInfo>; /** token -> accounts shared through Unified Login, or an error */ assigned?: Map<string, { id: string; username: string | null }[] | GraphError>; /** next sendText results, consumed in order; default is success with a generated id */ sends?: (string | SendError)[]; /** runs inside sendText before it answers (tests use it to race an echo) */ onSend?: () => Promise<void> } = {}): MetaGraph & { calls: string[]; state: typeof state } {
+export function createMockGraph(state: { pages?: GraphPage[]; validCodes?: Set<string>; tokenInfo?: Map<string, TokenInfo>; failSubscribe?: boolean; /** WhatsApp: token and numbers per WABA id; failSubscribeWaba makes the webhook subscription fail */ whatsapp?: { wabas: Map<string, { token: string; numbers: WhatsAppNumber[] }>; failSubscribeWaba?: boolean }; metaUserId?: string | null; profiles?: Map<string, UserProfile | null | GraphError>; instagram?: Map<string, InstagramAccountInfo>; /** token -> accounts shared through Unified Login, or an error */ assigned?: Map<string, { id: string; username: string | null }[] | GraphError>; /** next sendText results, consumed in order; default is success with a generated id */ sends?: (string | SendError)[]; /** runs inside sendText before it answers (tests use it to race an echo) */ onSend?: () => Promise<void>; /** WhatsApp media id -> lookup result (or an error); default is a mock lookaside url */ waMedia?: Map<string, { url: string; mime: string | null; size: number | null } | GraphError> } = {}): MetaGraph & { calls: string[]; state: typeof state } {
   const calls: string[] = [];
   const codes = state.validCodes ?? new Set(["good-code"]);
   return {
@@ -272,6 +321,19 @@ export function createMockGraph(state: { pages?: GraphPage[]; validCodes?: Set<s
       const a = state.assigned?.get(token);
       if (a instanceof GraphError) throw a;
       return a ?? [];
+    },
+    async sendWhatsAppMedia(phoneNumberId, _token, to, m) {
+      calls.push(`sendwamedia:${phoneNumberId}:${to}:${m.kind}:${m.mime}:${m.bytes.byteLength}:${m.caption ?? ""}`);
+      await state.onSend?.();
+      const next = state.sends?.shift();
+      if (next instanceof SendError) throw next;
+      return { messageId: next ?? `mock.wamedia.${calls.length}.${Math.random().toString(36).slice(2, 10)}` };
+    },
+    async getWhatsAppMedia(mediaId) {
+      calls.push(`wamedia:${mediaId}`);
+      const m = state.waMedia?.get(mediaId);
+      if (m instanceof GraphError) throw m;
+      return m ?? { url: `https://lookaside.fbsbx.com/mock/${mediaId}`, mime: null, size: null };
     },
     async listWhatsAppNumbers(token, wabaId) {
       calls.push(`wanumbers:${wabaId}`);

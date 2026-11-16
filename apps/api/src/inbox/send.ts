@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { sql } from "drizzle-orm";
 import { DecideDeliveryBody, SendMessageBody, type MessageDto } from "@crm/contracts";
+import { attachmentKey, type BlobStore } from "@crm/core";
 import { can } from "@crm/core/permissions";
 import { withContext, type Db, type Tx } from "@crm/db";
 import { SendError } from "@crm/integrations";
@@ -57,7 +58,7 @@ const loadMessage = async (tx: Tx, ws: string, id: string) =>
  *  4. as the worker role: record the result: accepted -> `sent` (+ Meta message id), refused -> `failed`, anything we cannot be sure about -> `unknown`.
  * A process that dies after step 2 leaves `sending`; `recoverStuckSends` turns it into `unknown`. Nothing in this file sends a message a second time.
  */
-export function sendRoutes(db: Db, deps?: MetaConnectDeps) {
+export function sendRoutes(db: Db, deps?: MetaConnectDeps, blobs?: BlobStore) {
   const r = new Hono<ScopedEnv>();
 
   r.post("/conversations/:conversationId/messages", async (c) => {
@@ -70,6 +71,8 @@ export function sendRoutes(db: Db, deps?: MetaConnectDeps) {
     const ws = c.get("workspaceId");
     const me = c.get("userId");
     const { clientMsgId, body: text } = b.data;
+    const attachmentIds = b.data.attachmentIds ?? [];
+    if (attachmentIds.length && !blobs) return fail(c, 503, "storage_not_configured", "File storage is not set up on this server, so files cannot be sent.");
 
     // --- 1. checks + pending row (user role, RLS applies) ---
     const prep = await withContext(db, wctx(c), async (tx) => {
@@ -97,20 +100,30 @@ export function sendRoutes(db: Db, deps?: MetaConnectDeps) {
       // Standard messaging window only. No message tag (HUMAN_AGENT or other) is ever sent.
       // WhatsApp: customer-service window, free-form text only inside it. Templates are out of scope (a later slice), so there is no way to reopen it from here. 422 per the slice spec; Messenger/Instagram keep 409.
       if (!conv.in_window) return { err: conv.platform === "whatsapp" ? fail(c, 422, "window_closed", "More than 24 hours have passed since the customer last wrote. WhatsApp only allows a free-form reply within 24 hours; a template message would be needed (not available yet).") : fail(c, 409, "window_closed", "More than 24 hours have passed since the contact last wrote, so Meta does not allow a reply.") };
+      // A file goes out only where the channel send is implemented: WhatsApp (UNVERIFIED against the real Cloud API). Every other channel refuses; text sending is untouched.
+      let media: { id: string; kind: MediaSend["kind"]; mime: string; filename: string | null } | null = null;
+      if (attachmentIds.length) {
+        if (conv.platform !== "whatsapp") return { err: fail(c, 422, "unsupported_channel_media", "Sending files is only available on WhatsApp for now. Send the text, or share the file another way.") };
+        const a = rowsOf(await tx.execute(sql`SELECT id, kind, mime, original_filename FROM attachments WHERE workspace_id = ${ws} AND conversation_id = ${conversationId} AND id = ${attachmentIds[0]!} AND status = 'ready' AND direction = 'outbound' AND message_id IS NULL FOR UPDATE`))[0];
+        if (!a) return { err: fail(c, 422, "attachment_unavailable", "That file is not available to send (it may have been sent or deleted).") };
+        if (!WA_MEDIA_MIME[a.kind as MediaSend["kind"]]?.includes(a.mime as string)) return { err: fail(c, 422, "unsupported_channel_media", "WhatsApp cannot send this type of file. Images: jpeg, png. Audio: mp3, m4a, ogg. Video: mp4. Documents: pdf, docx, xlsx, pptx, txt.") };
+        media = { id: a.id as string, kind: a.kind as MediaSend["kind"], mime: a.mime as string, filename: (a.original_filename as string | null) ?? null };
+      }
       const row = rowsOf(
         await tx.execute(sql`
           INSERT INTO messages (workspace_id, conversation_id, integration_account_id, direction, delivery_state, sender_kind, sender_user_id, client_msg_id, body, attachments)
-          VALUES (${ws}, ${conversationId}, ${conv.integration_account_id as string}, 'out', 'pending', 'user', ${me}, ${clientMsgId}, ${text}, '[]'::jsonb) RETURNING id`),
+          VALUES (${ws}, ${conversationId}, ${conv.integration_account_id as string}, 'out', 'pending', 'user', ${me}, ${clientMsgId}, ${text === "" ? null : text}, ${JSON.stringify(media ? [{ type: media.kind === "document" ? "file" : media.kind, url: null, attachmentId: media.id }] : [])}::jsonb) RETURNING id`),
       )[0]!;
+      if (media) await tx.execute(sql`UPDATE attachments SET message_id = ${row.id as string}, updated_at = now() WHERE workspace_id = ${ws} AND id = ${media.id} AND message_id IS NULL`);
       // The text is not copied into the audit trail (customer conversation content).
-      await writeAudit(tx, { ...actor(c), workspaceId: ws, action: "message.send_requested", entityType: "message", entityId: row.id as string, summary: { conversationId, length: [...text].length } });
-      return { send: { method: (conv.auth_method as string) === "unified" ? "unified" as const : "facebook" as const, channel: conv.platform as "messenger" | "instagram" | "whatsapp", messageId: row.id as string, accountId: conv.integration_account_id as string, pageId: conv.external_account_id as string, psid: conv.external_user_id as string } };
+      await writeAudit(tx, { ...actor(c), workspaceId: ws, action: "message.send_requested", entityType: "message", entityId: row.id as string, summary: { conversationId, length: [...text].length, ...(media ? { attachmentId: media.id } : {}) } });
+      return { send: { method: (conv.auth_method as string) === "unified" ? "unified" as const : "facebook" as const, channel: conv.platform as "messenger" | "instagram" | "whatsapp", messageId: row.id as string, accountId: conv.integration_account_id as string, pageId: conv.external_account_id as string, psid: conv.external_user_id as string, media } };
     });
     if ("err" in prep) return prep.err;
     if ("replay" in prep) return c.json({ message: prep.replay }, 200);
 
     // --- 2-4. send (worker role: the application role has no access to tokens or to the sending/sent transitions) ---
-    await deliver(deps, { workspaceId: ws, conversationId, text, ...prep.send }).catch(() => undefined); // whatever happened is on the row; a crash here is handled by recoverStuckSends
+    await deliver(deps, blobs, { workspaceId: ws, conversationId, text, ...prep.send }).catch(() => undefined); // whatever happened is on the row; a crash here is handled by recoverStuckSends
     const message = await withContext(db, wctx(c), async (tx) => loadMessage(tx, ws, prep.send.messageId));
     return c.json({ message: toDto(message!) }, 201);
   });
@@ -144,16 +157,22 @@ export function sendRoutes(db: Db, deps?: MetaConnectDeps) {
   return r;
 }
 
-type Delivery = { method: "facebook" | "unified"; channel: "messenger" | "instagram" | "whatsapp"; workspaceId: string; conversationId: string; messageId: string; accountId: string; pageId: string; psid: string; text: string };
+type MediaSend = { kind: "image" | "audio" | "video" | "document" };
+/** WhatsApp's documented media types (Cloud API media page; UNVERIFIED here), intersected with what we accept as attachments. */
+const WA_MEDIA_MIME: Record<MediaSend["kind"], string[]> = {
+  image: ["image/jpeg", "image/png"], audio: ["audio/mpeg", "audio/mp4", "audio/ogg"], video: ["video/mp4"],
+  document: ["application/pdf", "text/plain", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/vnd.openxmlformats-officedocument.presentationml.presentation"],
+};
+type Delivery = { method: "facebook" | "unified"; channel: "messenger" | "instagram" | "whatsapp"; workspaceId: string; conversationId: string; messageId: string; accountId: string; pageId: string; psid: string; text: string; media: { id: string; kind: MediaSend["kind"]; mime: string; filename: string | null } | null };
 
-async function deliver(deps: MetaConnectDeps, d: Delivery): Promise<void> {
+async function deliver(deps: MetaConnectDeps, blobs: BlobStore | undefined, d: Delivery): Promise<void> {
   const wctxW = { workspaceId: d.workspaceId };
   // 2. claim + persist the attempt, committed before anything leaves the building
   const claimed = await withContext(deps.workerDb, wctxW, async (tx) => {
     const got = rowsOf(await tx.execute(sql`UPDATE messages SET delivery_state = 'sending' WHERE workspace_id = ${d.workspaceId} AND id = ${d.messageId} AND delivery_state = 'pending' RETURNING id`));
     if (got.length === 0) return null; // someone else owns it: never two senders for one message
     const token = await loadToken(tx, deps, d.workspaceId, d.accountId);
-    const summary = JSON.stringify({ kind: "text", channel: d.channel, method: d.channel === "whatsapp" ? "whatsapp_cloud" : d.method, messagingType: d.channel === "messenger" ? "RESPONSE" : null, length: [...d.text].length });
+    const summary = JSON.stringify({ kind: d.media ? "media" : "text", ...(d.media ? { mediaKind: d.media.kind, mime: d.media.mime } : {}), channel: d.channel, method: d.channel === "whatsapp" ? "whatsapp_cloud" : d.method, messagingType: d.channel === "messenger" ? "RESPONSE" : null, length: [...d.text].length });
     const attempt = rowsOf(await tx.execute(sql`INSERT INTO outbound_attempts (workspace_id, message_id, attempt, request_summary) VALUES (${d.workspaceId}, ${d.messageId}, 1, ${summary}::jsonb) RETURNING id`))[0]!.id as string;
     if (!token) {
       // Nothing was sent, so this is a definite failure and safe to show as such.
@@ -166,15 +185,24 @@ async function deliver(deps: MetaConnectDeps, d: Delivery): Promise<void> {
   if (!claimed) return;
 
   // 3. the one and only network call
-  let result: { messageId: string } | SendError;
+  let result: { messageId: string } | SendError | { localFailure: string };
   try {
-    result = await deps.graph.sendText(d.pageId, claimed.token, d.psid, d.text, d.method === "unified" ? "instagram_unified" : d.channel); // pageId holds the Instagram account id for Instagram accounts and the phone number id for WhatsApp; psid is the wa_id there
+    if (d.media) {
+      // The file is read from the store first (no Meta contact yet): a missing file is a definite, safe-to-show failure.
+      const file = await blobs!.get(attachmentKey(d.workspaceId, d.media.id)).catch(() => null);
+      if (!file) result = { localFailure: "file_missing" };
+      else result = await deps.graph.sendWhatsAppMedia(d.pageId, claimed.token, d.psid, { kind: d.media.kind, mime: d.media.mime, bytes: file.bytes, filename: d.media.filename, caption: d.text === "" ? null : d.text });
+    } else result = await deps.graph.sendText(d.pageId, claimed.token, d.psid, d.text, d.method === "unified" ? "instagram_unified" : d.channel); // pageId holds the Instagram account id for Instagram accounts and the phone number id for WhatsApp; psid is the wa_id there
   } catch (e) {
     result = e instanceof SendError ? e : new SendError("ambiguous", null, null, null);
   }
 
   // 4. record the result. If this write itself fails the row stays `sending` and recoverStuckSends makes it `unknown`.
   await withContext(deps.workerDb, wctxW, async (tx) => {
+    if ("localFailure" in result) {
+      await finish(tx, d, claimed.attempt, { outcome: "rejected", status: null, platformCode: result.localFailure, state: "failed", failureCode: result.localFailure });
+      return;
+    }
     if (!(result instanceof SendError)) {
       const mid = result.messageId;
       try {
