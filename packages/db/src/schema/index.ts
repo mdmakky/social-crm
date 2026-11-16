@@ -7,3 +7,5 @@ export * from "./notifications.ts";
 export * from "./leads.ts";
 // --- track:inbox ---
 export * from "./inbox.ts";
+// --- track:automation ---
+export * from "./automation.ts";

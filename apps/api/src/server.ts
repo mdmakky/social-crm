@@ -6,6 +6,7 @@ import { createAuth } from "./auth.ts";
 import { createApp } from "./app.ts";
 import { startDispatcher } from "./events.ts";
 import { notificationsConsumer } from "./notifications/index.ts";
+import { automationConsumer, processRuns } from "./automation/engine.ts";
 import { metaWebhookRoutes } from "./inbox/webhook.ts";
 import { startInboxWorker } from "./inbox/process.ts";
 import { recoverStuckSends } from "./inbox/send.ts";
@@ -104,7 +105,7 @@ const server = serve({
   port: env.PORT,
 });
 // In-process event relay (decision D7: moves to a pg-boss worker app later; dispatchPending is the unit of work).
-const dispatcher = startDispatcher(db, { consumers: [notificationsConsumer], intervalMs: env.EVENT_DISPATCH_INTERVAL_MS, idleIntervalMs: env.EVENT_DISPATCH_IDLE_INTERVAL_MS, isActive, retentionDays: env.EVENT_RETENTION_DAYS });
+const dispatcher = startDispatcher(db, { consumers: [notificationsConsumer, automationConsumer], afterDispatch: () => processRuns(db), intervalMs: env.EVENT_DISPATCH_INTERVAL_MS, idleIntervalMs: env.EVENT_DISPATCH_IDLE_INTERVAL_MS, isActive, retentionDays: env.EVENT_RETENTION_DAYS });
 dispatcherRef = dispatcher;
 const shutdown = createShutdown({
   server,

@@ -21,6 +21,7 @@ import { pipelineRoutes } from "./pipelines.ts";
 import { taskRoutes } from "./tasks.ts";
 import { importRoutes, type ImportHooks } from "./imports.ts";
 import { notificationRoutes } from "./notifications.ts"; // track:notifications
+import { automationRoutes } from "./automation.ts"; // track:automation
 
 export type Vars = { userId: string; requestId: string };
 type Ctx = Context<{ Variables: Vars }>;
@@ -187,6 +188,7 @@ export function workspaceRoutes(db: Db, hooks: { import?: ImportHooks; extraSear
   scoped.route("/", leadReportRoutes(db));
   scoped.route("/", taskRoutes(db));
   scoped.route("/", notificationRoutes(db)); // track:notifications
+  scoped.route("/", automationRoutes(db)); // track:automation
   scoped.route("/", conversationRoutes(db)); // track:inbox
   scoped.route("/", contactMethodRoutes(db));
   scoped.route("/", sendRoutes(db, hooks.sendDeps)); // track:inbox

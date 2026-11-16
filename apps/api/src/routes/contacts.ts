@@ -128,6 +128,7 @@ export function contactRoutes(db: Db) {
       const [row] = await tx.insert(schema.contacts).values({ workspaceId, name: d.name, email, emailNormalized: email, phone: d.phone ?? null, phoneNormalized: phone, company: d.company ?? null, ownerUserId: d.ownerUserId ?? null, lifecycleStageId: stageId, source: d.source ?? "manual", custom: custom.values, createdBy: userId, lastActivityAt: now }).returning();
       if (tagIds.length) await tx.insert(schema.contactTags).values(tagIds.map((tagId) => ({ workspaceId, contactId: row!.id, tagId })));
       await recordActivity(tx, { workspaceId, contactId: row!.id, kind: "contact.created", actorUserId: userId, data: { source: row!.source } });
+      await emitEvent(tx, { workspaceId, type: "contact.created", entityType: "contact", entityId: row!.id, actorUserId: userId, payload: { source: row!.source, contactName: row!.name, lifecycleStageId: row!.lifecycleStageId, ownerUserId: row!.ownerUserId ?? null } });
       if (row!.ownerUserId) await emitEvent(tx, { workspaceId, type: "contact.owner_assigned", entityType: "contact", entityId: row!.id, actorUserId: userId, payload: { ownerUserId: row!.ownerUserId, previousOwnerUserId: null, contactName: row!.name } });
       return c.json(await toDetail(tx, workspaceId, (await loadContact(tx, workspaceId, row!.id))!), 201);
     });

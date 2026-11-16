@@ -284,6 +284,7 @@ export function leadRoutes(db: Db) {
       const kind = wasClosed ? "lead.reopened" : to.kind === "won" ? "lead.won" : to.kind === "lost" ? "lead.lost" : "lead.stage_changed";
       await recordActivity(tx, { workspaceId, contactId: l!.primaryContactId, leadId: id, kind, actorUserId: userId, data: { fromStageId: l!.stageId, toStageId: to.id } });
       await audit(c, tx, kind, id, { fromStageId: l!.stageId, toStageId: to.id });
+      await emitEvent(tx, { workspaceId, type: "lead.stage_changed", entityType: "lead", entityId: id, actorUserId: userId, payload: { fromStageId: l!.stageId, toStageId: to.id, outcome: to.kind, pipelineId: l!.pipelineId, contactId: l!.primaryContactId, leadTitle: l!.title } });
       return c.json(await loadDto(tx, c, id));
     });
   });
