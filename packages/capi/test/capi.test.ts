@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { backoffMs, buildEventsRequest, buildUserData, CapiEvent, consentGate, createLiveAdapter, createMockAdapter, eventId, MAX_EVENT_AGE_MS, normalize, sha256, staleness } from "../src/index.ts";
 
-// Hex values below were produced with `shasum -a 256` over the normalised string. The email vector (john_smith@gmail.com) is the one Meta publishes in its customer information parameters page (recalled, not re-fetched: confirm against the live page before claiming a match).
+// em, ph, fn (Mary) and the non-ASCII fn vectors below are Meta's published examples, re-checked against the live page https://developers.facebook.com/docs/marketing-api/conversions-api/parameters/customer-information-parameters on 2026-11-16 (the hex values also match `shasum -a 256`). ln, ct, st, zp, country and ext are OUR OWN shasum values over the normalised string, not Meta-published.
 const V = {
   email: "62a14e44f765419d10fea99367361a727c12365e2520f32218d505ed9aa0f62f",
   phone: "e323ec626319ca94ee8bff2e4c87cf613be6ea19919ed1364124e16807ab3176",
@@ -26,6 +26,10 @@ describe("normalisation and hashing vectors", () => {
   });
   it("fn, ln", () => {
     expect(buildUserData({ firstName: " Mary! ", lastName: "SMITH." })).toMatchObject({ fn: [V.fn], ln: [V.ln] });
+  });
+  it("fn keeps non-ASCII letters (Meta's published Valéry and 정 vectors)", () => {
+    expect(buildUserData({ firstName: "Valéry" }).fn).toEqual(["08e1996b5dd49e62a4b4c010d44e4345592a863bb9f8e3976219bac29417149c"]);
+    expect(buildUserData({ firstName: "정" }).fn).toEqual(["8fa8cd9c440be61d0151429310034083132b35975c4bea67fdd74158eb51db14"]);
   });
   it("ct, st, zp, country", () => {
     const u = buildUserData({ city: "Menlo Park", state: "CA", zip: "94025-1234", country: "US" });

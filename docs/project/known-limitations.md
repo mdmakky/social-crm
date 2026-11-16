@@ -149,4 +149,4 @@ Updated: 2026-11-13 (Phase 0).
 - One event per request (no batching or bisection), no manual retry or dead-letter view, no `needs_reauth` flip on an auth error (the event fails with `auth`), no test-event send button. The token is not validated against Meta on connect (mock).
 - Contact deletion does not purge or redact queue rows yet; hashed identifiers stay in `capi_events.payload` of sent rows (no retention job). Hashes are pseudonymous, not anonymous.
 - The worker is an in-process 15 s loop on the single API instance (same shortcut as the inbox worker); dataset create rate limit is in process.
-- Hash vectors: only the email vector is Meta's published one (recalled, re-check on the live page); the rest were computed from the normalisation rules read on 2026-11-13. Phone numbers without a country code are dropped (not guessed).
+- Hash vectors: the em, ph, fn (Mary) and non-ASCII fn (Valéry, 정) vectors match Meta's published examples (checked against the live customer information parameters page on 2026-11-16); ln, ct, st, zp, country and external_id are our own shasum values over the normalised string, not Meta-published.
