@@ -5,7 +5,7 @@ import { axe, person, WEB } from "./channel-helpers";
 
 /**
  * Inbox attachments end to end, MOCK only: mock Meta (webhook with the mock app secret, mock Graph), a mock download network that answers with a 1x1 PNG, a local temp blob directory and the offline mock AI provider.
- * Nothing here proves real Meta, real channel media or real storage behaviour (all UNVERIFIED). Run on a fresh private database with E2E_META_MOCK=1 and STORAGE_DRIVER=local (see docs/project/testing-report.md).
+ * Nothing here proves real Meta, real channel media or real storage behaviour (all UNVERIFIED). Run on a fresh private database with E2E_META_MOCK=1; playwright.config.ts always starts the API with STORAGE_DRIVER=local (see docs/project/testing-report.md).
  */
 const API = `http://localhost:${process.env.E2E_API_PORT ?? "8791"}`;
 const ORIGIN = WEB;
