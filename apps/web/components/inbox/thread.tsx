@@ -297,9 +297,9 @@ export function Thread({ conversationId }: { conversationId: string }) {
         <p role="status" aria-live="polite" className="sr-only">{announce}</p>
 
         <footer className="px-4 pb-4 pt-1">
-          {!canReply ? <p className="py-3 text-sm text-fg-muted">You have read-only access.</p> : detail.platform === "whatsapp" ? <Alert tone="info">Replying on WhatsApp is not available yet. Incoming WhatsApp messages are shown here; sending comes in a later step.</Alert> : (
+          {!canReply ? <p className="py-3 text-sm text-fg-muted">You have read-only access.</p> : (
             <>
-              {detail.replyWindow === "closed" && <Alert tone="warning" className="mb-2">You can&apos;t reply: more than 24 hours have passed since {name}&apos;s last message. Meta only allows replies within 24 hours. You can reply as soon as {name} writes again.</Alert>}
+              {detail.replyWindow === "closed" && <Alert tone="warning" className="mb-2">You can&apos;t reply: more than 24 hours have passed since {name}&apos;s last message. {detail.platform === "whatsapp" ? "WhatsApp only allows free-form replies within 24 hours of the customer's last message (template messages are not available yet)." : "Meta only allows replies within 24 hours."} You can reply as soon as {name} writes again.</Alert>}
               {detail.replyWindow === "none" && <Alert tone="info" className="mb-2">There is no reply window yet. You can reply after {name} writes first.</Alert>}
               {left !== null && left < 120 && <Alert tone="warning" className="mb-2">The 24-hour reply window closes in {Math.floor(left / 60)} h {left % 60} min. After that you can&apos;t reply until {name} writes again.</Alert>}
               {left !== null && left >= 120 && <p className="mb-1.5 flex items-center gap-2 px-1 text-xs text-fg-subtle"><Badge tone="success">Reply window open</Badge>You can reply for {Math.floor(left / 60)} more hours.</p>}
@@ -317,7 +317,7 @@ export function Thread({ conversationId }: { conversationId: string }) {
                   rows={2}
                 />
                 <div className="flex items-center gap-2 px-3 pb-2.5">
-                  <p id="composer-hint" className="min-w-0 flex-1 text-xs text-fg-subtle max-sm:sr-only">Enter to send, Shift+Enter for a new line.{usage.used > usage.max * 0.8 ? ` ${usage.used}/${usage.max} ${usage.unit}` : ""}{usage.over ? <span className="text-danger-fg"> Too long for {detail.platform === "instagram" ? "Instagram" : "Messenger"}: shorten it to send.</span> : null}</p>
+                  <p id="composer-hint" className="min-w-0 flex-1 text-xs text-fg-subtle max-sm:sr-only">Enter to send, Shift+Enter for a new line.{usage.used > usage.max * 0.8 ? ` ${usage.used}/${usage.max} ${usage.unit}` : ""}{usage.over ? <span className="text-danger-fg"> Too long for {detail.platform === "instagram" ? "Instagram" : detail.platform === "whatsapp" ? "WhatsApp" : "Messenger"}: shorten it to send.</span> : null}</p>
                   <Button type="submit" variant="primary" loading={submitting} disabled={!canType || draft.trim() === "" || usage.over}><Send aria-hidden />Send</Button>
                 </div>
               </form>

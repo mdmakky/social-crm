@@ -56,8 +56,9 @@ export interface MetaGraph {
    * Messenger Send API (text only, standard messaging): POST /{version}/{PAGE_ID}/messages with the Page token, `messaging_type: "RESPONSE"`.
    * Meta documents no idempotency key (checked 2026-11-14), so a second call can deliver a second copy: callers must never repeat a call whose result is ambiguous.
    * Throws SendError; returns Meta's message id on success.
+   * channel "whatsapp" (Cloud API, UNVERIFIED until a recorded real request): `pageId` is the phone number id, `psid` the recipient wa_id; POST /{phone-number-id}/messages {messaging_product:"whatsapp", to, type:"text", text:{body}}, id read from messages[0].id.
    */
-  sendText(pageId: string, pageToken: string, psid: string, text: string, channel?: "messenger" | "instagram" | "instagram_unified"): Promise<{ messageId: string }>;
+  sendText(pageId: string, pageToken: string, psid: string, text: string, channel?: "messenger" | "instagram" | "instagram_unified" | "whatsapp"): Promise<{ messageId: string }>;
   /**
    * Unified Login: GET me/assigned_instagram_accounts?fields=id,username with the system-user token (migration guide, 2026-11-14). The id is the Instagram professional account id used in webhooks.
    * Throws GraphError. At most 25 accounts are read.
@@ -165,7 +166,7 @@ export function createMetaGraph(cfg: { appId: string; appSecret: string; version
         // Instagram: the account id we store is the Instagram id, not the Page id, so the documented `me/messages` form (Page token) is used. The Instagram docs show no messaging_type, so none is sent.
         // Unified Login: the token is a system-user token, for which `me` is the system user, so the Instagram account id is addressed explicitly: POST /{ig-id}/messages (migration guide).
         const url = channel === "instagram" ? `${base}/me/messages` : `${base}/${encodeURIComponent(pageId)}/messages`;
-        const payload = channel !== "messenger" ? { recipient: { id: psid }, message: { text } } : { recipient: { id: psid }, messaging_type: "RESPONSE", message: { text } };
+        const payload = channel === "whatsapp" ? { messaging_product: "whatsapp", recipient_type: "individual", to: psid, type: "text", text: { body: text } } : channel !== "messenger" ? { recipient: { id: psid }, message: { text } } : { recipient: { id: psid }, messaging_type: "RESPONSE", message: { text } };
         res = await f(url, {
           method: "POST",
           headers: { authorization: `Bearer ${pageToken}`, "content-type": "application/json" },
@@ -175,9 +176,10 @@ export function createMetaGraph(cfg: { appId: string; appSecret: string; version
       } catch {
         throw new SendError("ambiguous", null, null, null); // timeout or connection lost after the request may have been written
       }
-      const json = (await res.json().catch(() => null)) as { error?: { code?: unknown; error_subcode?: unknown }; message_id?: unknown } | null;
+      const json = (await res.json().catch(() => null)) as { error?: { code?: unknown; error_subcode?: unknown }; message_id?: unknown; messages?: { id?: unknown }[] } | null;
       if (res.ok && !json?.error) {
-        if (typeof json?.message_id === "string" && json.message_id) return { messageId: json.message_id };
+        const id = channel === "whatsapp" ? json?.messages?.[0]?.id : json?.message_id;
+        if (typeof id === "string" && id) return { messageId: id };
         throw new SendError("ambiguous", res.status, null, null); // 2xx without an id: accepted or not, we cannot tell
       }
       const code = typeof json?.error?.code === "number" ? json.error.code : null;
@@ -288,7 +290,7 @@ export function createMockGraph(state: { pages?: GraphPage[]; validCodes?: Set<s
       return state.instagram?.get(igId) ?? null;
     },
     async sendText(pageId, _token, psid, text, channel = "messenger") {
-      calls.push(`${channel === "instagram" ? "sendig" : channel === "instagram_unified" ? "sendigu" : "send"}:${pageId}:${psid}:${text}`);
+      calls.push(`${channel === "whatsapp" ? "sendwa" : channel === "instagram" ? "sendig" : channel === "instagram_unified" ? "sendigu" : "send"}:${pageId}:${psid}:${text}`);
       await state.onSend?.();
       const next = state.sends?.shift();
       if (next instanceof SendError) throw next;

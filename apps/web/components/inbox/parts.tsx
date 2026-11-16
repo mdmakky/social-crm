@@ -23,7 +23,7 @@ export function DeliveryStatus({ m, now, onDecide, deciding }: { m: MessageDto; 
     return (
       <div className="mt-1 max-w-[34rem] rounded-control border border-dashed border-warning-fg/40 bg-warning-bg px-3 py-2 text-sm text-warning-fg">
         <p className="font-medium">Delivery unknown</p>
-        <p>We could not confirm that Meta received this message. Check the conversation in the Facebook or Instagram app before sending it again. It is never retried automatically.</p>
+        <p>We could not confirm that Meta received this message. Check the conversation in the Facebook, Instagram or WhatsApp app before sending it again. It is never retried automatically.</p>
         {onDecide && (now !== undefined && canDecideDelivery(m, now) ? (
           <div className="mt-2 flex flex-wrap gap-2">
             <Button size="sm" variant="secondary" disabled={deciding} onClick={() => onDecide(m.id, "sent")}>It was delivered</Button>

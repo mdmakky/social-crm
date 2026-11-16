@@ -36,6 +36,22 @@ describe("sendText (real client, fake fetch: proves our request and classificati
   });
 });
 
+describe("WhatsApp channel (real client, fake fetch; request shape UNVERIFIED against real Meta)", () => {
+  it("POSTs /{phone-number-id}/messages with messaging_product, to, type text, Bearer header, and reads messages[0].id", async () => {
+    const { g, seen } = graphWith(() => json({ messaging_product: "whatsapp", contacts: [{ input: "8801", wa_id: "8801" }], messages: [{ id: "wamid.ABC" }] }));
+    expect(await g.sendText("5550100", "WA-TOKEN-XYZ", "8801", "Hello", "whatsapp")).toEqual({ messageId: "wamid.ABC" });
+    const r = seen[0]!;
+    expect(r.url.pathname).toBe("/v25.0/5550100/messages");
+    expect(r.url.toString()).not.toContain("WA-TOKEN-XYZ");
+    expect((r.init.headers as Record<string, string>).authorization).toBe("Bearer WA-TOKEN-XYZ");
+    expect(JSON.parse(r.init.body as string)).toEqual({ messaging_product: "whatsapp", recipient_type: "individual", to: "8801", type: "text", text: { body: "Hello" } });
+  });
+  it("a 2xx without messages[0].id is ambiguous, a 4xx Graph error is a refusal", async () => {
+    expect(await fail(graphWith(() => json({ messaging_product: "whatsapp" })).g.sendText("1", "t", "2", "x", "whatsapp"))).toMatchObject({ outcome: "ambiguous", httpStatus: 200 });
+    expect(await fail(graphWith(() => json({ error: { code: 131047, message: "x" } }, 400)).g.sendText("1", "t", "2", "x", "whatsapp"))).toMatchObject({ outcome: "rejected", code: 131047 });
+  });
+});
+
 describe("Instagram channel (real client, fake fetch)", () => {
   it("sends to me/messages with the Page token and no messaging_type, recipient = IGSID", async () => {
     const { g, seen } = graphWith(() => json({ recipient_id: "55", message_id: "ig_mid" }));

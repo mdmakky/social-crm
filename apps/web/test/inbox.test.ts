@@ -68,6 +68,7 @@ describe("per-channel reply limits", () => {
     expect(replyUsage("instagram", "ক".repeat(333), 2000).over).toBe(false);
     expect(replyUsage("messenger", "ক".repeat(1500), 2000)).toMatchObject({ used: 1500, unit: "characters", over: false });
     expect(replyUsage("messenger", "a".repeat(2001), 2000).over).toBe(true);
+    expect(replyUsage("whatsapp", "ক".repeat(1500), 2000)).toMatchObject({ used: 1500, unit: "characters", over: false });
   });
   it("has sentences for the Instagram failure codes", () => {
     for (const c of ["window_closed", "channel_access", "thread_owned_elsewhere"]) expect(failureText(c)).toMatch(/\.$/);
