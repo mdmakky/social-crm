@@ -5,6 +5,7 @@ import { normalizeEmail, normalizePhone, toCsv, validateCustomValues } from "@cr
 import { can } from "@crm/core/permissions";
 import { schema, user, withContext, type Db, type Tx } from "@crm/db";
 import { writeAudit } from "../audit.ts";
+import { purgeContactCapi } from "../capi/enqueue.ts";
 import { emitEvent } from "../events.ts";
 import { activeMember, activeStages, customDefs, findDuplicates, loadContact, lockContactWrites, recordActivity, toDetail, toFieldDef, toSummaries } from "../crm-service.ts";
 import { filters, type Q } from "../contact-query.ts";
@@ -236,6 +237,7 @@ export function contactRoutes(db: Db) {
       const cur = await loadContact(tx, workspaceId, id);
       if (!cur) return fail(c, 404, "not_found");
       await tx.update(schema.contacts).set({ deletedAt: new Date(), updatedAt: new Date(), version: sql`${schema.contacts.version} + 1` }).where(and(eq(schema.contacts.workspaceId, workspaceId), eq(schema.contacts.id, id)));
+      await purgeContactCapi(tx, workspaceId, id);
       await writeAudit(tx, { ...actor(c), workspaceId, action: "contact.deleted", entityType: "contact", entityId: id, summary: { name: cur.name } });
       return c.body(null, 204);
     });
