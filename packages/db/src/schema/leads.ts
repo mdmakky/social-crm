@@ -80,7 +80,7 @@ export const lostReasons = pgTable(
   (t) => [unique("lost_reasons_ws_id").on(t.workspaceId, t.id), check("lost_reasons_name_len", sql`char_length(${t.name}) BETWEEN 1 AND 80`)],
 );
 
-/** One entity for leads and deals (D20). `outcome` mirrors the stage kind through the composite FK. */
+/** One entity for leads (D20; formerly also called deals). `outcome` mirrors the stage kind through the composite FK. */
 export const leads = pgTable(
   "leads",
   {
@@ -176,7 +176,7 @@ export const stageTransitions = pgTable(
   ],
 );
 
-/** Explicit per-lead grant to read/write deal value for an assigned team member (owner/admin always can). */
+/** Explicit per-lead grant to read/write lead value for an assigned team member (owner/admin always can). */
 export const leadValueGrants = pgTable(
   "lead_value_grants",
   {

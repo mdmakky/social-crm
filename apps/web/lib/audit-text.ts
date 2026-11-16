@@ -7,7 +7,7 @@ const ROLE: Record<string, string> = { owner: "owner", admin: "admin", agent: "a
 const KNOWN: Record<string, string> = {
   "auth.password_reset": "reset their password", "contact.deleted": "deleted a contact", "data.exported": "exported data", "data.imported": "imported data",
   "lead.created": "created a lead", "lead.updated": "updated a lead", "lead.deleted": "deleted a lead", "lead.restored": "restored a lead",
-  "lead.value_access_granted": "granted deal value access", "lead.value_access_revoked": "revoked deal value access",
+  "lead.value_access_granted": "granted lead value access", "lead.value_access_revoked": "revoked lead value access",
   "custom_field.created": "added a custom field", "custom_field.updated": "updated a custom field", "lifecycle_stage.created": "added a lifecycle stage", "lifecycle_stage.reordered": "reordered lifecycle stages",
   "lost_reason.created": "added a lost reason", "lost_reason.updated": "updated a lost reason", "tag.deleted": "deleted a tag",
   "pipeline.created": "created a pipeline", "pipeline.updated": "updated a pipeline", "pipeline.archived": "archived a pipeline",

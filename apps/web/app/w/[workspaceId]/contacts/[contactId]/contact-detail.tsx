@@ -24,7 +24,7 @@ import { formatMoney, OUTCOME_LABEL, OUTCOME_TONE } from "@/lib/leads";
 
 type Props = {
   workspaceId: string; role: Role; timeZone: string; myUserId: string;
-  contact: ContactDetail; deals: { items: LeadDto[]; pipelines: PipelineDto[] } | null; notes: Note[]; methods: ContactMethodDto[] | null; activity: { items: ActivityItem[]; nextCursor: string | null }; tasks: Task[];
+  contact: ContactDetail; leadList: { items: LeadDto[]; pipelines: PipelineDto[] } | null; notes: Note[]; methods: ContactMethodDto[] | null; activity: { items: ActivityItem[]; nextCursor: string | null }; tasks: Task[];
   allTags: Tag[]; stages: LifecycleStage[]; members: Member[]; fields: CustomField[];
   perms: { edit: boolean; delete: boolean; consent: boolean };
 };
@@ -116,18 +116,18 @@ export function ContactDetailView(props: Props) {
             <EmptyState icon={MessageSquare} title="Conversations are not available yet" description="The unified inbox is planned for Phase 4. Nothing is stored for this contact until then." className="py-8" />
           </Panel>
           <Panel>
-            <PanelHeader title="Deals" description={props.deals?.items.length ? `${props.deals.items.length} linked` : undefined} />
-            {!props.deals ? (
-              <EmptyState icon={Workflow} title="Deals are not shown for your role" description="Ask an owner or admin for access to leads and pipelines." className="py-8" />
-            ) : props.deals.items.length === 0 ? (
-              <EmptyState icon={Workflow} title="No deals yet" description="Deals created for this contact show here. The lifecycle stage above is separate from any pipeline." className="py-8" action={<Link href={`/w/${workspaceId}/pipeline`} className="text-sm font-medium text-accent-fg hover:underline">Open pipeline</Link>} />
+            <PanelHeader title="Leads" description={props.leadList?.items.length ? `${props.leadList.items.length} linked` : undefined} />
+            {!props.leadList ? (
+              <EmptyState icon={Workflow} title="Leads are not shown for your role" description="Ask an owner or admin for access to leads and pipelines." className="py-8" />
+            ) : props.leadList.items.length === 0 ? (
+              <EmptyState icon={Workflow} title="No leads yet" description="Leads created for this contact show here. The lifecycle stage above is separate from lead stages." className="py-8" action={<Link href={`/w/${workspaceId}/leads`} className="text-sm font-medium text-accent-fg hover:underline">Open leads</Link>} />
             ) : (
               <ul>
-                {props.deals.items.map((l) => (
+                {props.leadList.items.map((l) => (
                   <li key={l.id} className="flex items-center gap-3 border-b border-line-card px-4 py-2.5 last:border-b-0">
                     <div className="min-w-0 flex-1">
                       <Link href={`/w/${workspaceId}/leads/${l.id}`} className="block truncate text-base font-medium text-fg hover:underline pointer-coarse:-my-3 pointer-coarse:py-3">{l.title}</Link>
-                      <p className="truncate text-xs text-fg-subtle">{props.deals!.pipelines.find((x) => x.id === l.pipelineId)?.stages.find((x) => x.id === l.stageId)?.name ?? "Stage"}{l.valueMinor !== null && l.currency ? ` · ${formatMoney(l.valueMinor, l.currency)}` : ""}</p>
+                      <p className="truncate text-xs text-fg-subtle">{props.leadList!.pipelines.find((x) => x.id === l.pipelineId)?.stages.find((x) => x.id === l.stageId)?.name ?? "Stage"}{l.valueMinor !== null && l.currency ? ` · ${formatMoney(l.valueMinor, l.currency)}` : ""}</p>
                     </div>
                     <Badge tone={l.outcome === "open" ? "neutral" : OUTCOME_TONE[l.outcome]}>{OUTCOME_LABEL[l.outcome]}</Badge>
                   </li>

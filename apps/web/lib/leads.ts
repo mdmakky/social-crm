@@ -1,7 +1,7 @@
 import type { LeadDto, PipelineDto, StageDto } from "@crm/contracts";
 
-/** UI wording follows the pipeline kind (decision 1): lead pipelines say Lead, sales pipelines say Deal. The data model is one entity (D20). */
-export const noun = (kind: PipelineDto["kind"] | undefined, plural = false) => (kind === "lead" ? (plural ? "Leads" : "Lead") : plural ? "Deals" : "Deal");
+/** The product says "lead" everywhere (D170); the pipeline kind no longer changes the wording. Kept as a function so call sites stay unchanged. */
+export const noun = (_kind?: PipelineDto["kind"], plural = false) => (plural ? "Leads" : "Lead");
 export const OUTCOME_LABEL = { open: "Open", won: "Won", lost: "Lost" } as const;
 export const OUTCOME_TONE = { open: "accent", won: "success", lost: "neutral" } as const;
 export const PRIORITY_LABEL = { low: "Low", normal: "Normal", high: "High" } as const;

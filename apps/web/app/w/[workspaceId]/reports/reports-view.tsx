@@ -13,7 +13,7 @@ type Money = { currency: string; minor: number }[] | null;
 const PERIODS = [["30", "Last 30 days"], ["90", "Last 90 days"], ["365", "Last 12 months"]] as const;
 const day = (offset: number) => new Date(Date.now() - offset * 86_400_000).toISOString().slice(0, 10);
 
-/** Per-currency amounts; null means the caller may not see deal values, shown as a dash with an explanation elsewhere. */
+/** Per-currency amounts; null means the caller may not see lead values, shown as a dash with an explanation elsewhere. */
 const Amount = ({ v }: { v: Money }) => (v === null ? <span className="text-fg-subtle" aria-label="Not available">—</span> : v.length === 0 ? <span className="text-fg-subtle">—</span> : <span className="tabular-nums">{v.map((m) => formatMoney(m.minor, m.currency)).join(" · ")}</span>);
 
 export function ReportsView({ workspaceId, pipelines, initial }: { workspaceId: string; pipelines: PipelineDto[]; initial: LeadReport | null }) {
@@ -50,7 +50,7 @@ export function ReportsView({ workspaceId, pipelines, initial }: { workspaceId: 
       {!report && status !== "error" && <Skeleton className="h-64 w-full" />}
       {report && status !== "error" && (
         <div className={status === "loading" ? "opacity-60 transition-opacity" : "transition-opacity"} aria-busy={status === "loading"}>
-          {!report.valuesVisible && <Alert tone="info" className="mb-4">Deal values are only shown to owners and admins. You can see counts and rates.</Alert>}
+          {!report.valuesVisible && <Alert tone="info" className="mb-4">Lead values are only shown to owners and admins. You can see counts and rates.</Alert>}
           <dl className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
             {[
               ["Open", String(report.openTotal.count), <Amount key="v" v={report.openTotal.values} />],

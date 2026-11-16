@@ -7,7 +7,7 @@ type Row = { id: string; title: string; contact_name: string; stage_name: string
 
 /**
  * Title substring match, prefix first. Soft-deleted leads are excluded; leads of deleted contacts stay searchable (read-only history).
- * Deal value is deliberately never selected or returned: search results must not leak what a viewer may not see.
+ * Lead value is deliberately never selected or returned: search results must not leak what a viewer may not see.
  */
 export const leadsProvider: SearchProvider = {
   type: "leads",

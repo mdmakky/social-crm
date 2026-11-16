@@ -83,7 +83,7 @@ export function CapiPanel({ workspaceId, canManage }: { workspaceId: string; can
 
   return (
     <Panel className="mt-6">
-      <PanelHeader title="Meta Conversions API" description="Send CRM outcomes, such as a won deal, back to Meta for ad measurement. Only for contacts who agreed to it. Record consent on the contact page, under Ad measurement consent." actions={<Badge tone="warning">MOCK</Badge>} />
+      <PanelHeader title="Meta Conversions API" description="Send CRM outcomes, such as a won lead, back to Meta for ad measurement. Only for contacts who agreed to it. Record consent on the contact page, under Ad measurement consent." actions={<Badge tone="warning">MOCK</Badge>} />
       <div className="flex flex-col gap-4 p-4">
         <Alert tone="warning">Mock only. Events are checked and recorded here, but nothing is sent to Meta. Live sending stays off until a real test event has been accepted and recorded.</Alert>
 
@@ -127,7 +127,7 @@ export function CapiPanel({ workspaceId, canManage }: { workspaceId: string; can
                       <input type="checkbox" checked={chosen.includes(n)} disabled={busy !== null} onChange={(e) => setChosen(e.target.checked ? [...chosen, n] : chosen.filter((x) => x !== n))} />{n}
                     </label>
                   ))}
-                  <p className="basis-full text-sm text-fg-subtle">Today a deal moved to a Won stage creates a Purchase event (it needs a value). Other events are accepted but nothing creates them yet.</p>
+                  <p className="basis-full text-sm text-fg-subtle">Today a lead moved to a Won stage creates a Purchase event (it needs a value). Other events are accepted but nothing creates them yet.</p>
                 </fieldset>
                 {error && <Alert tone="error">{error}</Alert>}
                 <div><Button type="submit" variant="primary" loading={busy === "create"}><Plug className="size-4" aria-hidden />Connect dataset</Button></div>
@@ -141,7 +141,7 @@ export function CapiPanel({ workspaceId, canManage }: { workspaceId: string; can
                 <Button onClick={() => { setEvents(null); void load(); }}>Refresh</Button>
               </div>
               {events === null ? <Skeleton className="h-24" /> : events.length === 0 ? (
-                <EmptyState icon={Send} title="No events yet" description="Events appear here when a deal with a value is moved to a Won stage and a dataset is connected. Contacts need recorded consent to be sent." />
+                <EmptyState icon={Send} title="No events yet" description="Events appear here when a lead with a value is moved to a Won stage and a dataset is connected. Contacts need recorded consent to be sent." />
               ) : (
                 <Table scrollLabel="Delivery history">
                   <THead><TR><TH>When</TH><TH>Dataset</TH><TH>Event</TH><TH>Status</TH><TH>Tries</TH><TH>Detail</TH></TR></THead>

@@ -11,7 +11,7 @@ export default async function ContactPage({ params }: { params: Promise<{ worksp
   const api = await serverApi();
   const p = { workspaceId };
   const pc = { workspaceId, contactId };
-  // Deals are fetched in parallel with the rest; the result is only used when the role may view leads.
+  // Leads are fetched in parallel with the rest; the result is only used when the role may view leads.
   const dealsP = Promise.all([api.call(endpoints.listLeads, { params: p, query: { contactId, limit: 20 } }), api.call(endpoints.listPipelines, { params: p })]);
   const [ws, me, contact, notes, activity, tasks, tags, stages, members, fields, methods] = await Promise.all([
     api.call(endpoints.getWorkspace, { params: p }),
@@ -41,7 +41,7 @@ export default async function ContactPage({ params }: { params: Promise<{ worksp
       methods={dataOf(methods)?.items ?? null}
       activity={dataOf(activity) ?? { items: [], nextCursor: null }}
       tasks={dataOf(tasks) ?? []}
-      deals={leads ? { items: dataOf(leads[0])?.items ?? [], pipelines: dataOf(leads[1])?.pipelines ?? [] } : null}
+      leadList={leads ? { items: dataOf(leads[0])?.items ?? [], pipelines: dataOf(leads[1])?.pipelines ?? [] } : null}
       allTags={dataOf(tags) ?? []}
       stages={dataOf(stages) ?? []}
       members={dataOf(members) ?? []}

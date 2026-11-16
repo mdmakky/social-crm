@@ -54,7 +54,7 @@ export const LeadDto = z.object({
   id: Uuid, title: z.string(), description: z.string().nullable(),
   primaryContact: z.object({ id: Uuid, name: z.string(), deleted: z.boolean() }),
   pipelineId: Uuid, stageId: Uuid, outcome: StageKind, rank: z.string(),
-  /** Null when the caller may not see deal value (valueHidden = true) or when none is set. */
+  /** Null when the caller may not see lead value (valueHidden = true) or when none is set. */
   valueMinor: z.number().int().nullable(), currency: z.string().nullable(), valueHidden: z.boolean(), canEditValue: z.boolean(),
   expectedCloseDate: z.string().nullable(), probability: z.number().int(), probabilityManual: z.boolean(),
   closedAt: z.string().nullable(), lostReasonId: Uuid.nullable(), nextActivityAt: z.string().nullable(),
@@ -68,7 +68,7 @@ export const LeadListQuery = z.object({
   pipelineId: Uuid.optional(), stageId: Uuid.optional(), outcome: StageKind.optional(), ownerId: z.string().optional(), contactId: Uuid.optional(),
   q: z.string().max(120).optional(), deleted: z.enum(["true"]).optional(),
   source: z.string().trim().min(1).max(40).optional(),
-  /** Value range in minor units. Only for callers who may see deal values (otherwise 403), so a hidden value cannot be probed. */
+  /** Value range in minor units. Only for callers who may see lead values (otherwise 403), so a hidden value cannot be probed. */
   minValue: z.coerce.number().int().min(0).optional(), maxValue: z.coerce.number().int().min(0).optional(),
   /** Leads updated within the last N days. */
   activeWithinDays: z.enum(["7", "30", "90"]).optional(),

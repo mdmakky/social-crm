@@ -19,7 +19,7 @@ const MATRIX = {
   "lead.edit": A(true, true, true, false),
   "lead.delete": A(true, true, false, false),
   "lead.reopen": A(true, true, false, false),
-  /** Deal value: owner/admin always; an agent only with an explicit per-lead grant (isGranted); viewers never. */
+  /** Lead value: owner/admin always; an agent only with an explicit per-lead grant (isGranted); viewers never. */
   "lead.value.view": A(true, true, "granted", false),
   "lead.value.edit": A(true, true, "granted", false),
   "task.edit": A(true, true, "own", false),
