@@ -15,6 +15,7 @@ import { ToastProvider, useToast } from "@/components/ui/toast";
 import { browserApi, errorMessage } from "@/lib/client-api";
 import { formatMicro, parseMicro } from "@/lib/ai-money";
 import { CapabilitiesPanel, MediaPlayground } from "./media-panels";
+import { OpenRouterModels, type Picked } from "./openrouter-models";
 
 type Data = { providers: AiProviderDto[]; prompts: AiPromptDto[]; budget: AiBudgetDto; usage: AiUsageDto };
 
@@ -63,7 +64,7 @@ function ProviderPanel({ params, providers, onSaved }: P & { providers: AiProvid
   const initial = providers.find((x) => x.isDefault) ?? providers.find((x) => x.configured) ?? providers[0]!;
   const [id, setId] = React.useState(initial.id);
   const current = providers.find((x) => x.id === id)!;
-  const fill = (x: AiProviderDto) => ({ model: x.defaultModel ?? x.models[0]?.id ?? "", baseUrl: x.baseUrl ?? "", enabled: x.configured ? x.enabled : true, isDefault: x.configured ? x.isDefault : !providers.some((o) => o.isDefault), key: "" });
+  const fill = (x: AiProviderDto) => ({ model: x.defaultModel ?? x.models[0]?.id ?? "", picked: (x.modelPrices ?? {}) as Picked, baseUrl: x.baseUrl ?? "", enabled: x.configured ? x.enabled : true, isDefault: x.configured ? x.isDefault : !providers.some((o) => o.isDefault), key: "" });
   const [form, setForm] = React.useState(() => fill(initial));
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -77,8 +78,11 @@ function ProviderPanel({ params, providers, onSaved }: P & { providers: AiProvid
     setError(null); setKeyError(null);
     if (!current.mock && !current.configured && form.key.trim().length < 8) { setKeyError("Paste the provider's API key."); return; }
     if (form.key && /\s/.test(form.key.trim())) { setKeyError("Paste the whole key, with no spaces."); return; }
+    const gateway = id === "openrouter";
+    if (gateway && (!Object.keys(form.picked).length || !form.picked[form.model])) { setError("Enable at least one model and choose one of the enabled models as the default."); return; }
     setBusy(true);
     const r = await browserApi.call(endpoints.setAiProvider, { params: { ...params, provider: id }, body: {
+      ...(gateway ? { modelPrices: form.picked } : {}),
       ...(form.key.trim() ? { apiKey: form.key.trim() } : {}), ...(current.customBaseUrl ? { baseUrl: form.baseUrl.trim() || null } : {}),
       defaultModel: form.model, enabled: form.enabled, isDefault: form.isDefault && form.enabled,
     } });
@@ -96,18 +100,23 @@ function ProviderPanel({ params, providers, onSaved }: P & { providers: AiProvid
       <form onSubmit={(e) => { e.preventDefault(); void save(); }} className="flex flex-col gap-4 p-4" noValidate>
         {current.mock
           ? <Alert tone="warning">Mock provider: drafts are canned text and no AI service is called. Use it to try the flow. Nothing leaves this server.</Alert>
-          : <Alert tone="info">Not verified yet: this connection has only been tested against a simulated service, never a real one. Try one suggestion and check the usage table before relying on it.</Alert>}
+          : <Alert tone="info">Not verified yet: this connection has only been tested against a simulated service, never a real one. Try one suggestion and check the usage table before relying on it.{id === "openrouter" && " OpenRouter model prices and capabilities come from its public list and are UNVERIFIED (not tested against the live service). The cost of each call is counted as the higher of our estimate and the cost OpenRouter reports."}</Alert>}
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Provider">{(p) => (
             <Select {...p} value={id} disabled={busy} onChange={(e) => choose(e.target.value)}>
               {providers.map((x) => <option key={x.id} value={x.id}>{x.label}{x.isDefault ? " (default)" : x.configured ? " (connected)" : ""}</option>)}
             </Select>
           )}</Field>
-          <Field label="Model" hint={model && !current.mock ? `Price per 1M tokens: ${formatMicro(model.inputMicroPer1M)} in, ${formatMicro(model.outputMicroPer1M)} out (USD, indicative)` : undefined}>{(p) => (
-            <Select {...p} value={form.model} disabled={busy} onChange={(e) => setForm({ ...form, model: e.target.value })}>
-              {current.models.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
-            </Select>
-          )}</Field>
+          {id !== "openrouter" && (
+            <Field label="Model" hint={model && !current.mock ? `Price per 1M tokens: ${formatMicro(model.inputMicroPer1M)} in, ${formatMicro(model.outputMicroPer1M)} out (USD, indicative)` : undefined}>{(p) => (
+              <Select {...p} value={form.model} disabled={busy} onChange={(e) => setForm({ ...form, model: e.target.value })}>
+                {current.models.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
+              </Select>
+            )}</Field>
+          )}
+          {id === "openrouter" && (
+            <OpenRouterModels workspaceId={params.workspaceId} picked={form.picked} onPicked={(p) => setForm((f) => ({ ...f, picked: p }))} defaultModel={form.model} onDefault={(m) => setForm((f) => ({ ...f, model: m }))} disabled={busy} />
+          )}
           {!current.mock && (
             <Field label="API key" error={keyError} hint={current.configured && current.keyLast4 ? `A key ending in ${current.keyLast4} is stored. Leave this empty to keep it. A new key replaces it.` : "Stored encrypted. It is never shown again; only its last four characters are."} className="sm:col-span-2">{(p) => (
               <Input {...p} type="password" autoComplete="off" spellCheck={false} value={form.key} disabled={busy} onChange={(e) => setForm({ ...form, key: e.target.value })} />

@@ -202,3 +202,10 @@ Offline: fake fetch and resolver, a fake S3 endpoint, the mock Graph, the mock A
 - Playwright `e2e/inbox-attachments.spec.ts` 5/5 passed on a fresh database: `scripts/db-create.sh att_f` then `E2E_WEB_PORT=4117 E2E_API_PORT=9491 CRM_DB_NAME=att_f E2E_META_MOCK=1 STORAGE_DRIVER=local pnpm exec playwright test e2e/inbox-attachments.spec.ts` (preview served by the API, failed download with Retry and Delete, keyboard lightbox, mock AI describe with usage, add to knowledge, composer type and bytes validation, upload status, send a file, delete removing the knowledge entry, viewer without controls, other workspace refused, 375/768/1440 overflow, axe). The mock download network is a labelled mock (`META_MOCK=1` only).
 - `turbo lint typecheck` green (24/24); `next build` passes.
 Not covered: any real S3-compatible bucket, real WhatsApp media upload, lookup and download, the real Messenger/Instagram CDN, mobile screens, large-file behaviour near the caps over a network, the three perf/bench files.
+
+## OpenRouter gateway, slice A (2026-11-17)
+Fake fetch only; the network is never used. See the run results recorded in the final report of the slice.
+- `packages/ai` `openrouter.test.ts` (adapter request shape, usage.cost rounding, routedModel, every status mapping, Retry-After seconds and date, 200-with-error, malformed JSON, plain openai unchanged, model parsing and exact prices, capabilities).
+- `apps/api` `ai-openrouter.test.ts` (browse permissions, cache, rate limit, no key sent, PUT limits and capability intersection, retry with Retry-After, MAX cost, budget hard stop with reported cost, 402 and 422 responses, no key leakage, tenant isolation) on private database `or_a`.
+- Playwright `e2e/ai-openrouter.spec.ts` on a fresh `or_a`: `E2E_WEB_PORT=5017 E2E_API_PORT=9591 CRM_DB_NAME=or_a E2E_META_MOCK=1 pnpm exec playwright test e2e/ai-openrouter.spec.ts`.
+Not covered: any real OpenRouter request, the live model list shape, real 402/403/429/503 behaviour, `usage.cost` on a real response.
