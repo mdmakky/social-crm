@@ -15,6 +15,8 @@ let h: Harness, workerDb: Db, ingestDb: Db, hook: Hono, graph: ReturnType<typeof
 let owner: TestUser, agent: TestUser, viewer: TestUser, other: TestUser;
 let ws: string, wsOther: string;
 const ids: string[] = [];
+let openTx = 0;
+const violations: string[] = [];
 const digits = () => `6${Math.floor(Math.random() * 1e13).toString().padStart(13, "0")}`;
 const q = async (text: string, params: unknown[] = []) => (await h.admin.query(text, params)).rows;
 const call = (u: TestUser, method: string, path: string, body?: unknown) =>
@@ -41,6 +43,12 @@ beforeAll(async () => {
     graph, box, workerDb, appId: "123456", configId: "654321", graphVersion: "v25.0", redirectUri: "http://localhost:3000/v1/integrations/meta/callback", webOrigin: "http://localhost:3000",
     stateKey: createHmac("sha256", "k").update("s").digest(), userHashKey: createHmac("sha256", "k").update("u").digest(), mock: true, secureCookies: false,
   };
+  // Instrumentation: count open worker transactions and flag every Graph call made while one is open (a held transaction keeps a pooled connection and possibly row locks for the whole network wait).
+  deps.workerDb = new Proxy(workerDb, { get: (t, k) => (k === "transaction" ? (fn: (tx: unknown) => Promise<unknown>, ...rest: unknown[]) => (t as unknown as { transaction: (...a: unknown[]) => Promise<unknown> }).transaction(async (tx: unknown) => { openTx++; try { return await fn(tx); } finally { openTx--; } }, ...rest) : Reflect.get(t, k, t)) });
+  for (const k of Object.keys(graph) as (keyof typeof graph)[]) {
+    const f = graph[k];
+    if (typeof f === "function") (graph as unknown as Record<string, unknown>)[k as string] = (...a: unknown[]) => { if (openTx > 0) violations.push(String(k)); return (f as (...x: unknown[]) => unknown)(...a); };
+  }
   h = await bootstrap({ waLimits: { lookupsPerUser: 1000, connectsPerUser: 1000 } }, deps); // the rate limit has its own tests below
   [owner, agent, viewer, other] = (await Promise.all(["wcowner", "wcagent", "wcviewer", "wcother"].map((l) => h.newUser(l)))) as TestUser[] as [TestUser, TestUser, TestUser, TestUser];
   ws = await h.workspace(owner, "WAC A", { agent, viewer });
@@ -274,5 +282,72 @@ describe("token without an app id", () => {
       deps.mock = true;
     }
     expect(await accountRow(n.id)).toBeUndefined();
+  });
+});
+
+describe("transactions and races around Graph calls", () => {
+  it("no Graph call runs while a database transaction is open (connect, check-token, re-subscribe, disconnect)", async () => {
+    violations.length = 0;
+    const w = waba();
+    const n = w.numbers[0]!;
+    ids.push(n.id);
+    const out = await (await connect(owner, ws, { wabaId: w.id, phoneNumberId: n.id })).json();
+    const id = out.account.id as string;
+    expect((await call(owner, "POST", `${MW(ws)}/accounts/${id}/check-token`)).status).toBe(200);
+    expect((await call(owner, "POST", `${MW(ws)}/accounts/${id}/resubscribe`)).status).toBe(200);
+    expect((await call(owner, "POST", `${MW(ws)}/accounts/${id}/disconnect`)).status).toBe(200);
+    expect(graph.calls.length).toBeGreaterThan(0);
+    expect(violations).toEqual([]);
+  });
+
+  it("a token check that answers after a reconnect is dropped: the fresh connection is not marked reauth_required", async () => {
+    const w = waba();
+    const n = w.numbers[0]!;
+    ids.push(n.id);
+    const out = await (await connect(owner, ws, { wabaId: w.id, phoneNumberId: n.id })).json();
+    const id = out.account.id as string;
+    const NEW = "EAAG" + "y".repeat(60);
+    const realDebug = graph.debugToken;
+    let reentered = false;
+    graph.state.tokenInfo = new Map([[TOKEN, { isValid: false, expiresAt: null, scopes: [], errorCode: 190, appId: null }]]);
+    graph.debugToken = async (token: string) => {
+      if (token === TOKEN && !reentered) {
+        reentered = true; // the owner reconnects with a new token while Meta is still answering the old check
+        graph.state.whatsapp!.wabas.get(w.id)!.token = NEW;
+        expect((await connect(owner, ws, { wabaId: w.id, phoneNumberId: n.id, accessToken: NEW })).status).toBe(200);
+      }
+      return realDebug(token);
+    };
+    try {
+      expect((await call(owner, "POST", `${MW(ws)}/accounts/${id}/check-token`)).status).toBe(200);
+    } finally {
+      graph.debugToken = realDebug;
+      graph.state.tokenInfo = undefined;
+    }
+    expect((await q("SELECT status FROM integration_accounts WHERE id=$1", [id]))[0].status).toBe("connected");
+    expect(await q("SELECT 1 FROM integration_events WHERE integration_account_id=$1 AND kind='status_changed' AND data->>'reason'='token_invalid'", [id])).toHaveLength(0);
+  });
+});
+
+describe("number held by another workspace", () => {
+  it("is flagged unavailable in the lookup of the other workspace (advisory), never leaks who holds it, and connect still answers 409", async () => {
+    const w = waba();
+    const n = w.numbers[0]!;
+    ids.push(n.id);
+    expect((await connect(owner, ws, { wabaId: w.id, phoneNumberId: n.id })).status).toBe(200);
+    const mine = await (await call(owner, "POST", `${WA(ws)}/numbers`, { wabaId: w.id, accessToken: TOKEN })).json();
+    expect(mine.numbers[0]).toMatchObject({ connected: true, unavailable: false });
+    const res = await call(other, "POST", `${WA(wsOther)}/numbers`, { wabaId: w.id, accessToken: TOKEN });
+    const text = await res.text();
+    expect(JSON.parse(text).numbers[0]).toMatchObject({ phoneNumberId: n.id, connected: false, unavailable: true });
+    expect(text).not.toContain(ws); // no workspace identity
+    const refused = await connect(other, wsOther, { wabaId: w.id, phoneNumberId: n.id });
+    const body = await refused.json();
+    expect([refused.status, body.error.code]).toEqual([409, "account_unavailable"]);
+    expect(body.error.message).toContain("another workspace");
+    // a disconnected number stays reserved, so it stays unavailable to others
+    const id = (await accountRow(n.id)).id as string;
+    expect((await call(owner, "POST", `${MW(ws)}/accounts/${id}/disconnect`)).status).toBe(200);
+    expect((await (await call(other, "POST", `${WA(wsOther)}/numbers`, { wabaId: w.id, accessToken: TOKEN })).json()).numbers[0].unavailable).toBe(true);
   });
 });

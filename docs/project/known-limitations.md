@@ -128,5 +128,4 @@ Updated: 2026-11-13 (Phase 0).
 - A disconnected number stays reserved for its workspace (409 elsewhere); there is no release path yet. A number moved to another WABA cannot be re-connected (`waba_mismatch`).
 - Token expiry options of system user tokens are not documented; an expired token shows as "Reconnect needed" after the daily token check. The connect and lookup routes are rate limited in process only (per API instance; a shared store is needed before running more than one instance).
 - Number release: a disconnected number is reserved to its old workspace and WABA. Safe release needs an ops script run as the DB owner (delete side row, secrets and account of a `disabled` account with no conversations); in-app release would need a DELETE grant and a migration. Not built.
-- `/numbers` shows a number held by another workspace as connectable; the connect then fails with 409 `account_unavailable`. The UI does not show the WABA id of a connected number.
-- `subscribeWhatsAppAccount` and the token check run a Graph call inside an open worker transaction (10 s timeout), same as before this slice for the token check.
+- `/numbers` marks a number held by another workspace "unavailable" (advisory; `/connect` stays authoritative, 409). The UI does not show the WABA id of a connected number.

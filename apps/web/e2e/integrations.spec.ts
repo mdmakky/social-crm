@@ -11,12 +11,13 @@ test.describe.serial("Integrations option B (mock Meta)", () => {
   let owner: { ctx: BrowserContext; page: Page; email: string };
   let outsider: { ctx: BrowserContext; page: Page; email: string };
   let wsInt = "";
+  let wsOut = "";
 
   test.beforeAll(async ({ browser }) => {
     owner = await person(browser, "Owner One");
     wsInt = await createWorkspace(owner.page, "Integrations Co");
     outsider = await person(browser, "Outsider Three");
-    await createWorkspace(outsider.page, "Outsider Co");
+    wsOut = await createWorkspace(outsider.page, "Outsider Co");
   });
   test.afterAll(async () => {
     await Promise.all([owner?.ctx.close(), outsider?.ctx.close()]);
@@ -162,6 +163,25 @@ test.describe.serial("Integrations option B (mock Meta)", () => {
   test("WhatsApp: a non-member cannot reach the connect routes (roles: see the API permissions test)", async () => {
     const res = await outsider.page.request.post(`/v1/workspaces/${wsInt}/integrations/whatsapp/numbers`, { data: { wabaId: "200000000000001", accessToken: "x".repeat(40) } });
     expect(res.status()).toBe(404); // not a member: the workspace does not exist for them
+  });
+
+  test("WhatsApp: a number held by another workspace is shown as unavailable, and the backend still refuses it (409)", async () => {
+    const WA_TOKEN = "mock-system-user-token-" + "0".repeat(24);
+    const page = outsider.page;
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(`/w/${wsOut}/integrations?channel=whatsapp`);
+    await page.getByLabel("WhatsApp Business Account ID").fill("200000000000001");
+    await page.getByLabel("System user token").fill(WA_TOKEN);
+    await page.getByRole("button", { name: "Find numbers" }).click();
+    await expect(page.getByText(/already connected to another workspace: it cannot be connected here/)).toBeVisible();
+    const radios = page.getByRole("radio");
+    await expect(radios.first()).toBeDisabled();
+    await expect(radios.nth(1)).toBeEnabled();
+    await expect(radios.nth(1)).toBeChecked(); // default skips the unavailable number
+    const refused = await page.request.post(`/v1/workspaces/${wsOut}/integrations/whatsapp/connect`, { data: { wabaId: "200000000000001", accessToken: WA_TOKEN, phoneNumberId: "300000000000001" } });
+    expect(refused.status()).toBe(409);
+    expect((await refused.json()).error.code).toBe("account_unavailable");
+    await axe(page, "whatsapp-unavailable@1440");
   });
 
   test("mobile 375: list screen, detail screen, back", async () => {

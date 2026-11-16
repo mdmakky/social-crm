@@ -122,3 +122,6 @@ Mock Graph only. No real Meta request, no real message, Playwright spec updated 
 
 ### WhatsApp slice 2 hardening pass (2026-11-16)
 Mock Graph only; no real Meta request. Playwright `e2e/integrations.spec.ts` on a FRESH database with `E2E_META_MOCK=1`: 7/7 passed (new: full WhatsApp flow with validation errors, wrong WABA, wrong token, number picker, connect, token absent from DOM/storage/API, re-check, token check, already-connected hint, disconnect; non-member 404). Lint, typecheck, unit, db (149) and api (538 passed, 14 skipped) all green; `next build` OK. `whatsapp-connect.test.ts` now 14 tests (rate limit, missing app id fails closed).
+
+### WhatsApp slice 2 final review (2026-11-16)
+New API tests: no Graph call while a worker transaction is open (counting Proxy on the worker db; WhatsApp and Messenger paths: connect, check-token, re-subscribe, disconnect), stale token check dropped after a reconnect, number held by another workspace (flag, no identity leak, 409 message, reservation survives disconnect). Verified the three transaction tests FAIL on the previous code and pass now. Playwright adds the unavailable-number case.

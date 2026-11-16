@@ -56,7 +56,13 @@ export function whatsappConnect(db: Db, deps?: MetaConnectDeps, limits?: Partial
     if (!res.ok) return fail(c, res.status, res.code, res.message);
     const mine = await withContext(db, wctx(c), (tx) => tx.select({ id: schema.integrationAccounts.externalAccountId }).from(schema.integrationAccounts).where(and(eq(schema.integrationAccounts.workspaceId, c.get("workspaceId")), eq(schema.integrationAccounts.platform, "whatsapp"), sql`${schema.integrationAccounts.status} <> 'disabled'`)));
     const have = new Set(mine.map((m) => m.id));
-    const out: WhatsAppLookupResult = { numbers: res.numbers.map((n) => ({ phoneNumberId: n.id, displayPhoneNumber: n.displayPhoneNumber, verifiedName: n.verifiedName, connected: have.has(n.id) })) };
+    // Advisory only (the worker role sees across workspaces, the app role does not): tells the owner up front which numbers /connect would refuse with 409. Says nothing about WHO holds the number. /connect stays authoritative.
+    const taken = new Set<string>();
+    if (res.numbers.length > 0) {
+      const rows = await withContext(deps.workerDb, wctx(c), async (tx) => rowsOf(await tx.execute(sql`SELECT external_account_id FROM integration_accounts WHERE platform = 'whatsapp' AND workspace_id <> ${c.get("workspaceId")} AND external_account_id IN (${sql.join(res.numbers.map((n) => sql`${n.id}`), sql`, `)})`)));
+      for (const r of rows) taken.add(r.external_account_id as string);
+    }
+    const out: WhatsAppLookupResult = { numbers: res.numbers.map((n) => ({ phoneNumberId: n.id, displayPhoneNumber: n.displayPhoneNumber, verifiedName: n.verifiedName, connected: have.has(n.id), unavailable: taken.has(n.id) })) };
     return c.json(out);
   });
 
@@ -105,7 +111,7 @@ export function whatsappConnect(db: Db, deps?: MetaConnectDeps, limits?: Partial
       });
     } catch (e) {
       if (e instanceof WabaMismatch) return fail(c, 409, "waba_mismatch", "This number is already connected under a different WhatsApp Business Account ID. Use that ID, or ask support to release the number.");
-      if (e instanceof AccountElsewhere) return fail(c, 409, "account_unavailable", "This account can't be connected to this workspace.");
+      if (e instanceof AccountElsewhere) return fail(c, 409, "account_unavailable", "This number is already connected to another workspace. Disconnect it there first, or contact support to release it.");
       throw e;
     }
 

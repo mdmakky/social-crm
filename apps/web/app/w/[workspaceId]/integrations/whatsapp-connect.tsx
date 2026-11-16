@@ -41,7 +41,7 @@ export function WhatsAppConnect({ workspaceId, disabledReason, mock, onConnected
     setBusy(null);
     if (!r.ok) { setNumbers(null); setError(errorMessage(r.error)); return; }
     setNumbers(r.data.numbers);
-    setPick(r.data.numbers.find((n) => !n.connected)?.phoneNumberId ?? "");
+    setPick(r.data.numbers.find((n) => !n.connected && !n.unavailable)?.phoneNumberId ?? "");
   }
 
   async function connect() {
@@ -76,20 +76,20 @@ export function WhatsAppConnect({ workspaceId, disabledReason, mock, onConnected
       </div>
       {error && <Alert tone="error">{error}</Alert>}
       {numbers && (
-        numbers.length === 0 ? <Alert tone="warning">This account has no phone numbers. Add and verify a number in WhatsApp Manager first.</Alert> : (
+        numbers.length === 0 ? <Alert tone="warning">This account has no phone numbers. Add and verify a number in WhatsApp Manager first.</Alert> : numbers.every((n) => n.unavailable) ? <Alert tone="warning">Every number of this account is already connected to another workspace. Disconnect it there first, or contact support.</Alert> : (
           <fieldset className="flex flex-col gap-2">
             <legend className="mb-1 text-sm font-medium text-fg">Choose the number to connect</legend>
             {numbers.map((n) => (
-              <label key={n.phoneNumberId} className="flex min-h-11 cursor-pointer items-center gap-3 rounded-control border border-line-card px-3 py-2">
-                <input type="radio" name="wa-number" value={n.phoneNumberId} checked={pick === n.phoneNumberId} onChange={() => setPick(n.phoneNumberId)} />
-                <span className="min-w-0 flex-1"><span className="block truncate font-medium">{n.verifiedName ?? n.displayPhoneNumber}</span><span className="block text-sm text-fg-muted">{n.displayPhoneNumber} · ID {n.phoneNumberId}{n.connected ? " · already connected (connecting again replaces its token)" : ""}</span></span>
+              <label key={n.phoneNumberId} className={`flex min-h-11 items-center gap-3 rounded-control border border-line-card px-3 py-2 ${n.unavailable ? "cursor-not-allowed opacity-70" : "cursor-pointer"}`}>
+                <input type="radio" name="wa-number" value={n.phoneNumberId} checked={pick === n.phoneNumberId} disabled={n.unavailable} onChange={() => setPick(n.phoneNumberId)} />
+                <span className="min-w-0 flex-1"><span className="block truncate font-medium">{n.verifiedName ?? n.displayPhoneNumber}</span><span className="block text-sm text-fg-muted">{n.displayPhoneNumber} · ID {n.phoneNumberId}{n.unavailable ? " · already connected to another workspace: it cannot be connected here" : n.connected ? " · already connected (connecting again replaces its token)" : ""}</span></span>
               </label>
             ))}
           </fieldset>
         )
       )}
       <div className="flex flex-wrap items-center gap-2">
-        {numbers && numbers.length > 0
+        {numbers && numbers.some((n) => !n.unavailable)
           ? <Button type="submit" variant="primary" disabled={off || !pick} loading={busy === "connect"}><Plug className="size-4" aria-hidden />Connect number</Button>
           : <Button type="submit" variant="primary" disabled={off} loading={busy === "find"}><Search className="size-4" aria-hidden />Find numbers</Button>}
         {numbers && <Button type="button" onClick={() => { setNumbers(null); setPick(""); }} disabled={busy !== null}>Start over</Button>}
