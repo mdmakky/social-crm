@@ -127,7 +127,7 @@ function Inner({ children, members }: { children: React.ReactNode; members: Memb
   const STATUSES: { id: Filters["status"]; label: string }[] = [{ id: "open", label: "Open" }, { id: "pending", label: "Pending" }, { id: "resolved", label: "Resolved" }, { id: "all", label: "All statuses" }];
 
   return (
-    <div className="flex h-[calc(100dvh-var(--topbar-h)-3.5rem)] min-h-[28rem] overflow-hidden rounded-card border border-line bg-surface max-md:h-[calc(100dvh-var(--topbar-h)-2rem)]">
+    <div className="flex h-[calc(100dvh-var(--topbar-h)-3.5rem)] min-h-[28rem] overflow-hidden rounded-card border border-line bg-surface max-md:h-[calc(100dvh-var(--topbar-total)-var(--bottomnav-h)-2.5rem)]">
       <section aria-label="Conversations" className={cn("min-w-0 flex-col border-r border-line md:flex md:w-[300px] md:shrink-0 lg:w-[352px]", selected ? "hidden" : "flex w-full")}>
         <div className="px-4 pt-4">
           <div className="flex items-center gap-2">

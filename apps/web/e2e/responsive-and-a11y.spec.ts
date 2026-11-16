@@ -95,8 +95,9 @@ test.describe("responsive layout and accessibility", () => {
     await expect(page.getByRole("link", { name: "Members" }).filter({ visible: true })).toBeVisible(); // still reachable by name
     await page.setViewportSize({ width: 375, height: 812 });
     await expect(page.getByRole("navigation", { name: "Main" }).filter({ visible: true })).toHaveCount(0);
-    await page.getByRole("button", { name: "Open navigation" }).click();
-    const drawer = page.getByRole("dialog", { name: "Navigation" });
+    await expect(page.getByRole("navigation", { name: "Primary" })).toBeVisible(); // bottom bar on phones
+    await page.getByRole("button", { name: "More" }).click();
+    const drawer = page.getByRole("dialog", { name: "More" });
     await expect(drawer.getByRole("link", { name: "Members" })).toBeVisible();
     await axe(page, "drawer@375");
     await page.screenshot({ path: `${SHOTS}drawer-375.png` });
