@@ -11,7 +11,7 @@ const API = `http://localhost:${process.env.E2E_API_PORT ?? "8791"}`;
 const ORIGIN = WEB;
 const WA_TOKEN = "mock-system-user-token-" + "0".repeat(24);
 const APP_SECRET = "e2e-mock-app-secret-0123456789";
-const PHONE_NUMBER_ID = "300000000000001";
+const PHONE_NUMBER_ID = "300000000000003"; // its own mock number: integrations.spec.ts connects ...001 in another workspace and a mock number can be held by one workspace only
 const FROM = "15551230001";
 const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64");
 

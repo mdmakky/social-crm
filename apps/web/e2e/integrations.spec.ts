@@ -152,7 +152,7 @@ test.describe.serial("Integrations option B (mock Meta)", () => {
     await waba.fill("200000000000001");
     await token.fill(WA_TOKEN);
     await page.getByRole("button", { name: "Find numbers" }).click();
-    await expect(page.getByText(/already connected/)).toBeVisible();
+    await expect(page.getByText(/already connected \(connecting again replaces its token\)/)).toBeVisible(); // this workspace's own number (another number may also read "already connected to another workspace")
     await page.getByRole("button", { name: "Start over" }).click();
     // disconnect with confirm
     await page.getByRole("button", { name: "Disconnect" }).first().click();
@@ -173,7 +173,7 @@ test.describe.serial("Integrations option B (mock Meta)", () => {
     await page.getByLabel("WhatsApp Business Account ID").fill("200000000000001");
     await page.getByLabel("System user token").fill(WA_TOKEN);
     await page.getByRole("button", { name: "Find numbers" }).click();
-    await expect(page.getByText(/already connected to another workspace: it cannot be connected here/)).toBeVisible();
+    await expect(page.getByText(/ID 300000000000001 · already connected to another workspace: it cannot be connected here/)).toBeVisible(); // the line of this very number (other specs may hold other mock numbers too)
     const radios = page.getByRole("radio");
     await expect(radios.first()).toBeDisabled();
     await expect(radios.nth(1)).toBeEnabled();

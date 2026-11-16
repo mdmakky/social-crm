@@ -84,7 +84,7 @@ if (workerDb && env.SECRETS_ENCRYPTION_KEY && env.META_APP_SECRET && ((env.META_
   if (env.NODE_ENV === "production" && env.META_MOCK === "1") throw new Error("META_MOCK is not allowed in production");
   meta = {
     graph: env.META_MOCK === "1"
-      ? createMockGraph({ pages: [{ id: "100000000000001", name: "Mock Page", accessToken: "mock-page-token", tasks: ["MANAGE", "MESSAGING"], instagramAccountId: "170000000000001" }], whatsapp: { wabas: new Map([["200000000000001", { token: MOCK_WA_TOKEN, numbers: [{ id: "300000000000001", displayPhoneNumber: "+1 555 010 0001", verifiedName: "Mock WhatsApp Business" }, { id: "300000000000002", displayPhoneNumber: "+1 555 010 0002", verifiedName: null }] }]]) } })
+      ? createMockGraph({ pages: [{ id: "100000000000001", name: "Mock Page", accessToken: "mock-page-token", tasks: ["MANAGE", "MESSAGING"], instagramAccountId: "170000000000001" }], whatsapp: { wabas: new Map([["200000000000001", { token: MOCK_WA_TOKEN, numbers: [{ id: "300000000000001", displayPhoneNumber: "+1 555 010 0001", verifiedName: "Mock WhatsApp Business" }, { id: "300000000000002", displayPhoneNumber: "+1 555 010 0002", verifiedName: null }, { id: "300000000000003", displayPhoneNumber: "+1 555 010 0003", verifiedName: "Mock Attachments Line" }] }]]) } })
       : createMetaGraph({ appId: env.META_APP_ID!, appSecret: env.META_APP_SECRET, version: env.META_GRAPH_VERSION }),
     box: createSecretBox({ [env.SECRETS_KEY_ID]: env.SECRETS_ENCRYPTION_KEY }, env.SECRETS_KEY_ID),
     workerDb, appId: env.META_APP_ID ?? "0", configId: env.META_FLFB_CONFIG_ID ?? "0", graphVersion: env.META_GRAPH_VERSION,

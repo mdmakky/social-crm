@@ -114,6 +114,7 @@ test.describe("responsive layout and accessibility", () => {
     await page.keyboard.press("Escape");
     await page.getByRole("button", { name: "Actions for Sofia Almeida" }).click();
     await page.getByRole("menuitem", { name: "Change role" }).click();
+    await expect(page.locator('[role="menuitem"]')).toHaveCount(0); // the dropdown fades out (aria-hidden but still in the DOM) while the dialog opens: wait for the DOM node to go, so axe never measures a half-transparent menuitem
     await axe(page, "role-dialog");
     await page.screenshot({ path: `${SHOTS}role-dialog-1440.png` });
     await ctx.close();
