@@ -129,3 +129,11 @@ Updated: 2026-11-13 (Phase 0).
 - Token expiry options of system user tokens are not documented; an expired token shows as "Reconnect needed" after the daily token check. The connect and lookup routes are rate limited in process only (per API instance; a shared store is needed before running more than one instance).
 - Number release: a disconnected number is reserved to its old workspace and WABA. Safe release needs an ops script run as the DB owner (delete side row, secrets and account of a `disabled` account with no conversations); in-app release would need a DELETE grant and a migration. Not built.
 - `/numbers` marks a number held by another workspace "unavailable" (advisory; `/connect` stays authoritative, 409). The UI does not show the WABA id of a connected number.
+
+## Automation foundation, slice 1 (2026-11-16, branch feat/automation-foundation)
+- Triggers: `contact.created`, `lead.stage_changed`, `contact.owner_assigned`, `lead.owner_assigned`. No `message.received`, schedule or follow-up-due trigger yet. Actions: `create_task`, `add_tag`, `assign_owner` only (lead triggers act on the lead's primary contact). No send-message, no AI, no delays.
+- Linear rules only (no branches); the builder edits one flat all/any condition list (a stored nested tree is kept read-only). Condition values are strings in the UI; ids are typed by hand (stage, pipeline ids), no pickers yet.
+- Executor runs inside the API process after each dispatcher pass (same single-instance assumption as D7/D71), not in a worker. A run that crashes mid-transaction stays `pending` and is retried; actions are atomic with their step log, so no duplicate effects.
+- A permanently failing event is not a problem for the dispatcher (runs absorb failures), but a rule author who lost workspace membership makes auto-run executions fail after 3 attempts (RLS denies).
+- Rule edits do not affect already created runs (snapshot); approval requests do not expire and there is no per-user "named approver" or mobile approval UI yet. Web only.
+- The Settings > Automations page polls every 10 s; Playwright E2E for it was not run in this slice.

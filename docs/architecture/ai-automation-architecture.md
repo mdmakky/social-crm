@@ -4,6 +4,8 @@ Version 0.1 (Phase 0). Principle: AI is a step type inside the workflow engine a
 
 ## 1. Workflow engine
 
+> Status (2026-11-16): slice 1 implements the deterministic core, simplified: `automation_rules` (one trigger, a condition tree, a linear action list, inline in the row) instead of `workflows.definition` graphs; `automation_runs` (unique per rule + event, snapshot of actions) and `automation_run_steps`; approval is a run status (`awaiting_approval`), not a separate `approvals` table; kill switch is `automation_settings.kill_switch` plus per-rule enable. Actions: create_task, add_tag, assign_owner. Not built yet: AI steps, send actions, delays, per-action auto-send policy, approval expiry/edit-and-approve. See D73 to D75.
+
 Components: **Trigger** (domain event such as message received, lead created, stage changed, follow-up due, schedule), **Condition** (rule over contact, lead, conversation fields), **Action** (from an action registry), **Delay**, **AI step** (classify, summarize, suggest), **Human approval**, **Notification**.
 
 Definition is versioned JSON (`workflows.definition`): a trigger plus a directed graph of typed nodes. MVP supports linear flows with branches from conditions; the builder UI starts as a form-based rule list and grows into a canvas later.
