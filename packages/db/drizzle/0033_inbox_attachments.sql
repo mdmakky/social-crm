@@ -94,7 +94,7 @@ BEGIN
   IF OLD.status = 'deleted' THEN RAISE EXCEPTION 'a deleted attachment is final'; END IF;
   IF NEW.status <> OLD.status THEN
     IF NEW.status = 'deleted' THEN
-      IF current_user = 'crm_app' AND NOT ((SELECT app_has_role(array['owner','admin'])) OR (OLD.created_by = (SELECT app_user_id()) AND (SELECT app_has_role(array['agent'])))) THEN
+      IF current_user = 'crm_app' AND NOT ((SELECT app_has_role(array['owner','admin'])) OR (coalesce(OLD.created_by = (SELECT app_user_id()), false) AND (SELECT app_has_role(array['agent'])))) THEN
         RAISE EXCEPTION 'only an owner, an admin or the uploader can delete an attachment';
       END IF;
     ELSIF current_user = 'crm_app' THEN

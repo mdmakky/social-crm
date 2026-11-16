@@ -60,6 +60,12 @@ export interface MetaGraph {
    */
   sendText(pageId: string, pageToken: string, psid: string, text: string, channel?: "messenger" | "instagram" | "instagram_unified" | "whatsapp"): Promise<{ messageId: string }>;
   /**
+   * WhatsApp media message (UNVERIFIED until a recorded real request): step 1 uploads the file, POST /{phone-number-id}/media (multipart: messaging_product, type, file) -> {id};
+   * step 2 sends POST /{phone-number-id}/messages {messaging_product:"whatsapp", to, type:"image"|"audio"|"video"|"document", <type>:{id, caption?, filename?}}.
+   * A failure in step 1 is a `rejected` SendError (nothing was sent: an upload is not a message). Step 2 has the same outcomes as sendText (never retried by callers).
+   */
+  sendWhatsAppMedia(phoneNumberId: string, token: string, to: string, media: { kind: "image" | "audio" | "video" | "document"; mime: string; bytes: Uint8Array; filename: string | null; caption: string | null }): Promise<{ messageId: string }>;
+  /**
    * Unified Login: GET me/assigned_instagram_accounts?fields=id,username with the system-user token (migration guide, 2026-11-14). The id is the Instagram professional account id used in webhooks.
    * Throws GraphError. At most 25 accounts are read.
    */
@@ -192,6 +198,39 @@ export function createMetaGraph(cfg: { appId: string; appSecret: string; version
       // A 4xx with a readable Graph error is a refusal. A 5xx (or an unreadable body) may hide a request that was processed.
       throw new SendError(res.status >= 400 && res.status < 500 && code !== null ? "rejected" : "ambiguous", res.status, code, sub);
     },
+    async sendWhatsAppMedia(phoneNumberId, token, to, m) {
+      let mediaId: string;
+      try {
+        const form = new FormData();
+        form.set("messaging_product", "whatsapp");
+        form.set("type", m.mime);
+        form.set("file", new Blob([m.bytes as BlobPart], { type: m.mime }), m.filename ?? "file");
+        const up = await f(`${base}/${encodeURIComponent(phoneNumberId)}/media`, { method: "POST", headers: { authorization: `Bearer ${token}` }, body: form, signal: AbortSignal.timeout(60_000) });
+        const uj = (await up.json().catch(() => null)) as { id?: unknown; error?: { code?: unknown; error_subcode?: unknown } } | null;
+        if (!up.ok || typeof uj?.id !== "string" || !uj.id) throw new SendError("rejected", up.status, typeof uj?.error?.code === "number" ? uj.error.code : null, typeof uj?.error?.error_subcode === "number" ? uj.error.error_subcode : null);
+        mediaId = uj.id;
+      } catch (e) {
+        throw e instanceof SendError ? e : new SendError("rejected", null, null, null);
+      }
+      const obj: Record<string, unknown> = { id: mediaId };
+      if (m.caption && m.kind !== "audio") obj.caption = m.caption;
+      if (m.kind === "document" && m.filename) obj.filename = m.filename;
+      let res: Response;
+      try {
+        res = await f(`${base}/${encodeURIComponent(phoneNumberId)}/messages`, { method: "POST", headers: { authorization: `Bearer ${token}`, "content-type": "application/json" }, body: JSON.stringify({ messaging_product: "whatsapp", recipient_type: "individual", to, type: m.kind, [m.kind]: obj }), signal: AbortSignal.timeout(15_000) });
+      } catch {
+        throw new SendError("ambiguous", null, null, null);
+      }
+      const json = (await res.json().catch(() => null)) as { error?: { code?: unknown; error_subcode?: unknown }; messages?: { id?: unknown }[] } | null;
+      if (res.ok && !json?.error) {
+        const id = json?.messages?.[0]?.id;
+        if (typeof id === "string" && id) return { messageId: id };
+        throw new SendError("ambiguous", res.status, null, null);
+      }
+      const code = typeof json?.error?.code === "number" ? json.error.code : null;
+      const sub = typeof json?.error?.error_subcode === "number" ? json.error.error_subcode : null;
+      throw new SendError(res.status >= 400 && res.status < 500 && code !== null ? "rejected" : "ambiguous", res.status, code, sub);
+    },
     async listAssignedInstagramAccounts(token) {
       const j = (await call("/me/assigned_instagram_accounts", { token, query: { fields: "id,username", limit: "25" } })) as { data?: Record<string, unknown>[] };
       const out: { id: string; username: string | null }[] = [];
@@ -282,6 +321,13 @@ export function createMockGraph(state: { pages?: GraphPage[]; validCodes?: Set<s
       const a = state.assigned?.get(token);
       if (a instanceof GraphError) throw a;
       return a ?? [];
+    },
+    async sendWhatsAppMedia(phoneNumberId, _token, to, m) {
+      calls.push(`sendwamedia:${phoneNumberId}:${to}:${m.kind}:${m.mime}:${m.bytes.byteLength}:${m.caption ?? ""}`);
+      await state.onSend?.();
+      const next = state.sends?.shift();
+      if (next instanceof SendError) throw next;
+      return { messageId: next ?? `mock.wamedia.${calls.length}.${Math.random().toString(36).slice(2, 10)}` };
     },
     async getWhatsAppMedia(mediaId) {
       calls.push(`wamedia:${mediaId}`);

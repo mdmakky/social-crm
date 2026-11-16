@@ -121,6 +121,10 @@ describe("guard", () => {
     await rejects(del(U.admin, a1), /final/);
     expect(await del(U.admin, await upload(ctx(U.agent, A), A, convA))).toHaveLength(1);
     expect(await del(U.owner, await upload(ctx(U.agent2, A), A, convA))).toHaveLength(1);
+    // a received file has no uploader: an agent (NULL created_by must not slip through the check) cannot delete it; an admin can
+    const inb = await inboundRow(A, convA, msgA, `del-${num()}`);
+    await rejects(del(U.agent, inb), /only an owner, an admin or the uploader/);
+    expect(await del(U.admin, inb)).toHaveLength(1);
   });
   it("worker status graph: pending -> ready/failed/missing; deleted is final", async () => {
     const id = await inboundRow(A, convA, msgA2, `g-${num()}`);

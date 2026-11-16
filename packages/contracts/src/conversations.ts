@@ -97,8 +97,11 @@ export const MAX_REPLY_LENGTH = 2000;
 export const SendMessageBody = z.object({
   /** Client-generated id of this attempt. The same id never sends twice: a repeat returns the stored message. */
   clientMsgId: Uuid,
-  body: z.string().trim().min(1, "Write a message first").max(MAX_REPLY_LENGTH, `Messages can be at most ${MAX_REPLY_LENGTH} characters`),
-});
+  /** Text. May be empty only when a file is attached (it is then the caption). */
+  body: z.string().trim().max(MAX_REPLY_LENGTH, `Messages can be at most ${MAX_REPLY_LENGTH} characters`).default(""),
+  /** Ids of uploaded attachments (POST .../attachments). One per message, and only where the channel can send media (WhatsApp); other channels answer `unsupported_channel_media`. */
+  attachmentIds: z.array(Uuid).max(1).optional(),
+}).refine((b) => b.body.length > 0 || (b.attachmentIds?.length ?? 0) > 0, { message: "Write a message first", path: ["body"] });
 export type SendMessageBody = z.infer<typeof SendMessageBody>;
 export const SendMessageResult = z.object({ message: MessageDto });
 export type SendMessageResult = z.infer<typeof SendMessageResult>;

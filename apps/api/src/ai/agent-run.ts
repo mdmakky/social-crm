@@ -7,9 +7,9 @@ import { writeAudit } from "../audit.ts";
 import { killSwitchOn } from "../automation/kill-switch.ts";
 import { PermanentError } from "../automation/actions.ts";
 import { runAi, type AiDeps, type RunFailure } from "./run.ts";
-import { TOOLS, type ToolCtx } from "./tools/index.ts";
+import { TOOLS, type AttachToolDeps, type ToolCtx } from "./tools/index.ts";
 
-export type AgentDeps = { db: Db; ai: AiDeps; tools?: ToolRegistry<ToolCtx> };
+export type AgentDeps = { db: Db; ai: AiDeps; tools?: ToolRegistry<ToolCtx>; /** Blob store and media service for the media tools. */ attach?: AttachToolDeps };
 const rowsOf = (r: unknown) => (r as { rows: Record<string, unknown>[] }).rows;
 const MESSAGES_CONTEXT = 12;
 const MESSAGE_CHARS = 600;
@@ -111,17 +111,17 @@ export type ApplyInput = { workspaceId: string; userId: string; role: Role; sour
 export async function applyPlan(tx: Tx, deps: AgentDeps, prep: Prepared, a: ApplyInput): Promise<AgentRunResult> {
   const tools = deps.tools ?? TOOLS;
   const outcomes: AgentActionOutcome[] = prep.parsed.rejected.map((r) => ({ tool: r.tool, args: {}, status: "rejected", detail: r.reason, result: null, actionId: null }));
-  for (const [idx, act] of prep.parsed.planned.entries()) outcomes.push(await applyOne(tx, deps.db, tools, prep, a, act, idx));
+  for (const [idx, act] of prep.parsed.planned.entries()) outcomes.push(await applyOne(tx, deps.db, tools, prep, a, act, idx, deps.attach));
   return {
     reply: prep.parsed.reply, malformed: prep.parsed.malformed, dryRun: a.dryRun, actions: outcomes, agentVersion: prep.versionNo, provider: prep.run.provider, model: prep.run.model, mock: prep.run.mock, runId: prep.run.runId, usage: prep.run.usage,
   };
 }
 
-async function applyOne(tx: Tx, db: Db, tools: ToolRegistry<ToolCtx>, prep: Prepared, a: ApplyInput, act: PlannedAction, idx: number): Promise<AgentActionOutcome> {
+async function applyOne(tx: Tx, db: Db, tools: ToolRegistry<ToolCtx>, prep: Prepared, a: ApplyInput, act: PlannedAction, idx: number, attach?: AttachToolDeps): Promise<AgentActionOutcome> {
   const base = { tool: act.tool, args: act.args };
   const def = getTool(tools, act.tool)!;
   if (!can(a.role, def.requiredPermission as "contact.edit", {})) return { ...base, status: "rejected", detail: "forbidden", result: null, actionId: null };
-  const ctx = { db, workspaceId: a.workspaceId, userId: a.userId, contactId: a.contactId, ref: prep.run.runId };
+  const ctx = { db, workspaceId: a.workspaceId, userId: a.userId, contactId: a.contactId, ref: prep.run.runId, conversationId: a.conversationId, attach };
   if (act.disposition === "pending") {
     if (a.dryRun) return { ...base, status: "would_pend", detail: act.pendingReason, result: null, actionId: null };
     const [row] = await tx.insert(schema.aiAgentActions).values({

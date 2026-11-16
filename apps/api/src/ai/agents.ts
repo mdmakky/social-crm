@@ -10,9 +10,9 @@ import { actor, body, fail, forbidden, isUuid, query, wctx, type SC, type Scoped
 import { WindowCounter } from "../throttle.ts";
 import { applyPlan, contactContext, conversationContext, executeTool, prepareAgentRun, type AgentDeps } from "./agent-run.ts";
 import type { AiDeps } from "./run.ts";
-import { TOOLS, type ToolCtx } from "./tools/index.ts";
+import { TOOLS, type AttachToolDeps, type ToolCtx } from "./tools/index.ts";
 
-export type AgentRouteDeps = { ai?: AiDeps; runsPerUser?: number; tools?: ToolRegistry<ToolCtx> };
+export type AgentRouteDeps = { ai?: AiDeps; runsPerUser?: number; tools?: ToolRegistry<ToolCtx>; attach?: AttachToolDeps };
 type AgentRow = typeof schema.aiAgents.$inferSelect;
 type VersionRow = typeof schema.aiAgentVersions.$inferSelect;
 const uniqueViolation = (e: unknown) => (e as { cause?: { code?: string } })?.cause?.code === "23505";
@@ -190,7 +190,7 @@ export function agentRoutes(db: Db, deps: AgentRouteDeps = {}) {
       default: return fail(c, 502, "ai_unavailable", "The agent could not answer. Try again.");
     }
   };
-  const agentDeps = (): AgentDeps => ({ db, ai: deps.ai!, tools });
+  const agentDeps = (): AgentDeps => ({ db, ai: deps.ai!, tools, attach: deps.attach });
 
   async function execute(c: SC, o: { source: "test" | "run"; dryRun: boolean; content: (tx: Tx) => Promise<{ text: string; contactId: string | null; conversationId: string | null } | "not_found" | "no_customer_message">; versionId?: string }) {
     if (!can(c.get("role"), "ai.use", {})) return forbidden(c);
@@ -300,7 +300,7 @@ export function agentRoutes(db: Db, deps: AgentRouteDeps = {}) {
         const def = getTool(tools, row.tool);
         let res: { ok: true; result: Record<string, unknown> } | { ok: false; error: string };
         if (def && !can(c.get("role"), def.requiredPermission as "contact.edit", {})) res = { ok: false, error: "You don't have permission to run this tool." };
-        else res = await executeTool(tx, tools, { db, workspaceId, userId, contactId: row.contactId, ref: row.id }, row.tool, row.args as Record<string, unknown>);
+        else res = await executeTool(tx, tools, { db, workspaceId, userId, contactId: row.contactId, ref: row.id, conversationId: row.conversationId, attach: deps.attach }, row.tool, row.args as Record<string, unknown>);
         await tx.update(schema.aiAgentActions).set(res.ok ? { status: "executed", result: res.result, updatedAt: new Date() } : { status: "failed", error: res.error, updatedAt: new Date() }).where(and(eq(schema.aiAgentActions.workspaceId, workspaceId), eq(schema.aiAgentActions.id, id)));
         summary = { ...summary, outcome: res.ok ? "executed" : "failed" };
       }
