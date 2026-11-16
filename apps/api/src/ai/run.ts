@@ -274,7 +274,14 @@ export async function* runAiStream(deps: AiDeps, r: RunInput, signal?: AbortSign
           started = true; text = g.text; usage = g.usage; finishReason = g.finishReason; routed = g.routedModel; done = true;
           if (text) yield { type: "delta", text };
         } else {
-          for await (const ev of adapter.generateStream(req)) {
+          // Race each step against the abort: an adapter that is slow to notice the abort must not hold the run open.
+          const it = adapter.generateStream(req)[Symbol.asyncIterator]();
+          const aborted = new Promise<null>((res) => { if (up.signal.aborted) res(null); else up.signal.addEventListener("abort", () => res(null), { once: true }); });
+          for (;;) {
+            const step = await Promise.race([it.next(), aborted]);
+            if (step === null) { void Promise.resolve(it.return?.()).catch(() => undefined); break; }
+            if (step.done) break;
+            const ev = step.value;
             if (ev.type === "delta") { started = true; text += ev.text; yield { type: "delta", text: ev.text }; }
             else if (ev.type === "usage") usage = { inputTokens: ev.inputTokens, outputTokens: ev.outputTokens, ...(ev.reportedCostMicro !== undefined ? { reportedCostMicro: ev.reportedCostMicro } : {}) };
             else if (ev.type === "done") { finishReason = ev.finishReason; routed = ev.routedModel; done = true; }
