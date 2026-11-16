@@ -39,7 +39,7 @@ export function ForgotPasswordForm() {
       <div className="flex flex-col gap-4" role="status">
         <MailCheck className="size-5 text-accent-fg" aria-hidden />
         <div>
-          <h1 className="text-lg font-semibold tracking-title text-fg">Check your email</h1>
+          <h1 className="text-2xl font-bold tracking-[-0.025em] text-fg">Check your email</h1>
           <p className="mt-1 text-sm text-fg-muted">
             If an account exists for <span className="font-medium text-fg">{sentTo}</span>, we&rsquo;ve sent a link to choose a new password. It works for {RESET_TOKEN_TTL_SECONDS / 60} minutes and only once.
           </p>
@@ -56,14 +56,14 @@ export function ForgotPasswordForm() {
   return (
     <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
       <div>
-        <h1 className="text-lg font-semibold tracking-title text-fg">Reset your password</h1>
-        <p className="mt-0.5 text-sm text-fg-muted">Enter your account email and we&rsquo;ll send you a link to choose a new password.</p>
+        <h1 className="text-2xl font-bold tracking-[-0.025em] text-fg">Reset your password</h1>
+        <p className="mt-1.5 text-md text-fg-muted">Enter your account email and we&rsquo;ll send you a link to choose a new password.</p>
       </div>
       {formError && <Alert tone="error">{formError}</Alert>}
       <Field label="Email" error={error}>
-        {(p) => <Input {...p} name="email" type="email" autoComplete="email" inputMode="email" autoFocus />}
+        {(p) => <Input {...p} className="h-11" name="email" type="email" autoComplete="email" inputMode="email" autoFocus />}
       </Field>
-      <Button type="submit" variant="primary" size="lg" loading={busy}>Send reset link</Button>
+      <Button type="submit" variant="primary" size="lg" className="h-12 text-md" loading={busy}>Send reset link</Button>
       <p className="text-center text-sm text-fg-muted"><Link href="/login" className="font-medium text-accent-fg underline underline-offset-2">Back to sign in</Link></p>
     </form>
   );
