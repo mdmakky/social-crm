@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { and, asc, desc, eq, inArray, isNull, sql, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
-import { CreateLeadBody, LeadListQuery, LeadVersionBody, LeadVersionQuery, MoveLeadBody, SetValueGrantBody, UpdateLeadBody, type LeadDto } from "@crm/contracts";
+import { BulkStageBody, CreateLeadBody, LeadListQuery, LeadStageCountsQuery, LeadVersionBody, LeadVersionQuery, MoveLeadBody, SetValueGrantBody, UpdateLeadBody, type LeadDto } from "@crm/contracts";
 import { escapeLike } from "@crm/core";
 import { can } from "@crm/core/permissions";
 import { schema, user, withContext, type Db, type Tx } from "@crm/db";
@@ -10,7 +10,8 @@ import { writeAudit } from "../audit.ts";
 import { captureLeadWon } from "../capi/enqueue.ts"; // track:capi
 import { activeMember, loadContact, recordActivity } from "../crm-service.ts";
 import { lockPipeline } from "./pipelines.ts";
-import { actor, body, fail, forbidden, isUuid, query, wctx, type SC, type ScopedEnv } from "./scope.ts";
+import { WindowCounter } from "../throttle.ts";
+import { actor, body, fail, forbidden, isUuid, query, wctx, type ErrStatus, type SC, type ScopedEnv } from "./scope.ts";
 
 type LeadRow = typeof schema.leads.$inferSelect;
 const RANK_STEP = 1_000_000;
@@ -104,22 +105,33 @@ export function leadRoutes(db: Db) {
   const writer = (c: SC) => can(c.get("role"), "lead.edit", {});
 
   // ---------------------------------------------------------------- list
+  /** Filters shared by the list and the stage counts (the counts never get a stage filter). A ready response means the query was refused. */
+  const baseFilters = (c: SC, q: Omit<LeadListQuery, "cursor" | "limit" | "sort" | "dir">, forCounts: boolean): SQL[] | Response => {
+    const where: SQL[] = [eq(schema.leads.workspaceId, c.get("workspaceId")), q.deleted && !forCounts ? sql`leads.deleted_at IS NOT NULL` : isNull(schema.leads.deletedAt)];
+    if (q.deleted && !forCounts && !can(c.get("role"), "lead.delete", {})) return forbidden(c);
+    if ((q.minValue !== undefined || q.maxValue !== undefined) && !can(c.get("role"), "lead.value.view", {})) return forbidden(c);
+    if (q.pipelineId) where.push(eq(schema.leads.pipelineId, q.pipelineId));
+    if (!forCounts && q.stageId) where.push(eq(schema.leads.stageId, q.stageId));
+    if (q.outcome) where.push(eq(schema.leads.outcome, q.outcome));
+    if (q.ownerId) where.push(eq(schema.leads.ownerUserId, q.ownerId));
+    if (q.contactId) where.push(eq(schema.leads.primaryContactId, q.contactId));
+    if (q.source) where.push(eq(schema.leads.source, q.source));
+    if (q.minValue !== undefined) where.push(sql`leads.value_minor >= ${q.minValue}`);
+    if (q.maxValue !== undefined) where.push(sql`leads.value_minor <= ${q.maxValue}`);
+    if (q.activeWithinDays) where.push(sql`leads.updated_at >= now() - (${Number(q.activeWithinDays)} * interval '1 day')`);
+    if (q.q?.trim()) where.push(sql`leads.title ILIKE ${`%${escapeLike(q.q.trim())}%`}`);
+    return where;
+  };
+
   r.get("/leads", async (c) => {
     const q = query(c, LeadListQuery);
     if (!q.ok) return q.res;
-    const { workspaceId } = wctx(c);
     const sort = q.data.sort ?? "updated";
     const dir = q.data.dir ?? "desc";
     const limit = q.data.limit ?? 50;
     const key = sql.raw(SORT_EXPR[sort]);
-    const where: SQL[] = [eq(schema.leads.workspaceId, workspaceId), q.data.deleted ? sql`leads.deleted_at IS NOT NULL` : isNull(schema.leads.deletedAt)];
-    if (q.data.deleted && !can(c.get("role"), "lead.delete", {})) return forbidden(c);
-    if (q.data.pipelineId) where.push(eq(schema.leads.pipelineId, q.data.pipelineId));
-    if (q.data.stageId) where.push(eq(schema.leads.stageId, q.data.stageId));
-    if (q.data.outcome) where.push(eq(schema.leads.outcome, q.data.outcome));
-    if (q.data.ownerId) where.push(eq(schema.leads.ownerUserId, q.data.ownerId));
-    if (q.data.contactId) where.push(eq(schema.leads.primaryContactId, q.data.contactId));
-    if (q.data.q?.trim()) where.push(sql`leads.title ILIKE ${`%${escapeLike(q.data.q.trim())}%`}`);
+    const where = baseFilters(c, q.data, false);
+    if (!Array.isArray(where)) return where;
     if (q.data.cursor) {
       const cur = dec(q.data.cursor);
       if (!cur || cur.sort !== sort || cur.dir !== dir) return fail(c, 400, "invalid_query", "The cursor does not match this query");
@@ -133,6 +145,18 @@ export function leadRoutes(db: Db) {
       const last = page[page.length - 1];
       const k = last ? (sort === "updated" ? last.l.updatedAt.toISOString() : sort === "created" ? last.l.createdAt.toISOString() : (last.l.expectedCloseDate ?? "9999-12-31")) : "";
       return c.json({ items: page.map((j) => dto(c, g, j)), nextCursor: rows.length > limit && last ? enc({ k, id: last.l.id, sort, dir }) : null });
+    });
+  });
+
+  /** One grouped query: lead counts per stage under the list's filters (minus stage). Registered before /leads/:leadId. */
+  r.get("/leads/stage-counts", async (c) => {
+    const q = query(c, LeadStageCountsQuery);
+    if (!q.ok) return q.res;
+    const where = baseFilters(c, q.data, true);
+    if (!Array.isArray(where)) return where;
+    return withContext(db, wctx(c), async (tx) => {
+      const rows = await tx.select({ stageId: schema.leads.stageId, n: sql<number>`count(*)::int` }).from(schema.leads).where(and(...where)).groupBy(schema.leads.stageId);
+      return c.json({ items: rows.map((x) => ({ stageId: x.stageId, count: x.n })), total: rows.reduce((t, x) => t + x.n, 0) });
     });
   });
 
@@ -154,7 +178,7 @@ export function leadRoutes(db: Db) {
     const { workspaceId, userId } = wctx(c);
     const hasValue = b.data.valueMinor != null;
     return withContext(db, wctx(c), async (tx) => {
-      if (hasValue && !can(c.get("role"), "lead.value.edit", {})) return fail(c, 403, "forbidden", "You don't have permission to set deal value.");
+      if (hasValue && !can(c.get("role"), "lead.value.edit", {})) return fail(c, 403, "forbidden", "You don't have permission to set lead value.");
       const contact = await loadContact(tx, workspaceId, b.data.primaryContactId);
       if (!contact) return fail(c, 400, "invalid_body", "The primary contact does not exist.");
       const pipelines = await tx.select().from(schema.pipelines).where(and(eq(schema.pipelines.workspaceId, workspaceId), isNull(schema.pipelines.archivedAt)));
@@ -201,7 +225,7 @@ export function leadRoutes(db: Db) {
       if (l!.version !== d.expectedVersion) return fail(c, 409, "version_conflict", "This lead was changed by someone else.");
       const g = await grantsFor(tx, c, [id]);
       const touchesValue = d.valueMinor !== undefined || d.currency !== undefined;
-      if (touchesValue && !mayEditValue(c, g, id)) return fail(c, 403, "forbidden", "You don't have permission to change deal value.");
+      if (touchesValue && !mayEditValue(c, g, id)) return fail(c, 403, "forbidden", "You don't have permission to change lead value.");
       const set: Partial<typeof schema.leads.$inferInsert> = {};
       const changed: string[] = [];
       const put = <K extends keyof typeof set>(k: K, v: (typeof set)[K], label: string, differs: boolean) => { if (differs) { set[k] = v; changed.push(label); } };
@@ -240,55 +264,87 @@ export function leadRoutes(db: Db) {
   });
 
   // ---------------------------------------------------------------- move
+  type MoveOut = { ok: true; lead: LeadDto | null; changed: boolean } | { ok: false; status: ErrStatus; code: string; message?: string };
+  const no = (status: ErrStatus, code: string, message?: string): MoveOut => ({ ok: false, status, code, message });
+  /**
+   * The one stage-move implementation: the single move and the bulk move both call it, so history, activity, audit, the lead.stage_changed event,
+   * the CAPI Won hook and the permission rules are identical. expectedVersion undefined (bulk) means "whatever is current"; noReorder makes a move to the current stage a no-op.
+   */
+  async function moveLead(tx: Tx, c: SC, id: string, b: { expectedVersion?: number; stageId: string; lostReasonId?: string; beforeLeadId?: string; afterLeadId?: string }, noReorder = false): Promise<MoveOut> {
+    const { workspaceId, userId } = wctx(c);
+    const [cur] = (await tx.execute(sql`SELECT pipeline_id FROM leads WHERE workspace_id = ${workspaceId} AND id = ${id} AND deleted_at IS NULL FOR UPDATE`)).rows as { pipeline_id: string }[];
+    if (!cur) return no(404, "not_found");
+    if (!(await lockPipeline(tx, workspaceId, cur.pipeline_id, "share"))) return no(404, "not_found");
+    const [l] = await tx.select().from(schema.leads).where(and(eq(schema.leads.workspaceId, workspaceId), eq(schema.leads.id, id)));
+    if (b.expectedVersion !== undefined && l!.version !== b.expectedVersion) return no(409, "version_conflict", "This lead was changed by someone else.");
+    const to = await stageOf(tx, workspaceId, b.stageId);
+    if (!to || to.pipelineId !== l!.pipelineId || to.archivedAt) return no(400, "invalid_body", "Choose an active stage of this lead's pipeline.");
+    const [pl] = await tx.select({ a: schema.pipelines.archivedAt }).from(schema.pipelines).where(and(eq(schema.pipelines.workspaceId, workspaceId), eq(schema.pipelines.id, l!.pipelineId)));
+    if (pl!.a) return no(409, "pipeline_archived", "This pipeline is archived.");
+    const [contact] = await tx.select({ d: schema.contacts.deletedAt }).from(schema.contacts).where(and(eq(schema.contacts.workspaceId, workspaceId), eq(schema.contacts.id, l!.primaryContactId)));
+    if (contact?.d) return no(409, "contact_deleted", "The primary contact was deleted; this lead is read-only history.");
+    const wasClosed = l!.outcome !== "open";
+    if (wasClosed && !can(c.get("role"), "lead.reopen", {})) return no(403, "forbidden", "You don't have permission to do that.");
+    if (to.id === l!.stageId && noReorder) return { ok: true, lead: null, changed: false };
+    if (to.kind === "lost" && !b.lostReasonId) return no(400, "lost_reason_required", "Choose a reason for losing this lead.");
+    if (to.kind === "lost") {
+      const [lr] = await tx.select({ a: schema.lostReasons.archivedAt }).from(schema.lostReasons).where(and(eq(schema.lostReasons.workspaceId, workspaceId), eq(schema.lostReasons.id, b.lostReasonId!)));
+      if (!lr || lr.a) return no(400, "invalid_body", "Choose an active lost reason.");
+    }
+    if (to.id === l!.stageId) {
+      // same column: only a re-order
+      const rank = await rankBetween(tx, workspaceId, to.id, b.beforeLeadId, b.afterLeadId);
+      await tx.update(schema.leads).set({ rank, version: l!.version + 1, updatedAt: new Date() }).where(and(eq(schema.leads.workspaceId, workspaceId), eq(schema.leads.id, id)));
+      return { ok: true, lead: await loadDto(tx, c, id), changed: false };
+    }
+    const closing = to.kind !== "open";
+    // Probability: closing forces 100/0; an open stage keeps a manual override, otherwise takes the stage default; reopening resets (the closed value was forced).
+    const keepManual = !closing && !wasClosed && l!.probabilityManual;
+    const probability = closing ? to.defaultProbability : keepManual ? l!.probability : to.defaultProbability;
+    const rank = await rankBetween(tx, workspaceId, to.id, b.beforeLeadId, b.afterLeadId);
+    await tx.update(schema.leads).set({
+      stageId: to.id, outcome: to.kind, rank, probability, probabilityManual: keepManual, closedAt: closing ? new Date() : null, lostReasonId: to.kind === "lost" ? b.lostReasonId! : null,
+      version: l!.version + 1, updatedAt: new Date(),
+    }).where(and(eq(schema.leads.workspaceId, workspaceId), eq(schema.leads.id, id)));
+    await transition(tx, c, l!, { stageId: l!.stageId, outcome: l!.outcome }, { stageId: to.id, outcome: to.kind }, to.kind === "lost" ? b.lostReasonId : null);
+    const kind = wasClosed ? "lead.reopened" : to.kind === "won" ? "lead.won" : to.kind === "lost" ? "lead.lost" : "lead.stage_changed";
+    await recordActivity(tx, { workspaceId, contactId: l!.primaryContactId, leadId: id, kind, actorUserId: userId, data: { fromStageId: l!.stageId, toStageId: to.id } });
+    await audit(c, tx, kind, id, { fromStageId: l!.stageId, toStageId: to.id });
+    await emitEvent(tx, { workspaceId, type: "lead.stage_changed", entityType: "lead", entityId: id, actorUserId: userId, payload: { fromStageId: l!.stageId, toStageId: to.id, outcome: to.kind, pipelineId: l!.pipelineId, contactId: l!.primaryContactId, leadTitle: l!.title } });
+    if (to.kind === "won" && l!.outcome !== "won") await captureLeadWon(tx, { workspaceId, leadId: id, contactId: l!.primaryContactId, valueMinor: l!.valueMinor, currency: l!.currency }); // track:capi, the one CAPI hook (savepoint, never fails the move)
+    return { ok: true, lead: await loadDto(tx, c, id), changed: true };
+  }
+
   r.post("/leads/:leadId/move", async (c) => {
     if (!writer(c)) return forbidden(c);
     const id = c.req.param("leadId");
     if (!isUuid(id)) return fail(c, 404, "not_found");
     const b = await body(c, MoveLeadBody);
     if (!b.ok) return b.res;
-    const { workspaceId, userId } = wctx(c);
     return withContext(db, wctx(c), async (tx) => {
-      const [cur] = (await tx.execute(sql`SELECT pipeline_id FROM leads WHERE workspace_id = ${workspaceId} AND id = ${id} AND deleted_at IS NULL FOR UPDATE`)).rows as { pipeline_id: string }[];
-      if (!cur) return fail(c, 404, "not_found");
-      if (!(await lockPipeline(tx, workspaceId, cur.pipeline_id, "share"))) return fail(c, 404, "not_found");
-      const [l] = await tx.select().from(schema.leads).where(and(eq(schema.leads.workspaceId, workspaceId), eq(schema.leads.id, id)));
-      if (l!.version !== b.data.expectedVersion) return fail(c, 409, "version_conflict", "This lead was changed by someone else.");
-      const to = await stageOf(tx, workspaceId, b.data.stageId);
-      if (!to || to.pipelineId !== l!.pipelineId || to.archivedAt) return fail(c, 400, "invalid_body", "Choose an active stage of this lead's pipeline.");
-      const [pl] = await tx.select({ a: schema.pipelines.archivedAt }).from(schema.pipelines).where(and(eq(schema.pipelines.workspaceId, workspaceId), eq(schema.pipelines.id, l!.pipelineId)));
-      if (pl!.a) return fail(c, 409, "pipeline_archived", "This pipeline is archived.");
-      const [contact] = await tx.select({ d: schema.contacts.deletedAt }).from(schema.contacts).where(and(eq(schema.contacts.workspaceId, workspaceId), eq(schema.contacts.id, l!.primaryContactId)));
-      if (contact?.d) return fail(c, 409, "contact_deleted", "The primary contact was deleted; this lead is read-only history.");
-      const wasClosed = l!.outcome !== "open";
-      if (wasClosed && !can(c.get("role"), "lead.reopen", {})) return forbidden(c);
-      if (to.kind === "lost" && !b.data.lostReasonId) return fail(c, 400, "lost_reason_required", "Choose a reason for losing this lead.");
-      if (to.kind === "lost") {
-        const [lr] = await tx.select({ a: schema.lostReasons.archivedAt }).from(schema.lostReasons).where(and(eq(schema.lostReasons.workspaceId, workspaceId), eq(schema.lostReasons.id, b.data.lostReasonId!)));
-        if (!lr || lr.a) return fail(c, 400, "invalid_body", "Choose an active lost reason.");
-      }
-      if (to.id === l!.stageId) {
-        // same column: only a re-order
-        const rank = await rankBetween(tx, workspaceId, to.id, b.data.beforeLeadId, b.data.afterLeadId);
-        await tx.update(schema.leads).set({ rank, version: l!.version + 1, updatedAt: new Date() }).where(and(eq(schema.leads.workspaceId, workspaceId), eq(schema.leads.id, id)));
-        return c.json(await loadDto(tx, c, id));
-      }
-      const closing = to.kind !== "open";
-      // Probability: closing forces 100/0; an open stage keeps a manual override, otherwise takes the stage default; reopening resets (the closed value was forced).
-      const keepManual = !closing && !wasClosed && l!.probabilityManual;
-      const probability = closing ? to.defaultProbability : keepManual ? l!.probability : to.defaultProbability;
-      const rank = await rankBetween(tx, workspaceId, to.id, b.data.beforeLeadId, b.data.afterLeadId);
-      await tx.update(schema.leads).set({
-        stageId: to.id, outcome: to.kind, rank, probability, probabilityManual: keepManual, closedAt: closing ? new Date() : null, lostReasonId: to.kind === "lost" ? b.data.lostReasonId! : null,
-        version: l!.version + 1, updatedAt: new Date(),
-      }).where(and(eq(schema.leads.workspaceId, workspaceId), eq(schema.leads.id, id)));
-      await transition(tx, c, l!, { stageId: l!.stageId, outcome: l!.outcome }, { stageId: to.id, outcome: to.kind }, to.kind === "lost" ? b.data.lostReasonId : null);
-      const kind = wasClosed ? "lead.reopened" : to.kind === "won" ? "lead.won" : to.kind === "lost" ? "lead.lost" : "lead.stage_changed";
-      await recordActivity(tx, { workspaceId, contactId: l!.primaryContactId, leadId: id, kind, actorUserId: userId, data: { fromStageId: l!.stageId, toStageId: to.id } });
-      await audit(c, tx, kind, id, { fromStageId: l!.stageId, toStageId: to.id });
-      await emitEvent(tx, { workspaceId, type: "lead.stage_changed", entityType: "lead", entityId: id, actorUserId: userId, payload: { fromStageId: l!.stageId, toStageId: to.id, outcome: to.kind, pipelineId: l!.pipelineId, contactId: l!.primaryContactId, leadTitle: l!.title } });
-      if (to.kind === "won" && l!.outcome !== "won") await captureLeadWon(tx, { workspaceId, leadId: id, contactId: l!.primaryContactId, valueMinor: l!.valueMinor, currency: l!.currency }); // track:capi, the one CAPI hook (savepoint, never fails the move)
-      return c.json(await loadDto(tx, c, id));
+      const out = await moveLead(tx, c, id, b.data);
+      return out.ok ? c.json(out.lead) : fail(c, out.status, out.code, out.message);
     });
+  });
+
+  // ponytail: one transaction per lead, sequential (max 100); one shared transaction would let a single bad lead undo the rest.
+  const bulkCalls = new WindowCounter(30, 60_000);
+  r.post("/leads/bulk-stage", async (c) => {
+    if (!writer(c)) return forbidden(c);
+    if (!bulkCalls.allow(`${c.get("workspaceId")}:${c.get("userId")}`)) { c.header("Retry-After", "60"); return fail(c, 429, "rate_limited", "Too many bulk moves. Try again in a minute."); }
+    const b = await body(c, BulkStageBody);
+    if (!b.ok) return b.res;
+    const ids = [...new Set(b.data.leadIds)];
+    const results: { id: string; ok: boolean; code: string }[] = [];
+    for (const id of ids) {
+      try {
+        const out = await withContext(db, wctx(c), (tx) => moveLead(tx, c, id, { stageId: b.data.stageId, lostReasonId: b.data.lostReasonId }, true));
+        results.push({ id, ok: out.ok, code: out.ok ? (out.changed ? "ok" : "unchanged") : out.code });
+      } catch {
+        results.push({ id, ok: false, code: "internal_error" });
+      }
+    }
+    return c.json({ results });
   });
 
   // ---------------------------------------------------------------- delete / restore
@@ -362,7 +418,7 @@ export function leadRoutes(db: Db) {
     });
   });
 
-  // ---------------------------------------------------------------- deal value grants (owner/admin)
+  // ---------------------------------------------------------------- lead value grants (owner/admin)
   const grantList = async (tx: Tx, workspaceId: string, leadId: string) =>
     (await tx.select({ g: schema.leadValueGrants, name: user.name }).from(schema.leadValueGrants).innerJoin(user, eq(user.id, schema.leadValueGrants.userId)).where(and(eq(schema.leadValueGrants.workspaceId, workspaceId), eq(schema.leadValueGrants.leadId, leadId))).orderBy(asc(user.name)))
       .map(({ g, name }) => ({ userId: g.userId, name, canEdit: g.canEdit }));
