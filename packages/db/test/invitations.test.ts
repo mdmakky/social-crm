@@ -96,14 +96,14 @@ describe("workspace_invitations constraints and guard", () => {
   });
   it("invitation_accept creates the membership once and rejects a wrong email; preview returns no raw secret", async () => {
     const raw = `raw-${run}`;
-    const email = `joiner-${run}@t.example`;
+    const email = `inv-joiner-${run}@t.example`;
     const [r] = await withContext(db, as("owner"), (tx) => tx.insert(I).values(mk({ email, tokenHash: sha(raw), role: "viewer" })).returning());
-    const accept = (hash: string, user: string, mail: string) => withContext(db, { userId: user }, async (tx) => (await tx.execute(sql`SELECT * FROM invitation_accept(${hash}, ${user}, ${mail})`)).rows[0] as { outcome: string; workspace_id: string | null; role: string | null });
-    expect((await accept(sha(raw), U.other, `other-${run}@t.example`))?.outcome).toBe("wrong_email");
-    expect(await accept(sha("nope"), U.joiner, email)).toMatchObject({ outcome: "not_found" });
-    expect(await accept(sha(raw), U.joiner, email.toUpperCase())).toMatchObject({ outcome: "accepted", workspace_id: ws, role: "viewer" });
-    expect(await accept(sha(raw), U.joiner, email)).toMatchObject({ outcome: "already" });
-    expect((await accept(sha(raw), U.other, `other-${run}@t.example`))?.outcome).toBe("not_found");
+    const accept = (hash: string, user: string) => withContext(db, { userId: user }, async (tx) => (await tx.execute(sql`SELECT * FROM invitation_accept(${hash}, ${user})`)).rows[0] as { outcome: string; workspace_id: string | null; role: string | null });
+    expect((await accept(sha(raw), U.other))?.outcome).toBe("wrong_email");
+    expect(await accept(sha("nope"), U.joiner)).toMatchObject({ outcome: "not_found" });
+    expect(await accept(sha(raw), U.joiner)).toMatchObject({ outcome: "accepted", workspace_id: ws, role: "viewer" });
+    expect(await accept(sha(raw), U.joiner)).toMatchObject({ outcome: "already" });
+    expect((await accept(sha(raw), U.other))?.outcome).toBe("not_found");
     const { rows } = await admin.query(`SELECT role FROM memberships WHERE workspace_id=$1 AND user_id=$2`, [ws, U.joiner]);
     expect(rows).toEqual([{ role: "viewer" }]);
     const { rows: inv } = await admin.query(`SELECT status, accepted_by FROM workspace_invitations WHERE id=$1`, [r!.id]);
@@ -112,6 +112,29 @@ describe("workspace_invitations constraints and guard", () => {
     expect(Object.keys(pv).sort()).toEqual(["email", "expires_at", "inviter_name", "role", "status", "workspace_name"]);
     // the definer functions are not a way to read or write tables directly
     await expect(withContext(db, as("agent"), (tx) => tx.execute(sql`INSERT INTO memberships(workspace_id,user_id,role) VALUES (${ws}, ${U.other}, 'viewer')`))).rejects.toThrow();
+  });
+  it("the sender must still be owner/admin", async () => {
+    const sender = `i-sender-${run}`;
+    await admin.query(`INSERT INTO "user"(id,name,email,email_verified) VALUES ($1,$1,$2,true)`, [sender, `inv-sender-${run}@t.example`]);
+    await admin.query(`INSERT INTO memberships(workspace_id,user_id,role) VALUES ($1,$2,'admin')`, [ws, sender]);
+    const invitee = `i-late-${run}`;
+    await admin.query(`INSERT INTO "user"(id,name,email,email_verified) VALUES ($1,$1,$2,true)`, [invitee, `inv-late-${run}@t.example`]);
+    await admin.query(`INSERT INTO workspace_invitations(workspace_id,email,role,token_hash,invited_by) VALUES ($1,$2,'agent',$3,$4)`, [ws, `inv-late-${run}@t.example`, sha("late-" + run), sender]);
+    await admin.query(`DELETE FROM memberships WHERE workspace_id=$1 AND user_id=$2`, [ws, sender]);
+    const r = await withContext(db, { userId: invitee }, async (tx) => (await tx.execute(sql`SELECT * FROM invitation_accept(${sha("late-" + run)}, ${invitee})`)).rows[0] as { outcome: string });
+    expect(r.outcome).toBe("not_found");
+  });
+  it("concurrent inserts cannot exceed the cap (advisory lock per workspace)", async () => {
+    const w = await withContext(db, { userId: U.other }, async (tx) => {
+      const [x] = await tx.insert(schema.workspaces).values({ name: "Race", slug: `inv-race-${run}`, ownerUserId: U.other }).returning();
+      await tx.insert(schema.memberships).values({ workspaceId: x!.id, userId: U.other, role: "owner" });
+      return x!.id;
+    });
+    await admin.query(`INSERT INTO workspace_invitations(workspace_id,email,role,token_hash,invited_by) SELECT $1, 'r'||g||'@t.example','agent',encode(sha256(($3||g)::bytea),'hex'),$2 FROM generate_series(1,95) g`, [w, U.other, `race-${run}-`]);
+    const res = await Promise.allSettled(Array.from({ length: 12 }, (_, k) => withContext(db, { userId: U.other, workspaceId: w }, (tx) => tx.insert(I).values({ workspaceId: w, email: `x${k}@t.example`, role: "agent", tokenHash: sha(`race-x-${run}-${k}`), invitedBy: U.other }))));
+    expect(res.filter((r) => r.status === "fulfilled")).toHaveLength(5);
+    const { rows } = await admin.query(`SELECT count(*)::int AS n FROM workspace_invitations WHERE workspace_id=$1 AND status='pending'`, [w]);
+    expect(rows[0].n).toBe(100);
   });
   it("caps pending invitations at 100 per workspace", async () => {
     const w = await withContext(db, { userId: U.other }, async (tx) => {

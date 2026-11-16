@@ -49,7 +49,7 @@ beforeAll(async () => {
   const auth = createAuth(db, { secret: "test-secret-".padEnd(40, "x"), baseURL: "http://localhost:8787", trustedOrigins: [ORIGIN], mailer: new MemoryMailer() });
   app = createApp(auth, { allowedOrigins: [ORIGIN], db, invitations: { mailer } });
   appNoMail = createApp(auth, { allowedOrigins: [ORIGIN], db });
-  limited = createApp(auth, { allowedOrigins: [ORIGIN], db, invitations: { limits: { createPerUser: 2, previewPerIp: 3, acceptPerUser: 2 } } });
+  limited = createApp(auth, { allowedOrigins: [ORIGIN], db, invitations: { limits: { createPerUser: 2, acceptPerUser: 2 } } });
   [owner, adminU, agent, viewer, outsider, ownerB] = (await Promise.all(["owner", "adm", "agent", "viewer", "outsider", "ownerb"].map((l) => register(l)))) as [U, U, U, U, U, U];
   ws = (await (await call(app, "POST", "/v1/workspaces", owner.cookie, { name: "Invite Co" })).json()).id;
   wsB = (await (await call(app, "POST", "/v1/workspaces", ownerB.cookie, { name: "Other Co" })).json()).id;
@@ -171,10 +171,14 @@ describe("invitations: preview", () => {
       expect(await r.text()).toBe(unknown);
     }
   });
-  it("is rate limited per IP", async () => {
-    const codes: number[] = [];
-    for (let i = 0; i < 5; i++) codes.push((await call(limited, "GET", `/v1/invitations/preview?token=${"z".repeat(43)}`, undefined, undefined, { "x-forwarded-for": "9.9.9.9" })).status);
-    expect(codes).toEqual([404, 404, 404, 429, 429]);
+  it("is not rate limited: 100 previews from one client all answer, and the answers stay generic", async () => {
+    const j = await (await invite(owner, mkEmail("many"), "agent")).json();
+    const codes = new Set<number>();
+    for (let i = 0; i < 100; i++) codes.add((await call(limited, "GET", `/v1/invitations/preview?token=${i % 2 ? tokenOf(j.link) : "z".repeat(43)}`)).status);
+    expect([...codes].sort()).toEqual([200, 404]);
+    const bodies = new Set<string>();
+    for (let i = 0; i < 20; i++) bodies.add(await (await call(limited, "GET", `/v1/invitations/preview?token=${"k".repeat(43)}`)).text());
+    expect(bodies.size).toBe(1);
   });
 });
 
@@ -262,5 +266,34 @@ describe("invitations: revoke, resend, tenancy", () => {
     expect((await call(app, "POST", `/v1/workspaces/${ws}/invitations/${j.invitation.id}/revoke`, ownerB.cookie)).status).toBe(404);
     const { rows } = await admin.query("SELECT status FROM workspace_invitations WHERE id=$1", [j.invitation.id]);
     expect(rows[0].status).toBe("pending");
+  });
+});
+
+describe("invitations: sender authority", () => {
+  it("removing or demoting the sender revokes their pending invitations and their links stop working", async () => {
+    const a1 = await register("senderone");
+    const a2 = await register("sendertwo");
+    await addMember(ws, a1.id, "admin");
+    await addMember(ws, a2.id, "admin");
+    const j1 = await (await invite(a1, mkEmail("s1"), "agent")).json();
+    const j2 = await (await invite(a2, mkEmail("s2"), "viewer")).json();
+    expect((await call(app, "DELETE", `/v1/workspaces/${ws}/members/${a1.id}`, owner.cookie)).status).toBe(204);
+    expect((await call(app, "PATCH", `/v1/workspaces/${ws}/members/${a2.id}`, owner.cookie, { role: "agent" })).status).toBe(200);
+    for (const j of [j1, j2]) {
+      const { rows } = await admin.query("SELECT status FROM workspace_invitations WHERE id=$1", [j.invitation.id]);
+      expect(rows[0].status).toBe("revoked");
+      expect((await call(app, "GET", `/v1/invitations/preview?token=${tokenOf(j.link)}`)).status).toBe(404);
+    }
+  });
+  it("defence in depth: an invitation whose sender lost authority cannot be accepted even if still pending", async () => {
+    const sender = await register("lostsender");
+    await addMember(ws, sender.id, "admin");
+    const email = mkEmail("late2");
+    const j = await (await invite(sender, email, "agent")).json();
+    await admin.query("DELETE FROM memberships WHERE workspace_id=$1 AND user_id=$2", [ws, sender.id]);
+    const u = await register("late2");
+    expect((await call(app, "POST", "/v1/invitations/accept", u.cookie, { token: tokenOf(j.link) })).status).toBe(404);
+    const { rows } = await admin.query("SELECT 1 FROM memberships WHERE workspace_id=$1 AND user_id=$2", [ws, u.id]);
+    expect(rows).toHaveLength(0);
   });
 });

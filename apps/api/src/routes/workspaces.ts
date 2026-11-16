@@ -144,6 +144,8 @@ export function workspaceRoutes(db: Db, hooks: { import?: ImportHooks; extraSear
       if (!decision.ok) return c.json({ error: { code: decision.reason } }, 403);
       const [who] = await tx.select({ name: user.name }).from(user).where(eq(user.id, targetId));
       const base = { ...audit(c as unknown as Ctx), workspaceId, entityType: "membership", entityId: targetId };
+      // A sender who loses owner/admin (or is removed) takes their pending invitations with them.
+      if (!newRole || (newRole !== "owner" && newRole !== "admin")) await tx.update(schema.workspaceInvitations).set({ status: "revoked" }).where(and(eq(schema.workspaceInvitations.workspaceId, workspaceId), eq(schema.workspaceInvitations.invitedBy, targetId), eq(schema.workspaceInvitations.status, "pending")));
       if (newRole) {
         await tx.update(schema.memberships).set({ role: newRole }).where(and(eq(schema.memberships.workspaceId, workspaceId), eq(schema.memberships.userId, targetId)));
         await writeAudit(tx, { ...base, action: "member.role_changed", summary: { from: target.role, to: newRole, name: who?.name } });

@@ -47,6 +47,8 @@ CREATE POLICY ws_inv_select ON workspaces FOR SELECT TO crm_migrator USING (true
 CREATE FUNCTION workspace_invitations_guard() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
   IF TG_OP = 'INSERT' THEN
+    -- serialise creates per workspace so concurrent inserts cannot pass the cap together
+    PERFORM pg_advisory_xact_lock(hashtextextended(NEW.workspace_id::text, 0));
     IF (SELECT count(*) FROM workspace_invitations WHERE workspace_id = NEW.workspace_id AND status = 'pending') >= 100 THEN
       RAISE EXCEPTION 'too many pending invitations' USING ERRCODE = '23514';
     END IF;
@@ -79,20 +81,24 @@ CREATE FUNCTION invitation_preview(p_hash text) RETURNS TABLE (status text, role
   FROM workspace_invitations i JOIN workspaces w ON w.id = i.workspace_id JOIN "user" u ON u.id = i.invited_by WHERE i.token_hash = p_hash
 $$;--> statement-breakpoint
 -- Accept: one atomic step. outcome: accepted | already | expired | wrong_email | not_found. A used or revoked token of someone else is not_found (no probing).
-CREATE FUNCTION invitation_accept(p_hash text, p_user text, p_email text) RETURNS TABLE (outcome text, workspace_id uuid, role text) LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
+CREATE FUNCTION invitation_accept(p_hash text, p_user text) RETURNS TABLE (outcome text, workspace_id uuid, role text) LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
 #variable_conflict use_column
-DECLARE i workspace_invitations%ROWTYPE;
+DECLARE i workspace_invitations%ROWTYPE; v_email text;
 BEGIN
   SELECT * INTO i FROM workspace_invitations WHERE token_hash = p_hash FOR UPDATE;
   IF NOT FOUND THEN RETURN QUERY SELECT 'not_found'::text, NULL::uuid, NULL::text; RETURN; END IF;
   IF i.status = 'accepted' AND i.accepted_by = p_user THEN RETURN QUERY SELECT 'already'::text, i.workspace_id, i.role::text; RETURN; END IF;
   IF i.status IN ('accepted','revoked') THEN RETURN QUERY SELECT 'not_found'::text, NULL::uuid, NULL::text; RETURN; END IF;
-  IF lower(i.email) <> lower(p_email) THEN RETURN QUERY SELECT 'wrong_email'::text, NULL::uuid, NULL::text; RETURN; END IF;
+  -- the email comes from the account, never from the caller
+  SELECT u.email INTO v_email FROM "user" u WHERE u.id = p_user;
+  IF v_email IS NULL OR lower(i.email) <> lower(v_email) THEN RETURN QUERY SELECT 'wrong_email'::text, NULL::uuid, NULL::text; RETURN; END IF;
+  -- an invitation dies with its sender's authority
+  IF NOT EXISTS (SELECT 1 FROM memberships m WHERE m.workspace_id = i.workspace_id AND m.user_id = i.invited_by AND m.status = 'active' AND m.role IN ('owner','admin')) THEN RETURN QUERY SELECT 'not_found'::text, NULL::uuid, NULL::text; RETURN; END IF;
   IF i.status = 'expired' OR i.expires_at <= now() THEN RETURN QUERY SELECT 'expired'::text, NULL::uuid, NULL::text; RETURN; END IF;
   INSERT INTO memberships (workspace_id, user_id, role, status) VALUES (i.workspace_id, p_user, i.role, 'active')
     ON CONFLICT (workspace_id, user_id) DO UPDATE SET role = EXCLUDED.role, status = 'active' WHERE memberships.status = 'deactivated';
   UPDATE workspace_invitations SET status = 'accepted', accepted_by = p_user, accepted_at = now() WHERE id = i.id;
   RETURN QUERY SELECT 'accepted'::text, i.workspace_id, i.role::text;
 END $$;--> statement-breakpoint
-REVOKE EXECUTE ON FUNCTION invitation_preview(text), invitation_accept(text, text, text) FROM PUBLIC;--> statement-breakpoint
-GRANT EXECUTE ON FUNCTION invitation_preview(text), invitation_accept(text, text, text) TO crm_app;
+REVOKE EXECUTE ON FUNCTION invitation_preview(text), invitation_accept(text, text) FROM PUBLIC;--> statement-breakpoint
+GRANT EXECUTE ON FUNCTION invitation_preview(text), invitation_accept(text, text) TO crm_app;

@@ -15,7 +15,7 @@ const newToken = () => randomBytes(32).toString("base64url");
 const DAY = 86_400_000;
 const I = schema.workspaceInvitations;
 
-export type InvitationDeps = { mailer?: Mailer; webOrigin: string; limits?: { createPerUser?: number; previewPerIp?: number; acceptPerUser?: number; windowMs?: number } };
+export type InvitationDeps = { mailer?: Mailer; webOrigin: string; limits?: { createPerUser?: number; acceptPerUser?: number; windowMs?: number } };
 
 const maskEmail = (e: string) => {
   const [local = "", domain = ""] = e.split("@");
@@ -37,7 +37,6 @@ export function invitationRoutes(db: Db, deps: InvitationDeps) {
   const lim = deps.limits ?? {};
   const windowMs = lim.windowMs ?? 3_600_000;
   const issues = new WindowCounter(lim.createPerUser ?? 30, windowMs);
-  const previews = new WindowCounter(lim.previewPerIp ?? 30, 10 * 60_000);
   const accepts = new WindowCounter(lim.acceptPerUser ?? 20, 10 * 60_000);
   const clientIp = (c: Context) => c.req.header("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
   const link = (token: string) => `${deps.webOrigin.replace(/\/$/, "")}/invite/${token}`;
@@ -95,6 +94,7 @@ export function invitationRoutes(db: Db, deps: InvitationDeps) {
       const emailSent = await mail(email, out.workspaceName, out.inviterName, token);
       return c.json({ invitation: dto(out.row, out.inviterName), link: link(token), emailSent }, 201);
     } catch (e) {
+      if (pgCode(e) === "23514") return fail(c, 409, "too_many_pending", `A workspace can have ${MAX_PENDING_INVITATIONS} pending invitations. Revoke some first.`);
       if (pgCode(e) === "23505") return fail(c, 409, "duplicate_pending", "An invitation is already pending for this email. Resend it instead.");
       throw e;
     }
@@ -147,10 +147,9 @@ export function invitationRoutes(db: Db, deps: InvitationDeps) {
     return c.json({ invitation: dto(out.row, out.inviter), link: link(token), emailSent });
   });
 
-  // Public by token: no session. Unknown, expired, revoked and used tokens are indistinguishable (one generic 404), and attempts are rate limited per IP.
+  // Public by token: no session. Unknown, expired, revoked and used tokens are indistinguishable (one generic 404). Not rate limited: the token has 256 bits, and the invite page calls this from the Next server where every visitor shares one IP.
   const preview = new Hono<{ Variables: Vars }>();
   preview.get("/invitations/preview", async (c) => {
-    if (!previews.allow(`ip:${clientIp(c)}`)) return c.json({ error: { code: "rate_limited", message: "Too many attempts. Try again later." } }, 429);
     const token = c.req.query("token") ?? "";
     if (token.length < 20 || token.length > 200) return c.json({ error: { code: "not_found" } }, 404);
     const rows = (await withContext(db, {}, (tx) => tx.execute(sql`SELECT * FROM invitation_preview(${hashToken(token)})`))).rows as { status: string; role: string; email: string; expires_at: Date | string; workspace_name: string; inviter_name: string }[];
@@ -164,12 +163,11 @@ export function invitationRoutes(db: Db, deps: InvitationDeps) {
   const accept = new Hono<{ Variables: Vars }>();
   accept.post("/invitations/accept", async (c) => {
     const userId = c.get("userId");
-    const me = c.get("me" as never) as { email: string };
     if (!accepts.allow(`u:${userId}`)) return c.json({ error: { code: "rate_limited", message: "Too many attempts. Try again later." } }, 429);
     const parsed = AcceptInvitationBody.safeParse(await c.req.json().catch(() => null));
     if (!parsed.success) return c.json({ error: { code: "invalid_body" } }, 400);
     const out = await withContext(db, { userId }, async (tx) => {
-      const [r] = (await tx.execute(sql`SELECT * FROM invitation_accept(${hashToken(parsed.data.token)}, ${userId}, ${me.email})`)).rows as { outcome: string; workspace_id: string | null; role: string | null }[];
+      const [r] = (await tx.execute(sql`SELECT * FROM invitation_accept(${hashToken(parsed.data.token)}, ${userId})`)).rows as { outcome: string; workspace_id: string | null; role: string | null }[];
       if (r?.outcome === "accepted") {
         // The new membership now exists in this transaction, so the audit insert passes its own RLS.
         await tx.execute(sql`SELECT set_config('app.workspace_id', ${r.workspace_id}, true)`);
