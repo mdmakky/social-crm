@@ -98,7 +98,7 @@ test.describe("import wizard: API errors and warnings (mocked responses)", () =>
     await page.goto(`/w/${workspaceId}/contacts/import`);
     await page.route("**/v1/workspaces/*/imports", (r) => r.fulfill(json(413, "too_large")));
     await page.getByLabel("CSV file").setInputFiles(file("big.csv", "Name\nA"));
-    await expect(page.getByRole("alert").filter({ hasText: /too large.*Split it into smaller files/ })).toBeVisible();
+    await expect(page.getByRole("alert").filter({ hasText: /too large.*Split it/ })).toBeVisible();
     await page.unroute("**/v1/workspaces/*/imports");
     await page.route("**/v1/workspaces/*/imports", (r) => r.fulfill(json(429, "rate_limited")));
     await page.getByLabel("CSV file").setInputFiles(file("big.csv", "Name\nA"));

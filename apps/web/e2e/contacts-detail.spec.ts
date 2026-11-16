@@ -67,7 +67,7 @@ test.describe("contact detail", () => {
     const { workspaceId } = await signUpAndCreate(page, "Related Owner", "Related Co");
     const [id] = await seedContacts(page, workspaceId, [{ name: "Ivan Petrov" }]);
     await page.goto(`/w/${workspaceId}/contacts/${id}`);
-    await expect(page.getByRole("heading", { name: "Conversations are not available yet" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "No conversations yet" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "No leads yet" })).toBeVisible();
     await expect(page.getByText(/will appear here/)).toHaveCount(0);
     await expect(page.getByText(/separate from lead stages/)).toBeVisible();

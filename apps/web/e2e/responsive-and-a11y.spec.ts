@@ -89,20 +89,20 @@ test.describe("responsive layout and accessibility", () => {
     // structural responsiveness
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto(`/w/${workspaceId}`);
-    await expect(page.getByRole("navigation", { name: "Main" }).filter({ visible: true }).getByText("Members")).toBeVisible();
+    await expect(page.getByRole("navigation", { name: "Main" }).filter({ visible: true }).getByText("Settings")).toBeVisible();
     await page.setViewportSize({ width: 768, height: 1024 });
-    await expect(page.getByRole("navigation", { name: "Main" }).filter({ visible: true }).getByText("Members")).toBeHidden(); // rail: icons only
-    await expect(page.getByRole("link", { name: "Members" }).filter({ visible: true })).toBeVisible(); // still reachable by name
+    await expect(page.getByRole("navigation", { name: "Main" }).filter({ visible: true }).getByText("Settings")).toBeHidden(); // rail: icons only
+    await expect(page.getByRole("link", { name: "Settings", exact: true }).filter({ visible: true })).toBeVisible(); // still reachable by name
     await page.setViewportSize({ width: 375, height: 812 });
     await expect(page.getByRole("navigation", { name: "Main" }).filter({ visible: true })).toHaveCount(0);
     await expect(page.getByRole("navigation", { name: "Primary" })).toBeVisible(); // bottom bar on phones
     await page.getByRole("button", { name: "More" }).click();
     const drawer = page.getByRole("dialog", { name: "More" });
-    await expect(drawer.getByRole("link", { name: "Members" })).toBeVisible();
+    await expect(drawer.getByRole("link", { name: "Settings" })).toBeVisible();
     await axe(page, "drawer@375");
     await page.screenshot({ path: `${SHOTS}drawer-375.png` });
-    await drawer.getByRole("link", { name: "Members" }).click();
-    await expect(page).toHaveURL(/\/members$/);
+    await drawer.getByRole("link", { name: "Settings" }).click();
+    await expect(page).toHaveURL(/\/settings$/);
     await expect(drawer).toBeHidden();
 
     // overlays
@@ -112,6 +112,7 @@ test.describe("responsive layout and accessibility", () => {
     await axe(page, "command-menu");
     await page.screenshot({ path: `${SHOTS}command-menu-1440.png` });
     await page.keyboard.press("Escape");
+    await page.goto(`/w/${workspaceId}/members`); // Members lives inside Settings now, not in the sidebar
     await page.getByRole("button", { name: "Actions for Sofia Almeida" }).click();
     await page.getByRole("menuitem", { name: "Change role" }).click();
     await expect(page.locator('[role="menuitem"]')).toHaveCount(0); // the dropdown fades out (aria-hidden but still in the DOM) while the dialog opens: wait for the DOM node to go, so axe never measures a half-transparent menuitem

@@ -92,14 +92,14 @@ function AttachmentView({ a, storageConfigured, onChanged }: { a: AttachmentDto;
       : action === "extract" ? await browserApi.call(endpoints.extractAttachment, { params })
       : await browserApi.call(endpoints.transcribeAttachment, { params, body: {} });
     setBusy(null);
-    if (!r.ok) { setProblem(r.error.code === "capability_not_configured" ? ACTIONS[action].why + " An owner or admin can set one up in Settings, AI." : r.error.code === "budget_exceeded" ? "The monthly AI budget is used up. An owner or admin can raise it in Settings, AI." : errorMessage(r.error)); return; }
+    if (!r.ok) { setProblem(r.error.code === "capability_not_configured" ? ACTIONS[action].why + " An owner or admin can set one up in Settings, AI." : r.error.code === "budget_exceeded" ? "The monthly AI budget is used up. Raise it in Settings, AI." : errorMessage(r.error)); return; }
     setResult({ title: ACTIONS[action].label, res: r.data });
   }
   async function toKnowledge() {
     setBusy("knowledge"); setProblem(null);
     const r = await browserApi.call(endpoints.addAttachmentToKnowledge, { params: { workspaceId }, body: { attachmentId: a.id } });
     setBusy(null);
-    if (!r.ok) { setProblem(r.error.code === "already_in_knowledge" ? "This file is already in the knowledge base." : r.error.code === "unsupported_type" ? "This type of file can't be added to the knowledge base yet. Images, PDFs, audio, text and CSV files can." : errorMessage(r.error)); return; }
+    if (!r.ok) { setProblem(r.error.code === "already_in_knowledge" ? "This file is already in the knowledge base." : r.error.code === "unsupported_type" ? "This file type can't be added. Use images, PDFs, audio, text or CSV." : errorMessage(r.error)); return; }
     toast("Added to the knowledge base");
   }
   async function remove() {

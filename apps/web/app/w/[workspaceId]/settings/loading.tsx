@@ -2,7 +2,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Loading() {
   return (
-    <div role="status" aria-label="Loading settings" className="max-w-2xl">
+    <div role="status" aria-label="Loading settings">
       <Skeleton className="mb-2 h-7 w-32" />
       <Skeleton className="mb-6 h-4 w-60" />
       {[0, 1].map((i) => (

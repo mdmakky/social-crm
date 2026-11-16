@@ -18,13 +18,13 @@ export default async function ImportPage({ params }: { params: Promise<{ workspa
     return (
       <>
         <PageHeader title="Import contacts" />
-        <Panel><EmptyState icon={Lock} title="Only owners and admins can import contacts" description="Ask an owner or admin to import the file, or add contacts one at a time." action={<Button asChild><Link href={`/w/${workspaceId}/contacts`}>Back to contacts</Link></Button>} /></Panel>
+        <Panel><EmptyState icon={Lock} title="Only owners and admins can import contacts" description="Ask an owner or admin, or add contacts one by one." action={<Button asChild><Link href={`/w/${workspaceId}/contacts`}>Back to contacts</Link></Button>} /></Panel>
       </>
     );
   }
   return (
     <>
-      <PageHeader title="Import contacts" description="Bring contacts in from a CSV file. You review everything before anything is saved." />
+      <PageHeader title="Import contacts" description="Bring contacts in from a CSV file." />
       <ImportWizard workspaceId={workspaceId} />
     </>
   );

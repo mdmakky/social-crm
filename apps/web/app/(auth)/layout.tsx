@@ -1,4 +1,4 @@
-import { Camera, Inbox, Kanban, MessageCircle, MessagesSquare, Phone, UserRound } from "lucide-react";
+import { Camera, Inbox, MessageCircle, MessagesSquare, Phone, PieChart, UserRound } from "lucide-react";
 
 /** Sign-in surfaces: the brand colour owns the left half (big type, the three channels, what is inside), the form stays calm on white. Below lg the panel shrinks to a header. */
 const CHANNELS = [
@@ -8,8 +8,8 @@ const CHANNELS = [
 ] as const;
 const PILLARS = [
   { name: "Inbox", Icon: Inbox, text: "One thread per customer, with honest delivery status." },
-  { name: "Leads", Icon: UserRound, text: "Turn a conversation into a deal." },
-  { name: "Pipeline", Icon: Kanban, text: "See every deal by stage and move it forward." },
+  { name: "Leads", Icon: UserRound, text: "Turn a conversation into a lead." },
+  { name: "Reports", Icon: PieChart, text: "See what is open, won and lost." },
 ] as const;
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
@@ -25,7 +25,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           <p className="text-[2rem] font-extrabold leading-[1.05] tracking-[-0.035em] lg:text-[clamp(2.75rem,5.2vw,4.25rem)] lg:leading-[1.02]">
             Every message<span aria-hidden className="-ml-[0.09em]">.</span><br />Every lead<span aria-hidden className="-ml-[0.09em]">.</span><br /><span className="text-[#C9C3FF]">One place<span aria-hidden className="-ml-[0.09em]">.</span></span>
           </p>
-          <p className="mt-5 hidden max-w-[30rem] text-lg text-on-accent/90 lg:block">Answer customers on Messenger, Instagram and WhatsApp, and follow each one to a won deal, without switching apps.</p>
+          <p className="mt-5 hidden max-w-[30rem] text-lg text-on-accent/90 lg:block">Answer customers on Messenger, Instagram and WhatsApp, and follow each one to a won lead, without switching apps.</p>
           <ul aria-label="Channels" className="mt-8 hidden flex-wrap gap-2.5 lg:flex">
             {CHANNELS.map(({ name, Icon, bg }) => (
               <li key={name} className="inline-flex items-center gap-2.5 rounded-full bg-surface py-2 pl-2.5 pr-4 text-base font-semibold text-fg">

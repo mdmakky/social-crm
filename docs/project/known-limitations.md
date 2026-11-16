@@ -226,3 +226,9 @@ Updated: 2026-11-13 (Phase 0).
 - Invitations are link-based: there is no production mail provider (D22), so by default the inviter copies the link and sends it. Email goes out only when the API runs with `INVITATION_EMAIL=1` and a real mailer exists (today only the file mailer, which writes to disk).
 - Invitation rate limits and the pending cap check are per API instance (in-process counters, like the reset throttle). The session email is not verified (no verification flow), so a person who holds both the link and an account registered with the invited address can join.
 - The register form is not prefilled with the invited email (the public preview shows it masked only); a mismatch is caught on accept.
+
+## Moved out of the UI copy (UI cleanup, 2026-11-17)
+- Not tested live (shown as a badge): Messenger, Instagram and WhatsApp connections, real AI providers, OpenRouter prices and capabilities, the built-in model capability list. No recorded request to a live service exists for them; see the sections above.
+- Meta webhooks: the callback URL and fields (Instagram via a Page, WhatsApp `messages`) are set once in the Meta app dashboard; real delivery is unverified until the first real message arrives.
+- Conversions API is mock only: events are checked and recorded, nothing is sent to Meta, and a real accepted request would not mean Meta counted a conversion. Only Purchase is created today.
+- WhatsApp is receive only. Free-form replies are limited to 24 hours after the customer's last message; templates are not available.

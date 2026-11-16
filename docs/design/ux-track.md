@@ -34,3 +34,6 @@ The first round (tokens and small fixes) was rejected as still generic. The prod
 - Motion: enter and exit on menus, dialogs, drawer, toasts and scrim; press feedback; page entrance on fine pointers only. Text-bearing content enters with transform only. Reduced motion collapses all of it.
 - Fixes found by tests: palette remounts on every open (exit animation kept it mounted); touch-size test now waits for the page to stream in.
 Before/after: `docs/design/screenshots/ux-d/` (1440, 768, 375).
+
+## Settings information architecture (2026-11-17)
+Grouped sub-navigation (xl) or section list then detail (below xl), shared `SettingsPage` layout (header, one-line description, 56rem content width, page-gap rhythm), AI page in-page index. Screenshots: `docs/design/screenshots/settings-ia/` (before and after, 375, 768, 1440). Decisions D180 to D182.

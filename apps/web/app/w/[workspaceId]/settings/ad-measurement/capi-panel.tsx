@@ -8,6 +8,7 @@ import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Panel, PanelHeader } from "@/components/ui/panel";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tooltip } from "@/components/ui/overlays";
 import { Alert, EmptyState, ErrorState } from "@/components/ui/states";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import { browserApi, errorMessage } from "@/lib/client-api";
@@ -27,7 +28,7 @@ function LocalTime({ iso }: { iso: string | null }) {
 }
 
 /**
- * Meta Conversions API, slice 1. MOCK ONLY: events are validated, queued and "sent" to a mock adapter; nothing reaches Meta until a real test event has been recorded (docs/architecture/capi-architecture.md section 10).
+ * Ad measurement (Meta Conversions API), slice 1. MOCK ONLY: events are validated, queued and "sent" to a mock adapter; nothing reaches Meta until a real test event has been recorded (docs/architecture/capi-architecture.md section 10).
  * The access token is typed into a password field, sent once over the same-origin proxy and cleared immediately; the server never returns it.
  */
 export function CapiPanel({ workspaceId, canManage }: { workspaceId: string; canManage: boolean }) {
@@ -82,18 +83,16 @@ export function CapiPanel({ workspaceId, canManage }: { workspaceId: string; can
   const nameOf = (id: string) => datasets?.find((d) => d.id === id)?.name ?? "Dataset";
 
   return (
-    <Panel className="mt-6">
-      <PanelHeader title="Meta Conversions API" description="Send CRM outcomes, such as a won lead, back to Meta for ad measurement. Only for contacts who agreed to it. Record consent on the contact page, under Ad measurement consent." actions={<Badge tone="warning">MOCK</Badge>} />
+    <Panel>
+      <PanelHeader title="Meta Conversions API" description="Only contacts who agreed to ad measurement are sent." actions={<Tooltip label="Mock mode: events are recorded here, nothing is sent to Meta."><span><Badge tone="warning">MOCK</Badge></span></Tooltip>} />
       <div className="flex flex-col gap-4 p-4">
-        <Alert tone="warning">Mock only. Events are checked and recorded here, but nothing is sent to Meta. Live sending stays off until a real test event has been accepted and recorded.</Alert>
-
         {loadError ? <ErrorState title="Could not load Conversions API" description={loadError} onRetry={() => { setLoadError(null); void load(); }} /> : datasets === null ? (
           <div className="flex flex-col gap-2" role="status" aria-label="Loading"><Skeleton className="h-10" /><Skeleton className="h-10" /><Skeleton className="h-24" /></div>
         ) : (
           <>
             <section aria-labelledby="capi-datasets">
               <h3 id="capi-datasets" className="mb-2 text-sm font-medium text-fg">Datasets</h3>
-              {datasets.length === 0 ? <EmptyState icon={Send} title="No dataset connected" description={canManage ? "Add a dataset ID and access token from Meta Events Manager below." : "An owner or admin can connect a dataset."} /> : (
+              {datasets.length === 0 ? <EmptyState icon={Send} title="No dataset connected" description={canManage ? "Add a dataset ID and access token below." : "An owner or admin can connect one."} /> : (
                 <ul className="flex flex-col gap-2">
                   {datasets.map((d) => (
                     <li key={d.id} className="flex flex-wrap items-center gap-3 rounded-control border border-line-card px-3 py-2">
@@ -115,11 +114,11 @@ export function CapiPanel({ workspaceId, canManage }: { workspaceId: string; can
             {canManage && (
               <form onSubmit={(e) => { e.preventDefault(); void create(); }} className="flex flex-col gap-3 border-t border-line-card pt-4" noValidate>
                 <h3 className="text-sm font-medium text-fg">Connect a dataset</h3>
-                <p className="text-sm text-fg-subtle">In Events Manager open your dataset, then Settings, and generate an access token. The token is stored encrypted and is never shown again; only its last four characters are.</p>
+                <p className="text-sm text-fg-subtle">Create the token in Events Manager, under your dataset&apos;s Settings. It is stored encrypted.</p>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <Field label="Dataset ID" error={fieldErr.datasetId}>{(p) => <Input {...p} inputMode="numeric" autoComplete="off" value={form.datasetId} disabled={busy !== null} onChange={(e) => setForm({ ...form, datasetId: e.target.value })} />}</Field>
                   <Field label="Name" error={fieldErr.name}>{(p) => <Input {...p} autoComplete="off" maxLength={120} value={form.name} disabled={busy !== null} onChange={(e) => setForm({ ...form, name: e.target.value })} />}</Field>
-                  <Field label="Access token" error={fieldErr.token} hint="Pasted once, kept encrypted on the server.">{(p) => <Input {...p} type="password" autoComplete="off" spellCheck={false} value={form.token} disabled={busy !== null} onChange={(e) => setForm({ ...form, token: e.target.value })} />}</Field>
+                  <Field label="Access token" error={fieldErr.token} hint="Shown once, then only its last four digits.">{(p) => <Input {...p} type="password" autoComplete="off" spellCheck={false} value={form.token} disabled={busy !== null} onChange={(e) => setForm({ ...form, token: e.target.value })} />}</Field>
                   <Field label="Test event code (optional)" hint="From the Test Events tab.">{(p) => <Input {...p} autoComplete="off" maxLength={40} value={form.testCode} disabled={busy !== null} onChange={(e) => setForm({ ...form, testCode: e.target.value })} />}</Field>
                 </div>
                 {error && <Alert tone="error">{error}</Alert>}
@@ -134,7 +133,7 @@ export function CapiPanel({ workspaceId, canManage }: { workspaceId: string; can
                 <Button onClick={() => { setEvents(null); void load(); }}>Refresh</Button>
               </div>
               {events === null ? <Skeleton className="h-24" /> : events.length === 0 ? (
-                <EmptyState icon={Send} title="No events yet" description="Events appear here when a rule fires, for example a lead is won. Contacts need recorded consent to be sent." />
+                <EmptyState icon={Send} title="No events yet" description="They appear when a lead with a value is won." />
               ) : (
                 <Table scrollLabel="Delivery history">
                   <THead><TR><TH>When</TH><TH>Dataset</TH><TH>Event</TH><TH>Status</TH><TH>Tries</TH><TH>Detail</TH></TR></THead>
@@ -152,7 +151,6 @@ export function CapiPanel({ workspaceId, canManage }: { workspaceId: string; can
                   </TBody>
                 </Table>
               )}
-              <p className="mt-2 text-sm text-fg-subtle">Accepted means the mock accepted it. A real send is not enabled, and even a real accepted request would not mean Meta counted a conversion.</p>
             </section>
           </>
         )}

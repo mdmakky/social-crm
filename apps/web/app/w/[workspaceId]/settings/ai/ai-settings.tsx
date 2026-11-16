@@ -3,6 +3,7 @@ import * as React from "react";
 import { BarChart3, Sparkles } from "lucide-react";
 import { endpoints, type AiBudgetDto, type AiPromptDto, type AiProviderDto, type AiUsageDto } from "@crm/contracts";
 import { Badge } from "@/components/ui/badge";
+import { Tooltip } from "@/components/ui/overlays";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { Checkbox, Textarea } from "@/components/ui/form-controls";
@@ -11,6 +12,7 @@ import { Panel, PanelHeader } from "@/components/ui/panel";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, EmptyState, ErrorState } from "@/components/ui/states";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
+import { tabClass } from "@/components/ui/tabs";
 import { ToastProvider, useToast } from "@/components/ui/toast";
 import { browserApi, errorMessage } from "@/lib/client-api";
 import { formatMicro, parseMicro } from "@/lib/ai-money";
@@ -23,6 +25,8 @@ type Data = { providers: AiProviderDto[]; prompts: AiPromptDto[]; budget: AiBudg
  * Settings, AI (Phase 6 slice 1). The provider key goes into a password field, is sent once over the same-origin proxy and cleared; the server never returns it (only the last four characters).
  * Real providers are UNVERIFIED (no recorded request to a live service); the mock provider is offline and says so wherever it is used.
  */
+const SECTIONS = [{ id: "ai-provider", label: "Provider" }, { id: "ai-prompts", label: "Prompts" }, { id: "ai-budget", label: "Budget and usage" }, { id: "ai-capabilities", label: "Capabilities" }, { id: "ai-playground", label: "Media playground" }];
+
 export function AiSettings({ workspaceId }: { workspaceId: string }) {
   return <ToastProvider><Inner workspaceId={workspaceId} /></ToastProvider>;
 }
@@ -46,13 +50,16 @@ function Inner({ workspaceId }: { workspaceId: string }) {
   if (loadError) return <ErrorState title="Could not load AI settings" description={loadError} onRetry={() => { setLoadError(null); void load(); }} />;
   if (!data) return <div className="flex flex-col gap-4" role="status" aria-label="Loading AI settings"><Skeleton className="h-48" /><Skeleton className="h-40" /><Skeleton className="h-32" /></div>;
   return (
-    <div className="flex max-w-3xl flex-col gap-6">
-      <ProviderPanel params={params} providers={data.providers} onSaved={load} />
-      <CapabilitiesPanel workspaceId={workspaceId} providers={data.providers} />
-      <MediaPlayground workspaceId={workspaceId} />
-      <PromptPanel params={params} prompts={data.prompts} onSaved={load} />
-      <BudgetPanel params={params} budget={data.budget} usage={data.usage} onSaved={load} />
-      <UsagePanel usage={data.usage} />
+    <div className="flex flex-col gap-[var(--page-gap)]">
+      {/* In-page index: the AI page is long, so each part has an anchor and the index stays in view while scrolling. */}
+      <nav aria-label="On this page" data-scroll="allowed" className="sticky top-0 z-10 -mx-1 flex gap-1.5 overflow-x-auto bg-canvas/95 px-1 py-2 backdrop-blur">
+        {SECTIONS.map((s) => <a key={s.id} href={`#${s.id}`} className={tabClass(false)}>{s.label}</a>)}
+      </nav>
+      <section id="ai-provider" aria-label="Provider settings" className="scroll-mt-14"><ProviderPanel params={params} providers={data.providers} onSaved={load} /></section>
+      <section id="ai-prompts" aria-label="Prompts" className="scroll-mt-14"><PromptPanel params={params} prompts={data.prompts} onSaved={load} /></section>
+      <section id="ai-budget" aria-label="Budget" className="scroll-mt-14 flex flex-col gap-[var(--page-gap)]"><BudgetPanel params={params} budget={data.budget} usage={data.usage} onSaved={load} /><UsagePanel usage={data.usage} /></section>
+      <section id="ai-capabilities" aria-label="Capabilities" className="scroll-mt-14"><CapabilitiesPanel workspaceId={workspaceId} providers={data.providers} /></section>
+      <section id="ai-playground" aria-label="Media playground" className="scroll-mt-14"><MediaPlayground workspaceId={workspaceId} /></section>
     </div>
   );
 }
@@ -96,11 +103,8 @@ function ProviderPanel({ params, providers, onSaved }: P & { providers: AiProvid
   const model = current.models.find((m) => m.id === form.model);
   return (
     <Panel>
-      <PanelHeader title="Provider" description="Pick the AI service your drafts come from and the model it uses." actions={current.mock ? <Badge tone="warning">MOCK</Badge> : undefined} />
+      <PanelHeader title="Provider" description="The service and model your drafts come from." actions={current.mock ? <Tooltip label="Canned text. No AI service is called." side="bottom"><span><Badge tone="warning">MOCK</Badge></span></Tooltip> : <Tooltip label="No recorded request to the live service yet. Try one suggestion and check the usage table." side="bottom"><span><Badge tone="warning">Not tested live</Badge></span></Tooltip>} />
       <form onSubmit={(e) => { e.preventDefault(); void save(); }} className="flex flex-col gap-4 p-4" noValidate>
-        {current.mock
-          ? <Alert tone="warning">Mock provider: drafts are canned text and no AI service is called. Use it to try the flow. Nothing leaves this server.</Alert>
-          : <Alert tone="info">Not verified yet: this connection has only been tested against a simulated service, never a real one. Try one suggestion and check the usage table before relying on it.{id === "openrouter" && " OpenRouter model prices and capabilities come from its public list and are UNVERIFIED (not tested against the live service). The cost of each call is counted as the higher of our estimate and the cost OpenRouter reports."}</Alert>}
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Provider">{(p) => (
             <Select {...p} value={id} disabled={busy} onChange={(e) => choose(e.target.value)}>
@@ -123,7 +127,7 @@ function ProviderPanel({ params, providers, onSaved }: P & { providers: AiProvid
             )}</Field>
           )}
           {current.customBaseUrl && (
-            <Field label="Base URL (optional)" hint="For OpenAI-compatible servers. Public https address only; leave empty for OpenAI." className="sm:col-span-2">{(p) => (
+            <Field label="Base URL (optional)" hint="OpenAI-compatible servers only. Public https." className="sm:col-span-2">{(p) => (
               <Input {...p} inputMode="url" autoComplete="off" placeholder="https://api.openai.com/v1" value={form.baseUrl} disabled={busy} onChange={(e) => setForm({ ...form, baseUrl: e.target.value })} />
             )}</Field>
           )}
@@ -168,7 +172,7 @@ function PromptPanel({ params, prompts, onSaved }: P & { prompts: AiPromptDto[];
 
   return (
     <Panel>
-      <PanelHeader title={`Prompt: ${pr.label}`} description="The instructions sent with every suggestion. Each save creates a new version you can switch back to." />
+      <PanelHeader title={`Prompt: ${pr.label}`} description="Sent with every suggestion. Each save is a new version." />
       <div className="flex flex-col gap-4 p-4">
         <form onSubmit={(e) => { e.preventDefault(); void publish(); }} className="flex flex-col gap-3" noValidate>
           <Field label="Prompt template" hint={`Placeholders: ${pr.variables.map((v) => `{{${v}}}`).join(", ")}. Nothing else is allowed.`}>{(p) => (
@@ -221,7 +225,7 @@ function BudgetPanel({ params, budget, usage, onSaved }: P & { budget: AiBudgetD
   const m = usage.month;
   return (
     <Panel>
-      <PanelHeader title="Monthly budget" description="A spending limit per calendar month (UTC), counted from the model prices. With the hard stop on, no more AI calls are made once the limit is reached." />
+      <PanelHeader title="Monthly budget" description="Monthly limit (UTC). The hard stop blocks calls once it is reached." />
       <form onSubmit={(e) => { e.preventDefault(); void save(); }} className="flex flex-col gap-3 p-4" noValidate>
         <Field label="Monthly limit (USD)" error={err} hint="Leave empty for no limit.">{(p) => <Input {...p} inputMode="decimal" autoComplete="off" className="max-w-48" value={cap} disabled={busy} onChange={(e) => setCap(e.target.value)} />}</Field>
         <Checkbox label="Hard stop: block AI calls when the limit is reached" checked={hard} disabled={busy} onChange={(e) => setHard(e.target.checked)} />
@@ -239,7 +243,7 @@ function UsagePanel({ usage }: { usage: AiUsageDto }) {
   const m = usage.month;
   return (
     <Panel>
-      <PanelHeader title="Usage" description="Last 30 days. Only counts and costs are kept; the text of messages and drafts is never stored." />
+      <PanelHeader title="Usage" description="Last 30 days. Counts and costs only." />
       <div className="flex flex-col gap-3 p-4">
         <p className="text-sm text-fg-muted">This month: {m.runs} calls, {m.inputTokens.toLocaleString()} tokens in, {m.outputTokens.toLocaleString()} out{m.blockedRuns > 0 ? `, ${m.blockedRuns} blocked by the budget` : ""}.</p>
         {usage.byDay.length === 0 ? <EmptyState icon={BarChart3} title="No AI calls yet" description="Calls appear here when someone uses Suggest reply in the inbox." /> : (

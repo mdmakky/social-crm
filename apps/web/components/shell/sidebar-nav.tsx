@@ -1,16 +1,14 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronRight } from "lucide-react";
 import type { Role } from "@crm/core/permissions";
 import { Tooltip } from "@/components/ui/overlays";
 import { cn } from "@/lib/cn";
-import { builtNav, href, plannedItems } from "@/lib/nav";
+import { builtNav, href } from "@/lib/nav";
 
 export function SidebarNav({ workspaceId, role, compact, onNavigate }: { workspaceId: string; role: Role; compact?: boolean; onNavigate?: () => void }) {
   const pathname = usePathname();
   const groups = builtNav(role);
-  const planned = plannedItems(role);
   return (
     <nav aria-label="Main" className={cn("flex flex-1 flex-col gap-1 overflow-y-auto px-3 py-2", compact && "items-center px-2")}>
       {groups.map((g, gi) => (
@@ -20,7 +18,9 @@ export function SidebarNav({ workspaceId, role, compact, onNavigate }: { workspa
           {g.items.map((item) => {
             const Icon = item.icon;
             const to = href(workspaceId, item);
-            const active = item.path === "" ? pathname === to : pathname === to || pathname.startsWith(`${to}/`);
+            // Integrations, Members and Audit log live inside Settings, so they keep its entry highlighted.
+            const inSettings = item.key === "settings" && ["integrations", "members", "audit-log"].some((x) => pathname === `/w/${workspaceId}/${x}`);
+            const active = item.path === "" ? pathname === to : pathname === to || pathname.startsWith(`${to}/`) || inSettings;
             const link = (
               <Link
                 href={to}
@@ -38,22 +38,6 @@ export function SidebarNav({ workspaceId, role, compact, onNavigate }: { workspa
           })}
         </div>
       ))}
-      {!compact && planned.length > 0 && (
-        <details className="group">
-          <summary className="press flex h-8 cursor-pointer list-none items-center gap-1 rounded-lg px-3 text-xs font-semibold text-fg-subtle hover:bg-canvas pointer-coarse:h-11 [&::-webkit-details-marker]:hidden">
-            <ChevronRight className="size-3.5 transition-transform duration-[var(--dur-base)] group-open:rotate-90" aria-hidden />
-            Coming soon
-          </summary>
-          <ul className="px-2 pb-1 pt-0.5">
-            {planned.map((i) => (
-              <li key={i.key} className="flex h-7 items-center gap-2 pl-2 text-sm text-fg-subtle">
-                <i.icon className="size-4 shrink-0 stroke-[1.75]" />
-                {i.label}
-              </li>
-            ))}
-          </ul>
-        </details>
-      )}
     </nav>
   );
 }

@@ -56,12 +56,12 @@ export function DetectedMethodsPanel({ workspaceId, contactId, initial, canEdit,
 
   return (
     <Panel>
-      <PanelHeader title="Detected from conversations" description="Read automatically from messages. Not verified; the details above are only what a person entered." />
+      <PanelHeader title="Detected from conversations" description="Found in messages. Not verified." />
       <div className="flex flex-col gap-3 p-4">
         {error && <Alert tone="error">{error}</Alert>}
         {loadError ? <ErrorState title="Couldn't load detected details" description={loadError} onRetry={() => { setItems(null); setLoadError(null); void load(); }} />
           : items === null ? <div role="status" aria-label="Loading detected details" className="space-y-2"><Skeleton className="h-9 w-full" /><Skeleton className="h-9 w-2/3" /></div>
-          : items.length === 0 ? <p className="text-sm text-fg-muted">Nothing detected yet. Phone numbers and emails customers write in a conversation appear here.</p>
+          : items.length === 0 ? <p className="text-sm text-fg-muted">Nothing detected yet.</p>
           : (
             <ul className="flex flex-col divide-y divide-line-card">
               {items.map((m) => {

@@ -21,7 +21,7 @@ test.beforeAll(async ({ browser }) => {
 test("configure the mock provider and a budget", async () => {
   await owner.goto(SETTINGS());
   await expect(owner.getByRole("heading", { name: "Provider", exact: true })).toBeVisible();
-  await expect(owner.getByText(/Mock provider: drafts are canned text/)).toBeVisible();
+  await expect(owner.getByText("MOCK", { exact: true }).first()).toBeVisible();
   await expect(owner.getByLabel("API key")).toHaveCount(0); // the mock takes no key
   await owner.getByRole("button", { name: "Connect provider" }).click();
   await expect(owner.getByText("AI provider saved")).toBeVisible();
@@ -32,7 +32,7 @@ test("configure the mock provider and a budget", async () => {
   await owner.getByLabel("Provider", { exact: true }).selectOption("anthropic");
   const key = owner.getByLabel("API key");
   await expect(key).toHaveAttribute("type", "password");
-  await expect(owner.getByText(/never been tested against a real one|never a real one/)).toBeVisible();
+  await expect(owner.getByText("Not tested live", { exact: true })).toBeVisible();
   await key.fill("sk-ant-E2E-SECRET-0123456789abcdef");
   await owner.getByLabel("Use for reply suggestions (default)").uncheck();
   await owner.getByRole("button", { name: "Connect provider" }).click();

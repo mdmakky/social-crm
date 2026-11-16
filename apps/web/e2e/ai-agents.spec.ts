@@ -60,7 +60,7 @@ test("test playground: dry run changes nothing, live run queues the action, appr
   expect(await notes()).toHaveLength(0);
 
   await owner.getByLabel("Dry run (change nothing)").uncheck();
-  await expect(owner.getByText(/Live test: automatic write tools/)).toBeVisible();
+  await expect(owner.getByText(/Live test: write tools will really run/)).toBeVisible();
   await owner.getByRole("button", { name: "Run test" }).click();
   await expect(owner.getByText("Pending approval", { exact: true }).first()).toBeVisible();
   const approve = owner.getByRole("button", { name: "Approve crm.add_note" });
