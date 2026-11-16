@@ -75,7 +75,7 @@ export function AdConsentPanel({ workspaceId, contactId, canEdit, timeZone, memb
         <DialogContent
           title={pending === "granted" ? "Record ad measurement consent?" : "Record withdrawal of consent?"}
           description={pending === "granted"
-            ? "Confirm only if this contact agreed. It allows the CRM to send hashed identifiers (email, phone) and conversion events, such as a won deal, to Meta through the Conversions API for ad measurement."
+            ? "Confirm only if this contact agreed. It allows the CRM to send hashed identifiers (email, phone) and conversion events, such as a won lead, to Meta through the Conversions API for ad measurement."
             : "This stops any further sending of this contact's identifiers to Meta. Events already waiting are skipped. Earlier records stay in the history."}
         >
           {error && <Alert tone="error" className="mb-3">{error}</Alert>}

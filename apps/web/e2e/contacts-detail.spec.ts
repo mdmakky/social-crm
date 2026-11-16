@@ -63,14 +63,14 @@ test.describe("contact detail", () => {
     await expect(page.getByText("No tasks yet.")).toBeVisible();
   });
 
-  test("related conversations and pipeline records are honest about not being available yet", async ({ page }) => {
+  test("related conversations and lead records are honest about not being available yet", async ({ page }) => {
     const { workspaceId } = await signUpAndCreate(page, "Related Owner", "Related Co");
     const [id] = await seedContacts(page, workspaceId, [{ name: "Ivan Petrov" }]);
     await page.goto(`/w/${workspaceId}/contacts/${id}`);
     await expect(page.getByRole("heading", { name: "Conversations are not available yet" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "No deals yet" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "No leads yet" })).toBeVisible();
     await expect(page.getByText(/will appear here/)).toHaveCount(0);
-    await expect(page.getByText(/separate from any pipeline/)).toBeVisible();
+    await expect(page.getByText(/separate from lead stages/)).toBeVisible();
   });
 
   test("deleting a contact asks first, removes it, and unknown ids are not-found", async ({ page }) => {

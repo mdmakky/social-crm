@@ -5,7 +5,7 @@ const W = "/v1/workspaces/:workspaceId";
 const Uuid = z.string().uuid();
 const Money = z.object({ currency: z.string(), minor: z.number() });
 
-/** Amounts are per currency (never summed across currencies) and are null when the caller may not see every deal value. */
+/** Amounts are per currency (never summed across currencies) and are null when the caller may not see every lead value. */
 const Values = z.array(Money).nullable();
 
 export const LeadReportQuery = z.object({

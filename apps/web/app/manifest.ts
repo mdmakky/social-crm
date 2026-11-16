@@ -6,7 +6,7 @@ export default function manifest(): MetadataRoute.Manifest {
     id: "/",
     name: "Social CRM",
     short_name: "Social CRM",
-    description: "Unified inbox, contacts and pipeline for social channels.",
+    description: "Unified inbox, contacts and leads for social channels.",
     start_url: "/",
     scope: "/",
     display: "standalone",

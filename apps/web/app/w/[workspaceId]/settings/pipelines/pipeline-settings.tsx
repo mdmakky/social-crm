@@ -107,7 +107,7 @@ function PipelineCard({ pl, canManage, w, run, setData }: { pl: PipelineDto; can
               <Button type="button" icon variant="ghost" aria-label="Cancel renaming" onClick={() => setName(null)}><X className="size-4" aria-hidden /></Button>
             </form>
           )}
-          <Badge tone={pl.kind === "sales" ? "accent" : "neutral"}>{pl.kind === "sales" ? "Deals" : "Leads"}</Badge>
+          <Badge tone={pl.kind === "sales" ? "accent" : "neutral"}>{pl.kind === "sales" ? "Sales" : "Qualification"}</Badge>
           {pl.isDefault && <Badge tone="success"><Star className="size-3" aria-hidden />Default</Badge>}
           <span className="text-xs text-fg-subtle">{pl.defaultCurrency}</span>
         </div>
@@ -221,7 +221,7 @@ function NewPipeline({ open, onOpenChange, w, run }: { open: boolean; onOpenChan
       <DialogContent title="New pipeline" description="It starts with a few stages plus Won and Lost; adjust them afterwards.">
         <form className="flex flex-col gap-4" noValidate onSubmit={async (e) => { e.preventDefault(); if (!name.trim()) return setErr("Name the pipeline."); setErr(null); if (await run(() => browserApi.call(endpoints.createPipeline, { params: w, body: { name: name.trim(), kind, defaultCurrency: currency } }), "Pipeline created.")) { setName(""); onOpenChange(false); } }}>
           <Field label="Name" error={err}>{(p) => <Input {...p} value={name} onChange={(e) => setName(e.target.value)} maxLength={80} autoFocus />}</Field>
-          <Field label="Type" hint="Decides whether the items are called leads or deals.">{(p) => <Select {...p} value={kind} onChange={(e) => setKind(e.target.value as "lead" | "sales")}><option value="sales">Sales (deals)</option><option value="lead">Lead qualification (leads)</option></Select>}</Field>
+          <Field label="Type" hint="Describes what the stages are for. Everything in it is still called a lead.">{(p) => <Select {...p} value={kind} onChange={(e) => setKind(e.target.value as "lead" | "sales")}><option value="sales">Sales</option><option value="lead">Lead qualification</option></Select>}</Field>
           <Field label="Default currency">{(p) => <Select {...p} value={currency} onChange={(e) => setCurrency(e.target.value)}>{CURRENCIES.map((c) => <option key={c}>{c}</option>)}</Select>}</Field>
           <DialogActions><Button type="button" onClick={() => onOpenChange(false)}>Cancel</Button><Button type="submit" variant="primary">Create pipeline</Button></DialogActions>
         </form>

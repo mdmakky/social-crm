@@ -14,7 +14,7 @@ test("audit all screens", async ({ page }) => {
   const leadIds: string[] = [];
   for (let i = 0; i < 6; i++) { const r = await a.post(`/v1/workspaces/${w}/leads`, { title: ["Website redesign", "Annual retainer", "Pop-up store", "Photo shoot", "Brand kit", "Ad campaign"][i], primaryContactId: ids[i], valueMinor: 120000 * (i + 1), currency: "USD" }); leadIds.push((await r.json()).id); }
   for (let i = 0; i < 5; i++) await a.post(`/v1/workspaces/${w}/tasks`, { title: ["Chase the late payment", "Prepare renewal deck", "Send proposal", "Call back", "Review contract"][i], dueAt: inDays(i - 2), priority: ["urgent", "high", "normal", "low", "high"][i], contactId: ids[i] });
-  const pages: [string, string][] = [["dashboard", ""], ["contacts", "/contacts"], ["contact", `/contacts/${ids[0]}`], ["leads", "/leads"], ["lead", `/leads/${leadIds[0]}`], ["pipeline", "/pipeline"], ["tasks", "/tasks"], ["notifications", "/notifications"], ["settings", "/settings"], ["settings-pipelines", "/settings/pipelines"], ["settings-contacts", "/settings/contacts"], ["settings-notifications", "/settings/notifications"], ["members", "/members"], ["audit", "/audit-log"], ["reports", "/reports"]];
+  const pages: [string, string][] = [["dashboard", ""], ["contacts", "/contacts"], ["contact", `/contacts/${ids[0]}`], ["leads", "/leads"], ["lead", `/leads/${leadIds[0]}`], ["tasks", "/tasks"], ["notifications", "/notifications"], ["settings", "/settings"], ["settings-pipelines", "/settings/pipelines"], ["settings-contacts", "/settings/contacts"], ["settings-notifications", "/settings/notifications"], ["members", "/members"], ["audit", "/audit-log"], ["reports", "/reports"]];
   mkdirSync(OUT, { recursive: true });
   const rows: string[] = [];
   const bad: string[] = [];

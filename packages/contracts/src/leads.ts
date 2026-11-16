@@ -54,7 +54,7 @@ export const LeadDto = z.object({
   id: Uuid, title: z.string(), description: z.string().nullable(),
   primaryContact: z.object({ id: Uuid, name: z.string(), deleted: z.boolean() }),
   pipelineId: Uuid, stageId: Uuid, outcome: StageKind, rank: z.string(),
-  /** Null when the caller may not see deal value (valueHidden = true) or when none is set. */
+  /** Null when the caller may not see lead value (valueHidden = true) or when none is set. */
   valueMinor: z.number().int().nullable(), currency: z.string().nullable(), valueHidden: z.boolean(), canEditValue: z.boolean(),
   expectedCloseDate: z.string().nullable(), probability: z.number().int(), probabilityManual: z.boolean(),
   closedAt: z.string().nullable(), lostReasonId: Uuid.nullable(), nextActivityAt: z.string().nullable(),
@@ -67,10 +67,20 @@ export const LeadSort = z.enum(["updated", "created", "close"]);
 export const LeadListQuery = z.object({
   pipelineId: Uuid.optional(), stageId: Uuid.optional(), outcome: StageKind.optional(), ownerId: z.string().optional(), contactId: Uuid.optional(),
   q: z.string().max(120).optional(), deleted: z.enum(["true"]).optional(),
+  source: z.string().trim().min(1).max(40).optional(),
+  /** Value range in minor units. Only for callers who may see lead values (otherwise 403), so a hidden value cannot be probed. */
+  minValue: z.coerce.number().int().min(0).optional(), maxValue: z.coerce.number().int().min(0).optional(),
+  /** Leads updated within the last N days. */
+  activeWithinDays: z.enum(["7", "30", "90"]).optional(),
   sort: LeadSort.optional(), dir: z.enum(["asc", "desc"]).optional(),
   cursor: z.string().max(400).optional(), limit: z.coerce.number().int().min(1).max(100).optional(),
 });
 export type LeadListQuery = z.input<typeof LeadListQuery>;
+/** Same filters as the list, minus paging, sort and stage. */
+export const LeadStageCountsQuery = LeadListQuery.omit({ stageId: true, cursor: true, limit: true, sort: true, dir: true, deleted: true });
+export type LeadStageCountsQuery = z.input<typeof LeadStageCountsQuery>;
+export const LeadStageCounts = z.object({ items: z.array(z.object({ stageId: Uuid, count: z.number().int() })), total: z.number().int() });
+export type LeadStageCounts = z.infer<typeof LeadStageCounts>;
 export const LeadPage = z.object({ items: z.array(LeadDto), nextCursor: z.string().nullable() });
 export type LeadPage = z.infer<typeof LeadPage>;
 
@@ -93,6 +103,11 @@ export const UpdateLeadBody = z.object({
 export type UpdateLeadBody = z.input<typeof UpdateLeadBody>;
 export const MoveLeadBody = z.object({ expectedVersion: z.number().int(), stageId: Uuid, lostReasonId: Uuid.optional(), beforeLeadId: Uuid.optional(), afterLeadId: Uuid.optional() });
 export type MoveLeadBody = z.input<typeof MoveLeadBody>;
+export const BulkStageBody = z.object({ leadIds: z.array(Uuid).min(1).max(100), stageId: Uuid, lostReasonId: Uuid.optional() });
+export type BulkStageBody = z.input<typeof BulkStageBody>;
+/** One entry per requested id, in order. code is "ok" on success, otherwise the error code of the single move (not_found, forbidden, invalid_body, lost_reason_required, ...). */
+export const BulkStageResult = z.object({ results: z.array(z.object({ id: Uuid, ok: z.boolean(), code: z.string() })) });
+export type BulkStageResult = z.infer<typeof BulkStageResult>;
 export const LeadVersionBody = z.object({ expectedVersion: z.number().int() });
 export const LeadVersionQuery = z.object({ expectedVersion: z.coerce.number().int() });
 
@@ -108,6 +123,8 @@ export const DuplicateLeadDetails = z.object({ duplicates: z.array(z.object({ id
 export const leadRecordEndpoints = {
   listLeads: endpoint({ method: "GET", path: `${W}/leads`, query: LeadListQuery, response: LeadPage }),
   createLead: endpoint({ method: "POST", path: `${W}/leads`, body: CreateLeadBody, response: LeadDto }),
+  leadStageCounts: endpoint({ method: "GET", path: `${W}/leads/stage-counts`, query: LeadStageCountsQuery, response: LeadStageCounts }),
+  bulkMoveLeads: endpoint({ method: "POST", path: `${W}/leads/bulk-stage`, body: BulkStageBody, response: BulkStageResult }),
   getLead: endpoint({ method: "GET", path: `${W}/leads/:leadId`, response: LeadDto }),
   updateLead: endpoint({ method: "PATCH", path: `${W}/leads/:leadId`, body: UpdateLeadBody, response: LeadDto }),
   moveLead: endpoint({ method: "POST", path: `${W}/leads/:leadId/move`, body: MoveLeadBody, response: LeadDto }),

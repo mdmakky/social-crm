@@ -166,7 +166,7 @@ function Inner({ workspaceId, timeZone, role, myUserId, initial, pipelines, lost
             <PanelHeader title="Details" />
             <dl className="grid grid-cols-1 gap-x-6 gap-y-4 p-4 sm:grid-cols-2">
               <Row label="Value">
-                {lead.valueHidden ? <Tooltip label="Deal value is restricted. Ask an owner or admin for access." side="top"><span className="inline-flex items-center gap-1.5 text-fg-subtle"><Lock className="size-3.5" aria-hidden />Restricted</span></Tooltip>
+                {lead.valueHidden ? <Tooltip label="Lead value is restricted. Ask an owner or admin for access." side="top"><span className="inline-flex items-center gap-1.5 text-fg-subtle"><Lock className="size-3.5" aria-hidden />Restricted</span></Tooltip>
                   : lead.valueMinor !== null && lead.currency ? <span className="text-base font-semibold tabular-nums">{formatMoney(lead.valueMinor, lead.currency)}</span> : <span className="text-fg-subtle">Not set</span>}
               </Row>
               <Row label="Probability">
@@ -319,7 +319,7 @@ function EditDialog({ open, onOpenChange, lead, members, role, myUserId, workspa
   );
 }
 
-/** Owner/admin only: who may see (and optionally edit) this record's deal value. Agents and viewers without a grant never receive the value from the API. */
+/** Owner/admin only: who may see (and optionally edit) this record's lead value. Agents and viewers without a grant never receive the value from the API. */
 function ValueAccess({ workspaceId, leadId, grants, setGrants, members }: { workspaceId: string; leadId: string; grants: Grant[]; setGrants: (g: Grant[]) => void; members: Member[]; myRole: Role }) {
   const toast = useToast();
   const [pick, setPick] = React.useState("");
@@ -341,7 +341,7 @@ function ValueAccess({ workspaceId, leadId, grants, setGrants, members }: { work
   }
   return (
     <Panel>
-      <PanelHeader title="Deal value access" description="Owners and admins always see it. Agents only with access granted here." />
+      <PanelHeader title="Lead value access" description="Owners and admins always see it. Agents only with access granted here." />
       <div className="flex flex-col gap-3 p-4 text-sm">
         {grants.length === 0 && <p className="text-fg-muted">No agents have access.</p>}
         {grants.map((g) => (

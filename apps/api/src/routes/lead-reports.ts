@@ -13,7 +13,7 @@ const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "
 /**
  * Minimal reporting over one pipeline. Counts are visible to every role that can view leads. Value sums are computed only for owner/admin:
  * for anyone else the query for value is never run and the fields are null, because an aggregate over a subset (granted leads only) or a total
- * minus counts would still leak restricted deal values. Money is grouped per currency and never converted. No forecasting or weighting.
+ * minus counts would still leak restricted lead values. Money is grouped per currency and never converted. No forecasting or weighting.
  */
 export function leadReportRoutes(db: Db) {
   const r = new Hono<ScopedEnv>();

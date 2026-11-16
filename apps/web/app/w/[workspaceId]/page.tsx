@@ -49,23 +49,25 @@ export default async function Home({ params }: { params: Promise<{ workspaceId: 
 
       <p className="mb-4 text-lg font-medium tracking-title text-fg">
         <span className={s && s.overdue > 0 ? "text-danger-fg" : undefined}>{lead}</span>{" "}
-        <span className="text-fg-subtle">{dataOf(contacts)?.total ?? 0} contacts{r ? `, ${plural(r.openTotal.count, "open deal")}${r.valuesVisible && sum(r.openTotal.values) ? ` worth ${sum(r.openTotal.values)}` : ""}` : ""}.</span>
+        <span className="text-fg-subtle">{dataOf(contacts)?.total ?? 0} contacts{r ? `, ${plural(r.openTotal.count, "open lead")}${r.valuesVisible && sum(r.openTotal.values) ? ` worth ${sum(r.openTotal.values)}` : ""}` : ""}.</span>
       </p>
 
       {canLeads && r && total > 0 && (
-        <Panel aria-label="Open deals by stage" className="mb-4 p-4">
+        <Panel aria-label="Open leads by stage" className="mb-4 p-4">
           <div className="mb-2 flex items-baseline justify-between">
-            <h2 className="text-base font-semibold text-fg">Pipeline</h2>
-            <Link href={`${base}/pipeline`} className="inline-flex items-center gap-1 text-sm font-medium text-accent-fg hover:underline pointer-coarse:min-h-11">Open board <ArrowRight className="size-3.5" aria-hidden /></Link>
+            <h2 className="text-base font-semibold text-fg">Open leads by stage</h2>
+            <Link href={`${base}/leads`} className="inline-flex items-center gap-1 text-sm font-medium text-accent-fg hover:underline pointer-coarse:min-h-11">Open leads <ArrowRight className="size-3.5" aria-hidden /></Link>
           </div>
           <div className="flex h-2 gap-0.5 overflow-hidden rounded-full" role="img" aria-label={stages.map((x) => `${x.name}: ${x.count}`).join(", ")}>
             {stages.map((x, i) => <span key={x.stageId} className={`${STAGE_HUES[i % STAGE_HUES.length]} h-full transition-[flex-grow] duration-[var(--dur-slow)] ease-[var(--ease-out)]`} style={{ flexGrow: x.count }} />)}
           </div>
           <ul className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-base">
             {stages.map((x, i) => (
-              <li key={x.stageId} className="inline-flex items-center gap-1.5">
-                <span aria-hidden className={`size-1.5 rounded-full ${STAGE_HUES[i % STAGE_HUES.length]}`} />
-                <span className="text-fg">{x.name}</span><span className="tnum text-fg-subtle">{x.count}{r.valuesVisible && sum(x.values) ? ` · ${sum(x.values)}` : ""}</span>
+              <li key={x.stageId}>
+                <Link href={`${base}/leads?stage=${x.stageId}`} className="inline-flex items-center gap-1.5 hover:underline pointer-coarse:min-h-11">
+                  <span aria-hidden className={`size-1.5 rounded-full ${STAGE_HUES[i % STAGE_HUES.length]}`} />
+                  <span className="text-fg">{x.name}</span><span className="tnum text-fg-subtle">{x.count}{r.valuesVisible && sum(x.values) ? ` · ${sum(x.values)}` : ""}</span>
+                </Link>
               </li>
             ))}
           </ul>

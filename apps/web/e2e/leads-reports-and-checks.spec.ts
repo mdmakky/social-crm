@@ -39,7 +39,7 @@ test("reports: owner sees counts and amounts; an agent sees counts only and no a
   const email = await register(agent, "Sam Agent");
   await addMemberByEmail(workspaceId, email, "agent");
   await agent.goto(`/w/${workspaceId}/reports`);
-  await expect(agent.getByText("Deal values are only shown to owners and admins")).toBeVisible();
+  await expect(agent.getByText("Lead values are only shown to owners and admins")).toBeVisible();
   const html = await agent.content();
   for (const n of ["3,456", "1,200", "345600", "120000"]) expect(html).not.toContain(n);
   await expect(agent.getByText("50%").first()).toBeVisible();
@@ -59,23 +59,25 @@ test("reports: loading state, error state with retry, period change", async ({ p
   await expect(page.getByText("$3,456.00").first()).toBeVisible();
 });
 
-test("board shows recently won and lost leads, links to them, and View all opens the filtered list", async ({ page }) => {
+test("Won and Lost chips list the closed leads, links open them, and the status filter still works", async ({ page }) => {
   test.setTimeout(120_000);
-  const { workspaceId } = await signUpAndCreate(page, "Olive Owner", "Closed Board Co");
+  const { workspaceId } = await signUpAndCreate(page, "Olive Owner", "Closed Leads Co");
   const ids = await seedPipeline(page, workspaceId);
-  await page.goto(`/w/${workspaceId}/pipeline`);
-  const won = page.locator('section[aria-label^="Won"]');
-  const lost = page.locator('section[aria-label^="Lost"]');
-  await expect(won.getByRole("link", { name: "Won deal" })).toBeVisible();
-  await expect(lost.getByRole("link", { name: "Lost deal" })).toBeVisible();
-  await expect(won).toContainText("1");
-  await won.getByRole("link", { name: "Won deal" }).click();
+  await page.goto(`/w/${workspaceId}/leads`);
+  await expect(page.getByRole("link", { name: "Open deal" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Won deal" })).toHaveCount(0); // the default list is open leads
+  await page.getByRole("button", { name: "Won 1 lead" }).click();
+  await expect(page).toHaveURL(/leads\?stage=/);
+  await expect(page.getByRole("button", { name: "Won 1 lead" })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("link", { name: "Won deal" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Open deal" })).toHaveCount(0);
+  await page.getByRole("link", { name: "Won deal" }).click();
   await expect(page).toHaveURL(new RegExp(`/leads/${ids.won}$`));
   await page.goBack();
-  await page.locator('section[aria-label^="Lost"]').getByRole("link", { name: /View all lost/ }).click();
-  await expect(page).toHaveURL(/leads\?status=lost/);
+  await expect(page.getByRole("button", { name: "Won 1 lead" })).toHaveAttribute("aria-pressed", "true"); // the chip filter survives Back
+  await page.getByRole("button", { name: "Lost 1 lead" }).click();
   await expect(page.getByRole("link", { name: "Lost deal" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Open deal" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Won deal" })).toHaveCount(0);
 });
 
 test("reduced motion: transitions and animations are effectively off on leads screens", async ({ page }) => {
@@ -83,7 +85,7 @@ test("reduced motion: transitions and animations are effectively off on leads sc
   const { workspaceId } = await signUpAndCreate(page, "Olive Owner", "Motion Co");
   const ids = await seedPipeline(page, workspaceId);
   await page.emulateMedia({ reducedMotion: "reduce" });
-  for (const path of ["/pipeline", `/leads/${ids.open}`, "/reports"]) {
+  for (const path of ["/leads", `/leads/${ids.open}`, "/reports"]) {
     await page.goto(`/w/${workspaceId}${path}`);
     await expect(page.getByRole("heading", { level: 1 }).first()).toBeVisible();
     const slow = await page.evaluate(() => [...document.querySelectorAll("*")].filter((el) => { const s = getComputedStyle(el); return parseFloat(s.transitionDuration) > 0.05 || (s.animationName !== "none" && parseFloat(s.animationDuration) > 0.05); }).length);
@@ -91,13 +93,13 @@ test("reduced motion: transitions and animations are effectively off on leads sc
   }
 });
 
-test("375 and 768 layouts of reports, closed board, list and settings have no overflow and pass axe", async ({ page }) => {
+test("375 and 768 layouts of reports, list and settings have no overflow and pass axe", async ({ page }) => {
   test.setTimeout(180_000);
   const { workspaceId } = await signUpAndCreate(page, "Olive Owner", "Layout Co");
   const ids = await seedPipeline(page, workspaceId);
   for (const width of [375, 768]) {
     await page.setViewportSize({ width, height: 900 });
-    for (const path of ["/reports", "/pipeline", "/leads", "/settings/pipelines", `/leads/${ids.open}`]) {
+    for (const path of ["/reports", "/leads", "/settings/pipelines", `/leads/${ids.open}`]) {
       await page.goto(`/w/${workspaceId}${path}`);
       await expect(page.getByRole("heading", { level: 1 }).first()).toBeVisible();
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);

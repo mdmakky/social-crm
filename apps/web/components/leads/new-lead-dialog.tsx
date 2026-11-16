@@ -13,7 +13,7 @@ import { ContactPicker, type PickedContact } from "@/components/tasks/contact-pi
 import { browserApi, errorMessage } from "@/lib/client-api";
 import { CURRENCIES, noun, toMinor } from "@/lib/leads";
 
-/** Create dialog. Deal value is only offered when the caller may set it; the server enforces the same rule. */
+/** Create dialog. Lead value is only offered when the caller may set it; the server enforces the same rule. */
 export function NewLeadDialog({ open, onOpenChange, workspaceId, pipelines, canSetValue, defaultContact }: { open: boolean; onOpenChange: (o: boolean) => void; workspaceId: string; pipelines: PipelineDto[]; canSetValue: boolean; defaultContact?: PickedContact | null }) {
   const router = useRouter();
   const toast = useToast();
