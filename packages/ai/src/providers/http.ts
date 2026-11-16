@@ -12,11 +12,15 @@ export function errorForStatus(status: number): AiError {
 }
 
 /** One POST with a hard timeout. Returns parsed JSON; every failure is an AiError (network and bad JSON are provider_error, an abort is timeout). */
-export async function postJson(url: string, headers: Record<string, string>, body: unknown, o: HttpOptions): Promise<unknown> {
+export const postJson = (url: string, headers: Record<string, string>, body: unknown, o: HttpOptions): Promise<unknown> =>
+  post(url, { "content-type": "application/json", ...headers }, JSON.stringify(body), o);
+
+/** Same as postJson for a ready body. Multipart bodies pass no content-type: fetch adds the boundary. */
+export async function post(url: string, headers: Record<string, string>, body: BodyInit, o: HttpOptions): Promise<unknown> {
   const f = o.fetch ?? fetch;
   let res: Response;
   try {
-    res = await f(url, { method: "POST", headers: { "content-type": "application/json", ...headers }, body: JSON.stringify(body), signal: AbortSignal.timeout(o.timeoutMs ?? 30_000) });
+    res = await f(url, { method: "POST", headers, body, signal: AbortSignal.timeout(o.timeoutMs ?? 30_000) });
   } catch (e) {
     const name = (e as { name?: string })?.name;
     throw new AiError(name === "TimeoutError" || name === "AbortError" ? "timeout" : "provider_error");

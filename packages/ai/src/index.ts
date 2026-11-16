@@ -1,5 +1,6 @@
 export * from "./types.ts";
 export * from "./cost.ts";
+export * from "./media.ts";
 export * from "./catalog.ts";
 export * from "./template.ts";
 export * from "./logging.ts";

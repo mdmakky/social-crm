@@ -35,11 +35,16 @@ export const extractors: Record<string, Extractor> = {
 
 export const SUPPORTED_EXTENSIONS = (): string[] => Object.keys(extractors);
 
-/** Extracts and normalises the text of an uploaded file, by extension. */
-export async function extractFile(file: KnowledgeFile): Promise<{ text: string; title: string | null }> {
-  if (file.bytes.byteLength > KB_LIMITS.maxFileBytes) throw new KnowledgeError("too_large", "The file is larger than 2 MB.");
+/**
+ * Extracts and normalises the text of an uploaded file, by extension. `extra` adds or overrides extractors for this call only: the API plugs the
+ * network-backed ones (PDF, image OCR, audio transcription via the AI media service) in here so this package stays free of network code.
+ * An extra extractor owns the size rule for its format; the 2 MB cap below applies to the built-in text formats.
+ */
+export async function extractFile(file: KnowledgeFile, extra?: Record<string, Extractor>): Promise<{ text: string; title: string | null }> {
   const ext = /\.[^./\\]+$/.exec(file.filename.toLowerCase())?.[0] ?? "";
-  const run = Object.hasOwn(extractors, ext) ? extractors[ext] : undefined;
+  const own = extra && Object.hasOwn(extra, ext) ? extra[ext] : undefined;
+  if (!own && file.bytes.byteLength > KB_LIMITS.maxFileBytes) throw new KnowledgeError("too_large", "The file is larger than 2 MB.");
+  const run = own ?? (Object.hasOwn(extractors, ext) ? extractors[ext] : undefined);
   if (!run) throw new KnowledgeError("unsupported_type", `Files of this type are not supported yet. Use ${SUPPORTED_EXTENSIONS().join(", ")}.`);
   const out = await run(file);
   const text = normalizeText(out.text);

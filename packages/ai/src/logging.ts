@@ -4,6 +4,9 @@ import { AiError } from "./types.ts";
 /** Short stable fingerprint for dedupe and debugging without keeping the text. */
 export const fingerprint = (text: string): string => createHash("sha256").update(text).digest("hex").slice(0, 16);
 
+/** Same fingerprint for media bytes: a stable id for dedupe and debugging that does not keep the bytes. */
+export const fingerprintBytes = (bytes: Uint8Array): string => createHash("sha256").update(bytes).digest("hex").slice(0, 16);
+
 /** What a run row may keep about a prompt or reply: sizes and a fingerprint, never content. */
 export const describeText = (text: string) => ({ chars: text.length, hash: fingerprint(text) });
 
