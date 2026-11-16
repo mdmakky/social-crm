@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { AiError, checkTemplate, costMicro, createAnthropic, createOpenAiCompatible, describeText, formatMicro, getProvider, modelsFor, PROVIDERS, priceOf, redact, renderTemplate, safeError, TemplateError } from "../src/index.ts";
+import { AiError, checkTemplate, costMicro, createAnthropic, createOpenAiCompatible, describeText, getProvider, modelsFor, PROVIDERS, priceOf, redact, renderTemplate, safeError, TemplateError } from "../src/index.ts";
 
 const json = (status: number, body: unknown) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 const req = { apiKey: "sk-test-SECRETKEY1234", model: "m", messages: [{ role: "system" as const, content: "be brief" }, { role: "user" as const, content: "hello there" }], maxOutputTokens: 100 };
@@ -21,12 +21,6 @@ describe("cost", () => {
   it("rejects non-integers and negatives", () => {
     expect(() => costMicro({ inputMicroPer1M: 1.5, outputMicroPer1M: 0 }, { inputTokens: 1, outputTokens: 1 })).toThrow(RangeError);
     expect(() => costMicro({ inputMicroPer1M: 1, outputMicroPer1M: 0 }, { inputTokens: -1, outputTokens: 1 })).toThrow(RangeError);
-  });
-  it("formats micro-units", () => {
-    expect(formatMicro(0)).toBe("0.00");
-    expect(formatMicro(3_000_000)).toBe("3.00");
-    expect(formatMicro(1_234_567)).toBe("1.234567");
-    expect(formatMicro(500)).toBe("0.0005");
   });
 });
 

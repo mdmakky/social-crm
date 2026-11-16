@@ -18,7 +18,7 @@ CREATE TABLE "ai_provider_configs" (
 	CONSTRAINT "ai_provider_configs_ws_id" UNIQUE("workspace_id","id"),
 	CONSTRAINT "ai_provider_configs_ws_provider" UNIQUE("workspace_id","provider"),
 	CONSTRAINT "ai_provider_configs_provider" CHECK ("provider" ~ '^[a-z][a-z0-9_]{1,30}$'),
-	CONSTRAINT "ai_provider_configs_base_url" CHECK ("base_url" IS NULL OR ("base_url" ~ '^https://[^\s]{1,300}$' AND char_length("base_url") <= 320)),
+	CONSTRAINT "ai_provider_configs_base_url" CHECK ("base_url" IS NULL OR ("base_url" ~ '^https://[^\s]+$' AND char_length("base_url") <= 320)),
 	CONSTRAINT "ai_provider_configs_model" CHECK ("default_model" IS NULL OR char_length("default_model") BETWEEN 1 AND 100),
 	CONSTRAINT "ai_provider_configs_last4" CHECK ("key_last4" IS NULL OR char_length("key_last4") = 4),
 	CONSTRAINT "ai_provider_configs_prices" CHECK (jsonb_typeof("model_prices") = 'object' AND octet_length("model_prices"::text) <= 4000),

@@ -1,7 +1,7 @@
 "use client";
 import * as React from "react";
 import Link from "next/link";
-import { ArrowDown, Check, ChevronLeft, Copy, MoreHorizontal, PanelRight, Send, X } from "lucide-react";
+import { ArrowDown, Check, ChevronLeft, Copy, MoreHorizontal, PanelRight, Send, Sparkles, X } from "lucide-react";
 import { endpoints, MAX_REPLY_LENGTH, type ConversationDetail, type MessageDto, type UpdateConversationBody } from "@crm/contracts";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -174,7 +174,28 @@ export function Thread({ conversationId }: { conversationId: string }) {
   const clientId = React.useRef<string | null>(null);
   const inFlight = React.useRef(false);
   const composerRef = React.useRef<HTMLTextAreaElement>(null);
-  const merge = (msg: MessageDto) => {
+  // AI suggestion (draft only): the text lands in the composer, marked as an AI draft. Nothing is sent until the person presses Send.
+  const [suggesting, setSuggesting] = React.useState(false);
+  const [aiDraft, setAiDraft] = React.useState<{ mock: boolean } | null>(null);
+  const [aiProblem, setAiProblem] = React.useState<{ tone: "warning" | "error"; text: string } | null>(null);
+  async function suggest() {
+    if (suggesting) return;
+    if (draft.trim() && !window.confirm("Replace what you have written with an AI draft?")) return;
+    setSuggesting(true); setAiProblem(null);
+    const r = await browserApi.call(endpoints.suggestReply, { params: { workspaceId, conversationId } });
+    setSuggesting(false);
+    if (!r.ok) {
+      const blocked = r.error.code === "budget_exceeded" || r.error.code === "ai_not_configured";
+      setAiProblem({ tone: blocked ? "warning" : "error", text: r.error.code === "forbidden" ? "You don't have permission to use AI suggestions." : errorMessage(r.error) });
+      return;
+    }
+    setDraft(r.data.draft);
+    setAiDraft({ mock: r.data.mock });
+    clientId.current = null; // a new text is a new message
+    setAnnounce("AI draft added to the reply box. Review and edit it before sending.");
+    requestAnimationFrame(() => { const t = composerRef.current; if (t) { t.focus(); t.style.height = "auto"; t.style.height = `${Math.min(t.scrollHeight, 160)}px`; } });
+  }
+  const merge =(msg: MessageDto) => {
     setMsgs((old) => { const map = new Map(old.map((x) => [x.id, x])); map.set(msg.id, msg); return [...map.values()].sort(byId); });
     maxSeq.current = Math.max(maxSeq.current, msg.seq);
     stick.current = true;
@@ -199,7 +220,7 @@ export function Thread({ conversationId }: { conversationId: string }) {
     merge(r.data.message);
     const st = r.data.message.deliveryState;
     if (st === "failed") setDraft((d) => (d === "" ? text : d)); // the text is not lost: edit and send again as a new message
-    else setDraft("");
+    else { setDraft(""); setAiDraft(null); }
     if (st === "unknown") toast("Meta did not confirm this message. See the message below before sending it again.", "error");
     void refresh(false);
     composerRef.current?.focus();
@@ -304,12 +325,19 @@ export function Thread({ conversationId }: { conversationId: string }) {
               {left !== null && left < 120 && <Alert tone="warning" className="mb-2">The 24-hour reply window closes in {Math.floor(left / 60)} h {left % 60} min. After that you can&apos;t reply until {name} writes again.</Alert>}
               {left !== null && left >= 120 && <p className="mb-1.5 flex items-center gap-2 px-1 text-xs text-fg-subtle"><Badge tone="success">Reply window open</Badge>You can reply for {Math.floor(left / 60)} more hours.</p>}
               <form onSubmit={(e) => { e.preventDefault(); void submit(); }} className={cn("rounded-xl border border-line-strong bg-surface transition-[border-color,box-shadow] duration-[var(--dur-fast)] focus-within:border-accent focus-within:ring-[3px] focus-within:ring-accent/20", !canType && "bg-hover")}>
+                {aiDraft && (
+                  <div className="flex items-center gap-2 px-3 pt-2.5 text-xs text-fg-muted">
+                    <Badge tone="accent"><Sparkles className="size-3" aria-hidden />AI draft{aiDraft.mock ? " (mock)" : ""}</Badge>
+                    <span className="min-w-0 flex-1">Review and edit before sending. Nothing is sent automatically.</span>
+                    <button type="button" onClick={() => { setAiDraft(null); setDraft(""); }} className="rounded px-1.5 py-0.5 text-fg-muted underline-offset-2 hover:text-fg hover:underline focus-visible:outline-2" aria-label="Discard AI draft">Discard</button>
+                  </div>
+                )}
                 <Textarea
                   ref={composerRef}
                   aria-label="Reply"
                   aria-describedby="composer-hint"
                   value={draft}
-                  onChange={(e) => { setDraft(e.target.value); const t = e.currentTarget; t.style.height = "auto"; t.style.height = `${Math.min(t.scrollHeight, 160)}px`; }}
+                  onChange={(e) => { setDraft(e.target.value); if (e.target.value === "") setAiDraft(null); const t = e.currentTarget; t.style.height = "auto"; t.style.height = `${Math.min(t.scrollHeight, 160)}px`; }}
                   onKeyDown={(e) => { if (isSendKey({ key: e.key, shiftKey: e.shiftKey, altKey: e.altKey, isComposing: e.nativeEvent.isComposing })) { e.preventDefault(); void submit(); } }}
                   disabled={!canType}
                   placeholder={canType ? "Write a reply" : "Replies are unavailable for this conversation"}
@@ -317,10 +345,12 @@ export function Thread({ conversationId }: { conversationId: string }) {
                   rows={2}
                 />
                 <div className="flex items-center gap-2 px-3 pb-2.5">
+                  <Button type="button" size="sm" loading={suggesting} disabled={!canType || submitting} onClick={() => void suggest()} aria-label="Suggest reply with AI"><Sparkles aria-hidden />Suggest reply</Button>
                   <p id="composer-hint" className="min-w-0 flex-1 text-xs text-fg-subtle max-sm:sr-only">Enter to send, Shift+Enter for a new line.{usage.used > usage.max * 0.8 ? ` ${usage.used}/${usage.max} ${usage.unit}` : ""}{usage.over ? <span className="text-danger-fg"> Too long for {detail.platform === "instagram" ? "Instagram" : detail.platform === "whatsapp" ? "WhatsApp" : "Messenger"}: shorten it to send.</span> : null}</p>
                   <Button type="submit" variant="primary" loading={submitting} disabled={!canType || draft.trim() === "" || usage.over}><Send aria-hidden />Send</Button>
                 </div>
               </form>
+              {aiProblem && <Alert tone={aiProblem.tone} className="mt-2">{aiProblem.text}</Alert>}
             </>
           )}
         </footer>

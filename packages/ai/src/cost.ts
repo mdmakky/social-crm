@@ -11,11 +11,3 @@ export function costMicro(price: ModelPrice, usage: { inputTokens: number; outpu
   if (out > BigInt(Number.MAX_SAFE_INTEGER)) throw new RangeError("cost overflow");
   return Number(out);
 }
-
-/** Display only: micro-units to a decimal string, e.g. 1234567 -> "1.234567"; whole amounts keep two decimals ("3.00"). */
-export function formatMicro(micro: number): string {
-  const neg = micro < 0;
-  const s = String(Math.abs(micro)).padStart(7, "0");
-  const frac = s.slice(-6).replace(/0+$/, "").padEnd(2, "0");
-  return `${neg ? "-" : ""}${s.slice(0, -6)}.${frac}`;
-}
