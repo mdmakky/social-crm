@@ -25,6 +25,8 @@ import { aiAgentEndpoints } from "./ai-agents.ts";
 import { aiMediaEndpoints } from "./ai-media.ts";
 // --- track:knowledge ---
 import { knowledgeEndpoints } from "./knowledge.ts";
+// --- track:invitations ---
+import { invitationEndpoints } from "./invitations.ts";
 
 export * from "./endpoint.ts";
 export * from "./crm.ts";
@@ -43,6 +45,7 @@ export * from "./ai.ts"; // track:ai
 export * from "./ai-agents.ts"; // track:ai
 export * from "./ai-media.ts"; // track:ai
 export * from "./knowledge.ts"; // track:knowledge
+export * from "./invitations.ts"; // track:invitations
 
 export const PASSWORD_MIN_LENGTH = 10;
 export const RESET_TOKEN_TTL_SECONDS = 30 * 60;
@@ -110,4 +113,4 @@ const coreEndpoints = {
   auditLog: endpoint({ method: "GET", path: "/v1/workspaces/:workspaceId/audit-log", query: AuditQuery, response: AuditPage }),
 } as const;
 
-export const endpoints = { ...coreEndpoints, ...crmEndpoints, ...searchEndpoints /* track:search */, ...inboxEndpoints /* track:inbox */, ...conversationEndpoints /* track:inbox */, ...attachmentEndpoints /* track:inbox */, ...contactMethodEndpoints, ...leadsEndpoints, ...leadRecordEndpoints, ...leadReportEndpoints /* track:leads */, ...tasksEndpoints /* track:tasks */, ...notificationEndpoints /* track:notifications */, ...automationEndpoints /* track:automation */, ...capiEndpoints /* track:capi */, ...aiEndpoints /* track:ai */, ...aiAgentEndpoints /* track:ai */, ...aiMediaEndpoints /* track:ai */, ...knowledgeEndpoints /* track:knowledge */ } as const;
+export const endpoints = { ...coreEndpoints, ...crmEndpoints, ...searchEndpoints /* track:search */, ...inboxEndpoints /* track:inbox */, ...conversationEndpoints /* track:inbox */, ...attachmentEndpoints /* track:inbox */, ...contactMethodEndpoints, ...leadsEndpoints, ...leadRecordEndpoints, ...leadReportEndpoints /* track:leads */, ...tasksEndpoints /* track:tasks */, ...notificationEndpoints /* track:notifications */, ...automationEndpoints /* track:automation */, ...capiEndpoints /* track:capi */, ...aiEndpoints /* track:ai */, ...aiAgentEndpoints /* track:ai */, ...aiMediaEndpoints /* track:ai */, ...knowledgeEndpoints /* track:knowledge */, ...invitationEndpoints /* track:invitations */ } as const;

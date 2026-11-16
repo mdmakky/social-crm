@@ -44,7 +44,7 @@ async function roleIn(tx: Tx, workspaceId: string, userId: string): Promise<Role
   return m?.role ?? null;
 }
 
-export function workspaceRoutes(db: Db, hooks: { import?: ImportHooks; extraSearchProviders?: SearchProvider[]; metaScoped?: Hono<ScopedEnv>; sendDeps?: MetaConnectDeps; knowledge?: KnowledgeDeps; blobs?: BlobStore; sendBlobs?: BlobStore } = {}) {
+export function workspaceRoutes(db: Db, hooks: { import?: ImportHooks; extraSearchProviders?: SearchProvider[]; metaScoped?: Hono<ScopedEnv>; sendDeps?: MetaConnectDeps; knowledge?: KnowledgeDeps; invitations?: Hono<ScopedEnv>; blobs?: BlobStore; sendBlobs?: BlobStore } = {}) {
   const r = new Hono<{ Variables: Vars }>();
   const audit = (c: Ctx) => ({ actorUserId: c.get("userId"), requestId: c.get("requestId"), ip: c.req.header("x-forwarded-for")?.split(",")[0]?.trim() });
 
@@ -191,6 +191,7 @@ export function workspaceRoutes(db: Db, hooks: { import?: ImportHooks; extraSear
   scoped.route("/", notificationRoutes(db)); // track:notifications
   scoped.route("/", automationRoutes(db)); // track:automation
   scoped.route("/", knowledgeRoutes(db, hooks.knowledge)); // track:knowledge
+  if (hooks.invitations) scoped.route("/", hooks.invitations); // track:invitations
   scoped.route("/", conversationRoutes(db)); // track:inbox
   scoped.route("/", contactMethodRoutes(db));
   scoped.route("/", sendRoutes(db, hooks.sendDeps, hooks.sendBlobs)); // track:inbox
