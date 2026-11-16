@@ -172,10 +172,14 @@ export function composeNativeSystemPrompt<C>(def: AgentDefinition, reg: ToolRegi
  * `arguments` that is not valid JSON, or not an object, is rejected as invalid_args; a name that is not a granted wire name is unknown_tool / not_granted.
  * No tool_calls at all: the text is tried as the JSON-in-text envelope (a model that ignored the tools may still have answered that way); otherwise it is the plain draft.
  */
-export function parseNativeReply<C>(text: string, calls: readonly { name: string; arguments: string }[] | undefined, grants: readonly ToolGrant[], reg: ToolRegistry<C>): ParsedReply {
+export function parseNativeReply<C>(text: string, calls: readonly { name: string; arguments: string }[] | undefined, grants: readonly ToolGrant[], reg: ToolRegistry<C>, finishReason?: string): ParsedReply {
   if (!calls?.length) {
     const p = parseAgentReply(text, grants, reg);
-    return p.malformed ? { reply: text.trim().slice(0, 8000), malformed: false, planned: [], rejected: [] } : p;
+    if (!p.malformed) return p;
+    // Prose is a legitimate native answer (a draft with no actions). These are NOT prose and must stay visible as a failed answer: nothing at all, a cut-off answer, or an attempted JSON envelope that does not parse.
+    const t = text.trim();
+    const broken = t === "" || finishReason === "length" || t.startsWith("{") || t.startsWith("```");
+    return { reply: t.slice(0, 8000), malformed: broken, planned: [], rejected: [] };
   }
   const byWire = new Map(grantedTools(grants, reg).map(({ tool }) => [wireToolName(tool.name), tool.name]));
   const planned: PlannedAction[] = [];

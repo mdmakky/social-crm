@@ -84,7 +84,7 @@ export async function prepareAgentRun(
     responseSchema: { name: "agent_reply", schema: AGENT_REPLY_JSON_SCHEMA },
   });
   if (!res.ok) return { ok: false, code: res.code };
-  const parsed = res.via === "native_tools" ? parseNativeReply(res.text, res.toolCalls, def.toolGrants, tools) : parseAgentReply(res.text, def.toolGrants, tools);
+  const parsed = res.via === "native_tools" ? parseNativeReply(res.text, res.toolCalls, def.toolGrants, tools, res.finishReason) : parseAgentReply(res.text, def.toolGrants, tools);
   return { ok: true, agent: { id: agent.id, name: agent.name }, versionId: v.id, versionNo: v.version, def, parsed, run: { runId: res.runId, provider: res.provider, model: res.model, mock: res.mock, usage: res.usage, via: res.via } };
 }
 

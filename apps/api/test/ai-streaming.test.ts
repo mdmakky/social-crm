@@ -312,6 +312,21 @@ describe("agents: native tool calls, structured output, fallback", () => {
     expect(req.messages[0]!.content).toContain("plain text");
     expect(req.responseFormat).toBeUndefined();
   });
+  it("native model, no tool_calls: empty or cut-off answers are flagged malformed (never a silent clean draft); plain prose stays a draft", async () => {
+    const cid = await contact();
+    ok(await as(owner).call(endpoints.setAiProvider, { params: { workspaceId: A, provider: "openrouter" }, body: { isDefault: true } }));
+    const viaOr = await mk([{ tool: "crm.add_note", mode: "auto" }], { provider: "openrouter", model: "mockvendor/alpha-chat" });
+    const say = (text: string, finishReason: GenerateResult["finishReason"]) => ({ generate: async (): Promise<GenerateResult> => ({ text, usage: { inputTokens: 10, outputTokens: 5 }, finishReason }) });
+    impl = say("", "stop");
+    expect(ok(await test(owner, viaOr.id, { contactId: cid, dryRun: false }))).toMatchObject({ via: "native_tools", malformed: true, actions: [] });
+    impl = say("Sure, I can help with that and", "length");
+    expect(ok(await test(owner, viaOr.id, { contactId: cid, dryRun: false }))).toMatchObject({ malformed: true, actions: [] });
+    impl = say('{"reply":"Hello","actions":[{"tool":"crm.add_no', "stop");
+    expect(ok(await test(owner, viaOr.id, { contactId: cid, dryRun: false }))).toMatchObject({ malformed: true, actions: [] });
+    impl = say("Thanks for reaching out. I will check and reply.", "stop");
+    expect(ok(await test(owner, viaOr.id, { contactId: cid, dryRun: false }))).toMatchObject({ malformed: false, reply: "Thanks for reaching out. I will check and reply.", actions: [] });
+    expect(await notes(cid)).toBe(0);
+  });
   it("fallback: a model without tools but with structured output gets response_format and the JSON-in-text protocol", async () => {
     // alpha supports both; a model with only structured output does not exist in the list, so store the flags the server confirmed for gamma and beta instead: beta = tools only, gamma = neither.
     const beta = await mk([{ tool: "crm.add_note", mode: "auto" }], { provider: "openrouter", model: "mockvendor/beta-mini" });

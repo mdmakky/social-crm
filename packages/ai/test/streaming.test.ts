@@ -191,6 +191,16 @@ describe("native tool calls", () => {
     const env = JSON.stringify({ reply: "r", actions: [{ tool: "t.read", args: { x: "1" } }] });
     expect(parseNativeReply(env, [], grants, reg).planned.map((a) => a.tool)).toEqual(["t.read"]);
   });
+  it("no tool_calls: empty, cut-off or broken-JSON answers are malformed, never a silent clean draft; prose stays a draft", () => {
+    expect(parseNativeReply("", undefined, grants, reg)).toMatchObject({ malformed: true, planned: [], rejected: [] });
+    expect(parseNativeReply("   \n", [], grants, reg).malformed).toBe(true);
+    expect(parseNativeReply("Sure, I can help with that and", undefined, grants, reg, "length").malformed).toBe(true); // cut off by the token limit
+    expect(parseNativeReply('{"reply":"Hello there","actions":[{"tool":"t.re', undefined, grants, reg, "length")).toMatchObject({ malformed: true, planned: [] });
+    expect(parseNativeReply('{"reply":"Hello","actions":[', undefined, grants, reg).malformed).toBe(true); // JSON-looking but unparseable, even without a length stop
+    expect(parseNativeReply('```json\n{"reply": "x"', undefined, grants, reg).malformed).toBe(true);
+    expect(parseNativeReply("Plain answer.", undefined, grants, reg, "stop")).toMatchObject({ reply: "Plain answer.", malformed: false });
+    expect(parseNativeReply("Plain answer.", undefined, grants, reg, "other").malformed).toBe(false);
+  });
 });
 
 describe("capability gates and the mock", () => {

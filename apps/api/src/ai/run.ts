@@ -54,7 +54,7 @@ export type RunVia = "native_tools" | "json_schema" | "text";
 export type RunFailure = "not_configured" | "budget_exceeded" | "rate_limit" | "timeout" | "auth" | "invalid_request" | "provider_error" | "template_invalid" | "key_unavailable" | "capability_not_configured" | "unsupported_capability" | "payment_required" | "blocked";
 export type StreamFailure = RunFailure | "client_aborted";
 export type RunResult =
-  | { ok: true; text: string; runId: string; provider: string; model: string; mock: boolean; usage: { inputTokens: number; outputTokens: number; costMicro: number }; toolCalls?: ToolCall[]; via: RunVia }
+  | { ok: true; text: string; runId: string; provider: string; model: string; mock: boolean; usage: { inputTokens: number; outputTokens: number; costMicro: number }; toolCalls?: ToolCall[]; via: RunVia; finishReason?: string }
   | { ok: false; code: RunFailure; runId?: string };
 
 const rowsOf = (r: unknown) => (r as { rows: Record<string, unknown>[] }).rows;
@@ -183,7 +183,7 @@ export async function runAi(deps: AiDeps, r: RunInput): Promise<RunResult> {
   const t0 = wallMs(deps);
   const maxRetries = deps.maxRetries ?? 2;
   let attempts = 0;
-  let outcome: { ok: true; text: string; inputTokens: number; outputTokens: number; cost: number; routedModel?: string; toolCalls?: ToolCall[] } | { ok: false; code: string } | null = null;
+  let outcome: { ok: true; text: string; inputTokens: number; outputTokens: number; cost: number; routedModel?: string; toolCalls?: ToolCall[]; finishReason?: string } | { ok: false; code: string } | null = null;
   while (outcome === null) {
     attempts++;
     try {
@@ -195,7 +195,7 @@ export async function runAi(deps: AiDeps, r: RunInput): Promise<RunResult> {
         outcome = { ok: true, text: g.text, inputTokens, outputTokens: g.usage.outputTokens, cost: charge(costMicro(prep.price, { inputTokens, outputTokens: g.usage.outputTokens }) + perMin, g.usage.reportedCostMicro), ...(g.routedModel ? { routedModel: g.routedModel } : {}) };
       } else {
         const g = await adapter.generate({ apiKey: prep.key ?? "", model: prep.model, maxOutputTokens: r.maxOutputTokens ?? 400, temperature: r.temperature ?? 0.4, messages: [{ role: "system", content: system }, { role: "user", content: r.input }], ...(tools ? { tools } : {}), ...(responseFormat ? { responseFormat } : {}) });
-        outcome = { ok: true, text: g.text, inputTokens: g.usage.inputTokens, outputTokens: g.usage.outputTokens, cost: charge(costMicro(prep.price, g.usage), g.usage.reportedCostMicro), ...(g.routedModel ? { routedModel: g.routedModel } : {}), ...(g.toolCalls?.length ? { toolCalls: g.toolCalls } : {}) };
+        outcome = { ok: true, text: g.text, inputTokens: g.usage.inputTokens, outputTokens: g.usage.outputTokens, cost: charge(costMicro(prep.price, g.usage), g.usage.reportedCostMicro), ...(g.routedModel ? { routedModel: g.routedModel } : {}), ...(g.toolCalls?.length ? { toolCalls: g.toolCalls } : {}), finishReason: g.finishReason };
       }
     } catch (e) {
       const code = e instanceof AiError ? e.code : "provider_error";
@@ -216,7 +216,7 @@ export async function runAi(deps: AiDeps, r: RunInput): Promise<RunResult> {
     console.error(JSON.stringify({ msg: "ai run record failed", error: safeError(e) }));
   }
   if (!outcome.ok) return { ok: false, code: outcome.code as RunFailure, runId };
-  return { ok: true, text: outcome.text, runId: runId ?? "", provider: prep.provider, model: prep.model, mock: prep.mock, via, ...(outcome.toolCalls ? { toolCalls: outcome.toolCalls } : {}), usage: { inputTokens: outcome.inputTokens, outputTokens: outcome.outputTokens, costMicro: outcome.cost } };
+  return { ok: true, text: outcome.text, runId: runId ?? "", provider: prep.provider, model: prep.model, mock: prep.mock, via, ...(outcome.toolCalls ? { toolCalls: outcome.toolCalls } : {}), ...(outcome.finishReason ? { finishReason: outcome.finishReason } : {}), usage: { inputTokens: outcome.inputTokens, outputTokens: outcome.outputTokens, costMicro: outcome.cost } };
 }
 
 export type RunStreamEvent =
