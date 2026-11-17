@@ -23,7 +23,7 @@ export const CapiUserData = z.strictObject({
 
 /** The stored and sent shape. user_data holds ONLY hashes (and fbp/fbc); raw PII has no field here and strictObject rejects extras. */
 export const CapiEvent = z.strictObject({
-  event_name: z.string().regex(CUSTOM_EVENT_NAME),
+  event_name: z.string().regex(CUSTOM_EVENT_NAME).refine((n) => n !== "PageView", "PageView belongs to the website Pixel"),
   /** Unix seconds of the business event, never the retry time. */
   event_time: z.number().int().positive(),
   event_id: z.string().min(8).max(128),

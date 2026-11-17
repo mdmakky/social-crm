@@ -58,7 +58,7 @@ export const CapiMappingList = z.object({ items: z.array(CapiMappingDto) });
 const MappingFields = z.object({
   triggerType: CapiTriggerType,
   stageId: Uuid.nullable().default(null),
-  eventName: z.string().regex(CAPI_CUSTOM_EVENT_NAME, "Start with a letter; letters, digits and underscores only, up to 40 characters."),
+  eventName: z.string().regex(CAPI_CUSTOM_EVENT_NAME, "Start with a letter; letters, digits and underscores only, up to 40 characters.").refine((n) => n !== "PageView", "PageView is sent by your website Pixel, not the CRM."),
   valueMode: CapiValueMode.default("lead_value"),
   fixedValueMinor: z.number().int().min(0).max(9_000_000_000_000).nullable().default(null),
   currency: z.string().regex(/^[A-Z]{3}$/, "Use a three-letter currency code, for example USD.").nullable().default(null),
