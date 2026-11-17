@@ -260,6 +260,13 @@
       "when": 1794930464235,
       "tag": "0037_telegram_accounts",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1794930464236,
+      "tag": "0038_web_chat",
+      "breakpoints": true
     }
   ]
 }

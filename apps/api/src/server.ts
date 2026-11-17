@@ -125,7 +125,7 @@ async function reconcileAll(w: NonNullable<typeof workerDb>, st: NonNullable<typ
   const ws = (await w.execute(sql`SELECT DISTINCT workspace_id FROM integration_accounts WHERE status <> 'disabled' LIMIT 500`)).rows as { workspace_id: string }[];
   for (const x of ws) await reconcileAttachments(w, st, x.workspace_id).catch(() => undefined);
 }
-const app = createApp(auth, { allowedOrigins: origins, db, invitations: env.INVITATION_EMAIL === "1" ? { mailer } : undefined, meta, ai, attachments, openrouterBrowser: orMock ? createModelBrowser({ fetch: mockModelsFetch, mock: true }) : undefined });
+const app = createApp(auth, { allowedOrigins: origins, db, widget: workerDb ? { workerDb } : undefined, invitations: env.INVITATION_EMAIL === "1" ? { mailer } : undefined, meta, ai, attachments, openrouterBrowser: orMock ? createModelBrowser({ fetch: mockModelsFetch, mock: true }) : undefined });
 if (meta && workerDb && env.META_APP_SECRET) {
   app.route("/meta/callbacks", metaUserCallbackRoutes({ appSecrets: [env.META_APP_SECRET, ...(env.META_APP_SECRET_PREVIOUS ? [env.META_APP_SECRET_PREVIOUS] : [])], workerDb, userHashKey: meta.userHashKey, statusKey: createHmac("sha256", env.META_APP_SECRET).update("crm-deletion-status-v1").digest(), publicBaseUrl: env.META_PUBLIC_BASE_URL }));
 }

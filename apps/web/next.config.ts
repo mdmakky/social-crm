@@ -14,8 +14,9 @@ const config: NextConfig = {
   poweredByHeader: false,
   async headers() {
     return [
+      // Everything except the widget page keeps the frame ban. The widget page is MEANT to be framed by customer sites: its frame-ancestors is set per widget in proxy.ts (the widget's allowed origins, or 'none').
       {
-        source: "/:path*",
+        source: "/((?!widget/).*)",
         headers: [
           { key: "Content-Security-Policy", value: "frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'" },
           { key: "X-Frame-Options", value: "DENY" },
@@ -24,6 +25,17 @@ const config: NextConfig = {
           { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
         ],
       },
+      {
+        source: "/widget/:path*",
+        headers: [
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+          { key: "Cache-Control", value: "no-store" },
+        ],
+      },
+      // The loader is a public static file other sites include; keep it cacheable for a short while only so a fix reaches customers quickly.
+      { source: "/widget.js", headers: [{ key: "Cache-Control", value: "public, max-age=300" }, { key: "X-Content-Type-Options", value: "nosniff" }] },
     ];
   },
 };

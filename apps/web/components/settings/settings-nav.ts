@@ -1,4 +1,4 @@
-import { Bell, BookOpen, Bot, Contact, Kanban, LineChart, Plug, ScrollText, SlidersHorizontal, Sparkles, Users, Workflow } from "lucide-react";
+import { Bell, BookOpen, Bot, Contact, Kanban, LineChart, MessageSquareText, Plug, ScrollText, SlidersHorizontal, Sparkles, Users, Workflow } from "lucide-react";
 import type { ComponentType } from "react";
 import { can, type Action, type Role } from "@crm/core/permissions";
 
@@ -30,6 +30,7 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
   ] },
   { label: "Channels", items: [
     { label: "Integrations", description: "Messenger, Instagram and WhatsApp.", path: "integrations", icon: Plug, requires: "integration.view" },
+    { label: "Web chat", description: "A chat box for your website.", path: "settings/web-chat", icon: MessageSquareText, requires: "integration.manage" },
     { label: "Ad measurement", description: "Send won leads back to Meta.", path: "settings/ad-measurement", icon: LineChart, requires: "capi.view" },
   ] },
   { label: "Team and security", items: [

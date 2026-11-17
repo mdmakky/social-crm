@@ -165,3 +165,5 @@ Next phase: Meta Inbox. Slice 1 (schema, RLS, per-user unread) merged to `main` 
 
 ## Update 2026-11-17: invitations (FR-46 done)
 FR-46 (invitations by email, accept, resend, revoke; Mailer optional) is built on branch `feat/invitations` (migration 0035, D210 to D219). Delivery is link-based; email only with a configured mailer (known-limitations). Not merged or deployed.
+
+**Phase 2 progress, website chat (2026-11-17, `feat/web-chat`, not merged):** an embeddable chat widget is an Inbox channel (`web_chat`): visitors chat anonymously from a customer's site, agents answer in the normal Inbox, polling realtime, origin allowlist plus rate limits, admin under Settings > Web chat. Tested only on our own local servers. Next: try it on a real staging site (Safari/Firefox, strict CSP), measure polling cost, then decide on SSE, attachments, signed visitor identity, business hours and a CAPTCHA.

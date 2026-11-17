@@ -1,7 +1,7 @@
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { Hono } from "hono";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, ne, sql } from "drizzle-orm";
 import { ConnectMetaBody, MESSENGER_WEBHOOK_FIELDS, MetaCallbackQuery, type ConnectMetaResult, type IntegrationAccountDto } from "@crm/contracts";
 import { can } from "@crm/core/permissions";
 import { schema, withContext, type Db, type Tx } from "@crm/db";
@@ -210,7 +210,7 @@ function scopedRoutes(db: Db, deps: MetaConnectDeps | undefined, pending: Pendin
   const elsewhere = (c: SC) => fail(c, 409, "account_unavailable", "This account can't be connected to this workspace.");
   const cookieOpts = (d: MetaConnectDeps) => ({ httpOnly: true, sameSite: "Lax" as const, path: "/v1", maxAge: STATE_TTL_MS / 1000, secure: d.secureCookies });
 
-  const accountsOf = (tx: Tx, workspaceId: string) => tx.select().from(schema.integrationAccounts).where(eq(schema.integrationAccounts.workspaceId, workspaceId));
+  const accountsOf = (tx: Tx, workspaceId: string) => tx.select().from(schema.integrationAccounts).where(and(eq(schema.integrationAccounts.workspaceId, workspaceId), ne(schema.integrationAccounts.platform, "web_chat")));
   const ownAccount = async (c: SC, id: string) => {
     const [a] = await withContext(db, wctx(c), (tx) => tx.select().from(schema.integrationAccounts).where(and(eq(schema.integrationAccounts.workspaceId, c.get("workspaceId")), eq(schema.integrationAccounts.id, id))));
     return a ?? null;

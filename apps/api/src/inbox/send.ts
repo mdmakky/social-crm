@@ -58,7 +58,7 @@ const loadMessage = async (tx: Tx, ws: string, id: string) =>
  *  4. as the worker role: record the result: accepted -> `sent` (+ Meta message id), refused -> `failed`, anything we cannot be sure about -> `unknown`.
  * A process that dies after step 2 leaves `sending`; `recoverStuckSends` turns it into `unknown`. Nothing in this file sends a message a second time.
  */
-export function sendRoutes(db: Db, deps?: MetaConnectDeps, blobs?: BlobStore) {
+export function sendRoutes(db: Db, deps?: MetaConnectDeps, blobs?: BlobStore, webChatDb?: Db) {
   const r = new Hono<ScopedEnv>();
 
   r.post("/conversations/:conversationId/messages", async (c) => {
@@ -67,7 +67,7 @@ export function sendRoutes(db: Db, deps?: MetaConnectDeps, blobs?: BlobStore) {
     if (!isUuid(conversationId)) return fail(c, 404, "not_found");
     const b = await body(c, SendMessageBody);
     if (!b.ok) return b.res;
-    if (!deps) return fail(c, 503, "not_configured", "Messaging is not set up on this server.");
+    if (!deps && !webChatDb) return fail(c, 503, "not_configured", "Messaging is not set up on this server.");
     const ws = c.get("workspaceId");
     const me = c.get("userId");
     const { clientMsgId, body: text } = b.data;
@@ -94,8 +94,9 @@ export function sendRoutes(db: Db, deps?: MetaConnectDeps, blobs?: BlobStore) {
           WHERE c.workspace_id = ${ws} AND c.id = ${conversationId}`),
       )[0];
       if (!conv) return { err: fail(c, 404, "not_found") };
-      if (conv.platform !== "messenger" && conv.platform !== "instagram" && conv.platform !== "whatsapp" && conv.platform !== "telegram") return { err: fail(c, 422, "unsupported_channel", "Replying is not available for this channel.") };
+      if (conv.platform !== "messenger" && conv.platform !== "instagram" && conv.platform !== "whatsapp" && conv.platform !== "telegram" && conv.platform !== "web_chat") return { err: fail(c, 422, "unsupported_channel", "Replying is not available for this channel.") };
       // Instagram's text limit is stated as 1,000 bytes (and, on the same page, "less than 1,000 characters"): the stricter reading is enforced. Messenger's limit is our own 2000 characters.
+      if (conv.platform !== "web_chat" && !deps) return { err: fail(c, 503, "not_configured", "Messaging is not set up on this server.") };
       if (conv.platform === "instagram" && Buffer.byteLength(text, "utf8") > IG_MAX_BYTES) return { err: fail(c, 422, "too_long", `Instagram messages can be at most ${IG_MAX_BYTES} bytes (about ${Math.floor(IG_MAX_BYTES / 3)} Bengali characters or ${IG_MAX_BYTES} English letters).`) };
       // Telegram (MOCK ONLY, UNVERIFIED rules): plain text up to 4096 characters (the 2000 character reply cap is stricter); no reply window; a bot cannot start a chat, so a reply needs an inbound message first; a blocked bot is refused up front.
       if (conv.platform === "telegram") {
@@ -105,9 +106,10 @@ export function sendRoutes(db: Db, deps?: MetaConnectDeps, blobs?: BlobStore) {
         if (conv.unreachable) return { err: fail(c, 422, "not_reachable", "This person blocked the bot, so Telegram would refuse a reply. You can reply if they write again.") };
       }
       if (conv.status !== "connected") return { err: fail(c, 409, "account_not_connected", conv.platform === "telegram" ? "This Telegram bot needs attention. Reconnect it in Settings > Integrations." : conv.platform === "whatsapp" ? "This WhatsApp number needs attention. Reconnect it in Settings > Integrations." : "This Facebook Page connection needs attention. Reconnect it in Settings > Integrations.") };
+      // Web chat has no window: the visitor reads the reply the next time the widget polls (see deliverWebChat).
       // Standard messaging window only. No message tag (HUMAN_AGENT or other) is ever sent.
       // WhatsApp: customer-service window, free-form text only inside it. Templates are out of scope (a later slice), so there is no way to reopen it from here. 422 per the slice spec; Messenger/Instagram keep 409.
-      if (!conv.in_window && conv.platform !== "telegram") return { err: conv.platform === "whatsapp" ? fail(c, 422, "window_closed", "More than 24 hours have passed since the customer last wrote. WhatsApp only allows a free-form reply within 24 hours; a template message would be needed (not available yet).") : fail(c, 409, "window_closed", "More than 24 hours have passed since the contact last wrote, so Meta does not allow a reply.") };
+      if (!conv.in_window && conv.platform !== "telegram" && conv.platform !== "web_chat") return { err: conv.platform === "whatsapp" ? fail(c, 422, "window_closed", "More than 24 hours have passed since the customer last wrote. WhatsApp only allows a free-form reply within 24 hours; a template message would be needed (not available yet).") : fail(c, 409, "window_closed", "More than 24 hours have passed since the contact last wrote, so Meta does not allow a reply.") };
       // A file goes out only where the channel send is implemented: WhatsApp (UNVERIFIED against the real Cloud API). Every other channel refuses; text sending is untouched.
       let media: { id: string; kind: MediaSend["kind"]; mime: string; filename: string | null } | null = null;
       if (attachmentIds.length) {
@@ -125,13 +127,19 @@ export function sendRoutes(db: Db, deps?: MetaConnectDeps, blobs?: BlobStore) {
       if (media) await tx.execute(sql`UPDATE attachments SET message_id = ${row.id as string}, updated_at = now() WHERE workspace_id = ${ws} AND id = ${media.id} AND message_id IS NULL`);
       // The text is not copied into the audit trail (customer conversation content).
       await writeAudit(tx, { ...actor(c), workspaceId: ws, action: "message.send_requested", entityType: "message", entityId: row.id as string, summary: { conversationId, length: [...text].length, ...(media ? { attachmentId: media.id } : {}) } });
+      if (conv.platform === "web_chat") return { local: { messageId: row.id as string, length: [...text].length } };
       return { send: { method: (conv.auth_method as string) === "unified" ? "unified" as const : "facebook" as const, channel: conv.platform as Delivery["channel"], messageId: row.id as string, accountId: conv.integration_account_id as string, pageId: conv.external_account_id as string, psid: conv.external_user_id as string, media } };
     });
     if ("err" in prep) return prep.err;
     if ("replay" in prep) return c.json({ message: prep.replay }, 200);
+    if ("local" in prep && prep.local) {
+      const local = prep.local;
+      await deliverWebChat(webChatDb!, { workspaceId: ws, messageId: local.messageId, length: local.length });
+      return c.json({ message: toDto((await withContext(db, wctx(c), async (tx) => loadMessage(tx, ws, local.messageId)))!) }, 201);
+    }
 
     // --- 2-4. send (worker role: the application role has no access to tokens or to the sending/sent transitions) ---
-    await deliver(deps, blobs, { workspaceId: ws, conversationId, text, ...prep.send }).catch(() => undefined); // whatever happened is on the row; a crash here is handled by recoverStuckSends
+    await deliver(deps!, blobs, { workspaceId: ws, conversationId, text, ...prep.send }).catch(() => undefined); // whatever happened is on the row; a crash here is handled by recoverStuckSends
     const message = await withContext(db, wctx(c), async (tx) => loadMessage(tx, ws, prep.send.messageId));
     return c.json({ message: toDto(message!) }, 201);
   });
@@ -163,6 +171,23 @@ export function sendRoutes(db: Db, deps?: MetaConnectDeps, blobs?: BlobStore) {
   });
 
   return r;
+}
+
+/**
+ * Web chat "delivery": there is no platform to call. The outbound row IS the delivery, because the visitor's widget reads it from the database when it polls.
+ * So the whole state machine runs in one worker transaction: pending -> sending -> sent, with a one-attempt `outbound_attempts` row (method "local", outcome "accepted", no http status),
+ * exactly as for the other channels, but without the window between the claim and the answer in which a process could die: a crash rolls everything back and the row stays `pending`.
+ * "sent" here means "stored and visible to the visitor", not "the visitor has read it" (contact_read_at is never set for web chat).
+ */
+async function deliverWebChat(workerDb: Db, d: { workspaceId: string; messageId: string; length: number }): Promise<void> {
+  await withContext(workerDb, { workspaceId: d.workspaceId }, async (tx) => {
+    const got = rowsOf(await tx.execute(sql`UPDATE messages SET delivery_state = 'sending' WHERE workspace_id = ${d.workspaceId} AND id = ${d.messageId} AND delivery_state = 'pending' RETURNING id, conversation_id`));
+    if (got.length === 0) return; // someone else owns it
+    const attempt = rowsOf(await tx.execute(sql`INSERT INTO outbound_attempts (workspace_id, message_id, attempt, request_summary) VALUES (${d.workspaceId}, ${d.messageId}, 1, ${JSON.stringify({ kind: "text", channel: "web_chat", method: "local", length: d.length })}::jsonb) RETURNING id`))[0]!.id as string;
+    await tx.execute(sql`UPDATE messages SET delivery_state = 'sent', sent_at = now() WHERE workspace_id = ${d.workspaceId} AND id = ${d.messageId} AND delivery_state = 'sending'`);
+    await tx.execute(sql`UPDATE outbound_attempts SET finished_at = now(), outcome = 'accepted' WHERE workspace_id = ${d.workspaceId} AND id = ${attempt} AND outcome IS NULL`);
+    await tx.execute(sql`UPDATE conversations SET last_message_at = GREATEST(coalesce(last_message_at, now()), now()) WHERE workspace_id = ${d.workspaceId} AND id = ${got[0]!.conversation_id as string}`);
+  });
 }
 
 type MediaSend = { kind: "image" | "audio" | "video" | "document" };

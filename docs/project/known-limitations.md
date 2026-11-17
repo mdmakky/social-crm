@@ -240,3 +240,13 @@ Updated: 2026-11-13 (Phase 0).
 - A bot cannot start a chat: there is no "new message" to a person who has not written first.
 - The webhook needs a public https address (`META_PUBLIC_BASE_URL`); without it connecting answers `public_url_required` outside mock mode. Telegram ports allowed: 443, 80, 88, 8443.
 - A bot connected to one workspace cannot be connected to another until it is disconnected there and released.
+
+## Website chat (2026-11-17, `feat/web-chat`)
+- Tested only against our own local servers. Not tried on a real third-party site, a strict host-page CSP, ad blockers, page builders, Safari/Firefox or phones. The settings page says "Not tested on real sites".
+- The origin allowlist is not authentication: `Origin` and `X-Widget-Host` are client supplied, so a script outside a browser can claim an allowed origin. Browsers are stopped (CORS and per-widget `frame-ancestors`); scripts are limited only by the rate limits, which are in-process (one API instance) and keyed on `x-forwarded-for`, which is only as trustworthy as the host in front of the API.
+- Firefox has no `location.ancestorOrigins`, so there the widget uses the loader's `?host=` (client supplied). Safari and other browsers that partition or clear third-party iframe storage may lose the visitor's token and start a new conversation on each visit (UNVERIFIED).
+- Polling: new messages take up to 3 s to appear (15 s when the tab is hidden); no typing indicator, no read receipts, no push.
+- Text only, both directions. No business hours, no visitor identity verification, no CAPTCHA, no purge of expired sessions (rows stay).
+- Agents appear to visitors as "Support" (no names). Replies show as `sent` once stored, not when read.
+- Replying needs the worker database URL on the API (same as Meta): without `DATABASE_URL_WORKER` the widget routes are not mounted and creating widgets answers 503.
+- An agent who replies to a conversation of a widget that was later turned off still sends; the visitor cannot read it while the widget is off.
