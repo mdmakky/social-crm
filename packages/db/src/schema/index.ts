@@ -17,3 +17,5 @@ export * from "./ai.ts";
 export * from "./knowledge.ts";
 // --- track:invitations ---
 export * from "./invitations.ts";
+// --- track:web-chat ---
+export * from "./chat.ts";
