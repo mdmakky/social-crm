@@ -94,3 +94,5 @@ UI cleanup (2026-11-17, branch `feat/ui-cleanup` from `feat/settings-ia`, local 
 
 
 Channels foundation (branch `feat/channels-foundation`, local only: not pushed, not merged): `telegram`, `email` and `web_chat` are accepted as platform and contact source (migration 0036, contracts, labels, icons). No channel behaviour exists yet; see D220.
+
+Website chat v1 (branch `feat/web-chat` from `feat/channels-foundation`, local only: not pushed, not merged): an embeddable widget (`/widget.js` + iframe page) lets anonymous visitors chat with agents in the existing Inbox (`web_chat` channel). Migration 0038, public visitor API under `/public/widget/:key`, admin under Settings > Web chat, replies through the normal send pipeline, polling realtime. Tested only against our own local servers (API tests, db tenancy tests, one Playwright spec with a second local origin and axe); not run on any real third-party site. See D240 to D249 and `docs/integrations/web-chat.md`.
