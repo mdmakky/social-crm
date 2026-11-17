@@ -16,5 +16,6 @@ export default async function IntegrationsPage({ params, searchParams }: { param
   const page = (children: React.ReactNode) => <SettingsPage title="Integrations" description="Connect the channels your customers write on.">{children}</SettingsPage>;
   if (!can(w.role, "integration.view", {})) return page(<Alert tone="info">You don&apos;t have access to integrations.</Alert>);
   const state = dataOf(await api.call(endpoints.getMetaIntegration, { params: { workspaceId } }));
-  return page(<><MetaIntegrations workspaceId={workspaceId} canManage={can(w.role, "integration.manage", {})} initial={state} result={meta} channel={channel} /></>);
+  const email = dataOf(await api.call(endpoints.getEmailIntegration, { params: { workspaceId } }));
+  return page(<><MetaIntegrations workspaceId={workspaceId} canManage={can(w.role, "integration.manage", {})} initial={state} emailInitial={email} result={meta} channel={channel} /></>);
 }

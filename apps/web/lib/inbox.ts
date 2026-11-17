@@ -62,6 +62,9 @@ export function failureText(code: string | null): string {
     case "window_closed": return "Meta says the 24-hour reply window has closed. You can reply after the person writes again.";
     case "channel_access": return "Meta blocked this send. Check that the Instagram account still allows access to messages for connected tools, then reconnect it in Settings > Integrations.";
     case "thread_owned_elsewhere": return "Another app is handling this conversation, so Meta refused the reply.";
+    case "provider_auth": return "The email provider refused our credentials. Check the email settings in Settings > Channels > Integrations.";
+    case "provider_rejected": return "The email provider did not accept this message.";
+    case "email_account_missing": return "Email is not set up for this inbox. Check Settings > Channels > Integrations.";
     case "marked_not_sent": return "You marked this message as not sent.";
     case "file_missing": return "The file could not be found in storage, so nothing was sent.";
     default: return "Meta did not accept this message.";

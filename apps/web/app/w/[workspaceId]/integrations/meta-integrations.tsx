@@ -1,7 +1,7 @@
 "use client";
 import * as React from "react";
-import { Camera, ChevronLeft, MessageCircle, Phone, Plug, RefreshCw, Send, Trash2, type LucideIcon } from "lucide-react";
-import { endpoints, MESSENGER_WEBHOOK_FIELDS, type ConnectMetaResult, type ConnectWhatsAppResult, type IntegrationAccountDto, type MetaAccountEvents, type MetaIntegrationState, type MetaPendingList } from "@crm/contracts";
+import { Camera, ChevronLeft, Mail, MessageCircle, Phone, Plug, RefreshCw, Send, Trash2, type LucideIcon } from "lucide-react";
+import { endpoints, MESSENGER_WEBHOOK_FIELDS, type ConnectMetaResult, type ConnectWhatsAppResult, type IntegrationAccountDto, type MetaAccountEvents, type EmailIntegrationState, type MetaIntegrationState, type MetaPendingList } from "@crm/contracts";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/form-controls";
@@ -13,20 +13,22 @@ import { ToastProvider, useToast } from "@/components/ui/toast";
 import { browserApi, errorMessage } from "@/lib/client-api";
 import { cn } from "@/lib/cn";
 import { WhatsAppConnect } from "./whatsapp-connect";
+import { EmailPanel } from "./email-panel";
 
-type ChannelKey = "messenger" | "instagram" | "whatsapp" | "telegram";
-type Channel = { key: ChannelKey; label: string; blurb: string; icon: LucideIcon; platform?: "messenger" | "instagram" | "whatsapp"; soon?: string };
+type ChannelKey = "messenger" | "instagram" | "whatsapp" | "email" | "telegram";
+type Channel = { key: ChannelKey; label: string; blurb: string; icon: LucideIcon; platform?: "messenger" | "instagram" | "whatsapp"; /** the email channel has its own panel and state */ own?: true; soon?: string };
 
 /** One entry per channel. A channel without `platform` is not built: it is listed honestly as coming soon, with the reason. */
 export const CHANNELS: Channel[] = [
   { key: "messenger", label: "Messenger", blurb: "Messages sent to your Facebook Pages.", icon: MessageCircle, platform: "messenger" },
   { key: "instagram", label: "Instagram", blurb: "Direct messages to your professional account.", icon: Camera, platform: "instagram" },
   { key: "whatsapp", label: "WhatsApp", blurb: "Messages to your WhatsApp Business number. Receive only.", icon: Phone, platform: "whatsapp" },
+  { key: "email", label: "Email", blurb: "A support address. Customer emails become conversations you reply to in the Inbox.", icon: Mail, own: true },
   { key: "telegram", label: "Telegram", blurb: "Bot messaging.", icon: Send, soon: "Not available yet." },
 ];
 const isChannel = (v: string | undefined): v is ChannelKey => CHANNELS.some((c) => c.key === v);
 
-type Props = { workspaceId: string; canManage: boolean; initial: MetaIntegrationState | null; result?: string; channel?: string };
+type Props = { workspaceId: string; canManage: boolean; initial: MetaIntegrationState | null; emailInitial?: EmailIntegrationState | null; result?: string; channel?: string };
 
 /** What the OAuth callback redirect (?meta=...) means, in plain language. "select" and "no_pages" are handled by the picker. */
 const RESULT: Record<string, { tone: "error" | "warning" | "info"; text: string }> = {
@@ -55,10 +57,11 @@ export function MetaIntegrations(p: Props) {
   return <ToastProvider><Inner {...p} /></ToastProvider>;
 }
 
-function Inner({ workspaceId, canManage, initial, result, channel: initialChannel }: Props) {
+function Inner({ workspaceId, canManage, initial, emailInitial = null, result, channel: initialChannel }: Props) {
   const toast = useToast();
   const params = { workspaceId };
   const [data, setData] = React.useState<MetaIntegrationState | null>(initial);
+  const [email, setEmail] = React.useState<EmailIntegrationState | null>(emailInitial);
   const [busy, setBusy] = React.useState<string | null>(null);
   const [pending, setPending] = React.useState<MetaPendingList | null | "loading">(result === "select" ? "loading" : null);
   const [pick, setPick] = React.useState<{ pageId: string; ig: boolean }>({ pageId: "", ig: false });
@@ -192,6 +195,7 @@ function Inner({ workspaceId, canManage, initial, result, channel: initialChanne
   );
   const live = (platform: "messenger" | "instagram" | "whatsapp") => data.accounts.filter((a) => a.platform === platform && a.status !== "disabled");
   const railState = (c: Channel): { sub: string; dot: "ok" | "warn" | "idle" | "soon" } => {
+    if (c.own) return !email ? { sub: "Not connected", dot: "idle" } : !email.available ? { sub: "Not available", dot: "idle" } : email.account?.enabled ? { sub: "Connected", dot: "ok" } : email.account ? { sub: "Turned off", dot: "idle" } : { sub: "Not connected", dot: "idle" };
     if (!c.platform) return { sub: "Coming soon", dot: "soon" };
     const l = live(c.platform);
     if (l.some((a) => a.status === "reauth_required")) return { sub: "Reconnect needed", dot: "warn" };
@@ -214,8 +218,8 @@ function Inner({ workspaceId, canManage, initial, result, channel: initialChanne
             const sel = c.key === active.key;
             return (
               <button key={c.key} type="button" aria-current={sel ? "page" : undefined} onClick={() => choose(c.key)}
-                className={cn("flex min-h-12 w-full items-center gap-3 rounded-control border px-3 py-2 text-left transition-colors", sel ? "border-line-card bg-surface shadow-sheet" : "border-transparent hover:bg-hover", !c.platform && "text-fg-subtle")}>
-                <span className={cn("grid size-9 flex-none place-items-center rounded-control", c.platform && st.dot === "ok" ? "bg-accent-subtle text-accent-fg" : "bg-hover text-fg-subtle")}><c.icon className="size-5" aria-hidden /></span>
+                className={cn("flex min-h-12 w-full items-center gap-3 rounded-control border px-3 py-2 text-left transition-colors", sel ? "border-line-card bg-surface shadow-sheet" : "border-transparent hover:bg-hover", !c.platform && !c.own && "text-fg-subtle")}>
+                <span className={cn("grid size-9 flex-none place-items-center rounded-control", (c.platform || c.own) && st.dot === "ok" ? "bg-accent-subtle text-accent-fg" : "bg-hover text-fg-subtle")}><c.icon className="size-5" aria-hidden /></span>
                 <span className="min-w-0 flex-1"><span className="block truncate font-medium text-fg">{c.label}</span><span className="block truncate text-sm text-fg-subtle">{st.sub}</span></span>
                 {st.dot === "soon" ? <Badge className="border border-dashed border-line-strong bg-transparent text-fg-subtle">Soon</Badge>
                   : <span className="inline-flex items-center gap-1.5"><span aria-hidden className={cn("size-2 rounded-full", st.dot === "ok" ? "bg-success-fg" : st.dot === "warn" ? "bg-warning-fg" : "bg-fg-disabled")} /><span className="sr-only">{st.sub}</span></span>}
@@ -229,11 +233,11 @@ function Inner({ workspaceId, canManage, initial, result, channel: initialChanne
           <Panel>
             <div className="flex flex-wrap items-center gap-3 border-b border-line-card px-4 py-3">
               <span className="grid size-9 flex-none place-items-center rounded-control bg-accent-subtle text-accent-fg"><active.icon className="size-5" aria-hidden /></span>
-              <div className="min-w-[12rem] flex-1"><h2 className="flex flex-wrap items-center gap-2 text-base font-semibold text-fg">{active.label}{active.platform && <Tooltip label="No recorded request to the live service yet." side="bottom"><span><Badge tone="warning">Not tested live</Badge></span></Tooltip>}</h2><p className="text-sm text-fg-subtle">{active.blurb}</p></div>
+              <div className="min-w-[12rem] flex-1"><h2 className="flex flex-wrap items-center gap-2 text-base font-semibold text-fg">{active.label}{(active.platform || active.own) && <Tooltip label="No recorded request to the live service yet." side="bottom"><span><Badge tone="warning">Not tested live</Badge></span></Tooltip>}</h2><p className="text-sm text-fg-subtle">{active.blurb}</p></div>
               {active.platform === "messenger" && live("messenger").length > 0 && <div className="w-full sm:w-auto [&>button]:w-full sm:[&>button]:w-auto">{connectBtn("Connect another Page", "primary")}</div>}
             </div>
 
-            {!active.platform ? (
+            {active.own ? <EmailPanel workspaceId={workspaceId} canManage={canManage} state={email} onState={setEmail} /> : !active.platform ? (
               <div className="flex flex-col gap-2 p-4">
                 <div><Button disabled aria-describedby="soon-reason"><Plug className="size-4" aria-hidden />Connect {active.label}</Button></div>
                 <p id="soon-reason" className="text-sm text-fg-subtle">{active.soon}</p>
