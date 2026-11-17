@@ -232,3 +232,10 @@ Updated: 2026-11-13 (Phase 0).
 - Meta webhooks: the callback URL and fields (Instagram via a Page, WhatsApp `messages`) are set once in the Meta app dashboard; real delivery is unverified until the first real message arrives.
 - Conversions API is mock only: events are checked and recorded, nothing is sent to Meta, and a real accepted request would not mean Meta counted a conversion. Only Purchase is created today.
 - WhatsApp is receive only. Free-form replies are limited to 24 hours after the customer's last message; templates are not available.
+
+## Email channel (2026-11-17, MOCK only)
+- Not tested live: no request to Mailgun has ever been made. The SPF/DKIM verdict field names, the events webhook shape, custom Message-Id handling, MX/SPF values and the route expression are UNVERIFIED (docs/integrations/email.md).
+- Attachments are not stored (names and sizes only) and inbound mail whose webhook body exceeds 1 MB is refused. Outbound attachments are not available. HTML is never shown.
+- Senders that fail the SPF/DKIM check (or lack DKIM) are shown as Unverified sender and cannot be replied to. The check also needs envelope and From domains to match, so mail sent through third-party senders may be marked unverified.
+- One support address per workspace; one conversation per sender. Orphaned events (disabled account) are not re-queued when email is turned on again. "Check setup" is canned in mock and not built for Mailgun. Replay protection and flood limits are in process (one API instance).
+- Contact methods of source email cannot be corrected or deleted by people yet (same gap as D220: migration 0023 policies list only messenger and instagram).

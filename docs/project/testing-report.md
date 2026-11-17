@@ -245,3 +245,12 @@ Private DB `inv_f` (fresh via `scripts/db-create.sh inv_f`), migration 0035.
 ## UI cleanup (2026-11-17)
 - Specs whose copy or structure assertions changed: auth-and-shell, permissions-and-members, settings-nav (new Ad measurement checks), integrations, states-and-errors, mobile, responsive-and-a11y, leads, contacts-responsive, contacts-detail, contacts-wpc-import, ai-settings, ai-openrouter, ai-agents. Unit test `test/lib.test.ts` (sidebar labels). Fresh private DB `ui_f`, ports 5517 and 9491, `E2E_META_MOCK=1`.
 - Not covered: the full e2e suite, a before-screenshot round, a screen reader pass.
+
+## Email channel (2026-11-17, MOCK only)
+- Private DBs em_f (unit/API) and em_e, em_e2 (browser); db files run serially (`--no-file-parallelism`). No real network, no real keys.
+- `packages/integrations/test/email.test.ts` 18 passed (parser, quote stripper, signature valid/bad/stale/replayed, bounce event, Mailgun adapter against a fake fetch, failure mapping).
+- `apps/api/test/email.test.ts` 28 passed (connect and permissions, signature and replay and 1 MB cap, inbound conversations and contacts, HTML and attachments not stored, auto-mail ignored, idempotency, unknown token orphan, cross-workspace isolation, threading by In-Reply-To/References/conversation token and never by subject, unverified senders, outbound headers, failure mapping, bounces, per-sender and per-conversation limits). `apps/api/test/mail-config.test.ts` 7 passed (production guard).
+- `packages/db/test/email-schema.test.ts` 9 passed and `tenancy.test.ts` passed (forced RLS on the three new tables, shapes, guards).
+- Also re-run, unchanged: contract, conversations, send, whatsapp-send, inbox-ingress, meta-connect, contact-methods (97 passed).
+- Browser: `e2e/email.spec.ts` 3 passed (connect in mock mode, injected signed inbound email appears in the Inbox with subject, plain text, quote stripped, unverified sender badged and not repliable, reply shown as Sent). Screenshots 1440 and 375 px viewed. `e2e/integrations.spec.ts` re-run on a fresh DB with the Email rail entry added: 8 passed, no assertion changed.
+- Not covered: anything against a real Mailgun account, deliverability, the full suites.

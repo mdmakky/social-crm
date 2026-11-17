@@ -94,3 +94,5 @@ UI cleanup (2026-11-17, branch `feat/ui-cleanup` from `feat/settings-ia`, local 
 
 
 Channels foundation (branch `feat/channels-foundation`, local only: not pushed, not merged): `telegram`, `email` and `web_chat` are accepted as platform and contact source (migration 0036, contracts, labels, icons). No channel behaviour exists yet; see D220.
+
+Email support inbox v1 (2026-11-17, branch `feat/email-channel` from `feat/channels-foundation`, local only: not pushed, not merged, not deployed; migration 0039; D250 to D259): MOCK only, nothing ever sent to or received from Mailgun. Settings > Channels > Integrations > Email (support address, DNS steps, mock check, on/off, disconnect), public webhook `/webhooks/email/{inbound,events}` with signature, replay and size guards, worker threading by In-Reply-To/References/conversation token (never subject), unverified-sender handling, auto-mail dropped, plain text only, attachments counted not stored, replies through the send pipeline with full headers, bounce marks the contact undeliverable, env-gated production guard. See docs/integrations/email.md.

@@ -164,3 +164,5 @@ Next phase: Meta Inbox. Slice 1 (schema, RLS, per-user unread) merged to `main` 
 
 ## Update 2026-11-17: invitations (FR-46 done)
 FR-46 (invitations by email, accept, resend, revoke; Mailer optional) is built on branch `feat/invitations` (migration 0035, D210 to D219). Delivery is link-based; email only with a configured mailer (known-limitations). Not merged or deployed.
+
+Email channel v1 (2026-11-17, `feat/email-channel`, MOCK): built and tested against a mock provider; live Mailgun verification, attachment storage and a Postmark adapter are later slices. See docs/integrations/email.md.

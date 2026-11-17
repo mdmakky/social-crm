@@ -40,6 +40,7 @@ export interface EmailProvider {
 const B32 = "abcdefghijklmnopqrstuvwxyz234567";
 export const randomToken = (len: number) => Array.from(randomBytes(len), (b) => B32[b % 32]).join("");
 /** Header values never contain CR/LF (header injection) or other control characters. */
+// eslint-disable-next-line no-control-regex -- stripping control characters is the point
 export const cleanHeader = (s: string, max = 900) => s.replace(/[\u0000-\u001f\u007f]+/g, " ").trim().slice(0, max);
 export const normalizeMessageId = (s: string | null | undefined): string | null => {
   const m = /<([^<>\s]{1,900})>/.exec(s ?? "");
@@ -83,7 +84,7 @@ export function stripQuoted(text: string): string {
     const next = (lines[i + 1] ?? "").trim();
     if ((/^On\s.{1,300}\swrote:$/i.test(l)) || (/^On\s.{1,300}$/i.test(l) && /^(.{0,200}\s)?wrote:$/i.test(next)) || /^-{2,}\s*Original Message\s*-{2,}$/i.test(l)) { cut = i; break; }
   }
-  let kept = lines.slice(0, cut);
+  const kept = lines.slice(0, cut);
   while (kept.length && (kept[kept.length - 1]!.trim() === "" || kept[kept.length - 1]!.startsWith(">"))) kept.pop();
   const out = kept.join("\n").trim();
   return out === "" ? text.replace(/\r\n?/g, "\n").trim() : out;
@@ -177,6 +178,7 @@ export function parseMailgunInbound(f: Record<string, string>, files: { name: st
   const messageIdHeader = normalizeMessageId(hdr("message-id"));
   const bodyPlain = f["body-plain"] ?? "";
   const stripped = f["stripped-text"] ?? "";
+  // eslint-disable-next-line no-control-regex -- stripping control characters is the point
   let text = (stripped.trim() !== "" ? stripped : bodyPlain.trim() !== "" ? stripQuoted(bodyPlain) : "").replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, "").trim();
   const hasText = text !== "";
   if (!hasText) text = NO_TEXT;
