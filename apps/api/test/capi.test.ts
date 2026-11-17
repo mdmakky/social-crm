@@ -369,7 +369,9 @@ describe("contact deletion cleanup", () => {
     expect(sent.length).toBeGreaterThan(0);
     expect(sent.every((e) => e.status === "sent" && e.sent_at && e.event_name === "Purchase" && e.event_id)).toBe(true);
     const w2 = run(); await w2.go(); // nothing further is sent
-    expect(w2.adapter.calls).toEqual([]);
+    // The queue claims across workspaces and test files share one database, so other files' fresh events may go out in this drain. Nothing of workspace A may.
+    const mineA = new Set((await eventsOf(A)).map((e) => e.event_id));
+    expect(w2.adapter.calls.flatMap((cl) => cl.events).filter((e) => mineA.has(e.event_id))).toEqual([]);
     const hist = ok(await as(owner).call(endpoints.listCapiEvents, { params: p(), query: { datasetId: d.id } })).items;
     const goneD = gone.filter((g) => g.dataset_id === d.id);
     expect(hist.filter((i) => goneD.some((g) => g.id === i.id)).map((i) => i.status).sort()).toEqual(goneD.map((g) => g.status).sort());
