@@ -47,7 +47,7 @@ export const DELIVERY: Record<MessageDto["deliveryState"], { label: string; tone
   unknown: { label: "Delivery unknown", tone: "warning" },
 };
 
-export const PLATFORM_LABEL = { messenger: "Messenger", instagram: "Instagram", whatsapp: "WhatsApp" } as const;
+export const PLATFORM_LABEL = { messenger: "Messenger", instagram: "Instagram", whatsapp: "WhatsApp", telegram: "Telegram", email: "Email", web_chat: "Web chat" } as const;
 export const isHttps = (u: string | null): u is string => !!u && /^https:\/\//i.test(u);
 
 /** Plain-language reason for a failed send, from the stored failure code. Unknown codes get a generic line; Meta's own text is never stored or shown. */
@@ -78,7 +78,7 @@ export const isSendKey = (e: { key: string; shiftKey: boolean; isComposing?: boo
 
 /** Reply size limit per channel. Instagram is counted in UTF-8 bytes (Meta states 1,000 bytes; Bengali takes 3 bytes per letter), Messenger in characters (our own cap). */
 export const IG_MAX_BYTES = 1000;
-export function replyUsage(platform: "messenger" | "instagram" | "whatsapp", text: string, maxChars: number): { used: number; max: number; unit: "bytes" | "characters"; over: boolean } {
+export function replyUsage(platform: keyof typeof PLATFORM_LABEL, text: string, maxChars: number): { used: number; max: number; unit: "bytes" | "characters"; over: boolean } {
   if (platform === "instagram") { const used = new TextEncoder().encode(text).length; return { used, max: IG_MAX_BYTES, unit: "bytes", over: used > IG_MAX_BYTES }; }
   return { used: text.length, max: maxChars, unit: "characters", over: text.length > maxChars };
 }

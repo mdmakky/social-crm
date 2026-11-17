@@ -1,18 +1,20 @@
-import { Camera, MessageCircle, Phone } from "lucide-react";
+import { Camera, Mail, MessageCircle, MessageSquare, Phone, Send } from "lucide-react";
 import type { ConversationItem, MessageDto } from "@crm/contracts";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DELIVERY, PLATFORM_LABEL, canDecideDelivery, failureText, isHttps } from "@/lib/inbox";
 
+const CHANNEL_ICON = { messenger: MessageCircle, instagram: Camera, whatsapp: Phone, telegram: Send, email: Mail, web_chat: MessageSquare } as const;
+
 /** Icon + text, never colour alone: speech bubble (Messenger) vs camera outline (Instagram) differ in shape. */
 export function ChannelBadge({ platform, account }: { platform: ConversationItem["platform"]; account?: string | null }) {
-  const Icon = platform === "instagram" ? Camera : platform === "whatsapp" ? Phone : MessageCircle;
+  const Icon = CHANNEL_ICON[platform];
   return <Badge tone="neutral" shape="square"><Icon className="size-3" aria-hidden />{PLATFORM_LABEL[platform]}{account ? <span className="text-fg-subtle"> · {account}</span> : null}</Badge>;
 }
 
 /** Small channel mark on an avatar corner. The row's accessible text names the channel (sr-only). */
 export function ChannelMark({ platform }: { platform: ConversationItem["platform"] }) {
-  const Icon = platform === "instagram" ? Camera : platform === "whatsapp" ? Phone : MessageCircle;
+  const Icon = CHANNEL_ICON[platform];
   return <span aria-hidden className="absolute -bottom-0.5 -right-0.5 inline-flex size-4 items-center justify-center rounded-full border border-surface bg-accent-subtle text-accent-fg"><Icon className="size-2.5" /></span>;
 }
 

@@ -11,7 +11,7 @@ export const ReplyWindow = z.enum(["open", "closed", "none"]);
 
 export const ConversationItem = z.object({
   id: Uuid,
-  platform: z.enum(["messenger", "instagram", "whatsapp"]),
+  platform: z.enum(["messenger", "instagram", "whatsapp", "telegram", "email", "web_chat"]),
   accountName: z.string().nullable(),
   contact: z.object({ id: Uuid, name: z.string(), avatarUrl: z.string().url().nullable() }),
   status: ConversationStatus,
@@ -45,7 +45,7 @@ export const ContactMethodDto = z.object({
   id: Uuid,
   kind: z.enum(["phone", "email"]),
   value: z.string(),
-  source: z.enum(["messenger", "instagram", "whatsapp", "manual", "import", "other"]),
+  source: z.enum(["messenger", "instagram", "whatsapp", "telegram", "email", "web_chat", "manual", "import", "other"]),
   confidence: z.number().min(0).max(1),
   verified: z.boolean(),
   isPrimary: z.boolean(),

@@ -179,7 +179,7 @@ async function ensureConversation(tx: Tx, ctx: Ctx, userId: string): Promise<{ i
     const stage = rowsOf(await tx.execute(sql`SELECT id FROM lifecycle_stages WHERE workspace_id = ${ctx.workspaceId} AND archived_at IS NULL ORDER BY position LIMIT 1`))[0];
     if (!stage) throw new EventError("no_lifecycle_stage");
     // Placeholder name until profile enrichment exists; deliberately contains no platform-provided text.
-    const label = ctx.platform === "instagram" ? "Instagram" : ctx.platform === "whatsapp" ? "WhatsApp" : "Messenger";
+    const label = ({ instagram: "Instagram", whatsapp: "WhatsApp", telegram: "Telegram", email: "Email", web_chat: "Web chat" } as Record<string, string>)[ctx.platform] ?? "Messenger";
     const contact = rowsOf(
       await tx.execute(sql`INSERT INTO contacts (workspace_id, name, lifecycle_stage_id, source) VALUES (${ctx.workspaceId}, ${`${label} user ${userId.slice(-4)}`}, ${stage.id}, ${ctx.platform}) RETURNING id`),
     )[0]!;

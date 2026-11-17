@@ -236,7 +236,7 @@ async function finish(tx: Tx, d: Delivery, attemptId: string, o: { outcome: "acc
  * ponytail: walks the connected accounts' workspaces (the worker role cannot see messages across workspaces); fine for tens of workspaces, move to a SECURITY DEFINER function if it grows.
  */
 export async function recoverStuckSends(workerDb: Db): Promise<number> {
-  const ws = rowsOf(await workerDb.execute(sql`SELECT DISTINCT workspace_id FROM integration_accounts WHERE platform IN ('messenger','instagram','whatsapp') AND status <> 'disabled' LIMIT 500`));
+  const ws = rowsOf(await workerDb.execute(sql`SELECT DISTINCT workspace_id FROM integration_accounts WHERE platform IN ('messenger','instagram','whatsapp','telegram','email','web_chat') AND status <> 'disabled' LIMIT 500`));
   let n = 0;
   for (const w of ws) {
     n += await withContext(workerDb, { workspaceId: w.workspace_id as string }, async (tx) => {

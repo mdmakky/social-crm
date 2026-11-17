@@ -10,7 +10,7 @@ const workspaceId = () => uuid("workspace_id").notNull().references(() => worksp
 const ts = (n: string) => timestamp(n, { withTimezone: true });
 const bytea = customType<{ data: Buffer; driverData: Buffer }>({ dataType: () => "bytea" });
 
-export const INBOX_PLATFORMS = ["messenger", "instagram", "whatsapp"] as const;
+export const INBOX_PLATFORMS = ["messenger", "instagram", "whatsapp", "telegram", "email", "web_chat"] as const;
 export const INTEGRATION_STATUSES = ["connected", "reauth_required", "disabled"] as const;
 export const CONVERSATION_STATUSES = ["open", "pending", "resolved"] as const;
 export const DELIVERY_STATES = ["received", "pending", "sending", "sent", "failed", "unknown"] as const;
@@ -47,7 +47,7 @@ export const integrationAccounts = pgTable(
     check("integration_accounts_auth_method_platform", sql`${t.authMethod} = 'facebook' OR ${t.platform} = 'instagram'`),
     unique("integration_accounts_ws_id").on(t.workspaceId, t.id),
     unique("integration_accounts_platform_external").on(t.platform, t.externalAccountId),
-    check("integration_accounts_platform", sql`${t.platform} IN ('messenger','instagram','whatsapp')`),
+    check("integration_accounts_platform", sql`${t.platform} IN ('messenger','instagram','whatsapp','telegram','email','web_chat')`),
     check("integration_accounts_status", sql`${t.status} IN ('connected','reauth_required','disabled')`),
     // Page and Instagram account ids are numeric strings (to be reconfirmed with the real app). Digits only: no whitespace, zero-padding variants or look-alike characters can create a second key for the same account.
     check("integration_accounts_external_id", sql`${t.externalAccountId} ~ '^[1-9][0-9]{0,99}$'`),
@@ -245,7 +245,7 @@ export const webhookEvents = pgTable(
     bodyPurgedAt: ts("body_purged_at"),
   },
   (t) => [
-    check("webhook_events_platform", sql`${t.platform} IN ('messenger','instagram','whatsapp')`),
+    check("webhook_events_platform", sql`${t.platform} IN ('messenger','instagram','whatsapp','telegram','email','web_chat')`),
     check("webhook_events_status", sql`${t.status} IN ('received','processed','failed','orphan','rejected')`),
     // an event that failed signature verification can only ever be "rejected" and never carries a body
     check("webhook_events_signature", sql`${t.signatureValid} OR (${t.status} = 'rejected' AND ${t.rawBody} IS NULL)`),

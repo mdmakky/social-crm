@@ -6,7 +6,7 @@ const Uuid = z.string().uuid();
 
 /** Messenger fields requested when a Page is connected (docs/integrations/meta-api-verification-2026-11.md C4). Instagram fields cannot be set through the API. */
 export const MESSENGER_WEBHOOK_FIELDS = ["messages", "message_echoes", "messaging_postbacks", "message_reads", "message_deliveries"] as const;
-export const InboxPlatform = z.enum(["messenger", "instagram", "whatsapp"]);
+export const InboxPlatform = z.enum(["messenger", "instagram", "whatsapp", "telegram", "email", "web_chat"]);
 export const IntegrationStatus = z.enum(["connected", "reauth_required", "disabled"]);
 export const SubscriptionState = z.enum(["subscribed", "failed", "dashboard_required"]);
 

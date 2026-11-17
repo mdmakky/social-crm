@@ -71,6 +71,13 @@ describe("constraints and composite foreign keys", () => {
     await badInsert(`INSERT INTO integration_accounts(workspace_id,platform,external_account_id) VALUES ($1,'tiktok','1')`, [A], /integration_accounts_platform/);
     await badInsert(`INSERT INTO integration_accounts(workspace_id,platform,external_account_id,status) VALUES ($1,'messenger','1','paused')`, [A], /integration_accounts_status/);
   });
+  it.each(["telegram", "email", "web_chat"])("%s is a legal platform and contact source; the worker may create its accounts, contacts and detected methods", async (p) => {
+    await q(worker, ctx(undefined, A), sql`INSERT INTO integration_accounts(workspace_id,platform,external_account_id) VALUES (${A},${p},${num()})`);
+    await root.query(`INSERT INTO webhook_events(platform,signature_valid,raw_body,body_sha256,body_size,status) VALUES ($1,true,'\\x7b7d',decode(repeat('ab',32),'hex'),2,'received')`, [p]);
+    const stage = (await one(`SELECT id FROM lifecycle_stages WHERE workspace_id = $1`, [A])).id;
+    const c = (await q<{ id: string }>(worker, ctx(undefined, A), sql`INSERT INTO contacts(workspace_id,name,lifecycle_stage_id,source) VALUES (${A},'Placeholder user 1234',${stage},${p}) RETURNING id`))[0]!.id;
+    await q(worker, ctx(undefined, A), sql`INSERT INTO contact_methods(workspace_id,contact_id,kind,value,source,verified) VALUES (${A},${c},'email',${`${p}@example.com`},${p},false)`);
+  });
   it("(platform, external_account_id) is globally unique across workspaces (D-F); the same id on another platform is a different account", async () => {
     const ext = num();
     await root.query(`INSERT INTO integration_accounts(workspace_id,platform,external_account_id) VALUES ($1,'messenger',$2)`, [A, ext]);

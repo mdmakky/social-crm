@@ -445,7 +445,7 @@ function Bubble({ m, now, run, onDecide, deciding, files, storageConfigured, onF
   );
 }
 
-const SOURCE_LABEL: Record<string, string> = { messenger: "Messenger", instagram: "Instagram", whatsapp: "WhatsApp", manual: "Added by hand", import: "Imported", other: "Other" };
+const SOURCE_LABEL: Record<string, string> = { messenger: "Messenger", instagram: "Instagram", whatsapp: "WhatsApp", telegram: "Telegram", email: "Email", web_chat: "Web chat", manual: "Added by hand", import: "Imported", other: "Other" };
 
 function CopyButton({ value, label }: { value: string; label: string }) {
   const toast = useToast();
