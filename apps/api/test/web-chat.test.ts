@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- response bodies are inspected loosely in tests */
 import { createHash } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createDb, type Db } from "@crm/db";
@@ -5,7 +6,6 @@ import { bootstrap, ORIGIN, type Harness, type TestUser } from "./harness.ts";
 
 const DB = process.env.CRM_DB_NAME ?? "crm";
 const SITE = "https://site-a.example";
-const SITE_B = "https://site-b.example";
 const sha = (s: string) => createHash("sha256").update(s).digest("hex");
 let h: Harness, hLim: Harness, hFast: Harness, workerDb: Db;
 let owner: TestUser, agent: TestUser, owner2: TestUser;

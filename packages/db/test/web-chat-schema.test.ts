@@ -13,8 +13,8 @@ let A = "", B = "";
 let widgetA = "", widgetB = "";
 const keyA = `A${run}`.padEnd(32, "a");
 const keyB = `B${run}`.padEnd(32, "b");
-const hashA = "a".repeat(64);
-const hashB = "b".repeat(64);
+const hashA = `a${Date.now().toString(16)}`.padEnd(64, "a"); // unique per run: the database is reused between runs
+const hashB = `b${Date.now().toString(16)}`.padEnd(64, "b");
 const ctx = (userId?: string, workspaceId?: string) => ({ userId, workspaceId });
 const q = <T = Record<string, unknown>>(db: Db, c: ReturnType<typeof ctx>, s: ReturnType<typeof sql>) => withContext(db, c, async (tx) => (await tx.execute(s)).rows as T[]);
 const one = async (text: string, params: unknown[] = []) => (await root.query(text, params)).rows[0];

@@ -122,7 +122,7 @@ export function publicWidgetRoutes(deps: WidgetDeps) {
     if (!sessionsIp.allow(`ip:${clientIp(c)}`) || !sessionsWidget.allow(`w:${w.id}`)) return tooMany(c);
     const token = randomBytes(32).toString("base64url"); // 256 bits, 43 characters; only its hash is stored and it is shown once
     const ipHash = sha256(`${w.workspaceId}:${clientIp(c)}`).slice(0, 16);
-    const ua = (c.req.header("user-agent") ?? "").replace(/[\u0000-\u001f]/g, "").slice(0, 200) || null;
+    const ua = (c.req.header("user-agent") ?? "").replace(/\p{Cc}/gu, "").slice(0, 200) || null;
     const exp = await run(c, async (tx) => {
       for (let i = 0; i < 5; i++) {
         const ref = randomDigits(); // numeric because platform_identities.external_user_id is digits-only for every channel
@@ -220,7 +220,7 @@ export function publicWidgetRoutes(deps: WidgetDeps) {
     const raw = await c.req.json().catch(() => null);
     const parsed = hasNul(raw) ? null : WidgetContactBody.safeParse(raw);
     if (!parsed?.success) return err(c, 400, "invalid_body", parsed?.error.issues[0]?.message ?? "Enter a name or an email.");
-    const name = parsed.data.name?.replace(/[\u0000-\u001f]/g, "").trim();
+    const name = parsed.data.name?.replace(/\p{Cc}/gu, "").trim();
     const email = parsed.data.email?.toLowerCase();
     const res = await run(c, async (tx) => {
       const s = await sessionOf(c, tx);
