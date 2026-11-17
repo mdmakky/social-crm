@@ -232,3 +232,11 @@ Updated: 2026-11-13 (Phase 0).
 - Meta webhooks: the callback URL and fields (Instagram via a Page, WhatsApp `messages`) are set once in the Meta app dashboard; real delivery is unverified until the first real message arrives.
 - Conversions API is mock only: events are checked and recorded, nothing is sent to Meta, and a real accepted request would not mean Meta counted a conversion. Only Purchase is created today.
 - WhatsApp is receive only. Free-form replies are limited to 24 hours after the customer's last message; templates are not available.
+
+## Telegram (MOCK ONLY, `feat/telegram`)
+- Never run against Telegram: the real `createTelegramClient`, the webhook secret header, `allowed_updates`, error wording (403, 400 chat not found, 429 `retry_after`) and the "no 24 hour window" and "a bot cannot start a chat" rules are UNVERIFIED. The UI says "Not tested live".
+- Text only. Photos, files, voice and stickers arrive as a placeholder (metadata kept, never downloaded, never a URL); replies cannot carry files. Private chats only; groups, channels and edited messages are ignored.
+- Replies are plain text, at most 2000 characters (Telegram allows 4096). A 429 is shown as "not sent" and is not retried; per-chat pacing is not enforced.
+- A bot cannot start a chat: there is no "new message" to a person who has not written first.
+- The webhook needs a public https address (`META_PUBLIC_BASE_URL`); without it connecting answers `public_url_required` outside mock mode. Telegram ports allowed: 443, 80, 88, 8443.
+- A bot connected to one workspace cannot be connected to another until it is disconnected there and released.

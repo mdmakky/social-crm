@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
 import type { Db, Tx } from "@crm/db";
-import { parseMetaWebhook, type MetaEvent } from "@crm/integrations";
+import { parseMetaWebhook, parseTelegramUpdate, type MetaEvent } from "@crm/integrations";
 import { saveExtracted } from "./extract.ts";
 import { recordInboundAttachments } from "./attachments.ts";
 
@@ -56,12 +56,18 @@ export async function processWebhookEvent(db: Db, eventId: string): Promise<Outc
 
       const body = claimed.raw_body as Buffer | null;
       if (!body) throw new EventError("body_purged", false);
-      const parsed = parseMetaWebhook(body);
-      if (!parsed.ok || parsed.platform !== platform) throw new EventError("unparseable", false);
-
-      for (const entry of parsed.entries) {
-        if (entry.accountId !== accountRef) continue; // a body can never write into an account other than the one it was routed to
-        for (const ev of entry.events) await applyEvent(tx, { workspaceId, accountId, accountRef, platform }, ev);
+      if (platform === "telegram") {
+        // One stored row is one Update, routed by the bot id of the path it arrived on (telegram-webhook.ts); the recipient of every event is that bot.
+        const t = parseTelegramUpdate(body, accountRef!);
+        if (!t.ok) throw new EventError("unparseable", false);
+        for (const ev of t.events) await applyEvent(tx, { workspaceId, accountId, accountRef: accountRef!, platform }, ev);
+      } else {
+        const parsed = parseMetaWebhook(body);
+        if (!parsed.ok || parsed.platform !== platform) throw new EventError("unparseable", false);
+        for (const entry of parsed.entries) {
+          if (entry.accountId !== accountRef) continue; // a body can never write into an account other than the one it was routed to
+          for (const ev of entry.events) await applyEvent(tx, { workspaceId, accountId, accountRef, platform }, ev);
+        }
       }
       await tx.execute(sql`UPDATE webhook_events SET status = 'processed', processed_at = now(), attempts = attempts + 1, last_error = NULL WHERE id = ${eventId}`);
       return "processed";
@@ -87,7 +93,7 @@ async function applyEvent(tx: Tx, ctx: Ctx, ev: MetaEvent): Promise<void> {
     // Direction sanity: an inbound message is addressed to the Page, an echo is sent by it. Anything else is not for this account.
     const userId = ev.isEcho ? ev.recipientId : ev.senderId;
     if (ev.isEcho ? ev.senderId !== ctx.accountRef : ev.recipientId !== ctx.accountRef) return;
-    const conv = await ensureConversation(tx, ctx, userId);
+    const conv = await ensureConversation(tx, ctx, userId, ev.profileName ?? null);
     const at = msToIso(ev.timestampMs);
     const inbound = !ev.isEcho;
     // An echo of a message sent from this CRM carries the Meta id: attach it to our own row (sending/unknown -> sent) instead of storing a second copy.
@@ -128,13 +134,15 @@ async function applyEvent(tx: Tx, ctx: Ctx, ev: MetaEvent): Promise<void> {
     );
     if (inserted.length === 0) return; // duplicate delivery: nothing else changes (unread, timestamps, events)
     // Media of a customer's message: metadata only, the bytes are fetched later outside this transaction. A media-only message keeps its preview text through messages.attachments, as before.
-    if (inbound && ev.attachments.length) await recordInboundAttachments(tx, { workspaceId: ctx.workspaceId, conversationId: conv.id, messageId: inserted[0]!.id as string, attachments: ev.attachments });
+    // Telegram media is never downloaded in v1 (a file URL embeds the bot token): its metadata stays on the message and the inbox shows a placeholder.
+    if (inbound && ev.attachments.length && ctx.platform !== "telegram") await recordInboundAttachments(tx, { workspaceId: ctx.workspaceId, conversationId: conv.id, messageId: inserted[0]!.id as string, attachments: ev.attachments });
     // Forward-only: a late older message never moves the conversation backwards. A new inbound message reopens a resolved conversation.
     await tx.execute(sql`
       UPDATE conversations SET
         last_message_at = GREATEST(coalesce(last_message_at, ${at}::timestamptz), ${at}::timestamptz),
         last_inbound_at = ${inbound ? sql`GREATEST(coalesce(last_inbound_at, ${at}::timestamptz), ${at}::timestamptz)` : sql`last_inbound_at`},
         status = ${inbound ? sql`CASE WHEN status = 'resolved' THEN 'open' ELSE status END` : sql`status`},
+        contact_unreachable_at = ${inbound ? sql`NULL` : sql`contact_unreachable_at`},
         version = version + 1, updated_at = now()
       WHERE workspace_id = ${ctx.workspaceId} AND id = ${conv.id}`);
     await tx.execute(sql`UPDATE contacts SET last_activity_at = GREATEST(last_activity_at, ${at}::timestamptz) WHERE workspace_id = ${ctx.workspaceId} AND id = ${conv.contactId}`);
@@ -152,6 +160,14 @@ async function applyEvent(tx: Tx, ctx: Ctx, ev: MetaEvent): Promise<void> {
         AND ${col} IS DISTINCT FROM GREATEST(coalesce(${col}, ${at}::timestamptz), ${at}::timestamptz)`);
     return;
   }
+  if (ev.kind === "reachability") {
+    // Telegram my_chat_member: the person blocked (or unblocked) the bot. Only an existing conversation is marked; replies are then refused up front (send.ts).
+    await tx.execute(sql`
+      UPDATE conversations SET contact_unreachable_at = ${ev.unreachable ? sql`${msToIso(ev.timestampMs)}::timestamptz` : sql`NULL`}, version = version + 1, updated_at = now()
+      WHERE workspace_id = ${ctx.workspaceId} AND integration_account_id = ${ctx.accountId}
+        AND identity_id = (SELECT id FROM platform_identities WHERE workspace_id = ${ctx.workspaceId} AND integration_account_id = ${ctx.accountId} AND external_user_id = ${ev.userId})`);
+    return;
+  }
   // read / delivery receipts: watermark moves forward only, for a conversation that already exists
   const col = ev.kind === "read" ? sql`contact_read_at` : sql`contact_delivered_at`;
   const at = msToIso(ev.watermarkMs);
@@ -163,7 +179,7 @@ async function applyEvent(tx: Tx, ctx: Ctx, ev: MetaEvent): Promise<void> {
 }
 
 /** Finds or creates identity, contact and conversation for one platform user. Serialised per (account, user) so two events for one thread cannot create two. */
-async function ensureConversation(tx: Tx, ctx: Ctx, userId: string): Promise<{ id: string; contactId: string }> {
+async function ensureConversation(tx: Tx, ctx: Ctx, userId: string, profileName: string | null = null): Promise<{ id: string; contactId: string }> {
   await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${`${ctx.accountId}:${userId}`}, 0))`);
   const find = async () =>
     rowsOf(
@@ -178,13 +194,13 @@ async function ensureConversation(tx: Tx, ctx: Ctx, userId: string): Promise<{ i
   if (!identity) {
     const stage = rowsOf(await tx.execute(sql`SELECT id FROM lifecycle_stages WHERE workspace_id = ${ctx.workspaceId} AND archived_at IS NULL ORDER BY position LIMIT 1`))[0];
     if (!stage) throw new EventError("no_lifecycle_stage");
-    // Placeholder name until profile enrichment exists; deliberately contains no platform-provided text.
+    // Meta channels: placeholder name until profile enrichment exists; deliberately contains no platform-provided text. Telegram sends the name in the update itself (cleaned and bounded by the parser), so it is used directly.
     const label = ({ instagram: "Instagram", whatsapp: "WhatsApp", telegram: "Telegram", email: "Email", web_chat: "Web chat" } as Record<string, string>)[ctx.platform] ?? "Messenger";
     const contact = rowsOf(
-      await tx.execute(sql`INSERT INTO contacts (workspace_id, name, lifecycle_stage_id, source) VALUES (${ctx.workspaceId}, ${`${label} user ${userId.slice(-4)}`}, ${stage.id}, ${ctx.platform}) RETURNING id`),
+      await tx.execute(sql`INSERT INTO contacts (workspace_id, name, lifecycle_stage_id, source) VALUES (${ctx.workspaceId}, ${profileName ?? `${label} user ${userId.slice(-4)}`}, ${stage.id}, ${ctx.platform}) RETURNING id`),
     )[0]!;
     identity = rowsOf(
-      await tx.execute(sql`INSERT INTO platform_identities (workspace_id, integration_account_id, external_user_id, contact_id) VALUES (${ctx.workspaceId}, ${ctx.accountId}, ${userId}, ${contact.id}) RETURNING id, contact_id`),
+      await tx.execute(sql`INSERT INTO platform_identities (workspace_id, integration_account_id, external_user_id, contact_id, profile_name) VALUES (${ctx.workspaceId}, ${ctx.accountId}, ${userId}, ${contact.id}, ${profileName}) RETURNING id, contact_id`),
     )[0]!;
   }
   // The advisory lock above serialises creators; DO NOTHING + re-read keeps the worker's column grants minimal (no UPDATE on identity columns).

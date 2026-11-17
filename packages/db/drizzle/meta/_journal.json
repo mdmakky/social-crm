@@ -253,6 +253,13 @@
       "when": 1794930464234,
       "tag": "0036_channel_platforms",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1794930464235,
+      "tag": "0037_telegram_accounts",
+      "breakpoints": true
     }
   ]
 }

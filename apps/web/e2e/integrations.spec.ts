@@ -23,7 +23,7 @@ test.describe.serial("Integrations option B (mock Meta)", () => {
     await Promise.all([owner?.ctx.close(), outsider?.ctx.close()]);
   });
 
-  test("rail, honest coming-soon channels, mock label @1440", async () => {
+  test("rail, channel panels, mock label @1440", async () => {
     const page = owner.page;
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto(`/w/${wsInt}/integrations`);
@@ -38,9 +38,12 @@ test.describe.serial("Integrations option B (mock Meta)", () => {
     await expect(page.getByText("No WhatsApp account connected")).toBeVisible();
     await expect(page.getByLabel("System user token")).toHaveAttribute("type", "password");
     await expect(page.getByRole("button", { name: "Find numbers" })).toBeEnabled();
+    // Changed with the Telegram channel (MOCK ONLY): Telegram is no longer a disabled "Soon" card; it is a real panel with a token field and a Connect bot button.
     await rail.getByRole("button", { name: /Telegram/ }).click();
-    await expect(page.getByRole("button", { name: "Connect Telegram" })).toBeDisabled();
-    await expect(page.getByText("Not available yet.")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Telegram", level: 2 })).toBeVisible();
+    await expect(page.getByText("No Telegram account connected")).toBeVisible();
+    await expect(page.getByLabel("Bot token")).toHaveAttribute("type", "password");
+    await expect(page.getByRole("button", { name: "Connect bot" })).toBeEnabled();
     await rail.getByRole("button", { name: /Instagram/ }).click();
     await expect(page.getByText("No Instagram account connected")).toBeVisible();
     await expect(page.getByText("Not tested live", { exact: true })).toBeVisible();

@@ -5,7 +5,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { ConnectMetaBody, MESSENGER_WEBHOOK_FIELDS, MetaCallbackQuery, type ConnectMetaResult, type IntegrationAccountDto } from "@crm/contracts";
 import { can } from "@crm/core/permissions";
 import { schema, withContext, type Db, type Tx } from "@crm/db";
-import { GraphError, type GraphPage, type MetaGraph, type SecretBox } from "@crm/integrations";
+import { GraphError, type GraphPage, type MetaGraph, type SecretBox, type TelegramClient } from "@crm/integrations";
 import { writeAudit } from "../audit.ts";
 import { actor, body, fail, wctx, type SC, type ScopedEnv } from "../routes/scope.ts";
 import type { Vars } from "../routes/workspaces.ts";
@@ -25,6 +25,10 @@ export type MetaConnectDeps = {
   /** Direct Instagram connection (Unified Login). */
   igUnified?: InstagramUnifiedDeps;
   graph: MetaGraph;
+  /** Telegram Bot API client (the mock client under META_MOCK). Absent: the Telegram routes answer 503. */
+  telegram?: TelegramClient;
+  /** Public https base of this API, where Telegram posts (webhook URL = base + /webhooks/telegram/<path id>). */
+  publicBaseUrl?: string;
   box: SecretBox;
   /** Pool connected as crm_worker. The application role cannot create accounts or read secrets (migration 0018); this process sets the workspace context itself, after the user's role check. */
   workerDb: Db;
@@ -80,7 +84,7 @@ export const dto = (a: typeof schema.integrationAccounts.$inferSelect): Integrat
 });
 
 /** Creates or reconnects one account and stores a new encrypted token version (older versions are deleted). Runs inside a worker transaction with the workspace context set. */
-export async function upsertAccount(tx: Tx, deps: MetaConnectDeps, a: { workspaceId: string; userId: string; platform: "messenger" | "instagram" | "whatsapp"; externalId: string; displayName: string; token: string; expiresAt: Date | null; metaUserHash: string | null; tasksUnverified: boolean; authMethod?: "facebook" | "unified" }) {
+export async function upsertAccount(tx: Tx, deps: MetaConnectDeps, a: { workspaceId: string; userId: string; platform: "messenger" | "instagram" | "whatsapp" | "telegram"; externalId: string; displayName: string; token: string; expiresAt: Date | null; metaUserHash: string | null; tasksUnverified: boolean; authMethod?: "facebook" | "unified" }) {
   const authMethod = a.authMethod ?? "facebook";
   const found = async () => rowsOf(await tx.execute(sql`SELECT id, workspace_id FROM integration_accounts WHERE platform = ${a.platform} AND external_account_id = ${a.externalId}`))[0];
   let row = await found();
@@ -191,7 +195,7 @@ export async function checkAccountToken(deps: MetaConnectDeps, workspaceId: stri
 
 /** Background job: check every connected account whose last check is older than maxAgeHours. */
 export async function runTokenChecks(deps: MetaConnectDeps, maxAgeHours = 24): Promise<number> {
-  const due = rowsOf(await deps.workerDb.execute(sql`SELECT id, workspace_id FROM integration_accounts WHERE status = 'connected' AND (last_token_check_at IS NULL OR last_token_check_at < now() - make_interval(hours => ${maxAgeHours})) LIMIT 100`));
+  const due = rowsOf(await deps.workerDb.execute(sql`SELECT id, workspace_id FROM integration_accounts WHERE status = 'connected' AND platform IN ('messenger','instagram','whatsapp') AND (last_token_check_at IS NULL OR last_token_check_at < now() - make_interval(hours => ${maxAgeHours})) LIMIT 100`));
   let n = 0;
   for (const r of due) if (await checkAccountToken(deps, r.workspace_id as string, r.id as string, null).catch(() => false)) n++;
   return n;
@@ -299,13 +303,18 @@ function scopedRoutes(db: Db, deps: MetaConnectDeps | undefined, pending: Pendin
       const token = await withContext(deps.workerDb, wctx(c), (tx) => loadToken(tx, deps, a.workspaceId, a.id));
       if (token) await deps.graph.unsubscribePage(a.externalAccountId, token).catch(() => false);
     }
+    // Telegram: remove the webhook first, best effort (the bot token is dropped below either way). No transaction is open while Telegram answers.
+    if (a.platform === "telegram" && deps.telegram) {
+      const token = await withContext(deps.workerDb, wctx(c), (tx) => loadToken(tx, deps, a.workspaceId, a.id));
+      if (token) await deps.telegram.deleteWebhook(token).catch(() => undefined);
+    }
     await withContext(deps.workerDb, wctx(c), async (tx) => {
       await tx.execute(sql`SELECT 1 FROM integration_accounts WHERE id = ${a.id} AND workspace_id = ${a.workspaceId} FOR UPDATE`); // a reconnect racing this disconnect waits here, so it cannot leave a disabled row holding a fresh token
       await tx.execute(sql`DELETE FROM integration_secrets WHERE integration_account_id = ${a.id} AND workspace_id = ${a.workspaceId}`);
       await tx.execute(sql`UPDATE integration_accounts SET status = 'disabled', version = version + 1, updated_at = now() WHERE id = ${a.id} AND workspace_id = ${a.workspaceId}`);
       await eventSql(tx, a.workspaceId, a.id, "disconnected", c.get("userId"), { platform: a.platform });
     });
-    await auditIt(c, "integration.meta.disconnected", a.id, { platform: a.platform, externalAccountId: a.externalAccountId });
+    await auditIt(c, a.platform === "telegram" ? "integration.telegram.disconnected" : "integration.meta.disconnected", a.id, { platform: a.platform, externalAccountId: a.externalAccountId });
     return c.json({ ok: true as const });
   });
 
@@ -314,6 +323,7 @@ function scopedRoutes(db: Db, deps: MetaConnectDeps | undefined, pending: Pendin
     if (!deps) return notConfigured(c);
     const a = await ownAccount(c, c.req.param("accountId") ?? "");
     if (!a) return fail(c, 404, "not_found");
+    if (a.platform === "telegram") return fail(c, 422, "unsupported_channel", "Use the connection check for Telegram bots.");
     if (!(await checkAccountToken(deps, a.workspaceId, a.id, c.get("userId")))) return fail(c, 502, "meta_unavailable", "Meta could not be reached. Try again later.");
     return c.json(dto((await ownAccount(c, a.id))!));
   });
@@ -330,6 +340,8 @@ function scopedRoutes(db: Db, deps: MetaConnectDeps | undefined, pending: Pendin
       if (kind === "disconnected") return "Disconnected";
       if (kind === "token_checked") return "Token checked: valid";
       if (kind === "status_changed") {
+        if (d.webhook === "set") return "Telegram webhook set";
+        if (d.webhook === "failed") return "Telegram webhook was not accepted";
         if (d.subscription === "subscribed") return "Webhook subscribed";
         if (d.subscription === "failed") return "Webhook subscription failed";
         if (d.subscription === "dashboard_required") return "Webhook fields must be enabled in the Meta dashboard";
@@ -348,6 +360,7 @@ function scopedRoutes(db: Db, deps: MetaConnectDeps | undefined, pending: Pendin
     if (!deps) return notConfigured(c);
     const a = await ownAccount(c, c.req.param("accountId") ?? "");
     if (!a || a.status === "disabled") return fail(c, 404, "not_found");
+    if (a.platform === "telegram") return fail(c, 422, "unsupported_channel", "Connect the bot again to reset its webhook.");
     const { token, waba } = await withContext(deps.workerDb, wctx(c), async (tx) => ({ token: await loadToken(tx, deps, a.workspaceId, a.id), waba: a.platform === "whatsapp" ? await wabaOf(tx, a.workspaceId, a.id) : undefined }));
     const sub = !token ? { state: "failed" as SubState, code: null } : a.platform === "whatsapp" ? await subscribeWhatsAppAccount(deps, waba, token) : a.authMethod === "unified" ? await subscribeInstagramAccount(deps, a.externalAccountId, token) : await subscribe(deps, a.platform, a.externalAccountId, token); // Graph call: no transaction open
     await withContext(deps.workerDb, wctx(c), async (tx) => {

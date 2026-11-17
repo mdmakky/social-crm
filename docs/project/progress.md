@@ -94,3 +94,6 @@ UI cleanup (2026-11-17, branch `feat/ui-cleanup` from `feat/settings-ia`, local 
 
 
 Channels foundation (branch `feat/channels-foundation`, local only: not pushed, not merged): `telegram`, `email` and `web_chat` are accepted as platform and contact source (migration 0036, contracts, labels, icons). No channel behaviour exists yet; see D220.
+
+## Telegram support inbox v1 (2026-11-17, branch `feat/telegram` from `feat/channels-foundation`; local only: not pushed, not merged, not deployed; MOCK ONLY)
+Telegram works end to end against an in-memory mock: paste a bot token, connect (getMe, sealed token, webhook set with a random path and secret), receive private messages through `/webhooks/telegram/<id>`, see them in the Inbox, reply with plain text, see failures (blocked, rate limited, expired token) in plain words, check the webhook health, disconnect. Migration 0037 (`telegram_accounts`, ingest lookup function, dedupe index, `conversations.contact_unreachable_at`). **No request has ever reached Telegram**; the real client is untested live and everything marked UNVERIFIED in `docs/integrations/telegram.md` stays so. Decisions D230-D239.

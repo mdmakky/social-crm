@@ -1,11 +1,13 @@
 /** A media reference. `url` is only ever a public https link (Messenger, Instagram). WhatsApp media is not public: only its id is kept here (url stays null), to be downloaded later with the account token. */
-export type MetaAttachment = { type: string; url: string | null; mediaId?: string; mime?: string; name?: string };
+export type MetaAttachment = { type: string; url: string | null; mediaId?: string; mime?: string; name?: string; /** Telegram file_id: metadata only, never downloaded and never turned into a URL (a Telegram file URL embeds the bot token) */ fileId?: string };
 export type MetaEvent =
-  | { kind: "message"; mid: string; senderId: string; recipientId: string; timestampMs: number; text: string | null; attachments: MetaAttachment[]; isEcho: boolean }
+  | { kind: "message"; mid: string; senderId: string; recipientId: string; timestampMs: number; text: string | null; attachments: MetaAttachment[]; isEcho: boolean; /** Telegram: display name from the update (first and last name, else username) */ profileName?: string | null }
   /** WhatsApp status of a message WE sent (matched by message id): only delivered and read are used, the rest is ignored. */
   | { kind: "status"; mid: string; status: "delivered" | "read"; userId: string; timestampMs: number }
   | { kind: "read"; userId: string; watermarkMs: number }
   | { kind: "delivery"; userId: string; watermarkMs: number }
+  /** Telegram: the person blocked (unreachable) or unblocked the bot (my_chat_member). */
+  | { kind: "reachability"; userId: string; unreachable: boolean; timestampMs: number }
   | { kind: "ignored"; reason: string };
 export type ParsedEntry = { accountId: string; raw: unknown; events: MetaEvent[] };
 export type ParseResult =
