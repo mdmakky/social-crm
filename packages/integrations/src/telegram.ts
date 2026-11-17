@@ -24,7 +24,7 @@ export class TelegramError extends Error {
   }
 }
 
-/** A sendMessage failure. `reason` is the code stored on the message. `rejected` = Telegram refused (nothing delivered); `ambiguous` = may have been delivered (never retried). Extends SendError so the shared send pipeline handles it. */
+/** A sendMessage failure. `reason` is the code stored on the message (telegram_* so the inbox words them for Telegram, not Meta). `rejected` = Telegram refused (nothing delivered); `ambiguous` = may have been delivered (never retried). Extends SendError so the shared send pipeline handles it. */
 export class TelegramSendError extends SendError {
   constructor(outcome: "rejected" | "ambiguous", httpStatus: number | null, code: number | null, readonly reason: string, readonly retryAfter: number | null = null) {
     super(outcome, httpStatus, code, null);
@@ -45,10 +45,10 @@ const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object
 /** Maps a failed sendMessage to a stored reason. 403 (bot blocked / user deactivated) and 400 "chat not found" mean the person cannot be reached: the wording is UNVERIFIED, so it is matched loosely and everything else is a generic refusal. */
 export function classifyTelegramSend(status: number | null, code: number | null, description: string | null, retryAfter: number | null): TelegramSendError {
   if (status === null || status >= 500 || code === null) return new TelegramSendError("ambiguous", status, code, status === null ? "no_response" : "unreadable_response");
-  if (code === 429 || status === 429) return new TelegramSendError("rejected", status, 429, "rate_limited", retryAfter);
-  if (code === 401) return new TelegramSendError("rejected", status, code, "token_invalid");
+  if (code === 429 || status === 429) return new TelegramSendError("rejected", status, 429, "telegram_rate_limited", retryAfter);
+  if (code === 401) return new TelegramSendError("rejected", status, code, "telegram_token_invalid");
   if (code === 403 || (code === 400 && /chat not found|user is deactivated/i.test(description ?? ""))) return new TelegramSendError("rejected", status, code, "not_reachable");
-  return new TelegramSendError("rejected", status, code, "invalid_request");
+  return new TelegramSendError("rejected", status, code, "telegram_rejected");
 }
 
 export function createTelegramClient(cfg: { fetch?: typeof fetch; baseUrl?: string; timeoutMs?: number } = {}): TelegramClient {

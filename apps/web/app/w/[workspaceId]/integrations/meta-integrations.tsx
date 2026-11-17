@@ -1,7 +1,7 @@
 "use client";
 import * as React from "react";
 import { Camera, ChevronLeft, MessageCircle, Phone, Plug, RefreshCw, Send, Trash2, type LucideIcon } from "lucide-react";
-import { endpoints, MESSENGER_WEBHOOK_FIELDS, type ConnectMetaResult, type ConnectWhatsAppResult, type IntegrationAccountDto, type MetaAccountEvents, type MetaIntegrationState, type MetaPendingList } from "@crm/contracts";
+import { endpoints, MESSENGER_WEBHOOK_FIELDS, type ConnectMetaResult, type ConnectTelegramResult, type ConnectWhatsAppResult, type IntegrationAccountDto, type MetaAccountEvents, type MetaIntegrationState, type MetaPendingList, type TelegramHealth } from "@crm/contracts";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/form-controls";
@@ -12,17 +12,18 @@ import { Alert, EmptyState, ErrorState } from "@/components/ui/states";
 import { ToastProvider, useToast } from "@/components/ui/toast";
 import { browserApi, errorMessage } from "@/lib/client-api";
 import { cn } from "@/lib/cn";
+import { TelegramConnect } from "./telegram-connect";
 import { WhatsAppConnect } from "./whatsapp-connect";
 
 type ChannelKey = "messenger" | "instagram" | "whatsapp" | "telegram";
-type Channel = { key: ChannelKey; label: string; blurb: string; icon: LucideIcon; platform?: "messenger" | "instagram" | "whatsapp"; soon?: string };
+type Channel = { key: ChannelKey; label: string; blurb: string; icon: LucideIcon; platform?: "messenger" | "instagram" | "whatsapp" | "telegram"; soon?: string };
 
 /** One entry per channel. A channel without `platform` is not built: it is listed honestly as coming soon, with the reason. */
 export const CHANNELS: Channel[] = [
   { key: "messenger", label: "Messenger", blurb: "Messages sent to your Facebook Pages.", icon: MessageCircle, platform: "messenger" },
   { key: "instagram", label: "Instagram", blurb: "Direct messages to your professional account.", icon: Camera, platform: "instagram" },
   { key: "whatsapp", label: "WhatsApp", blurb: "Messages to your WhatsApp Business number. Receive only.", icon: Phone, platform: "whatsapp" },
-  { key: "telegram", label: "Telegram", blurb: "Bot messaging.", icon: Send, soon: "Not available yet." },
+  { key: "telegram", label: "Telegram", blurb: "Messages to your Telegram bot. You can reply to people who wrote first.", icon: Send, platform: "telegram" },
 ];
 const isChannel = (v: string | undefined): v is ChannelKey => CHANNELS.some((c) => c.key === v);
 
@@ -70,6 +71,7 @@ function Inner({ workspaceId, canManage, initial, result, channel: initialChanne
   // `selected` is what the detail pane shows. null on a phone means "show the channel list"; from md up the rail is always visible and falls back to Messenger.
   const [selected, setSelected] = React.useState<ChannelKey | null>(isChannel(initialChannel) ? initialChannel : result ? "messenger" : null);
   const [events, setEvents] = React.useState<Record<string, MetaAccountEvents["items"] | "error">>({});
+  const [health, setHealth] = React.useState<Record<string, TelegramHealth | "error">>({});
   const [resub, setResub] = React.useState<Record<string, keyof typeof SUBSCRIPTION>>({});
   const active = CHANNELS.find((c) => c.key === (selected ?? "messenger"))!;
 
@@ -163,6 +165,18 @@ function Inner({ workspaceId, canManage, initial, result, channel: initialChanne
     await reload();
   }
 
+  async function tgConnected(r: ConnectTelegramResult) {
+    toast(r.webhook === "set" ? (r.reconnected ? "Telegram bot reconnected" : "Telegram bot connected") : "Connected, but Telegram did not accept the webhook. Connect the bot again to retry.", r.webhook === "set" ? "success" : "error");
+    await reload();
+  }
+  async function checkHealth(a: IntegrationAccountDto) {
+    setBusy(`health:${a.id}`);
+    const r = await browserApi.call(endpoints.telegramHealth, { params: { ...params, accountId: a.id } });
+    setBusy(null);
+    if (!r.ok) { setHealth((h) => ({ ...h, [a.id]: "error" })); toast(errorMessage(r.error), "error"); return; }
+    setHealth((h) => ({ ...h, [a.id]: r.data }));
+  }
+
   async function waConnected(r: ConnectWhatsAppResult) {
     toast(r.subscription === "subscribed" ? (r.reconnected ? "WhatsApp number reconnected" : "WhatsApp number connected") : "Connected, but the webhook was not accepted. Use Re-check subscription.", r.subscription === "subscribed" ? "success" : "error");
     await reload();
@@ -190,7 +204,7 @@ function Inner({ workspaceId, canManage, initial, result, channel: initialChanne
       </div>
     </div>
   );
-  const live = (platform: "messenger" | "instagram" | "whatsapp") => data.accounts.filter((a) => a.platform === platform && a.status !== "disabled");
+  const live = (platform: "messenger" | "instagram" | "whatsapp" | "telegram") => data.accounts.filter((a) => a.platform === platform && a.status !== "disabled");
   const railState = (c: Channel): { sub: string; dot: "ok" | "warn" | "idle" | "soon" } => {
     if (!c.platform) return { sub: "Coming soon", dot: "soon" };
     const l = live(c.platform);
@@ -201,7 +215,7 @@ function Inner({ workspaceId, canManage, initial, result, channel: initialChanne
 
   return (
     <div className="flex flex-col gap-4">
-      {data.mock && <div><Tooltip label="Mock mode: nothing is sent to Meta." side="bottom"><span><Badge tone="warning">MOCK</Badge></span></Tooltip></div>}
+      {data.mock && <div><Tooltip label="Mock mode: nothing is sent to Meta or Telegram." side="bottom"><span><Badge tone="warning">MOCK</Badge></span></Tooltip></div>}
       {!data.configured && <Alert tone="warning">Meta is not configured on this server.</Alert>}
       {banner && <Alert tone={banner.tone}>{banner.text}</Alert>}
       {reason && <p id="meta-reason" className="sr-only">{reason}</p>}
@@ -280,21 +294,26 @@ function Inner({ workspaceId, canManage, initial, result, channel: initialChanne
                   <h3 id="accts" className="px-4 pt-4 text-sm font-semibold text-fg">{active.platform === "messenger" ? "Connected Pages" : "Connected accounts"}</h3>
                   {shown.length === 0 ? (
                     <EmptyState icon={active.icon} title={`No ${active.label} account connected`}
-                      description={active.platform === "whatsapp" ? "Connect a number with the form below." : active.platform === "messenger" ? "Connect a Facebook Page to receive its messages." : "Connect an account below."}
-                      action={active.platform === "instagram" || active.platform === "whatsapp" ? undefined : connectBtn("Connect with Meta")} />
+                      description={active.platform === "telegram" ? "Paste a bot token below." : active.platform === "whatsapp" ? "Connect a number with the form below." : active.platform === "messenger" ? "Connect a Facebook Page to receive its messages." : "Connect an account below."}
+                      action={active.platform === "instagram" || active.platform === "whatsapp" || active.platform === "telegram" ? undefined : connectBtn("Connect with Meta")} />
                   ) : (
                     <ul className="flex flex-col divide-y divide-line-card">
                       {shown.map((a) => (
                         <li key={a.id} className="flex flex-col gap-3 p-4 lg:flex-row lg:items-center lg:justify-between">
                           <div className="min-w-0">
                             <div className="flex flex-wrap items-center gap-2"><span className="truncate font-medium">{a.displayName ?? a.externalAccountId}</span><Badge tone={STATUS[a.status].tone}>{STATUS[a.status].label}</Badge>{a.platform === "instagram" && <Badge shape="square">{a.authMethod === "unified" ? "Direct · no Page" : "Via Facebook Page"}</Badge>}</div>
-                            <p className="mt-1 text-sm text-fg-muted">ID {a.externalAccountId} · Last token check: <LocalTime iso={a.lastTokenCheckAt} /></p>
-                            {a.status === "reauth_required" && <p className="mt-2 rounded-control bg-warning-bg px-3 py-2 text-sm text-warning-fg">Meta stopped accepting this connection. {a.platform === "whatsapp" ? "Connect the number again with a new token." : "Reconnect to resume."}</p>}
+                            {a.platform === "telegram" ? (
+                              <>
+                                <p className="mt-1 text-sm text-fg-muted">Bot ID {a.externalAccountId}</p>
+                                {health[a.id] && (health[a.id] === "error" ? <p className="mt-1 text-sm text-fg-subtle">The connection could not be checked.</p> : (() => { const hh = health[a.id] as TelegramHealth; return <p className="mt-1 text-sm text-fg-muted">{hh.webhookSet ? "Webhook set." : "Webhook missing. Connect the bot again."} {hh.pendingUpdateCount} waiting.{hh.lastErrorMessage ? ` Last error: ${hh.lastErrorMessage}` : ""}</p>; })())}
+                              </>
+                            ) : <p className="mt-1 text-sm text-fg-muted">ID {a.externalAccountId} · Last token check: <LocalTime iso={a.lastTokenCheckAt} /></p>}
+                            {a.status === "reauth_required" && <p className="mt-2 rounded-control bg-warning-bg px-3 py-2 text-sm text-warning-fg">{a.platform === "telegram" ? "Telegram stopped accepting this connection." : "Meta stopped accepting this connection."} {a.platform === "telegram" ? "Connect the bot again with its token." : a.platform === "whatsapp" ? "Connect the number again with a new token." : "Reconnect to resume."}</p>}
                           </div>
                           {canManage && (
                             <div className="flex flex-wrap gap-2">
-                              {a.status !== "disabled" && <Button size="sm" loading={busy === a.id} onClick={() => void checkToken(a)}><RefreshCw className="size-4" aria-hidden />Check token</Button>}
-                              {a.status !== "connected" && a.platform !== "whatsapp" && <Button size="sm" variant={a.status === "reauth_required" ? "primary" : "secondary"} disabled={!data.configured} loading={busy === (a.authMethod === "unified" ? "ig-connect" : "connect")} onClick={() => void (a.authMethod === "unified" ? startInstagramUnified() : startConnect())}>Reconnect</Button>}
+                              {a.status !== "disabled" && (a.platform === "telegram" ? <Button size="sm" loading={busy === `health:${a.id}`} onClick={() => void checkHealth(a)}><RefreshCw className="size-4" aria-hidden />Check connection</Button> : <Button size="sm" loading={busy === a.id} onClick={() => void checkToken(a)}><RefreshCw className="size-4" aria-hidden />Check token</Button>)}
+                              {a.status !== "connected" && a.platform !== "whatsapp" && a.platform !== "telegram" && <Button size="sm" variant={a.status === "reauth_required" ? "primary" : "secondary"} disabled={!data.configured} loading={busy === (a.authMethod === "unified" ? "ig-connect" : "connect")} onClick={() => void (a.authMethod === "unified" ? startInstagramUnified() : startConnect())}>Reconnect</Button>}
                               {a.status !== "disabled" && <Button size="sm" variant="danger" onClick={(e) => { opener.current = e.currentTarget; setConfirm(a); }}><Trash2 className="size-4" aria-hidden />Disconnect</Button>}
                             </div>
                           )}
@@ -318,7 +337,14 @@ function Inner({ workspaceId, canManage, initial, result, channel: initialChanne
                   </section>
                 )}
 
-                <section aria-labelledby="wh" className="border-b border-line-card p-4">
+                {active.platform === "telegram" && (
+                  <section aria-labelledby="tgc" className="border-b border-line-card p-4">
+                    <h3 id="tgc" className="mb-3 text-sm font-semibold text-fg">{live("telegram").length ? "Connect another bot, or reconnect one" : "Connect a Telegram bot"}</h3>
+                    <TelegramConnect workspaceId={workspaceId} mock={data.mock} disabledReason={reason} onConnected={tgConnected} />
+                  </section>
+                )}
+
+                {active.platform !== "telegram" && <section aria-labelledby="wh" className="border-b border-line-card p-4">
                   <h3 id="wh" className="text-sm font-semibold text-fg">Webhook subscription</h3>
                   {active.platform === "whatsapp" ? (
                     <>
@@ -354,7 +380,7 @@ function Inner({ workspaceId, canManage, initial, result, channel: initialChanne
                       ))}
                     </>
                   )}
-                </section>
+                </section>}
 
                 {canManage && shown.length > 0 && (
                   <section aria-labelledby="act" className="p-4">

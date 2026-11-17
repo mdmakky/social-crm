@@ -62,6 +62,10 @@ export function failureText(code: string | null): string {
     case "window_closed": return "Meta says the 24-hour reply window has closed. You can reply after the person writes again.";
     case "channel_access": return "Meta blocked this send. Check that the Instagram account still allows access to messages for connected tools, then reconnect it in Settings > Integrations.";
     case "thread_owned_elsewhere": return "Another app is handling this conversation, so Meta refused the reply.";
+    case "not_reachable": return "Telegram says this person can't be reached (they may have blocked the bot).";
+    case "telegram_rate_limited": return "Telegram is limiting this bot for the moment. Wait a little and try again.";
+    case "telegram_token_invalid": return "The bot connection has expired. Reconnect it in Settings > Integrations.";
+    case "telegram_rejected": return "Telegram did not accept this message.";
     case "marked_not_sent": return "You marked this message as not sent.";
     case "file_missing": return "The file could not be found in storage, so nothing was sent.";
     default: return "Meta did not accept this message.";

@@ -340,6 +340,8 @@ function scopedRoutes(db: Db, deps: MetaConnectDeps | undefined, pending: Pendin
       if (kind === "disconnected") return "Disconnected";
       if (kind === "token_checked") return "Token checked: valid";
       if (kind === "status_changed") {
+        if (d.webhook === "set") return "Telegram webhook set";
+        if (d.webhook === "failed") return "Telegram webhook was not accepted";
         if (d.subscription === "subscribed") return "Webhook subscribed";
         if (d.subscription === "failed") return "Webhook subscription failed";
         if (d.subscription === "dashboard_required") return "Webhook fields must be enabled in the Meta dashboard";

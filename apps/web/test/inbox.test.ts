@@ -46,7 +46,7 @@ describe("composer helpers", () => {
     expect(isSendKey(key({ isComposing: true }))).toBe(false);
   });
   it("failure reasons are sentences, never raw codes or Meta text", () => {
-    for (const c of ["recipient_unavailable", "rate_limited", "token_invalid", "token_unavailable", "permission_denied", "invalid_request", "marked_not_sent", "meta_error_999", null]) {
+    for (const c of ["recipient_unavailable", "rate_limited", "token_invalid", "token_unavailable", "permission_denied", "invalid_request", "marked_not_sent", "not_reachable", "telegram_rate_limited", "telegram_token_invalid", "telegram_rejected", "meta_error_999", null]) {
       expect(failureText(c)).toMatch(/\.$/);
       expect(failureText(c)).not.toMatch(/meta_error|_/);
     }

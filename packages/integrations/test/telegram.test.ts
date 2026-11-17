@@ -92,15 +92,15 @@ describe("sendMessage failure mapping (fake responses only)", () => {
     expect(calls[0]!.url).toBe("http://tg.test/botTOKEN/sendMessage");
     expect(calls[0]!.body).toEqual({ chat_id: 555, text: "a *b*" });
   });
-  it("429 is a rejected, rate_limited failure that keeps retry_after", async () => {
+  it("429 is a rejected, telegram_rate_limited failure that keeps retry_after", async () => {
     const { err } = await send(429, { ok: false, error_code: 429, description: "Too Many Requests: retry after 17", parameters: { retry_after: 17 } });
-    expect(err).toMatchObject({ outcome: "rejected", reason: "rate_limited", retryAfter: 17, httpStatus: 429 });
+    expect(err).toMatchObject({ outcome: "rejected", reason: "telegram_rate_limited", retryAfter: 17, httpStatus: 429 });
   });
-  it("403 and 400 chat not found are not_reachable; other 400 is invalid_request; 401 is token_invalid", async () => {
+  it("403 and 400 chat not found are not_reachable; other 400 is telegram_rejected; 401 is telegram_token_invalid", async () => {
     expect((await send(403, { ok: false, error_code: 403, description: "Forbidden: bot was blocked by the user" })).err).toMatchObject({ outcome: "rejected", reason: "not_reachable" });
     expect((await send(400, { ok: false, error_code: 400, description: "Bad Request: chat not found" })).err).toMatchObject({ reason: "not_reachable" });
-    expect((await send(400, { ok: false, error_code: 400, description: "Bad Request: message is too long" })).err).toMatchObject({ reason: "invalid_request" });
-    expect((await send(401, { ok: false, error_code: 401, description: "Unauthorized" })).err).toMatchObject({ reason: "token_invalid" });
+    expect((await send(400, { ok: false, error_code: 400, description: "Bad Request: message is too long" })).err).toMatchObject({ reason: "telegram_rejected" });
+    expect((await send(401, { ok: false, error_code: 401, description: "Unauthorized" })).err).toMatchObject({ reason: "telegram_token_invalid" });
   });
   it("5xx, a network failure and an unreadable 200 are ambiguous (never retried, never shown as failed)", async () => {
     expect((await send(502, { ok: false })).err).toMatchObject({ outcome: "ambiguous" });

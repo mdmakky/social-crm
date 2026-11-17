@@ -277,12 +277,12 @@ describe("reply", () => {
     expect(violations).toEqual([]);
   });
 
-  it("429 becomes a failed message coded rate_limited with retry_after kept on the attempt; nothing is retried", async () => {
+  it("429 becomes a failed message coded telegram_rate_limited with retry_after kept on the attempt; nothing is retried", async () => {
     const c = await chat();
     let n = 0;
-    withClient({ sendMessage: async () => { n++; throw new TelegramSendError("rejected", 429, 429, "rate_limited", 17); } });
+    withClient({ sendMessage: async () => { n++; throw new TelegramSendError("rejected", 429, 429, "telegram_rate_limited", 17); } });
     const { message } = await (await call(owner, "POST", SEND(ws, c.conv), { clientMsgId: uuid(), body: "too fast" })).json();
-    expect(message).toMatchObject({ deliveryState: "failed", failureCode: "rate_limited" });
+    expect(message).toMatchObject({ deliveryState: "failed", failureCode: "telegram_rate_limited" });
     expect(n).toBe(1);
     const [a] = await q("SELECT outcome, http_status, platform_error_code FROM outbound_attempts WHERE message_id=$1", [message.id]);
     expect(a).toMatchObject({ outcome: "rejected", http_status: 429, platform_error_code: "429/retry_after_17" });
