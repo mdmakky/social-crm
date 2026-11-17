@@ -232,3 +232,28 @@ Updated: 2026-11-13 (Phase 0).
 - Meta webhooks: the callback URL and fields (Instagram via a Page, WhatsApp `messages`) are set once in the Meta app dashboard; real delivery is unverified until the first real message arrives.
 - Conversions API is mock only: events are checked and recorded, nothing is sent to Meta, and a real accepted request would not mean Meta counted a conversion. Only Purchase is created today.
 - WhatsApp is receive only. Free-form replies are limited to 24 hours after the customer's last message; templates are not available.
+
+## Telegram (MOCK ONLY, `feat/telegram`)
+- Never run against Telegram: the real `createTelegramClient`, the webhook secret header, `allowed_updates`, error wording (403, 400 chat not found, 429 `retry_after`) and the "no 24 hour window" and "a bot cannot start a chat" rules are UNVERIFIED. The UI says "Not tested live".
+- Text only. Photos, files, voice and stickers arrive as a placeholder (metadata kept, never downloaded, never a URL); replies cannot carry files. Private chats only; groups, channels and edited messages are ignored.
+- Replies are plain text, at most 2000 characters (Telegram allows 4096). A 429 is shown as "not sent" and is not retried; per-chat pacing is not enforced.
+- A bot cannot start a chat: there is no "new message" to a person who has not written first.
+- The webhook needs a public https address (`META_PUBLIC_BASE_URL`); without it connecting answers `public_url_required` outside mock mode. Telegram ports allowed: 443, 80, 88, 8443.
+- A bot connected to one workspace cannot be connected to another until it is disconnected there and released.
+
+## Website chat (2026-11-17, `feat/web-chat`)
+- Tested only against our own local servers. Not tried on a real third-party site, a strict host-page CSP, ad blockers, page builders, Safari/Firefox or phones. The settings page says "Not tested on real sites".
+- The origin allowlist is not authentication: `Origin` and `X-Widget-Host` are client supplied, so a script outside a browser can claim an allowed origin. Browsers are stopped (CORS and per-widget `frame-ancestors`); scripts are limited only by the rate limits, which are in-process (one API instance) and keyed on `x-forwarded-for`, which is only as trustworthy as the host in front of the API.
+- Firefox has no `location.ancestorOrigins`, so there the widget uses the loader's `?host=` (client supplied). Safari and other browsers that partition or clear third-party iframe storage may lose the visitor's token and start a new conversation on each visit (UNVERIFIED).
+- Polling: new messages take up to 3 s to appear (15 s when the tab is hidden); no typing indicator, no read receipts, no push.
+- Text only, both directions. No business hours, no visitor identity verification, no CAPTCHA, no purge of expired sessions (rows stay).
+- Agents appear to visitors as "Support" (no names). Replies show as `sent` once stored, not when read.
+- Replying needs the worker database URL on the API (same as Meta): without `DATABASE_URL_WORKER` the widget routes are not mounted and creating widgets answers 503.
+- An agent who replies to a conversation of a widget that was later turned off still sends; the visitor cannot read it while the widget is off.
+
+## Email channel (2026-11-17, MOCK only)
+- Not tested live: no request to Mailgun has ever been made. The SPF/DKIM verdict field names, the events webhook shape, custom Message-Id handling, MX/SPF values and the route expression are UNVERIFIED (docs/integrations/email.md).
+- Attachments are not stored (names and sizes only) and inbound mail whose webhook body exceeds 1 MB is refused. Outbound attachments are not available. HTML is never shown.
+- Senders that fail the SPF/DKIM check (or lack DKIM) are shown as Unverified sender and cannot be replied to. The check also needs envelope and From domains to match, so mail sent through third-party senders may be marked unverified.
+- One support address per workspace; one conversation per sender. Orphaned events (disabled account) are not re-queued when email is turned on again. "Check setup" is canned in mock and not built for Mailgun. Replay protection and flood limits are in process (one API instance).
+- Contact methods of source email cannot be corrected or deleted by people yet (same gap as D220: migration 0023 policies list only messenger and instagram).

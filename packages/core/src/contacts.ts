@@ -1,6 +1,6 @@
 import { parse } from "csv-parse/sync";
 
-export const CONTACT_SOURCES = ["manual", "import", "messenger", "instagram", "whatsapp", "facebook_lead_ad", "web_form", "referral", "other"] as const;
+export const CONTACT_SOURCES = ["manual", "import", "messenger", "instagram", "whatsapp", "telegram", "email", "web_chat", "facebook_lead_ad", "web_form", "referral", "other"] as const;
 export const IMPORT_LIMITS = { maxBytes: 5 * 1024 * 1024, maxRows: 5000, maxColumns: 50 } as const;
 
 /** Length is checked BEFORE any pattern runs, and the pattern has no overlapping quantifiers, so cost is linear (security review B1). */

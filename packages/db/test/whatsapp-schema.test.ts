@@ -40,8 +40,8 @@ describe("whatsapp platform", () => {
   it("is accepted by accounts and webhook events, and other platforms are still rejected", async () => {
     expect(waA).toMatch(/^[0-9a-f-]{36}$/);
     await root.query(`INSERT INTO webhook_events(platform,signature_valid,raw_body,body_sha256,body_size,account_ref,status) VALUES ('whatsapp',true,'\\x7b7d',decode(repeat('ab',32),'hex'),2,$1,'received')`, [num()]);
-    await expect(acct(A, "telegram")).rejects.toThrow(/integration_accounts_platform/);
-    await expect(root.query(`INSERT INTO webhook_events(platform,signature_valid,raw_body,body_sha256,body_size,status) VALUES ('telegram',true,'\\x7b7d',decode(repeat('ab',32),'hex'),2,'received')`)).rejects.toThrow(/webhook_events_platform/);
+    await expect(acct(A, "tiktok")).rejects.toThrow(/integration_accounts_platform/);
+    await expect(root.query(`INSERT INTO webhook_events(platform,signature_valid,raw_body,body_sha256,body_size,status) VALUES ('tiktok',true,'\\x7b7d',decode(repeat('ab',32),'hex'),2,'received')`)).rejects.toThrow(/webhook_events_platform/);
   });
   it("lets the worker create WhatsApp contacts and detected methods, and still guards placeholder names", async () => {
     const stage = (await root.query(`INSERT INTO lifecycle_stages(workspace_id,name,position) VALUES ($1,'New',0) RETURNING id`, [A])).rows[0].id;
@@ -49,7 +49,7 @@ describe("whatsapp platform", () => {
     await q(worker, ctx(undefined, A), sql`UPDATE contacts SET name = 'Real Name', version = version + 1 WHERE id = ${c}`); // placeholder: allowed
     await rejects(q(worker, ctx(undefined, A), sql`UPDATE contacts SET name = 'Other', version = version + 1 WHERE id = ${c}`), /placeholder contact name/); // a real name: refused
     await q(worker, ctx(undefined, A), sql`INSERT INTO contact_methods(workspace_id,contact_id,kind,value,source,verified) VALUES (${A},${c},'phone','+15550100','whatsapp',false)`);
-    await rejects(q(worker, ctx(undefined, A), sql`INSERT INTO contacts(workspace_id,name,lifecycle_stage_id,source) VALUES (${A},'x',${stage},'telegram')`), /row-level security|permission denied/); // an unknown source is refused (the worker's policy only lists the three inbox channels)
+    await rejects(q(worker, ctx(undefined, A), sql`INSERT INTO contacts(workspace_id,name,lifecycle_stage_id,source) VALUES (${A},'x',${stage},'tiktok')`), /row-level security|permission denied/); // an unknown source is refused (the worker's policy only lists the inbox channels)
   });
 });
 

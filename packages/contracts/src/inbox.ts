@@ -6,7 +6,7 @@ const Uuid = z.string().uuid();
 
 /** Messenger fields requested when a Page is connected (docs/integrations/meta-api-verification-2026-11.md C4). Instagram fields cannot be set through the API. */
 export const MESSENGER_WEBHOOK_FIELDS = ["messages", "message_echoes", "messaging_postbacks", "message_reads", "message_deliveries"] as const;
-export const InboxPlatform = z.enum(["messenger", "instagram", "whatsapp"]);
+export const InboxPlatform = z.enum(["messenger", "instagram", "whatsapp", "telegram", "email", "web_chat"]);
 export const IntegrationStatus = z.enum(["connected", "reauth_required", "disabled"]);
 export const SubscriptionState = z.enum(["subscribed", "failed", "dashboard_required"]);
 
@@ -54,6 +54,44 @@ export type ConnectWhatsAppBody = z.infer<typeof ConnectWhatsAppBody>;
 export const ConnectWhatsAppResult = z.object({ account: IntegrationAccountDto, subscription: SubscriptionState, reconnected: z.boolean(), /** earlier webhook events for this number (stored while it was not connected) that were queued for processing */ replayedEvents: z.number().int().min(0) });
 export type ConnectWhatsAppResult = z.infer<typeof ConnectWhatsAppResult>;
 
+/** Telegram bot connection (MOCK ONLY so far). The bot token is sent over TLS, checked with getMe, stored only sealed and never returned. The format is UNVERIFIED (Telegram documents it as an opaque string), so it is not pattern-checked here; getMe is the check. */
+export const ConnectTelegramBody = z.object({ botToken: z.string().min(20).max(200).regex(/^\S+$/) });
+export type ConnectTelegramBody = z.infer<typeof ConnectTelegramBody>;
+export const ConnectTelegramResult = z.object({ account: IntegrationAccountDto, botUsername: z.string().nullable(), webhook: z.enum(["set", "failed"]), reconnected: z.boolean(), /** earlier updates stored while the bot was not connected that were queued again */ replayedEvents: z.number().int().min(0) });
+export type ConnectTelegramResult = z.infer<typeof ConnectTelegramResult>;
+/** getWebhookInfo, reduced to what a person can act on. */
+export const TelegramHealth = z.object({ webhookSet: z.boolean(), pendingUpdateCount: z.number().int().min(0), lastErrorAt: z.string().nullable(), lastErrorMessage: z.string().nullable() });
+export type TelegramHealth = z.infer<typeof TelegramHealth>;
+
+/** Email channel (support inbox). MOCK until a provider has been verified with a real request; `mock` and `provider` tell the UI which badge to show. */
+export const EmailDnsStep = z.object({ id: z.enum(["mx", "spf", "dkim", "dmarc"]), title: z.string(), type: z.string(), host: z.string(), value: z.string(), plain: z.string(), technical: z.string() });
+export const EmailAccountDto = z.object({
+  id: Uuid,
+  enabled: z.boolean(),
+  supportAddress: z.string(),
+  fromAddress: z.string(),
+  displayName: z.string(),
+  provider: z.enum(["mock", "mailgun"]),
+  setupStatus: z.enum(["unchecked", "pending", "verified", "failed"]),
+  lastCheckedAt: z.string().nullable(),
+  connectedAt: z.string(),
+});
+export type EmailAccountDto = z.infer<typeof EmailAccountDto>;
+export const EmailIntegrationState = z.object({
+  /** false when this server has no mail provider and inbound domain configured; connect then answers 503. */
+  available: z.boolean(),
+  mock: z.boolean(),
+  provider: z.enum(["mock", "mailgun"]).nullable(),
+  inboundDomain: z.string().nullable(),
+  account: EmailAccountDto.nullable(),
+  dns: z.array(EmailDnsStep),
+});
+export type EmailIntegrationState = z.infer<typeof EmailIntegrationState>;
+export const ConnectEmailBody = z.object({ displayName: z.string().trim().min(1).max(80).optional() });
+export const SetEmailEnabledBody = z.object({ enabled: z.boolean() });
+export const EmailSetupCheck = z.object({ state: EmailIntegrationState, checks: z.array(z.object({ id: z.enum(["mx", "spf", "dkim", "dmarc"]), ok: z.boolean(), message: z.string() })), mock: z.boolean() });
+export type EmailSetupCheck = z.infer<typeof EmailSetupCheck>;
+
 export const MetaAccountEvent = z.object({ id: Uuid, kind: z.string(), summary: z.string(), createdAt: z.string() });
 export const MetaAccountEvents = z.object({ items: z.array(MetaAccountEvent) });
 export type MetaAccountEvents = z.infer<typeof MetaAccountEvents>;
@@ -64,7 +102,14 @@ export const inboxEndpoints = {
   getMetaIntegration: endpoint({ method: "GET", path: `${W}/integrations/meta`, response: MetaIntegrationState }),
   startInstagramUnified: endpoint({ method: "POST", path: `${W}/integrations/instagram/connect/start`, response: MetaConnectStart }),
   lookupWhatsAppNumbers: endpoint({ method: "POST", path: `${W}/integrations/whatsapp/numbers`, body: WhatsAppLookupBody, response: WhatsAppLookupResult }),
+  getEmailIntegration: endpoint({ method: "GET", path: `${W}/integrations/email`, response: EmailIntegrationState }),
+  connectEmail: endpoint({ method: "POST", path: `${W}/integrations/email/connect`, body: ConnectEmailBody, response: EmailIntegrationState }),
+  checkEmailSetup: endpoint({ method: "POST", path: `${W}/integrations/email/check-setup`, response: EmailSetupCheck }),
+  setEmailEnabled: endpoint({ method: "POST", path: `${W}/integrations/email/enabled`, body: SetEmailEnabledBody, response: EmailIntegrationState }),
+  disconnectEmail: endpoint({ method: "POST", path: `${W}/integrations/email/disconnect`, response: EmailIntegrationState }),
   connectWhatsApp: endpoint({ method: "POST", path: `${W}/integrations/whatsapp/connect`, body: ConnectWhatsAppBody, response: ConnectWhatsAppResult }),
+  connectTelegram: endpoint({ method: "POST", path: `${W}/integrations/telegram/connect`, body: ConnectTelegramBody, response: ConnectTelegramResult }),
+  telegramHealth: endpoint({ method: "GET", path: `${W}/integrations/telegram/accounts/:accountId/health`, response: TelegramHealth }),
   startMetaConnect: endpoint({ method: "POST", path: `${W}/integrations/meta/connect/start`, response: MetaConnectStart }),
   listMetaPending: endpoint({ method: "GET", path: `${W}/integrations/meta/pending`, response: MetaPendingList }),
   connectMetaPage: endpoint({ method: "POST", path: `${W}/integrations/meta/connect`, body: ConnectMetaBody, response: ConnectMetaResult }),

@@ -1,7 +1,7 @@
 "use client";
 import * as React from "react";
 import { BookOpen, Download, FileText, Loader2, Paperclip, RefreshCw, ScanText, Sparkles, Trash2, Waves, X } from "lucide-react";
-import { endpoints, type AiCapabilities, type AttachmentDto, type AttachmentList, type MediaResult } from "@crm/contracts";
+import { endpoints, type AiCapabilities, type AttachmentDto, type AttachmentList, type ConversationItem, type MediaResult } from "@crm/contracts";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/overlays";
@@ -225,7 +225,7 @@ export function useUploads(workspaceId: string, conversationId: string, limits: 
 }
 
 /** Attach button and the status list. The button is always explained: why it is off is written next to it, never silent. */
-export function AttachControls({ uploads, platform, storageConfigured, disabled }: { uploads: ReturnType<typeof useUploads>; platform: "messenger" | "instagram" | "whatsapp"; storageConfigured: boolean; disabled: boolean }) {
+export function AttachControls({ uploads, platform, storageConfigured, disabled }: { uploads: ReturnType<typeof useUploads>; platform: ConversationItem["platform"]; storageConfigured: boolean; disabled: boolean }) {
   const input = React.useRef<HTMLInputElement>(null);
   const off = platform !== "whatsapp" ? "Sending files is only available on WhatsApp for now." : !storageConfigured ? "File storage is not set up on this server." : null;
   return (

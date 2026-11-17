@@ -11,7 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { browserApi, errorMessage } from "@/lib/client-api";
 import { formatDateTime } from "@/lib/format";
 
-const SOURCE: Record<string, string> = { messenger: "Messenger", instagram: "Instagram", whatsapp: "WhatsApp", manual: "Added by hand", import: "Imported", other: "Other" };
+const SOURCE: Record<string, string> = { messenger: "Messenger", instagram: "Instagram", whatsapp: "WhatsApp", telegram: "Telegram", email: "Email", web_chat: "Web chat", manual: "Added by hand", import: "Imported", other: "Other" };
 const href = (m: ContactMethodDto) => (m.kind === "email" ? `mailto:${encodeURI(m.value)}` : `tel:${m.value.replace(/[^\d+]/g, "")}`);
 
 /**

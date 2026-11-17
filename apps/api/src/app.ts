@@ -8,9 +8,11 @@ import type { AiDeps } from "./ai/run.ts"; // track:ai
 import type { ModelBrowser } from "./ai/openrouter-browser.ts"; // track:ai
 import type { KnowledgeDeps } from "./knowledge/routes.ts"; // track:knowledge
 import { whatsappConnect, type WhatsAppLimits } from "./inbox/whatsapp-connect.ts";
+import { telegramConnect, type TelegramLimits } from "./inbox/telegram-connect.ts";
 import { attachmentRoutes, type AttachmentRouteDeps } from "./attachments/routes.ts"; // track:inbox
 import { instagramUnified } from "./inbox/instagram-unified.ts";
 import { metaConnect, type MetaConnectDeps } from "./inbox/meta-connect.ts";
+import { emailConnect, type EmailDeps } from "./inbox/email-connect.ts";
 import { HTTPException } from "hono/http-exception";
 import type { Db } from "@crm/db";
 import type { Auth } from "./auth.ts";
@@ -22,17 +24,20 @@ import type { SearchProvider } from "./search/types.ts"; // track:search
 import { WindowCounter } from "./throttle.ts";
 import type { Mailer } from "@crm/core";
 import { invitationRoutes, type InvitationDeps } from "./invitations.ts"; // track:invitations
+import { publicWidgetRoutes, type WidgetDeps } from "./webchat/public.ts"; // track:web-chat
+import { webChatAdminRoutes } from "./webchat/admin.ts"; // track:web-chat
 
 /** Same body Better Auth returns for any address, so throttled and unknown requests are indistinguishable from real ones. */
 const GENERIC_RESET_RESPONSE = { status: true, message: "If this email exists in our system, check your email for the reset link" };
 const sha = async (s: string) => Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s.trim().toLowerCase()))), (b) => b.toString(16).padStart(2, "0")).join("");
 
-export function createApp(auth: Auth, opts: { allowedOrigins: string[]; db: Db; resetThrottle?: { perEmail: number; perIp: number; windowMs: number; tokenAttemptsPerIp?: number }; testHooks?: { waLimits?: Partial<WhatsAppLimits>; capiCreatesPerUser?: number; import?: ImportHooks; extraSearchProviders?: SearchProvider[]; aiConfigsPerUser?: number; aiSuggestionsPerUser?: number; aiAgentRunsPerUser?: number; openrouterBrowser?: ModelBrowser; openrouterBrowsesPerUser?: number; mediaLimits?: { perWorkspace?: number; windowMs?: number }; knowledge?: KnowledgeDeps }; invitations?: Pick<InvitationDeps, "limits"> & { mailer?: Mailer }; meta?: MetaConnectDeps; ai?: AiDeps; attachments?: AttachmentRouteDeps; openrouterBrowser?: ModelBrowser; openrouterBrowsesPerUser?: number }) {
+export function createApp(auth: Auth, opts: { allowedOrigins: string[]; db: Db; resetThrottle?: { perEmail: number; perIp: number; windowMs: number; tokenAttemptsPerIp?: number }; testHooks?: { waLimits?: Partial<WhatsAppLimits>; tgLimits?: Partial<TelegramLimits>; capiCreatesPerUser?: number; import?: ImportHooks; extraSearchProviders?: SearchProvider[]; aiConfigsPerUser?: number; aiSuggestionsPerUser?: number; aiAgentRunsPerUser?: number; openrouterBrowser?: ModelBrowser; openrouterBrowsesPerUser?: number; mediaLimits?: { perWorkspace?: number; windowMs?: number }; knowledge?: KnowledgeDeps }; invitations?: Pick<InvitationDeps, "limits"> & { mailer?: Mailer }; meta?: MetaConnectDeps; ai?: AiDeps; attachments?: AttachmentRouteDeps; openrouterBrowser?: ModelBrowser; openrouterBrowsesPerUser?: number; email?: EmailDeps; widget?: Omit<WidgetDeps, "webOrigins"> }) {
   const app = new Hono<{ Variables: Vars }>();
   // Mutating requests that carry an Origin header must come from an allowed origin (native apps send none).
   app.use("*", async (c, next) => {
     const origin = c.req.header("origin");
-    if (!["GET", "HEAD", "OPTIONS"].includes(c.req.method) && origin && !opts.allowedOrigins.includes(origin)) {
+    // /public/widget/* is for visitors on other sites: it checks the origin against the widget's own allowlist instead (see webchat/public.ts).
+    if (!["GET", "HEAD", "OPTIONS"].includes(c.req.method) && origin && !opts.allowedOrigins.includes(origin) && !c.req.path.startsWith("/public/widget/")) {
       return c.json({ error: { code: "origin_not_allowed" } }, 403);
     }
     // A client-supplied id is only kept when it looks like an id: it is echoed back and stored in the audit log.
@@ -111,7 +116,8 @@ export function createApp(auth: Auth, opts: { allowedOrigins: string[]; db: Db; 
   const igUnified = instagramUnified(opts.db, opts.meta); // track:inbox
   v1.route("/", meta.callback);
   v1.route("/", igUnified.callback);
-  v1.route("/workspaces", workspaceRoutes(opts.db, { ...opts.testHooks, invitations: inv.scoped, knowledge: { ...opts.testHooks?.knowledge, media, blobs: opts.attachments?.store }, blobs: opts.attachments?.store, metaScoped: new Hono<ScopedEnv>().route("/", meta.scoped).route("/", igUnified.scoped).route("/", whatsappConnect(opts.db, opts.meta, opts.testHooks?.waLimits)).route("/", attachmentRoutes(opts.db, { ...opts.attachments, media })).route("/", capiRoutes(opts.db, { box: opts.meta?.box, createsPerUser: opts.testHooks?.capiCreatesPerUser })).route("/", aiRoutes(opts.db, { ai: opts.ai, media, browser: opts.openrouterBrowser ?? opts.testHooks?.openrouterBrowser, browsesPerUser: opts.openrouterBrowsesPerUser ?? opts.testHooks?.openrouterBrowsesPerUser, configsPerUser: opts.testHooks?.aiConfigsPerUser, suggestionsPerUser: opts.testHooks?.aiSuggestionsPerUser })).route("/", agentRoutes(opts.db, { ai: opts.ai, runsPerUser: opts.testHooks?.aiAgentRunsPerUser, attach: { store: opts.attachments?.store, media } })), sendDeps: opts.meta, sendBlobs: opts.attachments?.store }));
+  v1.route("/workspaces", workspaceRoutes(opts.db, { ...opts.testHooks, invitations: inv.scoped, knowledge: { ...opts.testHooks?.knowledge, media, blobs: opts.attachments?.store }, blobs: opts.attachments?.store, metaScoped: new Hono<ScopedEnv>().route("/", meta.scoped).route("/", igUnified.scoped).route("/", whatsappConnect(opts.db, opts.meta, opts.testHooks?.waLimits)).route("/", emailConnect(opts.db, opts.email)).route("/", telegramConnect(opts.db, opts.meta, opts.testHooks?.tgLimits)).route("/", attachmentRoutes(opts.db, { ...opts.attachments, media })).route("/", webChatAdminRoutes(opts.db, opts.widget?.workerDb)).route("/", capiRoutes(opts.db, { box: opts.meta?.box, createsPerUser: opts.testHooks?.capiCreatesPerUser })).route("/", aiRoutes(opts.db, { ai: opts.ai, media, browser: opts.openrouterBrowser ?? opts.testHooks?.openrouterBrowser, browsesPerUser: opts.openrouterBrowsesPerUser ?? opts.testHooks?.openrouterBrowsesPerUser, configsPerUser: opts.testHooks?.aiConfigsPerUser, suggestionsPerUser: opts.testHooks?.aiSuggestionsPerUser })).route("/", agentRoutes(opts.db, { ai: opts.ai, runsPerUser: opts.testHooks?.aiAgentRunsPerUser, attach: { store: opts.attachments?.store, media } })), sendDeps: opts.meta, sendEmail: opts.email, sendBlobs: opts.attachments?.store, webChatDb: opts.widget?.workerDb }));
   app.route("/v1", v1);
+  if (opts.widget) app.route("/public/widget", publicWidgetRoutes({ ...opts.widget, webOrigins: opts.allowedOrigins }));
   return app;
 }

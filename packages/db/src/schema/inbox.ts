@@ -10,7 +10,7 @@ const workspaceId = () => uuid("workspace_id").notNull().references(() => worksp
 const ts = (n: string) => timestamp(n, { withTimezone: true });
 const bytea = customType<{ data: Buffer; driverData: Buffer }>({ dataType: () => "bytea" });
 
-export const INBOX_PLATFORMS = ["messenger", "instagram", "whatsapp"] as const;
+export const INBOX_PLATFORMS = ["messenger", "instagram", "whatsapp", "telegram", "email", "web_chat"] as const;
 export const INTEGRATION_STATUSES = ["connected", "reauth_required", "disabled"] as const;
 export const CONVERSATION_STATUSES = ["open", "pending", "resolved"] as const;
 export const DELIVERY_STATES = ["received", "pending", "sending", "sent", "failed", "unknown"] as const;
@@ -47,10 +47,10 @@ export const integrationAccounts = pgTable(
     check("integration_accounts_auth_method_platform", sql`${t.authMethod} = 'facebook' OR ${t.platform} = 'instagram'`),
     unique("integration_accounts_ws_id").on(t.workspaceId, t.id),
     unique("integration_accounts_platform_external").on(t.platform, t.externalAccountId),
-    check("integration_accounts_platform", sql`${t.platform} IN ('messenger','instagram','whatsapp')`),
+    check("integration_accounts_platform", sql`${t.platform} IN ('messenger','instagram','whatsapp','telegram','email','web_chat')`),
     check("integration_accounts_status", sql`${t.status} IN ('connected','reauth_required','disabled')`),
     // Page and Instagram account ids are numeric strings (to be reconfirmed with the real app). Digits only: no whitespace, zero-padding variants or look-alike characters can create a second key for the same account.
-    check("integration_accounts_external_id", sql`${t.externalAccountId} ~ '^[1-9][0-9]{0,99}$'`),
+    check("integration_accounts_external_id", sql`${t.externalAccountId} ~ '^[1-9][0-9]{0,99}$' OR (${t.platform} = 'email' AND ${t.externalAccountId} ~ '^[a-z2-7]{20}$')`),
     index("integration_accounts_meta_user_idx").on(t.connectedMetaUserHash).where(sql`${t.connectedMetaUserHash} IS NOT NULL`),
     check("integration_accounts_meta_user_hash", sql`${t.connectedMetaUserHash} IS NULL OR ${t.connectedMetaUserHash} ~ '^[0-9a-f]{64}$'`),
     check("integration_accounts_display_name", sql`${t.displayName} IS NULL OR char_length(${t.displayName}) <= 200`),
@@ -108,7 +108,7 @@ export const platformIdentities = pgTable(
     unique("platform_identities_account_user").on(t.integrationAccountId, t.externalUserId),
     foreignKey({ columns: [t.workspaceId, t.integrationAccountId], foreignColumns: [integrationAccounts.workspaceId, integrationAccounts.id] }),
     foreignKey({ columns: [t.workspaceId, t.contactId], foreignColumns: [contacts.workspaceId, contacts.id] }),
-    check("platform_identities_external_user", sql`${t.externalUserId} ~ '^[1-9][0-9]{0,99}$'`),
+    check("platform_identities_external_user", sql`${t.externalUserId} ~ '^[1-9][0-9]{0,99}$' OR (${t.externalUserId} ~ '^email(-unverified)?:[^[:space:]@<>]{1,200}@[^[:space:]@<>]{1,100}$' AND char_length(${t.externalUserId}) <= 330)`),
     index("platform_identities_contact_idx").on(t.workspaceId, t.contactId),
   ],
 );
@@ -131,6 +131,8 @@ export const conversations = pgTable(
     /** Watermarks reported by the platform (what the contact has delivered/read); only ever move forward. */
     contactDeliveredAt: ts("contact_delivered_at"),
     contactReadAt: ts("contact_read_at"),
+    /** Telegram: set when the person blocked the bot (my_chat_member), cleared when they unblock or write again. Replies are refused while set. */
+    contactUnreachableAt: ts("contact_unreachable_at"),
     leadId: uuid("lead_id"),
     version: integer("version").notNull().default(1),
     createdAt: ts("created_at").notNull().defaultNow(),
@@ -245,7 +247,7 @@ export const webhookEvents = pgTable(
     bodyPurgedAt: ts("body_purged_at"),
   },
   (t) => [
-    check("webhook_events_platform", sql`${t.platform} IN ('messenger','instagram','whatsapp')`),
+    check("webhook_events_platform", sql`${t.platform} IN ('messenger','instagram','whatsapp','telegram','email','web_chat')`),
     check("webhook_events_status", sql`${t.status} IN ('received','processed','failed','orphan','rejected')`),
     // an event that failed signature verification can only ever be "rejected" and never carries a body
     check("webhook_events_signature", sql`${t.signatureValid} OR (${t.status} = 'rejected' AND ${t.rawBody} IS NULL)`),
@@ -327,5 +329,105 @@ export const whatsappAccounts = pgTable(
     check("whatsapp_accounts_waba", sql`${t.wabaId} ~ '^[1-9][0-9]{0,99}$'`),
     check("whatsapp_accounts_display", sql`${t.displayPhoneNumber} IS NULL OR char_length(${t.displayPhoneNumber}) <= 40`),
     check("whatsapp_accounts_mode", sql`${t.mode} IN ('cloud_api','coexistence')`),
+  ],
+);
+
+/**
+ * What only a Telegram bot account has, 1:1 with its integration account (platform = 'telegram', external_account_id = the bot id from getMe). Written by the worker role.
+ * `webhookPathId` (unguessable, in the webhook URL) and `secretHash` (SHA-256 of the secret_token Telegram echoes in a header) are never granted to the application role.
+ */
+export const telegramAccounts = pgTable(
+  "telegram_accounts",
+  {
+    id: id(),
+    workspaceId: workspaceId(),
+    integrationAccountId: uuid("integration_account_id").notNull(),
+    botId: text("bot_id").notNull(),
+    botUsername: text("bot_username"),
+    webhookPathId: text("webhook_path_id").notNull(),
+    secretHash: text("secret_hash").notNull(),
+    createdAt: ts("created_at").notNull().defaultNow(),
+    updatedAt: ts("updated_at").notNull().defaultNow(),
+  },
+  (t) => [
+    unique("telegram_accounts_account").on(t.integrationAccountId),
+    unique("telegram_accounts_path").on(t.webhookPathId),
+    unique("telegram_accounts_ws_id").on(t.workspaceId, t.id),
+    foreignKey({ columns: [t.workspaceId, t.integrationAccountId], foreignColumns: [integrationAccounts.workspaceId, integrationAccounts.id], name: "telegram_accounts_account_fk" }),
+    check("telegram_accounts_bot", sql`${t.botId} ~ '^[1-9][0-9]{0,19}$'`),
+    check("telegram_accounts_username", sql`${t.botUsername} IS NULL OR char_length(${t.botUsername}) <= 64`),
+    check("telegram_accounts_path_fmt", sql`${t.webhookPathId} ~ '^[A-Za-z0-9_-]{20,64}$'`),
+    check("telegram_accounts_secret_fmt", sql`${t.secretHash} ~ '^[0-9a-f]{64}$'`),
+  ],
+);
+
+/** Email channel side row of an integration account (migration 0039). inbound_token is also the account's external id: the only thing that routes an inbound email to a workspace. */
+export const emailAccounts = pgTable(
+  "email_accounts",
+  {
+    id: id(),
+    workspaceId: workspaceId(),
+    integrationAccountId: uuid("integration_account_id").notNull(),
+    inboundToken: text("inbound_token").notNull(),
+    fromAddress: text("from_address").notNull(),
+    displayName: text("display_name").notNull(),
+    provider: text("provider").notNull(),
+    verifiedDomainStatus: text("verified_domain_status").notNull().default("unchecked"),
+    lastCheckedAt: ts("last_checked_at"),
+    createdAt: ts("created_at").notNull().defaultNow(),
+    updatedAt: ts("updated_at").notNull().defaultNow(),
+  },
+  (t) => [
+    unique("email_accounts_account").on(t.integrationAccountId),
+    unique("email_accounts_token").on(t.inboundToken),
+    unique("email_accounts_ws_id").on(t.workspaceId, t.id),
+    foreignKey({ columns: [t.workspaceId, t.integrationAccountId], foreignColumns: [integrationAccounts.workspaceId, integrationAccounts.id], name: "email_accounts_account_fk" }),
+    check("email_accounts_token_shape", sql`${t.inboundToken} ~ '^[a-z2-7]{20}$'`),
+    check("email_accounts_provider", sql`${t.provider} IN ('mock','mailgun')`),
+    check("email_accounts_domain_status", sql`${t.verifiedDomainStatus} IN ('unchecked','pending','verified','failed')`),
+  ],
+);
+
+/** Opaque per-conversation token used in the Reply-To address (support+<account token>-<conv token>@domain). */
+export const emailThreads = pgTable(
+  "email_threads",
+  {
+    id: id(),
+    workspaceId: workspaceId(),
+    conversationId: uuid("conversation_id").notNull(),
+    convToken: text("conv_token").notNull(),
+    createdAt: ts("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    unique("email_threads_conversation").on(t.conversationId),
+    unique("email_threads_token").on(t.convToken),
+    foreignKey({ columns: [t.workspaceId, t.conversationId], foreignColumns: [conversations.workspaceId, conversations.id], name: "email_threads_conversation_fk" }),
+    check("email_threads_token_shape", sql`${t.convToken} ~ '^[a-z2-7]{16}$'`),
+  ],
+);
+
+/** RFC 5322 headers of one email message (in or out). header_message_id is the idempotency and threading key, unique per account. Plain text only: no HTML is ever stored. */
+export const emailMessageMeta = pgTable(
+  "email_message_meta",
+  {
+    id: id(),
+    workspaceId: workspaceId(),
+    integrationAccountId: uuid("integration_account_id").notNull(),
+    messageId: uuid("message_id").notNull(),
+    headerMessageId: text("header_message_id").notNull(),
+    inReplyTo: text("in_reply_to"),
+    references: text("references").array().notNull().default(sql`'{}'::text[]`),
+    subject: text("subject"),
+    fromAddress: text("from_address"),
+    toAddress: text("to_address"),
+    unverifiedSender: boolean("unverified_sender").notNull().default(false),
+    attachmentsSkipped: jsonb("attachments_skipped").notNull().default([]),
+    createdAt: ts("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    unique("email_message_meta_message").on(t.messageId),
+    unique("email_message_meta_header_uq").on(t.integrationAccountId, t.headerMessageId),
+    foreignKey({ columns: [t.workspaceId, t.integrationAccountId], foreignColumns: [integrationAccounts.workspaceId, integrationAccounts.id], name: "email_message_meta_account_fk" }),
+    foreignKey({ columns: [t.workspaceId, t.messageId], foreignColumns: [messages.workspaceId, messages.id], name: "email_message_meta_message_fk" }),
   ],
 );

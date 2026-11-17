@@ -47,7 +47,7 @@ export const DELIVERY: Record<MessageDto["deliveryState"], { label: string; tone
   unknown: { label: "Delivery unknown", tone: "warning" },
 };
 
-export const PLATFORM_LABEL = { messenger: "Messenger", instagram: "Instagram", whatsapp: "WhatsApp" } as const;
+export const PLATFORM_LABEL = { messenger: "Messenger", instagram: "Instagram", whatsapp: "WhatsApp", telegram: "Telegram", email: "Email", web_chat: "Web chat" } as const;
 export const isHttps = (u: string | null): u is string => !!u && /^https:\/\//i.test(u);
 
 /** Plain-language reason for a failed send, from the stored failure code. Unknown codes get a generic line; Meta's own text is never stored or shown. */
@@ -62,6 +62,13 @@ export function failureText(code: string | null): string {
     case "window_closed": return "Meta says the 24-hour reply window has closed. You can reply after the person writes again.";
     case "channel_access": return "Meta blocked this send. Check that the Instagram account still allows access to messages for connected tools, then reconnect it in Settings > Integrations.";
     case "thread_owned_elsewhere": return "Another app is handling this conversation, so Meta refused the reply.";
+    case "not_reachable": return "Telegram says this person can't be reached (they may have blocked the bot).";
+    case "telegram_rate_limited": return "Telegram is limiting this bot for the moment. Wait a little and try again.";
+    case "telegram_token_invalid": return "The bot connection has expired. Reconnect it in Settings > Integrations.";
+    case "telegram_rejected": return "Telegram did not accept this message.";
+    case "provider_auth": return "The email provider refused our credentials. Check the email settings in Settings > Channels > Integrations.";
+    case "provider_rejected": return "The email provider did not accept this message.";
+    case "email_account_missing": return "Email is not set up for this inbox. Check Settings > Channels > Integrations.";
     case "marked_not_sent": return "You marked this message as not sent.";
     case "file_missing": return "The file could not be found in storage, so nothing was sent.";
     default: return "Meta did not accept this message.";
@@ -78,7 +85,7 @@ export const isSendKey = (e: { key: string; shiftKey: boolean; isComposing?: boo
 
 /** Reply size limit per channel. Instagram is counted in UTF-8 bytes (Meta states 1,000 bytes; Bengali takes 3 bytes per letter), Messenger in characters (our own cap). */
 export const IG_MAX_BYTES = 1000;
-export function replyUsage(platform: "messenger" | "instagram" | "whatsapp", text: string, maxChars: number): { used: number; max: number; unit: "bytes" | "characters"; over: boolean } {
+export function replyUsage(platform: keyof typeof PLATFORM_LABEL, text: string, maxChars: number): { used: number; max: number; unit: "bytes" | "characters"; over: boolean } {
   if (platform === "instagram") { const used = new TextEncoder().encode(text).length; return { used, max: IG_MAX_BYTES, unit: "bytes", over: used > IG_MAX_BYTES }; }
   return { used: text.length, max: maxChars, unit: "characters", over: text.length > maxChars };
 }

@@ -202,6 +202,9 @@ export const contactMethods = pgTable(
     extractedAt: timestamp("extracted_at", { withTimezone: true }).notNull().defaultNow(),
     correctedAt: timestamp("corrected_at", { withTimezone: true }),
     correctedBy: text("corrected_by"),
+    /** Set by the email bounce/complaint webhook (migration 0039): mail to this address is not delivered. */
+    undeliverableAt: timestamp("undeliverable_at", { withTimezone: true }),
+    undeliverableReason: text("undeliverable_reason"),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -209,7 +212,7 @@ export const contactMethods = pgTable(
     unique("contact_methods_unique").on(t.workspaceId, t.contactId, t.kind, t.value),
     foreignKey({ columns: [t.workspaceId, t.contactId], foreignColumns: [contacts.workspaceId, contacts.id] }).onDelete("cascade"),
     check("contact_methods_kind", sql`${t.kind} IN ('phone','email')`),
-    check("contact_methods_source", sql`${t.source} IN ('messenger','instagram','whatsapp','manual','import','other')`),
+    check("contact_methods_source", sql`${t.source} IN ('messenger','instagram','whatsapp','telegram','email','web_chat','manual','import','other')`),
     check("contact_methods_confidence", sql`${t.confidence} >= 0 AND ${t.confidence} <= 1`),
     check("contact_methods_value_len", sql`length(${t.value}) BETWEEN 3 AND 254 AND (raw_value IS NULL OR length(raw_value) <= 200)`),
     index("contact_methods_contact_idx").on(t.workspaceId, t.contactId),
