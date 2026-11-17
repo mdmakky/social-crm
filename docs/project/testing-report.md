@@ -245,3 +245,11 @@ Private DB `inv_f` (fresh via `scripts/db-create.sh inv_f`), migration 0035.
 ## UI cleanup (2026-11-17)
 - Specs whose copy or structure assertions changed: auth-and-shell, permissions-and-members, settings-nav (new Ad measurement checks), integrations, states-and-errors, mobile, responsive-and-a11y, leads, contacts-responsive, contacts-detail, contacts-wpc-import, ai-settings, ai-openrouter, ai-agents. Unit test `test/lib.test.ts` (sidebar labels). Fresh private DB `ui_f`, ports 5517 and 9491, `E2E_META_MOCK=1`.
 - Not covered: the full e2e suite, a before-screenshot round, a screen reader pass.
+
+## Telegram channel (2026-11-17, `feat/telegram`, MOCK ONLY)
+- Private databases `tg_f` (unit and API) and `tg_e2f`/`tg_e2e` (browser), db and api test files serially (`--no-file-parallelism`).
+- `packages/integrations/test/telegram.test.ts` (20): parser (private text, caption, photo, document/voice/video/sticker, group ignored, edited and business ignored, id mismatch, bot-blocked and unblocked, bad JSON), secret verification (wrong, missing, empty, unknown account, fixed length), `sendMessage` mapping (success without parse_mode, 429 with retry_after, 403, 400 chat not found, 401, 5xx and unreadable 200 ambiguous), `setWebhook` parameters, mock.
+- `packages/db/test/telegram-schema.test.ts` (6) and `tenancy.test.ts` (13): forced RLS, column grants hide path id and hash, guard trigger and constraints, ingest lookup function, dedupe index, worker-only unreachable flag.
+- `apps/api/test/telegram.test.ts` (18): permissions, rate limit, connect (sealed token, hash only, parameters, no network inside a transaction), 409 for another workspace, rotation on reconnect, failed webhook kept, health, disconnect and audit, 403 for wrong or missing secret and unknown path, dedupe, 413, contact creation, groups and edits ignored, media placeholder without a download row, block and unblock, send success, 429, 403, ambiguous, replay, limits, tenancy.
+- `apps/web/e2e/telegram.spec.ts` (4): connect to receive to reply to disconnect at 1440 and 375, axe, token never in page or storage or proxy responses. `integrations.spec.ts` assertion changed (Telegram is no longer a disabled "Soon" card).
+- Not covered: any real Telegram request, the full suites, browsers other than Chromium, a screen reader pass, many API instances.

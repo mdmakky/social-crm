@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { classifyTelegramSend, createMockTelegram, createTelegramClient, hashTelegramSecret, MOCK_TELEGRAM_TOKEN, parseTelegramUpdate, TelegramError, TelegramSendError, tgMyChatMember, tgPrivateText, verifyTelegramSecret } from "../src/index.ts";
+import { classifyTelegramSend, createMockTelegram, createTelegramClient, hashTelegramSecret, MOCK_TELEGRAM_TOKEN, parseTelegramUpdate, TelegramError, type TelegramSendError, tgMyChatMember, tgPrivateText, verifyTelegramSecret } from "../src/index.ts";
 
 // MOCK ONLY: fixtures follow the Update shape in the Bot API reference; they prove our parser, not Telegram.
 const BOT = "7000000001";
