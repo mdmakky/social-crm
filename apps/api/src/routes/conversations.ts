@@ -31,7 +31,7 @@ const dec = (s: string): { t: string | null; id: string } | null => {
 const select = (where: SQL, tail: SQL = sql``) => sql`
   SELECT c.id, c.status, c.assignee_user_id, c.last_message_at, c.last_inbound_at, c.contact_delivered_at, c.contact_read_at, c.message_seq, c.version,
          to_char(c.last_message_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS cursor_t,
-         a.platform, a.display_name AS account_name, ct.id AS contact_id, ct.name AS contact_name, pi.profile_pic_url AS contact_avatar, ct.email AS contact_email, ct.phone AS contact_phone, au.name AS assignee_name,
+         a.platform, pi.external_user_id AS identity_key, a.display_name AS account_name, ct.id AS contact_id, ct.name AS contact_name, pi.profile_pic_url AS contact_avatar, ct.email AS contact_email, ct.phone AS contact_phone, au.name AS assignee_name,
          left(lm.body, 120) AS preview, lm.direction AS preview_direction,
          conversation_unread_count(c.id) AS unread,
          coalesce((SELECT r.last_read_seq FROM conversation_reads r WHERE r.workspace_id = c.workspace_id AND r.conversation_id = c.id AND r.user_id = (SELECT app_user_id())), 0) AS last_read_seq
@@ -56,7 +56,7 @@ const item = (r: Row): ConversationItem => {
     preview: (r.preview as string | null) ?? null,
     previewDirection: (r.preview_direction as "in" | "out" | null) ?? null,
     unreadCount: Number(r.unread),
-    replyWindow: lastInbound === null ? "none" : Date.now() - lastInbound < WINDOW_MS ? "open" : "closed",
+    replyWindow: r.platform === "email" ? "open" : lastInbound === null ? "none" : Date.now() - lastInbound < WINDOW_MS ? "open" : "closed",
     version: Number(r.version),
   };
 };
@@ -76,8 +76,13 @@ const loadDetail = async (tx: Tx, workspaceId: string, id: string) => {
   const d = detail(r);
   // Provenance of the contact's phones and emails (one small query; at most 20 rows).
   d.contactSummary.methods = rowsOf(
-    await tx.execute(sql`SELECT id, kind, value, source, confidence, verified, is_primary, extracted_at, corrected_at FROM contact_methods WHERE workspace_id = ${workspaceId} AND contact_id = ${d.contactSummary.id} ORDER BY is_primary DESC, extracted_at, id LIMIT 20`),
-  ).map((m) => ({ id: m.id as string, kind: m.kind as "phone" | "email", value: m.value as string, source: m.source as ContactMethodDto["source"], confidence: Number(m.confidence), verified: m.verified as boolean, isPrimary: m.is_primary as boolean, extractedAt: iso(m.extracted_at) ?? "", correctedAt: iso(m.corrected_at) }));
+    await tx.execute(sql`SELECT id, kind, value, source, confidence, verified, is_primary, extracted_at, corrected_at, undeliverable_at FROM contact_methods WHERE workspace_id = ${workspaceId} AND contact_id = ${d.contactSummary.id} ORDER BY is_primary DESC, extracted_at, id LIMIT 20`),
+  ).map((m) => ({ id: m.id as string, kind: m.kind as "phone" | "email", value: m.value as string, source: m.source as ContactMethodDto["source"], confidence: Number(m.confidence), verified: m.verified as boolean, isPrimary: m.is_primary as boolean, extractedAt: iso(m.extracted_at) ?? "", correctedAt: iso(m.corrected_at), ...(m.kind === "email" ? { undeliverable: m.undeliverable_at != null } : {}) }));
+  const key = (r.identity_key as string | null) ?? "";
+  if (r.platform === "email" && key.includes(":")) {
+    const address = key.slice(key.indexOf(":") + 1);
+    d.email = { address, unverifiedSender: key.startsWith("email-unverified:"), undeliverable: d.contactSummary.methods.some((m) => m.kind === "email" && m.value === address && m.undeliverable === true) };
+  }
   return d;
 };
 
@@ -140,8 +145,10 @@ export function conversationRoutes(db: Db) {
       if (!rowsOf(await tx.execute(sql`SELECT 1 FROM conversations WHERE workspace_id = ${ws} AND id = ${idOf(c)!}`)).length) return fail(c, 404, "not_found");
       const rows = rowsOf(
         await tx.execute(sql`
-          SELECT m.id, m.seq, m.direction, m.sender_kind, su.name AS sender_name, m.body, m.attachments, m.delivery_state, m.failure_code, m.occurred_at
+          SELECT m.id, m.seq, m.direction, m.sender_kind, su.name AS sender_name, m.body, m.attachments, m.delivery_state, m.failure_code, m.occurred_at,
+                 em.id AS em_id, em.subject AS em_subject, em.from_address AS em_from, em.unverified_sender AS em_unverified, em.attachments_skipped AS em_skipped
           FROM messages m LEFT JOIN "user" su ON su.id = m.sender_user_id
+          LEFT JOIN email_message_meta em ON em.workspace_id = m.workspace_id AND em.message_id = m.id
           WHERE m.workspace_id = ${ws} AND m.conversation_id = ${idOf(c)!} ${q.data.before ? sql`AND m.seq < ${q.data.before}` : sql``}
           ORDER BY m.seq DESC LIMIT ${limit + 1}`),
       );
@@ -153,6 +160,7 @@ export function conversationRoutes(db: Db) {
           body: (m.body as string | null) ?? null,
           attachments: (Array.isArray(m.attachments) ? (m.attachments as { type?: unknown; url?: unknown }[]) : []).map((a) => ({ type: typeof a.type === "string" ? a.type : "file", url: typeof a.url === "string" ? a.url : null })),
           deliveryState: m.delivery_state as MessageDto["deliveryState"], failureCode: (m.failure_code as string | null) ?? null, occurredAt: iso(m.occurred_at)!,
+          ...(m.em_id ? { email: { subject: (m.em_subject as string | null) ?? null, fromAddress: (m.em_from as string | null) ?? null, unverifiedSender: m.em_unverified === true, attachmentsNotStored: (Array.isArray(m.em_skipped) ? (m.em_skipped as { name?: unknown; size?: unknown }[]) : []).map((a) => ({ name: typeof a.name === "string" ? a.name : "file", size: typeof a.size === "number" ? a.size : null })), attachmentCount: Array.isArray(m.em_skipped) ? m.em_skipped.length : 0 } } : {}),
         }));
       return c.json({ items, hasMore: rows.length > limit });
     });

@@ -191,7 +191,7 @@ export async function checkAccountToken(deps: MetaConnectDeps, workspaceId: stri
 
 /** Background job: check every connected account whose last check is older than maxAgeHours. */
 export async function runTokenChecks(deps: MetaConnectDeps, maxAgeHours = 24): Promise<number> {
-  const due = rowsOf(await deps.workerDb.execute(sql`SELECT id, workspace_id FROM integration_accounts WHERE status = 'connected' AND (last_token_check_at IS NULL OR last_token_check_at < now() - make_interval(hours => ${maxAgeHours})) LIMIT 100`));
+  const due = rowsOf(await deps.workerDb.execute(sql`SELECT id, workspace_id FROM integration_accounts WHERE status = 'connected' AND platform IN ('messenger','instagram','whatsapp') AND (last_token_check_at IS NULL OR last_token_check_at < now() - make_interval(hours => ${maxAgeHours})) LIMIT 100`));
   let n = 0;
   for (const r of due) if (await checkAccountToken(deps, r.workspace_id as string, r.id as string, null).catch(() => false)) n++;
   return n;
@@ -206,10 +206,11 @@ function scopedRoutes(db: Db, deps: MetaConnectDeps | undefined, pending: Pendin
   const elsewhere = (c: SC) => fail(c, 409, "account_unavailable", "This account can't be connected to this workspace.");
   const cookieOpts = (d: MetaConnectDeps) => ({ httpOnly: true, sameSite: "Lax" as const, path: "/v1", maxAge: STATE_TTL_MS / 1000, secure: d.secureCookies });
 
-  const accountsOf = (tx: Tx, workspaceId: string) => tx.select().from(schema.integrationAccounts).where(eq(schema.integrationAccounts.workspaceId, workspaceId));
+  // Email accounts have their own panel and state (GET /integrations/email); the Meta list never shows them.
+  const accountsOf = (tx: Tx, workspaceId: string) => tx.select().from(schema.integrationAccounts).where(and(eq(schema.integrationAccounts.workspaceId, workspaceId), sql`${schema.integrationAccounts.platform} <> 'email'`));
   const ownAccount = async (c: SC, id: string) => {
     const [a] = await withContext(db, wctx(c), (tx) => tx.select().from(schema.integrationAccounts).where(and(eq(schema.integrationAccounts.workspaceId, c.get("workspaceId")), eq(schema.integrationAccounts.id, id))));
-    return a ?? null;
+    return a && a.platform !== "email" ? a : null; // email accounts are managed by their own routes
   };
   const auditIt = (c: SC, action: string, entityId: string, summary: Record<string, unknown>) =>
     withContext(db, wctx(c), (tx) => writeAudit(tx, { ...actor(c), workspaceId: c.get("workspaceId"), action, entityType: "integration_account", entityId, summary }));

@@ -10,6 +10,7 @@ import { contactRoutes } from "./contacts.ts";
 import { conversationRoutes } from "./conversations.ts";
 import type { MetaConnectDeps } from "../inbox/meta-connect.ts";
 import { sendRoutes } from "../inbox/send.ts";
+import type { EmailDeps } from "../inbox/email-connect.ts";
 import { contactMethodRoutes } from "./contact-methods.ts";
 import { crmConfigRoutes } from "./crm-config.ts";
 import { searchRoutes } from "../search/routes.ts"; // track:search
@@ -44,7 +45,7 @@ async function roleIn(tx: Tx, workspaceId: string, userId: string): Promise<Role
   return m?.role ?? null;
 }
 
-export function workspaceRoutes(db: Db, hooks: { import?: ImportHooks; extraSearchProviders?: SearchProvider[]; metaScoped?: Hono<ScopedEnv>; sendDeps?: MetaConnectDeps; knowledge?: KnowledgeDeps; invitations?: Hono<ScopedEnv>; blobs?: BlobStore; sendBlobs?: BlobStore } = {}) {
+export function workspaceRoutes(db: Db, hooks: { import?: ImportHooks; extraSearchProviders?: SearchProvider[]; metaScoped?: Hono<ScopedEnv>; sendDeps?: MetaConnectDeps; sendEmail?: EmailDeps; knowledge?: KnowledgeDeps; invitations?: Hono<ScopedEnv>; blobs?: BlobStore; sendBlobs?: BlobStore } = {}) {
   const r = new Hono<{ Variables: Vars }>();
   const audit = (c: Ctx) => ({ actorUserId: c.get("userId"), requestId: c.get("requestId"), ip: c.req.header("x-forwarded-for")?.split(",")[0]?.trim() });
 
@@ -196,7 +197,7 @@ export function workspaceRoutes(db: Db, hooks: { import?: ImportHooks; extraSear
   if (hooks.invitations) scoped.route("/", hooks.invitations); // track:invitations
   scoped.route("/", conversationRoutes(db)); // track:inbox
   scoped.route("/", contactMethodRoutes(db));
-  scoped.route("/", sendRoutes(db, hooks.sendDeps, hooks.sendBlobs)); // track:inbox
+  scoped.route("/", sendRoutes(db, hooks.sendDeps, hooks.sendBlobs, hooks.sendEmail)); // track:inbox
   if (hooks.metaScoped) scoped.route("/", hooks.metaScoped); // track:inbox
   r.route("/:id", scoped as unknown as Hono<{ Variables: Vars }>);
   return r;

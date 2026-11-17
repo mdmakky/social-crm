@@ -4,11 +4,12 @@ import { DecideDeliveryBody, SendMessageBody, type MessageDto } from "@crm/contr
 import { attachmentKey, type BlobStore } from "@crm/core";
 import { can } from "@crm/core/permissions";
 import { withContext, type Db, type Tx } from "@crm/db";
-import { SendError } from "@crm/integrations";
+import { EmailSendError, newMessageId, replySubject, SendError, supportAddress } from "@crm/integrations";
 import { writeAudit } from "../audit.ts";
 import { pgCode } from "../routes/pipelines.ts";
 import { actor, body, fail, forbidden, isUuid, wctx, type ScopedEnv } from "../routes/scope.ts";
 import { loadToken, type MetaConnectDeps } from "./meta-connect.ts";
+import type { EmailDeps } from "./email-connect.ts";
 
 type Row = Record<string, unknown>;
 const rowsOf = (r: unknown) => (r as { rows: Row[] }).rows;
@@ -58,7 +59,7 @@ const loadMessage = async (tx: Tx, ws: string, id: string) =>
  *  4. as the worker role: record the result: accepted -> `sent` (+ Meta message id), refused -> `failed`, anything we cannot be sure about -> `unknown`.
  * A process that dies after step 2 leaves `sending`; `recoverStuckSends` turns it into `unknown`. Nothing in this file sends a message a second time.
  */
-export function sendRoutes(db: Db, deps?: MetaConnectDeps, blobs?: BlobStore) {
+export function sendRoutes(db: Db, deps?: MetaConnectDeps, blobs?: BlobStore, email?: EmailDeps) {
   const r = new Hono<ScopedEnv>();
 
   r.post("/conversations/:conversationId/messages", async (c) => {
@@ -67,7 +68,7 @@ export function sendRoutes(db: Db, deps?: MetaConnectDeps, blobs?: BlobStore) {
     if (!isUuid(conversationId)) return fail(c, 404, "not_found");
     const b = await body(c, SendMessageBody);
     if (!b.ok) return b.res;
-    if (!deps) return fail(c, 503, "not_configured", "Messaging is not set up on this server.");
+    if (!deps && !email) return fail(c, 503, "not_configured", "Messaging is not set up on this server.");
     const ws = c.get("workspaceId");
     const me = c.get("userId");
     const { clientMsgId, body: text } = b.data;
@@ -93,9 +94,24 @@ export function sendRoutes(db: Db, deps?: MetaConnectDeps, blobs?: BlobStore) {
           WHERE c.workspace_id = ${ws} AND c.id = ${conversationId}`),
       )[0];
       if (!conv) return { err: fail(c, 404, "not_found") };
-      if (conv.platform !== "messenger" && conv.platform !== "instagram" && conv.platform !== "whatsapp") return { err: fail(c, 422, "unsupported_channel", "Replying is not available for this channel.") };
+      if (conv.platform !== "messenger" && conv.platform !== "instagram" && conv.platform !== "whatsapp" && conv.platform !== "email") return { err: fail(c, 422, "unsupported_channel", "Replying is not available for this channel.") };
       // Instagram's text limit is stated as 1,000 bytes (and, on the same page, "less than 1,000 characters"): the stricter reading is enforced. Messenger's limit is our own 2000 characters.
       if (conv.platform === "instagram" && Buffer.byteLength(text, "utf8") > IG_MAX_BYTES) return { err: fail(c, 422, "too_long", `Instagram messages can be at most ${IG_MAX_BYTES} bytes (about ${Math.floor(IG_MAX_BYTES / 3)} Bengali characters or ${IG_MAX_BYTES} English letters).`) };
+      if (conv.platform === "email") {
+        if (!email) return { err: fail(c, 503, "not_configured", "Email is not set up on this server.") };
+        if (conv.status !== "connected") return { err: fail(c, 409, "account_not_connected", "Email is turned off. Turn it on in Settings > Channels > Integrations.") };
+        if (attachmentIds.length) return { err: fail(c, 422, "unsupported_channel_media", "Sending files is not available for email yet.") };
+        const to = await emailTarget(tx, ws, conversationId, conv.external_user_id as string, conv.external_account_id as string, email);
+        if ("error" in to) return { err: fail(c, 422, to.error, to.message) };
+        const row = rowsOf(
+          await tx.execute(sql`
+            INSERT INTO messages (workspace_id, conversation_id, integration_account_id, direction, delivery_state, sender_kind, sender_user_id, client_msg_id, body, attachments)
+            VALUES (${ws}, ${conversationId}, ${conv.integration_account_id as string}, 'out', 'pending', 'user', ${me}, ${clientMsgId}, ${text === "" ? null : text}, '[]'::jsonb) RETURNING id`),
+        )[0]!;
+        await writeAudit(tx, { ...actor(c), workspaceId: ws, action: "message.send_requested", entityType: "message", entityId: row.id as string, summary: { conversationId, length: [...text].length, channel: "email" } });
+        return { sendEmail: { messageId: row.id as string, accountId: conv.integration_account_id as string, token: conv.external_account_id as string, ...to } };
+      }
+      if (!deps) return { err: fail(c, 503, "not_configured", "Messaging is not set up on this server.") };
       if (conv.status !== "connected") return { err: fail(c, 409, "account_not_connected", conv.platform === "whatsapp" ? "This WhatsApp number needs attention. Reconnect it in Settings > Integrations." : "This Facebook Page connection needs attention. Reconnect it in Settings > Integrations.") };
       // Standard messaging window only. No message tag (HUMAN_AGENT or other) is ever sent.
       // WhatsApp: customer-service window, free-form text only inside it. Templates are out of scope (a later slice), so there is no way to reopen it from here. 422 per the slice spec; Messenger/Instagram keep 409.
@@ -121,9 +137,16 @@ export function sendRoutes(db: Db, deps?: MetaConnectDeps, blobs?: BlobStore) {
     });
     if ("err" in prep) return prep.err;
     if ("replay" in prep) return c.json({ message: prep.replay }, 200);
+    const se = (prep as { sendEmail?: Omit<EmailDelivery, "workspaceId" | "text"> }).sendEmail;
+    if (se) {
+      await deliverEmail(email!, { workspaceId: ws, text, ...se }).catch(() => undefined); // whatever happened is on the row; a crash here is handled by recoverStuckSends
+      const message = await withContext(db, wctx(c), async (tx) => loadMessage(tx, ws, se.messageId));
+      return c.json({ message: toDto(message!) }, 201);
+    }
 
+    if (!prep.send) return fail(c, 500, "internal_error");
     // --- 2-4. send (worker role: the application role has no access to tokens or to the sending/sent transitions) ---
-    await deliver(deps, blobs, { workspaceId: ws, conversationId, text, ...prep.send }).catch(() => undefined); // whatever happened is on the row; a crash here is handled by recoverStuckSends
+    await deliver(deps!, blobs, { workspaceId: ws, conversationId, text, ...prep.send }).catch(() => undefined); // whatever happened is on the row; a crash here is handled by recoverStuckSends
     const message = await withContext(db, wctx(c), async (tx) => loadMessage(tx, ws, prep.send.messageId));
     return c.json({ message: toDto(message!) }, 201);
   });
@@ -226,7 +249,7 @@ async function deliver(deps: MetaConnectDeps, blobs: BlobStore | undefined, d: D
   });
 }
 
-async function finish(tx: Tx, d: Delivery, attemptId: string, o: { outcome: "accepted" | "rejected" | "ambiguous"; status: number | null; platformCode: string | null; state?: "failed" | "unknown"; failureCode?: string }) {
+async function finish(tx: Tx, d: { workspaceId: string; messageId: string }, attemptId: string, o: { outcome: "accepted" | "rejected" | "ambiguous"; status: number | null; platformCode: string | null; state?: "failed" | "unknown"; failureCode?: string }) {
   if (o.state) await tx.execute(sql`UPDATE messages SET delivery_state = ${o.state}, failure_code = ${o.failureCode!} WHERE workspace_id = ${d.workspaceId} AND id = ${d.messageId} AND delivery_state = 'sending'`);
   await tx.execute(sql`UPDATE outbound_attempts SET finished_at = now(), http_status = ${o.status}, platform_error_code = ${o.platformCode}, outcome = ${o.outcome} WHERE workspace_id = ${d.workspaceId} AND id = ${attemptId} AND outcome IS NULL`);
 }
@@ -248,4 +271,70 @@ export async function recoverStuckSends(workerDb: Db): Promise<number> {
     });
   }
   return n;
+}
+
+type EmailTarget = { to: string; replyTo: string; fromName: string; fromAddress: string; subject: string; inReplyTo: string | null; references: string[] };
+/**
+ * Works out who an email reply goes to and which headers it carries. The recipient is ALWAYS the conversation's own sender identity, never an address read from a message, so a forged From inside a thread cannot redirect a reply.
+ * A sender whose SPF/DKIM did not pass has its own identity (email-unverified:) and cannot be answered: replying would send mail to whoever the forger named.
+ */
+async function emailTarget(tx: Tx, ws: string, conversationId: string, identity: string, token: string, email: EmailDeps): Promise<EmailTarget | { error: string; message: string }> {
+  if (!identity.startsWith("email:")) return { error: "sender_unverified", message: "This sender could not be verified (their email failed the SPF/DKIM checks), so replying is turned off. Contact them another way." };
+  const to = identity.slice("email:".length);
+  const bad = rowsOf(await tx.execute(sql`SELECT 1 FROM contact_methods cm JOIN conversations c ON c.workspace_id = cm.workspace_id AND c.contact_id = cm.contact_id WHERE c.workspace_id = ${ws} AND c.id = ${conversationId} AND cm.kind = 'email' AND cm.value = ${to} AND cm.undeliverable_at IS NOT NULL`));
+  if (bad.length) return { error: "address_undeliverable", message: "Email to this address bounced before, so it is not sent again. Update the contact's email or contact them another way." };
+  const acct = rowsOf(await tx.execute(sql`SELECT from_address, display_name FROM email_accounts WHERE workspace_id = ${ws} AND inbound_token = ${token}`))[0];
+  if (!acct) return { error: "email_account_missing", message: "Email is not set up for this inbox." };
+  const conv = rowsOf(await tx.execute(sql`SELECT conv_token FROM email_threads WHERE workspace_id = ${ws} AND conversation_id = ${conversationId}`))[0];
+  const chain = rowsOf(
+    await tx.execute(sql`
+      SELECT m.direction, em.header_message_id, em.subject FROM email_message_meta em JOIN messages m ON m.workspace_id = em.workspace_id AND m.id = em.message_id
+      WHERE m.workspace_id = ${ws} AND m.conversation_id = ${conversationId} ORDER BY m.seq`),
+  );
+  const lastIn = [...chain].reverse().find((r) => r.direction === "in");
+  const subject = replySubject((lastIn?.subject ?? [...chain].reverse().find((r) => r.subject)?.subject ?? null) as string | null);
+  return {
+    to, subject, fromName: acct.display_name as string, fromAddress: acct.from_address as string,
+    replyTo: supportAddress(token, email.inboundDomain, (conv?.conv_token as string | undefined) ?? undefined),
+    inReplyTo: (lastIn?.header_message_id as string | undefined) ?? null,
+    references: chain.map((r) => r.header_message_id as string).slice(-20),
+  };
+}
+
+type EmailDelivery = EmailTarget & { workspaceId: string; messageId: string; accountId: string; token: string; text: string };
+
+/** Same four steps as `deliver`, through the EmailProvider port. The provider call is never inside a transaction (D72) and is never retried. MOCK unless the provider is Mailgun, and Mailgun is UNVERIFIED. */
+async function deliverEmail(email: EmailDeps, d: EmailDelivery): Promise<void> {
+  const w = { workspaceId: d.workspaceId };
+  const headerId = newMessageId(d.token, email.sendingDomain);
+  const claimed = await withContext(email.workerDb, w, async (tx) => {
+    const got = rowsOf(await tx.execute(sql`UPDATE messages SET delivery_state = 'sending' WHERE workspace_id = ${d.workspaceId} AND id = ${d.messageId} AND delivery_state = 'pending' RETURNING id`));
+    if (got.length === 0) return null;
+    const summary = JSON.stringify({ kind: "text", channel: "email", method: `email_${email.provider.name}`, length: [...d.text].length });
+    const attempt = rowsOf(await tx.execute(sql`INSERT INTO outbound_attempts (workspace_id, message_id, attempt, request_summary) VALUES (${d.workspaceId}, ${d.messageId}, 1, ${summary}::jsonb) RETURNING id`))[0]!.id as string;
+    await tx.execute(sql`
+      INSERT INTO email_message_meta (workspace_id, integration_account_id, message_id, header_message_id, in_reply_to, "references", subject, from_address, to_address)
+      VALUES (${d.workspaceId}, ${d.accountId}, ${d.messageId}, ${headerId}, ${d.inReplyTo}, ${d.references}::text[], ${d.subject}, ${d.fromAddress}, ${d.to})`);
+    await tx.execute(sql`UPDATE conversations SET last_message_at = GREATEST(coalesce(last_message_at, now()), now()) WHERE workspace_id = ${d.workspaceId} AND id = (SELECT conversation_id FROM messages WHERE workspace_id = ${d.workspaceId} AND id = ${d.messageId})`);
+    return { attempt };
+  });
+  if (!claimed) return;
+
+  let err: EmailSendError | null = null;
+  try {
+    await email.provider.send({ from: { name: d.fromName, address: d.fromAddress }, to: d.to, replyTo: d.replyTo, subject: d.subject, text: d.text, messageId: headerId, inReplyTo: d.inReplyTo, references: d.references, autoSubmitted: "no" });
+  } catch (e) {
+    err = e instanceof EmailSendError ? e : new EmailSendError("ambiguous", null, "no_response");
+  }
+
+  await withContext(email.workerDb, w, async (tx) => {
+    if (!err) {
+      await tx.execute(sql`UPDATE messages SET external_id = ${headerId}, delivery_state = 'sent', sent_at = now() WHERE workspace_id = ${d.workspaceId} AND id = ${d.messageId} AND delivery_state = 'sending'`);
+      await finish(tx, d, claimed.attempt, { outcome: "accepted", status: 200, platformCode: null });
+    } else if (err.outcome === "rejected") {
+      await finish(tx, d, claimed.attempt, { outcome: "rejected", status: err.status, platformCode: err.code, state: "failed", failureCode: err.code });
+    } else {
+      await finish(tx, d, claimed.attempt, { outcome: "ambiguous", status: err.status, platformCode: err.code, state: "unknown", failureCode: err.code });
+    }
+  });
 }

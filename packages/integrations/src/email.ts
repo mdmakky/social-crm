@@ -19,7 +19,8 @@ export type OutboundEmail = {
   messageId: string;
   inReplyTo: string | null;
   references: string[];
-  autoSubmitted: "no";
+  /** "no" for a human reply from the inbox; "auto-generated" for system mail (password reset, invitations). */
+  autoSubmitted: "no" | "auto-generated";
 };
 
 /** outcome "rejected": the provider refused it, nothing was sent. "ambiguous": we cannot tell (timeout, 5xx, unreadable answer); never retried. */
@@ -111,6 +112,9 @@ export const signMailgun = (timestamp: string, token: string, key: string) => cr
 export class TokenSeen {
   private m = new Map<string, number>();
   constructor(private readonly ttlMs = 30 * 60_000, private readonly max = 50_000) {}
+  has(token: string, now: number): boolean {
+    return (this.m.get(token) ?? 0) > now;
+  }
   /** true the first time a token is seen. */
   firstUse(token: string, now: number): boolean {
     for (const [k, t] of this.m) if (t <= now) this.m.delete(k); else break; // insertion order = expiry order
@@ -141,6 +145,8 @@ export type InboundEmail = {
   attachments: { name: string; size: number | null }[];
   attachmentCount: number;
   timestamp: number;
+  /** Conversation token of the recipient address (support+<token>-<convToken>@), set by the ingress. */
+  convToken?: string;
 };
 export type BounceEvent = { kind: "bounce"; event: "bounce" | "complaint"; messageId: string; reason: string };
 export type StoredEmailEvent = InboundEmail | BounceEvent;
