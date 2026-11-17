@@ -115,7 +115,7 @@ export function sendRoutes(db: Db, deps?: MetaConnectDeps, blobs?: BlobStore, we
       }
       // Telegram (MOCK ONLY, UNVERIFIED rules): plain text up to 4096 characters (the 2000 character reply cap is stricter); no reply window; a bot cannot start a chat, so a reply needs an inbound message first; a blocked bot is refused up front.
       if (conv.platform === "telegram") {
-        if (!deps.telegram) return { err: fail(c, 503, "not_configured", "Telegram is not set up on this server.") };
+        if (!deps?.telegram) return { err: fail(c, 503, "not_configured", "Telegram is not set up on this server.") };
         if (text.length > TELEGRAM_MAX_TEXT) return { err: fail(c, 422, "too_long", `Telegram messages can be at most ${TELEGRAM_MAX_TEXT} characters.`) };
         if (!conv.has_inbound) return { err: fail(c, 422, "no_chat", "A Telegram bot cannot start a chat. You can reply after this person writes first.") };
         if (conv.unreachable) return { err: fail(c, 422, "not_reachable", "This person blocked the bot, so Telegram would refuse a reply. You can reply if they write again.") };

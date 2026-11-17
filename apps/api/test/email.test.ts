@@ -40,7 +40,7 @@ beforeAll(async () => {
   provider = new MockEmailProvider();
   deps = { provider, workerDb, inboundDomain: IN, sendingDomain: OUT, mock: true };
   hook = new Hono().route("/webhooks/email", emailWebhookRoutes({ signingKeys: [MOCK_SIGNING_KEY], inboundDomain: IN, ingestDb }));
-  h = await bootstrap(undefined, undefined, undefined, undefined, deps);
+  h = await bootstrap(undefined, undefined, undefined, undefined, undefined, deps);
   [owner, agent, viewer, other] = (await Promise.all(["emowner", "emagent", "emviewer", "emother"].map((l) => h.newUser(l)))) as [TestUser, TestUser, TestUser, TestUser];
   ws = await h.workspace(owner, "Acme Support", { agent, viewer });
   wsB = await h.workspace(other, "Other Co");
