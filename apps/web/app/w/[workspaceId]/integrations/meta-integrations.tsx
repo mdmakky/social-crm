@@ -21,7 +21,7 @@ type Channel = { key: ChannelKey; label: string; blurb: string; icon: LucideIcon
 export const CHANNELS: Channel[] = [
   { key: "messenger", label: "Messenger", blurb: "Messages sent to your Facebook Pages.", icon: MessageCircle, platform: "messenger" },
   { key: "instagram", label: "Instagram", blurb: "Direct messages to your professional account.", icon: Camera, platform: "instagram" },
-  { key: "whatsapp", label: "WhatsApp", blurb: "Messages to your WhatsApp Business number. Receive only.", icon: Phone, platform: "whatsapp" },
+  { key: "whatsapp", label: "WhatsApp", blurb: "Messages to and from your WhatsApp Business number.", icon: Phone, platform: "whatsapp" },
   { key: "telegram", label: "Telegram", blurb: "Bot messaging.", icon: Send, soon: "Not available yet." },
 ];
 const isChannel = (v: string | undefined): v is ChannelKey => CHANNELS.some((c) => c.key === v);

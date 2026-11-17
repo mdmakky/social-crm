@@ -66,7 +66,7 @@ export function WhatsAppConnect({ workspaceId, disabledReason, mock, onConnected
         <p className="mt-1">
           In Meta Business Settings create a system user with access to your app and WhatsApp account, then generate a token with
           {" "}<span className="font-medium text-fg-muted">business_management</span>, <span className="font-medium text-fg-muted">whatsapp_business_management</span> and <span className="font-medium text-fg-muted">whatsapp_business_messaging</span>.
-          The token is stored encrypted. Sending replies is not available yet.
+          The token is stored encrypted. You can reply within 24 hours of the customer's last message.
         </p>
       </details>
       {mock && <div><Badge tone="warning">MOCK</Badge></div>}
