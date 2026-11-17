@@ -21,7 +21,8 @@ import { createShutdown } from "./shutdown.ts";
 import { runTokenChecks, type MetaConnectDeps } from "./inbox/meta-connect.ts";
 import { createProfileEnricher } from "./inbox/profile.ts";
 import { metaUserCallbackRoutes } from "./inbox/meta-callbacks.ts";
-import { createMetaGraph, createMockGraph, createSecretBox } from "@crm/integrations";
+import { createMetaGraph, createMockGraph, createMockTelegram, createSecretBox, createTelegramClient } from "@crm/integrations";
+import { telegramWebhookRoutes } from "./inbox/telegram-webhook.ts";
 import { createHmac } from "node:crypto";
 
 const env = z
@@ -87,12 +88,15 @@ const auth = createAuth(db, { secret: env.BETTER_AUTH_SECRET, baseURL: env.BETTE
 const workerDb = env.DATABASE_URL_WORKER ? createDb(env.DATABASE_URL_WORKER) : null;
 const MOCK_WA_TOKEN = "mock-system-user-token-" + "0".repeat(24); // META_MOCK only: the E2E spec pastes the same value
 let meta: MetaConnectDeps | undefined;
+const mockTelegram = createMockTelegram(); // MOCK ONLY, used under META_MOCK=1
 if (workerDb && env.SECRETS_ENCRYPTION_KEY && env.META_APP_SECRET && ((env.META_APP_ID && env.META_FLFB_CONFIG_ID) || env.META_MOCK === "1")) {
   if (env.NODE_ENV === "production" && env.META_MOCK === "1") throw new Error("META_MOCK is not allowed in production");
   meta = {
     graph: env.META_MOCK === "1"
       ? createMockGraph({ pages: [{ id: "100000000000001", name: "Mock Page", accessToken: "mock-page-token", tasks: ["MANAGE", "MESSAGING"], instagramAccountId: "170000000000001" }], whatsapp: { wabas: new Map([["200000000000001", { token: MOCK_WA_TOKEN, numbers: [{ id: "300000000000001", displayPhoneNumber: "+1 555 010 0001", verifiedName: "Mock WhatsApp Business" }, { id: "300000000000002", displayPhoneNumber: "+1 555 010 0002", verifiedName: null }, { id: "300000000000003", displayPhoneNumber: "+1 555 010 0003", verifiedName: "Mock Attachments Line" }] }]]) } })
       : createMetaGraph({ appId: env.META_APP_ID!, appSecret: env.META_APP_SECRET, version: env.META_GRAPH_VERSION }),
+    telegram: env.META_MOCK === "1" ? mockTelegram : createTelegramClient(), // the real client has never run against Telegram (docs/integrations/telegram.md)
+    publicBaseUrl: env.META_PUBLIC_BASE_URL ?? env.BETTER_AUTH_URL,
     box: createSecretBox({ [env.SECRETS_KEY_ID]: env.SECRETS_ENCRYPTION_KEY }, env.SECRETS_KEY_ID),
     workerDb, appId: env.META_APP_ID ?? "0", configId: env.META_FLFB_CONFIG_ID ?? "0", graphVersion: env.META_GRAPH_VERSION,
     redirectUri: env.META_OAUTH_REDIRECT_URI ?? `${env.WEB_ORIGIN}/v1/integrations/meta/callback`, webOrigin: env.WEB_ORIGIN,
@@ -128,6 +132,13 @@ if (meta && workerDb && env.META_APP_SECRET) {
 if (env.DATABASE_URL_INGEST && env.META_APP_SECRET && env.META_VERIFY_TOKEN) {
   app.route("/webhooks/meta", metaWebhookRoutes({ appSecrets: [env.META_APP_SECRET, ...(env.META_APP_SECRET_PREVIOUS ? [env.META_APP_SECRET_PREVIOUS] : [])], verifyToken: env.META_VERIFY_TOKEN, ingestDb: (ingestDb = createDb(env.DATABASE_URL_INGEST)), onStored: () => void inboxWorker?.tick() }));
   console.log("meta webhook ingress mounted at /webhooks/meta/{messenger,instagram,whatsapp}");
+}
+if (env.DATABASE_URL_INGEST && meta?.telegram) {
+  const tgIngest = ingestDb ?? (ingestDb = createDb(env.DATABASE_URL_INGEST));
+  app.route("/webhooks/telegram", telegramWebhookRoutes({ ingestDb: tgIngest, onStored: () => void inboxWorker?.tick() }));
+  console.log(`telegram webhook ingress mounted at /webhooks/telegram/:id (${meta.mock ? "MOCK client" : "real client, never run against Telegram"})`);
+  // MOCK ONLY test aid: the E2E spec needs the (random) path id and secret the mock Telegram was given, because the real secret is never shown to anyone.
+  if (meta.mock) app.get("/mock/telegram/webhooks", (c) => c.json({ webhooks: [...mockTelegram.state.webhooks.values()].map((w) => ({ url: w.url, secretToken: w.secretToken })) }));
 }
 // Inbound files are downloaded after the webhook transaction, by the same worker pass that enriches profiles (single-flight, errors never reach ingestion).
 const attachmentRunner = workerDb && meta ? createAttachmentRunner({ workerDb, store, graph: meta.graph, meta, net: env.META_MOCK === "1" ? mockMediaNet() : undefined, limits: attachmentLimits, allowedHosts: env.ATTACHMENT_ALLOWED_HOSTS ? env.ATTACHMENT_ALLOWED_HOSTS.split(",").map((h) => h.trim().toLowerCase()).filter(Boolean) : DEFAULT_MEDIA_HOSTS }, (e) => console.error(JSON.stringify({ msg: "attachment worker error", error: (e as Error).name }))) : null;

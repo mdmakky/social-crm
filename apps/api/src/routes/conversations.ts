@@ -56,7 +56,8 @@ const item = (r: Row): ConversationItem => {
     preview: (r.preview as string | null) ?? null,
     previewDirection: (r.preview_direction as "in" | "out" | null) ?? null,
     unreadCount: Number(r.unread),
-    replyWindow: lastInbound === null ? "none" : Date.now() - lastInbound < WINDOW_MS ? "open" : "closed",
+    // Telegram has no reply window (UNVERIFIED), but a bot cannot start a chat: "none" until the person writes
+    replyWindow: lastInbound === null ? "none" : r.platform === "telegram" || Date.now() - lastInbound < WINDOW_MS ? "open" : "closed",
     version: Number(r.version),
   };
 };

@@ -54,6 +54,15 @@ export type ConnectWhatsAppBody = z.infer<typeof ConnectWhatsAppBody>;
 export const ConnectWhatsAppResult = z.object({ account: IntegrationAccountDto, subscription: SubscriptionState, reconnected: z.boolean(), /** earlier webhook events for this number (stored while it was not connected) that were queued for processing */ replayedEvents: z.number().int().min(0) });
 export type ConnectWhatsAppResult = z.infer<typeof ConnectWhatsAppResult>;
 
+/** Telegram bot connection (MOCK ONLY so far). The bot token is sent over TLS, checked with getMe, stored only sealed and never returned. The format is UNVERIFIED (Telegram documents it as an opaque string), so it is not pattern-checked here; getMe is the check. */
+export const ConnectTelegramBody = z.object({ botToken: z.string().min(20).max(200).regex(/^\S+$/) });
+export type ConnectTelegramBody = z.infer<typeof ConnectTelegramBody>;
+export const ConnectTelegramResult = z.object({ account: IntegrationAccountDto, botUsername: z.string().nullable(), webhook: z.enum(["set", "failed"]), reconnected: z.boolean(), /** earlier updates stored while the bot was not connected that were queued again */ replayedEvents: z.number().int().min(0) });
+export type ConnectTelegramResult = z.infer<typeof ConnectTelegramResult>;
+/** getWebhookInfo, reduced to what a person can act on. */
+export const TelegramHealth = z.object({ webhookSet: z.boolean(), pendingUpdateCount: z.number().int().min(0), lastErrorAt: z.string().nullable(), lastErrorMessage: z.string().nullable() });
+export type TelegramHealth = z.infer<typeof TelegramHealth>;
+
 export const MetaAccountEvent = z.object({ id: Uuid, kind: z.string(), summary: z.string(), createdAt: z.string() });
 export const MetaAccountEvents = z.object({ items: z.array(MetaAccountEvent) });
 export type MetaAccountEvents = z.infer<typeof MetaAccountEvents>;
@@ -65,6 +74,8 @@ export const inboxEndpoints = {
   startInstagramUnified: endpoint({ method: "POST", path: `${W}/integrations/instagram/connect/start`, response: MetaConnectStart }),
   lookupWhatsAppNumbers: endpoint({ method: "POST", path: `${W}/integrations/whatsapp/numbers`, body: WhatsAppLookupBody, response: WhatsAppLookupResult }),
   connectWhatsApp: endpoint({ method: "POST", path: `${W}/integrations/whatsapp/connect`, body: ConnectWhatsAppBody, response: ConnectWhatsAppResult }),
+  connectTelegram: endpoint({ method: "POST", path: `${W}/integrations/telegram/connect`, body: ConnectTelegramBody, response: ConnectTelegramResult }),
+  telegramHealth: endpoint({ method: "GET", path: `${W}/integrations/telegram/accounts/:accountId/health`, response: TelegramHealth }),
   startMetaConnect: endpoint({ method: "POST", path: `${W}/integrations/meta/connect/start`, response: MetaConnectStart }),
   listMetaPending: endpoint({ method: "GET", path: `${W}/integrations/meta/pending`, response: MetaPendingList }),
   connectMetaPage: endpoint({ method: "POST", path: `${W}/integrations/meta/connect`, body: ConnectMetaBody, response: ConnectMetaResult }),

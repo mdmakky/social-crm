@@ -4,7 +4,7 @@ import { DecideDeliveryBody, SendMessageBody, type MessageDto } from "@crm/contr
 import { attachmentKey, type BlobStore } from "@crm/core";
 import { can } from "@crm/core/permissions";
 import { withContext, type Db, type Tx } from "@crm/db";
-import { SendError } from "@crm/integrations";
+import { SendError, TELEGRAM_MAX_TEXT, TelegramSendError } from "@crm/integrations";
 import { writeAudit } from "../audit.ts";
 import { pgCode } from "../routes/pipelines.ts";
 import { actor, body, fail, forbidden, isUuid, wctx, type ScopedEnv } from "../routes/scope.ts";
@@ -86,20 +86,28 @@ export function sendRoutes(db: Db, deps?: MetaConnectDeps, blobs?: BlobStore) {
       const conv = rowsOf(
         await tx.execute(sql`
           SELECT c.integration_account_id, a.platform, a.auth_method, a.status, a.external_account_id, pi.external_user_id,
-                 (c.last_inbound_at IS NOT NULL AND now() - c.last_inbound_at < interval '24 hours') AS in_window
+                 (c.last_inbound_at IS NOT NULL AND now() - c.last_inbound_at < interval '24 hours') AS in_window,
+                 (c.last_inbound_at IS NOT NULL) AS has_inbound, (c.contact_unreachable_at IS NOT NULL) AS unreachable
           FROM conversations c
           JOIN integration_accounts a ON a.workspace_id = c.workspace_id AND a.id = c.integration_account_id
           JOIN platform_identities pi ON pi.workspace_id = c.workspace_id AND pi.id = c.identity_id AND pi.integration_account_id = c.integration_account_id
           WHERE c.workspace_id = ${ws} AND c.id = ${conversationId}`),
       )[0];
       if (!conv) return { err: fail(c, 404, "not_found") };
-      if (conv.platform !== "messenger" && conv.platform !== "instagram" && conv.platform !== "whatsapp") return { err: fail(c, 422, "unsupported_channel", "Replying is not available for this channel.") };
+      if (conv.platform !== "messenger" && conv.platform !== "instagram" && conv.platform !== "whatsapp" && conv.platform !== "telegram") return { err: fail(c, 422, "unsupported_channel", "Replying is not available for this channel.") };
       // Instagram's text limit is stated as 1,000 bytes (and, on the same page, "less than 1,000 characters"): the stricter reading is enforced. Messenger's limit is our own 2000 characters.
       if (conv.platform === "instagram" && Buffer.byteLength(text, "utf8") > IG_MAX_BYTES) return { err: fail(c, 422, "too_long", `Instagram messages can be at most ${IG_MAX_BYTES} bytes (about ${Math.floor(IG_MAX_BYTES / 3)} Bengali characters or ${IG_MAX_BYTES} English letters).`) };
-      if (conv.status !== "connected") return { err: fail(c, 409, "account_not_connected", conv.platform === "whatsapp" ? "This WhatsApp number needs attention. Reconnect it in Settings > Integrations." : "This Facebook Page connection needs attention. Reconnect it in Settings > Integrations.") };
+      // Telegram (MOCK ONLY, UNVERIFIED rules): plain text up to 4096 characters (the 2000 character reply cap is stricter); no reply window; a bot cannot start a chat, so a reply needs an inbound message first; a blocked bot is refused up front.
+      if (conv.platform === "telegram") {
+        if (!deps.telegram) return { err: fail(c, 503, "not_configured", "Telegram is not set up on this server.") };
+        if (text.length > TELEGRAM_MAX_TEXT) return { err: fail(c, 422, "too_long", `Telegram messages can be at most ${TELEGRAM_MAX_TEXT} characters.`) };
+        if (!conv.has_inbound) return { err: fail(c, 422, "no_chat", "A Telegram bot cannot start a chat. You can reply after this person writes first.") };
+        if (conv.unreachable) return { err: fail(c, 422, "not_reachable", "This person blocked the bot, so Telegram would refuse a reply. You can reply if they write again.") };
+      }
+      if (conv.status !== "connected") return { err: fail(c, 409, "account_not_connected", conv.platform === "telegram" ? "This Telegram bot needs attention. Reconnect it in Settings > Integrations." : conv.platform === "whatsapp" ? "This WhatsApp number needs attention. Reconnect it in Settings > Integrations." : "This Facebook Page connection needs attention. Reconnect it in Settings > Integrations.") };
       // Standard messaging window only. No message tag (HUMAN_AGENT or other) is ever sent.
       // WhatsApp: customer-service window, free-form text only inside it. Templates are out of scope (a later slice), so there is no way to reopen it from here. 422 per the slice spec; Messenger/Instagram keep 409.
-      if (!conv.in_window) return { err: conv.platform === "whatsapp" ? fail(c, 422, "window_closed", "More than 24 hours have passed since the customer last wrote. WhatsApp only allows a free-form reply within 24 hours; a template message would be needed (not available yet).") : fail(c, 409, "window_closed", "More than 24 hours have passed since the contact last wrote, so Meta does not allow a reply.") };
+      if (!conv.in_window && conv.platform !== "telegram") return { err: conv.platform === "whatsapp" ? fail(c, 422, "window_closed", "More than 24 hours have passed since the customer last wrote. WhatsApp only allows a free-form reply within 24 hours; a template message would be needed (not available yet).") : fail(c, 409, "window_closed", "More than 24 hours have passed since the contact last wrote, so Meta does not allow a reply.") };
       // A file goes out only where the channel send is implemented: WhatsApp (UNVERIFIED against the real Cloud API). Every other channel refuses; text sending is untouched.
       let media: { id: string; kind: MediaSend["kind"]; mime: string; filename: string | null } | null = null;
       if (attachmentIds.length) {
@@ -117,7 +125,7 @@ export function sendRoutes(db: Db, deps?: MetaConnectDeps, blobs?: BlobStore) {
       if (media) await tx.execute(sql`UPDATE attachments SET message_id = ${row.id as string}, updated_at = now() WHERE workspace_id = ${ws} AND id = ${media.id} AND message_id IS NULL`);
       // The text is not copied into the audit trail (customer conversation content).
       await writeAudit(tx, { ...actor(c), workspaceId: ws, action: "message.send_requested", entityType: "message", entityId: row.id as string, summary: { conversationId, length: [...text].length, ...(media ? { attachmentId: media.id } : {}) } });
-      return { send: { method: (conv.auth_method as string) === "unified" ? "unified" as const : "facebook" as const, channel: conv.platform as "messenger" | "instagram" | "whatsapp", messageId: row.id as string, accountId: conv.integration_account_id as string, pageId: conv.external_account_id as string, psid: conv.external_user_id as string, media } };
+      return { send: { method: (conv.auth_method as string) === "unified" ? "unified" as const : "facebook" as const, channel: conv.platform as Delivery["channel"], messageId: row.id as string, accountId: conv.integration_account_id as string, pageId: conv.external_account_id as string, psid: conv.external_user_id as string, media } };
     });
     if ("err" in prep) return prep.err;
     if ("replay" in prep) return c.json({ message: prep.replay }, 200);
@@ -163,7 +171,7 @@ const WA_MEDIA_MIME: Record<MediaSend["kind"], string[]> = {
   image: ["image/jpeg", "image/png"], audio: ["audio/mpeg", "audio/mp4", "audio/ogg"], video: ["video/mp4"],
   document: ["application/pdf", "text/plain", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/vnd.openxmlformats-officedocument.presentationml.presentation"],
 };
-type Delivery = { method: "facebook" | "unified"; channel: "messenger" | "instagram" | "whatsapp"; workspaceId: string; conversationId: string; messageId: string; accountId: string; pageId: string; psid: string; text: string; media: { id: string; kind: MediaSend["kind"]; mime: string; filename: string | null } | null };
+type Delivery = { method: "facebook" | "unified"; channel: "messenger" | "instagram" | "whatsapp" | "telegram"; workspaceId: string; conversationId: string; messageId: string; accountId: string; pageId: string; psid: string; text: string; media: { id: string; kind: MediaSend["kind"]; mime: string; filename: string | null } | null };
 
 async function deliver(deps: MetaConnectDeps, blobs: BlobStore | undefined, d: Delivery): Promise<void> {
   const wctxW = { workspaceId: d.workspaceId };
@@ -172,7 +180,7 @@ async function deliver(deps: MetaConnectDeps, blobs: BlobStore | undefined, d: D
     const got = rowsOf(await tx.execute(sql`UPDATE messages SET delivery_state = 'sending' WHERE workspace_id = ${d.workspaceId} AND id = ${d.messageId} AND delivery_state = 'pending' RETURNING id`));
     if (got.length === 0) return null; // someone else owns it: never two senders for one message
     const token = await loadToken(tx, deps, d.workspaceId, d.accountId);
-    const summary = JSON.stringify({ kind: d.media ? "media" : "text", ...(d.media ? { mediaKind: d.media.kind, mime: d.media.mime } : {}), channel: d.channel, method: d.channel === "whatsapp" ? "whatsapp_cloud" : d.method, messagingType: d.channel === "messenger" ? "RESPONSE" : null, length: [...d.text].length });
+    const summary = JSON.stringify({ kind: d.media ? "media" : "text", ...(d.media ? { mediaKind: d.media.kind, mime: d.media.mime } : {}), channel: d.channel, method: d.channel === "whatsapp" ? "whatsapp_cloud" : d.channel === "telegram" ? "telegram_bot" : d.method, messagingType: d.channel === "messenger" ? "RESPONSE" : null, length: [...d.text].length });
     const attempt = rowsOf(await tx.execute(sql`INSERT INTO outbound_attempts (workspace_id, message_id, attempt, request_summary) VALUES (${d.workspaceId}, ${d.messageId}, 1, ${summary}::jsonb) RETURNING id`))[0]!.id as string;
     if (!token) {
       // Nothing was sent, so this is a definite failure and safe to show as such.
@@ -192,7 +200,8 @@ async function deliver(deps: MetaConnectDeps, blobs: BlobStore | undefined, d: D
       const file = await blobs!.get(attachmentKey(d.workspaceId, d.media.id)).catch(() => null);
       if (!file) result = { localFailure: "file_missing" };
       else result = await deps.graph.sendWhatsAppMedia(d.pageId, claimed.token, d.psid, { kind: d.media.kind, mime: d.media.mime, bytes: file.bytes, filename: d.media.filename, caption: d.text === "" ? null : d.text });
-    } else result = await deps.graph.sendText(d.pageId, claimed.token, d.psid, d.text, d.method === "unified" ? "instagram_unified" : d.channel); // pageId holds the Instagram account id for Instagram accounts and the phone number id for WhatsApp; psid is the wa_id there
+    } else if (d.channel === "telegram") result = await deps.telegram!.sendMessage(claimed.token, d.psid, d.text); // psid is the Telegram user id (= private chat id); the bot token goes in the URL inside the client only, never logged
+    else result = await deps.graph.sendText(d.pageId, claimed.token, d.psid, d.text, d.method === "unified" ? "instagram_unified" : d.channel); // pageId holds the Instagram account id for Instagram accounts and the phone number id for WhatsApp; psid is the wa_id there
   } catch (e) {
     result = e instanceof SendError ? e : new SendError("ambiguous", null, null, null);
   }
@@ -217,9 +226,9 @@ async function deliver(deps: MetaConnectDeps, blobs: BlobStore | undefined, d: D
       await finish(tx, d, claimed.attempt, { outcome: "accepted", status: 200, platformCode: null });
       return;
     }
-    const platformCode = result.code === null ? null : `${result.code}${result.subcode === null ? "" : `/${result.subcode}`}`;
+    const platformCode = result.code === null ? null : `${result.code}${result.subcode === null ? "" : `/${result.subcode}`}${result instanceof TelegramSendError && result.retryAfter !== null ? `/retry_after_${result.retryAfter}` : ""}`;
     if (result.outcome === "rejected") {
-      await finish(tx, d, claimed.attempt, { outcome: "rejected", status: result.httpStatus, platformCode, state: "failed", failureCode: failureCodeOf(result) });
+      await finish(tx, d, claimed.attempt, { outcome: "rejected", status: result.httpStatus, platformCode, state: "failed", failureCode: result instanceof TelegramSendError ? result.reason : failureCodeOf(result) });
     } else {
       await finish(tx, d, claimed.attempt, { outcome: "ambiguous", status: result.httpStatus, platformCode, state: "unknown", failureCode: result.httpStatus === null ? "no_response" : "unreadable_response" });
     }

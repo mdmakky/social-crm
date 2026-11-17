@@ -131,6 +131,8 @@ export const conversations = pgTable(
     /** Watermarks reported by the platform (what the contact has delivered/read); only ever move forward. */
     contactDeliveredAt: ts("contact_delivered_at"),
     contactReadAt: ts("contact_read_at"),
+    /** Telegram: set when the person blocked the bot (my_chat_member), cleared when they unblock or write again. Replies are refused while set. */
+    contactUnreachableAt: ts("contact_unreachable_at"),
     leadId: uuid("lead_id"),
     version: integer("version").notNull().default(1),
     createdAt: ts("created_at").notNull().defaultNow(),
@@ -327,5 +329,34 @@ export const whatsappAccounts = pgTable(
     check("whatsapp_accounts_waba", sql`${t.wabaId} ~ '^[1-9][0-9]{0,99}$'`),
     check("whatsapp_accounts_display", sql`${t.displayPhoneNumber} IS NULL OR char_length(${t.displayPhoneNumber}) <= 40`),
     check("whatsapp_accounts_mode", sql`${t.mode} IN ('cloud_api','coexistence')`),
+  ],
+);
+
+/**
+ * What only a Telegram bot account has, 1:1 with its integration account (platform = 'telegram', external_account_id = the bot id from getMe). Written by the worker role.
+ * `webhookPathId` (unguessable, in the webhook URL) and `secretHash` (SHA-256 of the secret_token Telegram echoes in a header) are never granted to the application role.
+ */
+export const telegramAccounts = pgTable(
+  "telegram_accounts",
+  {
+    id: id(),
+    workspaceId: workspaceId(),
+    integrationAccountId: uuid("integration_account_id").notNull(),
+    botId: text("bot_id").notNull(),
+    botUsername: text("bot_username"),
+    webhookPathId: text("webhook_path_id").notNull(),
+    secretHash: text("secret_hash").notNull(),
+    createdAt: ts("created_at").notNull().defaultNow(),
+    updatedAt: ts("updated_at").notNull().defaultNow(),
+  },
+  (t) => [
+    unique("telegram_accounts_account").on(t.integrationAccountId),
+    unique("telegram_accounts_path").on(t.webhookPathId),
+    unique("telegram_accounts_ws_id").on(t.workspaceId, t.id),
+    foreignKey({ columns: [t.workspaceId, t.integrationAccountId], foreignColumns: [integrationAccounts.workspaceId, integrationAccounts.id], name: "telegram_accounts_account_fk" }),
+    check("telegram_accounts_bot", sql`${t.botId} ~ '^[1-9][0-9]{0,19}$'`),
+    check("telegram_accounts_username", sql`${t.botUsername} IS NULL OR char_length(${t.botUsername}) <= 64`),
+    check("telegram_accounts_path_fmt", sql`${t.webhookPathId} ~ '^[A-Za-z0-9_-]{20,64}$'`),
+    check("telegram_accounts_secret_fmt", sql`${t.secretHash} ~ '^[0-9a-f]{64}$'`),
   ],
 );
