@@ -33,7 +33,7 @@ async function applyBounce(tx: Tx, ctx: EmailCtx, ev: BounceEvent): Promise<stri
   if (!m || !m.to_address) return "unknown_message"; // the address is read from OUR stored message, never from the event
   const n = rowsOf(
     await tx.execute(sql`
-      UPDATE contact_methods SET undeliverable_at = coalesce(undeliverable_at, now()), undeliverable_reason = ${ev.event}, updated_at = now()
+      UPDATE contact_methods SET undeliverable_at = coalesce(undeliverable_at, now()), undeliverable_reason = ${ev.event}
       WHERE workspace_id = ${ctx.workspaceId} AND contact_id = ${m.contact_id as string} AND kind = 'email' AND value = ${m.to_address as string} RETURNING id`),
   );
   await writeAudit(tx, { workspaceId: ctx.workspaceId, actorUserId: null, action: "contact.email_undeliverable", entityType: "contact", entityId: m.contact_id as string, summary: { reason: ev.event, methodsMarked: n.length, conversationId: m.conversation_id as string } });
@@ -96,7 +96,7 @@ async function applyInbound(tx: Tx, ctx: EmailCtx, ev: InboundEmail): Promise<st
   while (named.length < Math.min(ev.attachmentCount, 20)) named.push({ name: "attachment", size: null });
   await tx.execute(sql`
     INSERT INTO email_message_meta (workspace_id, integration_account_id, message_id, header_message_id, in_reply_to, "references", subject, from_address, unverified_sender, attachments_skipped)
-    VALUES (${ctx.workspaceId}, ${ctx.accountId}, ${inserted.id as string}, ${messageId}, ${ev.inReplyTo}, ${ev.references}::text[], ${ev.subject}, ${from}, ${!ev.senderVerified}, ${JSON.stringify(named)}::jsonb)`);
+    VALUES (${ctx.workspaceId}, ${ctx.accountId}, ${inserted.id as string}, ${messageId}, ${ev.inReplyTo}, ARRAY(SELECT jsonb_array_elements_text(${JSON.stringify(ev.references)}::jsonb)), ${ev.subject}, ${from}, ${!ev.senderVerified}, ${JSON.stringify(named)}::jsonb)`);
   await tx.execute(sql`
     UPDATE conversations SET last_message_at = GREATEST(coalesce(last_message_at, ${at}::timestamptz), ${at}::timestamptz), last_inbound_at = GREATEST(coalesce(last_inbound_at, ${at}::timestamptz), ${at}::timestamptz),
       status = CASE WHEN status = 'resolved' THEN 'open' ELSE status END, version = version + 1, updated_at = now()

@@ -314,7 +314,7 @@ async function deliverEmail(email: EmailDeps, d: EmailDelivery): Promise<void> {
     const attempt = rowsOf(await tx.execute(sql`INSERT INTO outbound_attempts (workspace_id, message_id, attempt, request_summary) VALUES (${d.workspaceId}, ${d.messageId}, 1, ${summary}::jsonb) RETURNING id`))[0]!.id as string;
     await tx.execute(sql`
       INSERT INTO email_message_meta (workspace_id, integration_account_id, message_id, header_message_id, in_reply_to, "references", subject, from_address, to_address)
-      VALUES (${d.workspaceId}, ${d.accountId}, ${d.messageId}, ${headerId}, ${d.inReplyTo}, ${d.references}::text[], ${d.subject}, ${d.fromAddress}, ${d.to})`);
+      VALUES (${d.workspaceId}, ${d.accountId}, ${d.messageId}, ${headerId}, ${d.inReplyTo}, ARRAY(SELECT jsonb_array_elements_text(${JSON.stringify(d.references)}::jsonb)), ${d.subject}, ${d.fromAddress}, ${d.to})`);
     await tx.execute(sql`UPDATE conversations SET last_message_at = GREATEST(coalesce(last_message_at, now()), now()) WHERE workspace_id = ${d.workspaceId} AND id = (SELECT conversation_id FROM messages WHERE workspace_id = ${d.workspaceId} AND id = ${d.messageId})`);
     return { attempt };
   });

@@ -47,11 +47,11 @@ export function emailWebhookRoutes(cfg: EmailIngressConfig) {
     if (rejectedRows.allow("global")) await cfg.ingestDb.$client.query("INSERT INTO webhook_events (platform, signature_valid, raw_body, body_sha256, body_size, account_ref, status) VALUES ('email', false, NULL, NULL, $1, NULL, 'rejected')", [size]);
     return new Response("forbidden", { status: 403 });
   };
-  const store = async (accountRef: string | null, ev: StoredEmailEvent | null) => {
-    const body = ev ? Buffer.from(JSON.stringify({ v: 1, ...ev })) : null;
+  const store = async (accountRef: string | null, ev: StoredEmailEvent) => {
+    const body = Buffer.from(JSON.stringify({ v: 1, ...ev }));
     await cfg.ingestDb.$client.query(
       "INSERT INTO webhook_events (platform, signature_valid, raw_body, body_sha256, body_size, account_ref, status) VALUES ('email', true, $1, $2, $3, $4, $5)",
-      [body, body ? sha(body) : null, body?.length ?? 0, accountRef, accountRef ? "received" : "orphan"],
+      [body, sha(body), body.length, accountRef, accountRef ? "received" : "orphan"],
     );
     try { cfg.onStored?.(); } catch { /* a worker signal must never fail the delivery */ }
   };
@@ -83,7 +83,8 @@ export function emailWebhookRoutes(cfg: EmailIngressConfig) {
     // Flood guard per sender address. Over the limit the mail is acknowledged and dropped (a provider retry would only repeat it).
     if (ev.fromAddress && !perSender.allow(ev.fromAddress)) { seen.firstUse(sig.token, now()); return c.text("ok", 200); }
     const tag = parseRecipient(ev.recipient, cfg.inboundDomain);
-    await store(tag?.token ?? null, tag ? { ...ev, ...(tag.convToken ? { convToken: tag.convToken } : {}) } as StoredEmailEvent : null);
+    // No usable token (wrong domain, no +token): stored as an orphan with the same normalised body, never routed anywhere.
+    await store(tag?.token ?? null, { ...ev, ...(tag?.convToken ? { convToken: tag.convToken } : {}) });
     seen.firstUse(sig.token, now());
     return c.text("ok", 200);
   });
