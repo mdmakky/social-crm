@@ -210,10 +210,11 @@ function scopedRoutes(db: Db, deps: MetaConnectDeps | undefined, pending: Pendin
   const elsewhere = (c: SC) => fail(c, 409, "account_unavailable", "This account can't be connected to this workspace.");
   const cookieOpts = (d: MetaConnectDeps) => ({ httpOnly: true, sameSite: "Lax" as const, path: "/v1", maxAge: STATE_TTL_MS / 1000, secure: d.secureCookies });
 
-  const accountsOf = (tx: Tx, workspaceId: string) => tx.select().from(schema.integrationAccounts).where(and(eq(schema.integrationAccounts.workspaceId, workspaceId), ne(schema.integrationAccounts.platform, "web_chat")));
+  // Email accounts have their own panel and state (GET /integrations/email); the Meta list never shows them.
+  const accountsOf = (tx: Tx, workspaceId: string) => tx.select().from(schema.integrationAccounts).where(and(eq(schema.integrationAccounts.workspaceId, workspaceId), ne(schema.integrationAccounts.platform, "web_chat"), ne(schema.integrationAccounts.platform, "email")));
   const ownAccount = async (c: SC, id: string) => {
     const [a] = await withContext(db, wctx(c), (tx) => tx.select().from(schema.integrationAccounts).where(and(eq(schema.integrationAccounts.workspaceId, c.get("workspaceId")), eq(schema.integrationAccounts.id, id))));
-    return a ?? null;
+    return a && a.platform !== "email" ? a : null; // email accounts are managed by their own routes
   };
   const auditIt = (c: SC, action: string, entityId: string, summary: Record<string, unknown>) =>
     withContext(db, wctx(c), (tx) => writeAudit(tx, { ...actor(c), workspaceId: c.get("workspaceId"), action, entityType: "integration_account", entityId, summary }));

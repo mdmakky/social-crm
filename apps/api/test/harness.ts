@@ -17,12 +17,12 @@ let n = 0;
 export type TestUser = { id: string; email: string; name: string; cookie: string; token: string };
 export type Harness = Awaited<ReturnType<typeof bootstrap>>;
 
-export async function bootstrap(hooks?: Parameters<typeof createApp>[1]["testHooks"], meta?: Parameters<typeof createApp>[1]["meta"], ai?: Parameters<typeof createApp>[1]["ai"], attachments?: Parameters<typeof createApp>[1]["attachments"], widget?: Parameters<typeof createApp>[1]["widget"]) {
+export async function bootstrap(hooks?: Parameters<typeof createApp>[1]["testHooks"], meta?: Parameters<typeof createApp>[1]["meta"], ai?: Parameters<typeof createApp>[1]["ai"], attachments?: Parameters<typeof createApp>[1]["attachments"], widget?: Parameters<typeof createApp>[1]["widget"], email?: Parameters<typeof createApp>[1]["email"]) {
   const db: Db = createDb(APP_URL);
   const admin = new pg.Client({ connectionString: ADMIN_URL });
   await admin.connect();
   const auth = createAuth(db, { secret: "test-secret-".padEnd(40, "x"), baseURL: ORIGIN, trustedOrigins: [ORIGIN], mailer: new MemoryMailer() });
-  const app = createApp(auth, { allowedOrigins: [ORIGIN], db, testHooks: hooks, meta, ai, attachments, widget });
+  const app = createApp(auth, { allowedOrigins: [ORIGIN], db, testHooks: hooks, meta, ai, attachments, widget, email });
 
   const post = (path: string, data: unknown) => app.request(path, { method: "POST", headers: { "content-type": "application/json", origin: ORIGIN }, body: JSON.stringify(data) });
 

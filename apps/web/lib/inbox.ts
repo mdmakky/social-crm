@@ -66,6 +66,9 @@ export function failureText(code: string | null): string {
     case "telegram_rate_limited": return "Telegram is limiting this bot for the moment. Wait a little and try again.";
     case "telegram_token_invalid": return "The bot connection has expired. Reconnect it in Settings > Integrations.";
     case "telegram_rejected": return "Telegram did not accept this message.";
+    case "provider_auth": return "The email provider refused our credentials. Check the email settings in Settings > Channels > Integrations.";
+    case "provider_rejected": return "The email provider did not accept this message.";
+    case "email_account_missing": return "Email is not set up for this inbox. Check Settings > Channels > Integrations.";
     case "marked_not_sent": return "You marked this message as not sent.";
     case "file_missing": return "The file could not be found in storage, so nothing was sent.";
     default: return "Meta did not accept this message.";

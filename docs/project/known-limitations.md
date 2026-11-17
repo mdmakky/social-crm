@@ -250,3 +250,10 @@ Updated: 2026-11-13 (Phase 0).
 - Agents appear to visitors as "Support" (no names). Replies show as `sent` once stored, not when read.
 - Replying needs the worker database URL on the API (same as Meta): without `DATABASE_URL_WORKER` the widget routes are not mounted and creating widgets answers 503.
 - An agent who replies to a conversation of a widget that was later turned off still sends; the visitor cannot read it while the widget is off.
+
+## Email channel (2026-11-17, MOCK only)
+- Not tested live: no request to Mailgun has ever been made. The SPF/DKIM verdict field names, the events webhook shape, custom Message-Id handling, MX/SPF values and the route expression are UNVERIFIED (docs/integrations/email.md).
+- Attachments are not stored (names and sizes only) and inbound mail whose webhook body exceeds 1 MB is refused. Outbound attachments are not available. HTML is never shown.
+- Senders that fail the SPF/DKIM check (or lack DKIM) are shown as Unverified sender and cannot be replied to. The check also needs envelope and From domains to match, so mail sent through third-party senders may be marked unverified.
+- One support address per workspace; one conversation per sender. Orphaned events (disabled account) are not re-queued when email is turned on again. "Check setup" is canned in mock and not built for Mailgun. Replay protection and flood limits are in process (one API instance).
+- Contact methods of source email cannot be corrected or deleted by people yet (same gap as D220: migration 0023 policies list only messenger and instagram).

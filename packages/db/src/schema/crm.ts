@@ -202,6 +202,9 @@ export const contactMethods = pgTable(
     extractedAt: timestamp("extracted_at", { withTimezone: true }).notNull().defaultNow(),
     correctedAt: timestamp("corrected_at", { withTimezone: true }),
     correctedBy: text("corrected_by"),
+    /** Set by the email bounce/complaint webhook (migration 0039): mail to this address is not delivered. */
+    undeliverableAt: timestamp("undeliverable_at", { withTimezone: true }),
+    undeliverableReason: text("undeliverable_reason"),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },

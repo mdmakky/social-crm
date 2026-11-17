@@ -63,6 +63,35 @@ export type ConnectTelegramResult = z.infer<typeof ConnectTelegramResult>;
 export const TelegramHealth = z.object({ webhookSet: z.boolean(), pendingUpdateCount: z.number().int().min(0), lastErrorAt: z.string().nullable(), lastErrorMessage: z.string().nullable() });
 export type TelegramHealth = z.infer<typeof TelegramHealth>;
 
+/** Email channel (support inbox). MOCK until a provider has been verified with a real request; `mock` and `provider` tell the UI which badge to show. */
+export const EmailDnsStep = z.object({ id: z.enum(["mx", "spf", "dkim", "dmarc"]), title: z.string(), type: z.string(), host: z.string(), value: z.string(), plain: z.string(), technical: z.string() });
+export const EmailAccountDto = z.object({
+  id: Uuid,
+  enabled: z.boolean(),
+  supportAddress: z.string(),
+  fromAddress: z.string(),
+  displayName: z.string(),
+  provider: z.enum(["mock", "mailgun"]),
+  setupStatus: z.enum(["unchecked", "pending", "verified", "failed"]),
+  lastCheckedAt: z.string().nullable(),
+  connectedAt: z.string(),
+});
+export type EmailAccountDto = z.infer<typeof EmailAccountDto>;
+export const EmailIntegrationState = z.object({
+  /** false when this server has no mail provider and inbound domain configured; connect then answers 503. */
+  available: z.boolean(),
+  mock: z.boolean(),
+  provider: z.enum(["mock", "mailgun"]).nullable(),
+  inboundDomain: z.string().nullable(),
+  account: EmailAccountDto.nullable(),
+  dns: z.array(EmailDnsStep),
+});
+export type EmailIntegrationState = z.infer<typeof EmailIntegrationState>;
+export const ConnectEmailBody = z.object({ displayName: z.string().trim().min(1).max(80).optional() });
+export const SetEmailEnabledBody = z.object({ enabled: z.boolean() });
+export const EmailSetupCheck = z.object({ state: EmailIntegrationState, checks: z.array(z.object({ id: z.enum(["mx", "spf", "dkim", "dmarc"]), ok: z.boolean(), message: z.string() })), mock: z.boolean() });
+export type EmailSetupCheck = z.infer<typeof EmailSetupCheck>;
+
 export const MetaAccountEvent = z.object({ id: Uuid, kind: z.string(), summary: z.string(), createdAt: z.string() });
 export const MetaAccountEvents = z.object({ items: z.array(MetaAccountEvent) });
 export type MetaAccountEvents = z.infer<typeof MetaAccountEvents>;
@@ -73,6 +102,11 @@ export const inboxEndpoints = {
   getMetaIntegration: endpoint({ method: "GET", path: `${W}/integrations/meta`, response: MetaIntegrationState }),
   startInstagramUnified: endpoint({ method: "POST", path: `${W}/integrations/instagram/connect/start`, response: MetaConnectStart }),
   lookupWhatsAppNumbers: endpoint({ method: "POST", path: `${W}/integrations/whatsapp/numbers`, body: WhatsAppLookupBody, response: WhatsAppLookupResult }),
+  getEmailIntegration: endpoint({ method: "GET", path: `${W}/integrations/email`, response: EmailIntegrationState }),
+  connectEmail: endpoint({ method: "POST", path: `${W}/integrations/email/connect`, body: ConnectEmailBody, response: EmailIntegrationState }),
+  checkEmailSetup: endpoint({ method: "POST", path: `${W}/integrations/email/check-setup`, response: EmailSetupCheck }),
+  setEmailEnabled: endpoint({ method: "POST", path: `${W}/integrations/email/enabled`, body: SetEmailEnabledBody, response: EmailIntegrationState }),
+  disconnectEmail: endpoint({ method: "POST", path: `${W}/integrations/email/disconnect`, response: EmailIntegrationState }),
   connectWhatsApp: endpoint({ method: "POST", path: `${W}/integrations/whatsapp/connect`, body: ConnectWhatsAppBody, response: ConnectWhatsAppResult }),
   connectTelegram: endpoint({ method: "POST", path: `${W}/integrations/telegram/connect`, body: ConnectTelegramBody, response: ConnectTelegramResult }),
   telegramHealth: endpoint({ method: "GET", path: `${W}/integrations/telegram/accounts/:accountId/health`, response: TelegramHealth }),

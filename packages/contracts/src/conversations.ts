@@ -52,6 +52,8 @@ export const ContactMethodDto = z.object({
   extractedAt: z.string(),
   /** Set when a person corrected a detected value. */
   correctedAt: z.string().nullable(),
+  /** Email only: a bounce or complaint says mail to this address is not delivered (set by the email events webhook). */
+  undeliverable: z.boolean().optional(),
 });
 export type ContactMethodDto = z.infer<typeof ContactMethodDto>;
 
@@ -62,6 +64,8 @@ export const ConversationDetail = ConversationItem.extend({
   lastSeq: z.number().int().min(0),
   lastReadSeq: z.number().int().min(0),
   contactSummary: z.object({ id: Uuid, name: z.string(), avatarUrl: z.string().url().nullable(), email: z.string().nullable(), phone: z.string().nullable(), methods: z.array(ContactMethodDto) }),
+  /** Email conversations only: where replies go and whether they can be sent. MOCK mode is labeled by the integration state, not here. */
+  email: z.object({ address: z.string(), undeliverable: z.boolean(), unverifiedSender: z.boolean() }).nullable().optional(),
 });
 export type ConversationDetail = z.infer<typeof ConversationDetail>;
 
@@ -76,6 +80,8 @@ export const MessageDto = z.object({
   deliveryState: DeliveryState,
   failureCode: z.string().nullable(),
   occurredAt: z.string(),
+  /** Email messages only. Plain text: the web app renders body as text, never as HTML. */
+  email: z.object({ subject: z.string().nullable(), fromAddress: z.string().nullable(), unverifiedSender: z.boolean(), attachmentsNotStored: z.array(z.object({ name: z.string(), size: z.number().nullable() })), attachmentCount: z.number().int().min(0) }).nullable().optional(),
 });
 export type MessageDto = z.infer<typeof MessageDto>;
 

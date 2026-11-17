@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import type { Db, Tx } from "@crm/db";
-import { parseMetaWebhook, parseTelegramUpdate, type MetaEvent } from "@crm/integrations";
+import { parseMetaWebhook, parseTelegramUpdate, type BounceEvent, type InboundEmail, type MetaEvent } from "@crm/integrations";
+import { applyEmailEvent } from "./email-inbound.ts";
 import { saveExtracted } from "./extract.ts";
 import { recordInboundAttachments } from "./attachments.ts";
 
@@ -56,6 +57,16 @@ export async function processWebhookEvent(db: Db, eventId: string): Promise<Outc
 
       const body = claimed.raw_body as Buffer | null;
       if (!body) throw new EventError("body_purged", false);
+      if (platform === "email") {
+        // Email: the stored body is the ingress's own normalised JSON (email-webhook.ts), not a Meta payload. A deliberately ignored mail is recorded as `ignored:<reason>` in last_error.
+        let ev: unknown = null;
+        try { ev = JSON.parse(body.toString("utf8")); } catch { /* falls through */ }
+        const kind = (ev as { kind?: unknown } | null)?.kind;
+        if (kind !== "inbound" && kind !== "bounce") throw new EventError("unparseable", false);
+        const note = await applyEmailEvent(tx, { workspaceId, accountId, accountRef: accountRef! }, ev as InboundEmail | BounceEvent);
+        await tx.execute(sql`UPDATE webhook_events SET status = 'processed', processed_at = now(), attempts = attempts + 1, last_error = ${note ? `ignored:${note}`.slice(0, 100) : null} WHERE id = ${eventId}`);
+        return "processed";
+      }
       if (platform === "telegram") {
         // One stored row is one Update, routed by the bot id of the path it arrived on (telegram-webhook.ts); the recipient of every event is that bot.
         const t = parseTelegramUpdate(body, accountRef!);

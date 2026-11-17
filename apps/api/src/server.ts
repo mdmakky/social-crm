@@ -23,6 +23,9 @@ import { createProfileEnricher } from "./inbox/profile.ts";
 import { metaUserCallbackRoutes } from "./inbox/meta-callbacks.ts";
 import { createMetaGraph, createMockGraph, createMockTelegram, createSecretBox, createTelegramClient } from "@crm/integrations";
 import { telegramWebhookRoutes } from "./inbox/telegram-webhook.ts";
+import { assertMailProduction, emailSetup, providerMailer } from "./mail-config.ts";
+import { emailWebhookRoutes } from "./inbox/email-webhook.ts";
+import type { EmailDeps } from "./inbox/email-connect.ts";
 import { createHmac } from "node:crypto";
 
 const env = z
@@ -34,6 +37,13 @@ const env = z
     PORT: z.coerce.number().default(8787),
     NODE_ENV: z.string().default("development"),
     MAIL_DIR: z.string().default(".dev-mail"),
+    // Mail provider (decision D259). "file" = development files; "mock" = in-memory MOCK email channel; "mailgun" = Mailgun adapter, UNVERIFIED against a real account. Production refuses to start unless this is "mailgun" with its keys.
+    MAIL_PROVIDER: z.enum(["file", "mock", "mailgun"]).default("file"),
+    MAILGUN_API_KEY: z.string().min(8).optional(),
+    MAILGUN_SIGNING_KEY: z.string().min(8).optional(), // the account Webhook Signing Key, not the API key
+    MAILGUN_DOMAIN: z.string().min(3).optional(), // sending domain (From = support@this)
+    MAILGUN_BASE_URL: z.string().url().optional(), // EU accounts: https://api.eu.mailgun.net
+    EMAIL_INBOUND_DOMAIN: z.string().min(3).optional(), // customers write to support+<token>@this
     INVITATION_EMAIL: z.enum(["0", "1"]).default("0"), // 1 = also email invitation links through the mailer above; off by default because that mailer only writes files (D213)
     EVENT_DISPATCH_INTERVAL_MS: z.coerce.number().default(1000),
     EVENT_DISPATCH_IDLE_INTERVAL_MS: z.coerce.number().default(600_000), // poll this slowly when nobody has used the API for ACTIVE_WINDOW_MS
@@ -79,8 +89,9 @@ const env = z
 
 // Only the local development mail adapter exists; the production provider is chosen with hosting (decision D22).
 // Fail closed rather than silently dropping password-reset emails in production.
-if (env.NODE_ENV === "production") throw new Error("No production mail provider is configured yet (decision D22). Password reset would not work.");
-const mailer = new FileMailer(env.MAIL_DIR);
+assertMailProduction(env); // still fails closed in production unless MAIL_PROVIDER=mailgun with its keys (D22, D259)
+const emailCfg = emailSetup(env);
+const mailer = env.MAIL_PROVIDER === "mailgun" && emailCfg ? providerMailer(emailCfg.provider, emailCfg.sendingDomain) : new FileMailer(env.MAIL_DIR);
 
 const origins = [env.WEB_ORIGIN, "crm://"];
 const db = createDb(env.DATABASE_URL_APP);
@@ -125,7 +136,9 @@ async function reconcileAll(w: NonNullable<typeof workerDb>, st: NonNullable<typ
   const ws = (await w.execute(sql`SELECT DISTINCT workspace_id FROM integration_accounts WHERE status <> 'disabled' LIMIT 500`)).rows as { workspace_id: string }[];
   for (const x of ws) await reconcileAttachments(w, st, x.workspace_id).catch(() => undefined);
 }
-const app = createApp(auth, { allowedOrigins: origins, db, widget: workerDb ? { workerDb } : undefined, invitations: env.INVITATION_EMAIL === "1" ? { mailer } : undefined, meta, ai, attachments, openrouterBrowser: orMock ? createModelBrowser({ fetch: mockModelsFetch, mock: true }) : undefined });
+const email: EmailDeps | undefined = workerDb && emailCfg ? { provider: emailCfg.provider, workerDb, inboundDomain: emailCfg.inboundDomain, sendingDomain: emailCfg.sendingDomain, mock: emailCfg.mock } : undefined;
+if (email) console.log(`email channel enabled (${email.mock ? "MOCK provider, nothing is really sent" : "Mailgun, UNVERIFIED"})`);
+const app = createApp(auth, { allowedOrigins: origins, db, email, widget: workerDb ? { workerDb } : undefined, invitations: env.INVITATION_EMAIL === "1" ? { mailer } : undefined, meta, ai, attachments, openrouterBrowser: orMock ? createModelBrowser({ fetch: mockModelsFetch, mock: true }) : undefined });
 if (meta && workerDb && env.META_APP_SECRET) {
   app.route("/meta/callbacks", metaUserCallbackRoutes({ appSecrets: [env.META_APP_SECRET, ...(env.META_APP_SECRET_PREVIOUS ? [env.META_APP_SECRET_PREVIOUS] : [])], workerDb, userHashKey: meta.userHashKey, statusKey: createHmac("sha256", env.META_APP_SECRET).update("crm-deletion-status-v1").digest(), publicBaseUrl: env.META_PUBLIC_BASE_URL }));
 }
@@ -139,6 +152,10 @@ if (env.DATABASE_URL_INGEST && meta?.telegram) {
   console.log(`telegram webhook ingress mounted at /webhooks/telegram/:id (${meta.mock ? "MOCK client" : "real client, never run against Telegram"})`);
   // MOCK ONLY test aid: the E2E spec needs the (random) path id and secret the mock Telegram was given, because the real secret is never shown to anyone.
   if (meta.mock) app.get("/mock/telegram/webhooks", (c) => c.json({ webhooks: [...mockTelegram.state.webhooks.values()].map((w) => ({ url: w.url, secretToken: w.secretToken })) }));
+}
+if (email && emailCfg && env.DATABASE_URL_INGEST) {
+  app.route("/webhooks/email", emailWebhookRoutes({ signingKeys: emailCfg.signingKeys, inboundDomain: emailCfg.inboundDomain, ingestDb: (ingestDb ??= createDb(env.DATABASE_URL_INGEST)), onStored: () => void inboxWorker?.tick() }));
+  console.log("email webhook ingress mounted at /webhooks/email/{inbound,events}");
 }
 // Inbound files are downloaded after the webhook transaction, by the same worker pass that enriches profiles (single-flight, errors never reach ingestion).
 const attachmentRunner = workerDb && meta ? createAttachmentRunner({ workerDb, store, graph: meta.graph, meta, net: env.META_MOCK === "1" ? mockMediaNet() : undefined, limits: attachmentLimits, allowedHosts: env.ATTACHMENT_ALLOWED_HOSTS ? env.ATTACHMENT_ALLOWED_HOSTS.split(",").map((h) => h.trim().toLowerCase()).filter(Boolean) : DEFAULT_MEDIA_HOSTS }, (e) => console.error(JSON.stringify({ msg: "attachment worker error", error: (e as Error).name }))) : null;

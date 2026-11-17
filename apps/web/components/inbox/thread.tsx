@@ -296,8 +296,10 @@ export function Thread({ conversationId }: { conversationId: string }) {
   if (failed === "error" && !detail) return <div className="flex-1"><ErrorState title="Couldn't load this conversation" onRetry={() => { setFailed(null); void refresh(true); }} /></div>;
   if (!detail) return <ThreadSkeleton />;
 
-  const left = windowMinutesLeft(detail, now);
-  const canType = detail.replyWindow === "open";
+  const left = detail.platform === "email" ? null : windowMinutesLeft(detail, now);
+  // Email: no reply window. A sender that failed SPF/DKIM, or an address that bounced, cannot be answered (the server refuses too).
+  const emailBlock = detail.platform === "email" && detail.email ? (detail.email.unverifiedSender ? "unverified" : detail.email.undeliverable ? "bounced" : null) : null;
+  const canType = detail.replyWindow === "open" && !emailBlock;
   const usage = replyUsage(detail.platform, draft, MAX_REPLY_LENGTH);
   const name = detail.contact.name;
   const assigneeOptions = [{ id: myUserId, name: "Me" }, ...(canAssignAny ? members.filter((m) => m.userId !== myUserId && m.status === "active").map((m) => ({ id: m.userId, name: m.name })) : [])];
@@ -365,6 +367,8 @@ export function Thread({ conversationId }: { conversationId: string }) {
         <footer className="px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-1">
           {!canReply ? <p className="py-3 text-sm text-fg-muted">You have read-only access.</p> : (
             <>
+              {emailBlock === "unverified" && <Alert tone="warning" className="mb-2">Unverified sender: this email failed the sender checks (SPF/DKIM), so it may not be from {detail.email?.address}. Replying is turned off. Contact them another way.</Alert>}
+              {emailBlock === "bounced" && <Alert tone="warning" className="mb-2">Email to {detail.email?.address} bounced, so it is not sent again. Update the contact&apos;s email or contact them another way.</Alert>}
               {detail.replyWindow === "closed" && <Alert tone="warning" className="mb-2">You can&apos;t reply: more than 24 hours have passed since {name}&apos;s last message. {detail.platform === "whatsapp" ? "WhatsApp allows replies only within 24 hours of the customer's last message." : "Meta only allows replies within 24 hours."} You can reply as soon as {name} writes again.</Alert>}
               {detail.replyWindow === "none" && <Alert tone="info" className="mb-2">There is no reply window yet. You can reply after {name} writes first.</Alert>}
               {left !== null && left < 120 && <Alert tone="warning" className="mb-2">The 24-hour reply window closes in {Math.floor(left / 60)} h {left % 60} min. After that you can&apos;t reply until {name} writes again.</Alert>}
@@ -396,7 +400,7 @@ export function Thread({ conversationId }: { conversationId: string }) {
                   {suggesting
                     ? <Button type="button" size="sm" onClick={() => suggestAbort.current?.abort()} aria-label="Stop AI suggestion"><Square aria-hidden />Stop</Button>
                     : <Button type="button" size="sm" disabled={!canType || submitting} onClick={() => void suggest()} aria-label="Suggest reply with AI"><Sparkles aria-hidden />Suggest reply</Button>}
-                  <p id="composer-hint" className="min-w-0 flex-1 text-xs text-fg-subtle max-sm:sr-only">Enter to send, Shift+Enter for a new line.{usage.used > usage.max * 0.8 ? ` ${usage.used}/${usage.max} ${usage.unit}` : ""}{usage.over ? <span className="text-danger-fg"> Too long for {detail.platform === "instagram" ? "Instagram" : detail.platform === "whatsapp" ? "WhatsApp" : "Messenger"}: shorten it to send.</span> : null}</p>
+                  <p id="composer-hint" className="min-w-0 flex-1 text-xs text-fg-subtle max-sm:sr-only">Enter to send, Shift+Enter for a new line.{usage.used > usage.max * 0.8 ? ` ${usage.used}/${usage.max} ${usage.unit}` : ""}{usage.over ? <span className="text-danger-fg"> Too long for {detail.platform === "instagram" ? "Instagram" : detail.platform === "whatsapp" ? "WhatsApp" : detail.platform === "email" ? "email here" : "Messenger"}: shorten it to send.</span> : null}</p>
                   <Button type="submit" variant="primary" loading={submitting} disabled={!canType || suggesting || (draft.trim() === "" && uploads.ready.length === 0) || uploads.busy || usage.over}><Send aria-hidden />Send</Button>
                 </div>
               </form>
@@ -429,7 +433,15 @@ function Bubble({ m, now, run, onDecide, deciding, files, storageConfigured, onF
       <div className={cn("flex max-w-[85%] flex-col md:max-w-[34rem]", out ? "items-end" : "items-start")}>
         <div className={cn("rounded-2xl border px-3.5 py-2 text-left text-base",
           !out ? "rounded-bl-sm border-line bg-surface text-fg" : ext ? "rounded-br-sm border-accent/20 bg-accent-subtle text-fg" : "rounded-br-sm border-transparent bg-accent text-on-accent")}>
+          {m.email && (m.email.subject || m.email.unverifiedSender) && (
+            <p className="mb-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-semibold">
+              {m.email.subject && <span data-testid="email-subject" className="break-words">{m.email.subject}</span>}
+              {m.email.unverifiedSender && <Badge tone="warning" shape="square">Unverified sender</Badge>}
+            </p>
+          )}
+          {/* Plain text only: React escapes it, line breaks are kept by CSS. No HTML from an email is ever rendered. */}
           {m.body && <p className="whitespace-pre-wrap break-words leading-[1.55]">{m.body}</p>}
+          {m.email && m.email.attachmentCount > 0 && <p className="mt-1.5 text-xs opacity-80">{m.email.attachmentCount} attachment{m.email.attachmentCount === 1 ? "" : "s"} not stored{m.email.attachmentsNotStored.some((a) => a.name !== "attachment") ? ": " + m.email.attachmentsNotStored.map((a) => a.name).join(", ") : ""}.</p>}
           {files.length > 0 ? <MessageFiles items={files} storageConfigured={storageConfigured} onChanged={onFilesChanged} /> : <Attachments items={m.attachments} />}
         </div>
         {!run && (

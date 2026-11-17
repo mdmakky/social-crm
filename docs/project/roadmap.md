@@ -167,3 +167,5 @@ Next phase: Meta Inbox. Slice 1 (schema, RLS, per-user unread) merged to `main` 
 FR-46 (invitations by email, accept, resend, revoke; Mailer optional) is built on branch `feat/invitations` (migration 0035, D210 to D219). Delivery is link-based; email only with a configured mailer (known-limitations). Not merged or deployed.
 
 **Phase 2 progress, website chat (2026-11-17, `feat/web-chat`, not merged):** an embeddable chat widget is an Inbox channel (`web_chat`): visitors chat anonymously from a customer's site, agents answer in the normal Inbox, polling realtime, origin allowlist plus rate limits, admin under Settings > Web chat. Tested only on our own local servers. Next: try it on a real staging site (Safari/Firefox, strict CSP), measure polling cost, then decide on SSE, attachments, signed visitor identity, business hours and a CAPTCHA.
+
+Email channel v1 (2026-11-17, `feat/email-channel`, MOCK): built and tested against a mock provider; live Mailgun verification, attachment storage and a Postmark adapter are later slices. See docs/integrations/email.md.
