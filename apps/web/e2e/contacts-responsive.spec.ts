@@ -59,9 +59,9 @@ test("contacts screens hold at 375, 768 and 1440: no page overflow, no axe viola
   await expect(card).toBeVisible();
   expect((await card.boundingBox())!.height).toBeGreaterThanOrEqual(56);
   await expect(page.getByRole("button", { name: "Filters" })).toBeVisible();
-  await expect(page.getByLabel("Lifecycle stage")).toBeHidden();
+  await expect(page.getByLabel("Owner", { exact: true })).toBeHidden();
   await page.getByRole("button", { name: "Filters" }).click();
-  await expect(page.getByLabel("Lifecycle stage")).toBeVisible();
+  await expect(page.getByLabel("Owner", { exact: true })).toBeVisible();
   await axe(page, "list-filters-open@375");
   await page.setViewportSize({ width: 1440, height: 900 });
   await expect(page.getByRole("table")).toBeVisible();

@@ -9,7 +9,7 @@ import { AdConsentPanel } from "./ad-consent-panel";
 import { CustomFieldInput } from "@/components/contacts/custom-field-input";
 import { DetectedMethodsPanel } from "@/components/contacts/detected-methods";
 import { Avatar } from "@/components/ui/avatar";
-import { Badge, hueOf, Status } from "@/components/ui/badge";
+import { Badge, Status } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { Textarea } from "@/components/ui/form-controls";
@@ -27,14 +27,13 @@ type Props = {
   workspaceId: string; role: Role; timeZone: string; myUserId: string;
   contact: ContactDetail; leadInfo: { lead: ContactLead | null; loaded: boolean; pipelines: PipelineDto[]; lostReasons: LostReasonDto[] } | null; notes: Note[]; methods: ContactMethodDto[] | null; activity: { items: ActivityItem[]; nextCursor: string | null }; tasks: Task[];
   allTags: Tag[]; stages: LifecycleStage[]; members: Member[]; fields: CustomField[];
-  perms: { lead: boolean; setValue: boolean; edit: boolean; delete: boolean; consent: boolean };
+  perms: { lead: boolean; removeLead: boolean; setValue: boolean; edit: boolean; delete: boolean; consent: boolean };
 };
 
 /** Panels inside one group share a single surface and are divided by hairlines (no stack of identical boxes). */
 const GROUP = "overflow-hidden rounded-card bg-surface shadow-sheet [&>[data-panel]]:rounded-none [&>[data-panel]]:bg-transparent [&>[data-panel]]:shadow-none [&>[data-panel]+[data-panel]]:border-t [&>[data-panel]+[data-panel]]:border-line-card";
 
 /** Well-known stage names get a meaningful dot; custom stages hash to a stable hue. */
-const STAGE_HUE: Record<string, 1 | 2 | 3 | 4 | 5 | 6> = { new: 1, lead: 3, qualified: 5, opportunity: 4, customer: 2, churned: 6 };
 const mailtoHref = (e: string) => `mailto:${encodeURI(e)}`;
 const telHref = (p: string) => `tel:${p.replace(/[^\d+*#,;]/g, "")}`;
 
@@ -95,7 +94,7 @@ export function ContactDetailView(props: Props) {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {headStage ? <Status hue={stageHue(headStage)}>{headStage.name}</Status> : <Status hue={STAGE_HUE[c.lifecycleStage.name.trim().toLowerCase()] ?? hueOf(c.lifecycleStage.name)}>{c.lifecycleStage.name}</Status>}
+          {headStage && <Status hue={stageHue(headStage)}>{headStage.name}</Status>}
           {perms.delete && <DeleteMenu workspaceId={workspaceId} contact={c} onDeleted={() => router.push(`/w/${workspaceId}/contacts`)} />}
         </div>
       </div>
@@ -103,7 +102,7 @@ export function ContactDetailView(props: Props) {
       <div className="grid items-start gap-4 lg:grid-cols-3">
         <div className="grid gap-4 lg:col-span-2">
           <div className={GROUP}>
-          {props.leadInfo?.loaded && <LeadPanel workspaceId={workspaceId} contact={c} lead={lead} pipelines={props.leadInfo.pipelines} lostReasons={props.leadInfo.lostReasons} members={members} canEdit={perms.lead} canEditOwner={perms.edit} canSetValue={perms.setValue} myUserId={myUserId} onLead={setLead} onContact={(d) => { setC(d); void refreshActivity(); }} />}
+          {props.leadInfo?.loaded && <LeadPanel workspaceId={workspaceId} contact={c} lead={lead} pipelines={props.leadInfo.pipelines} lostReasons={props.leadInfo.lostReasons} members={members} canEdit={perms.lead} canEditOwner={perms.edit} canSetValue={perms.setValue} canRemove={perms.removeLead} myUserId={myUserId} onLead={setLead} onContact={(d) => { setC(d); void refreshActivity(); }} />}
           <DetailsPanel key={c.version} c={c} carry={carry} onCarryUsed={() => setCarry(null)} onCarry={setCarry} saved={savedVersion === c.version} onSaved={(d, viaSave) => { setC(d); if (viaSave) setSavedVersion(d.version); void refreshActivity(); }} stages={stages} members={members} fields={fields} canEdit={perms.edit} workspaceId={workspaceId} myUserId={myUserId} showOwner={!props.leadInfo?.loaded} />
           <DetectedMethodsPanel workspaceId={workspaceId} contactId={c.id} initial={props.methods} canEdit={perms.edit} timeZone={timeZone} onPrimaryChanged={() => { void browserApi.call(endpoints.getContact, { params: { workspaceId, contactId: c.id } }).then((r) => { if (r.ok) setC(r.data); }); }} />
           <AdConsentPanel workspaceId={workspaceId} contactId={c.id} canEdit={perms.consent} timeZone={timeZone} members={members} />
@@ -167,7 +166,6 @@ function DetailsPanel({ showOwner, c, carry, onCarry, onCarryUsed, saved, onSave
     window.addEventListener("beforeunload", h);
     return () => window.removeEventListener("beforeunload", h);
   }, [dirty, canEdit]);
-  const stageOptions = stages.filter((s) => !s.archived || s.id === c.lifecycleStage.id);
 
   async function save(allowDuplicate = false) {
     if (!form.name.trim()) return setFieldErrors({ name: "Enter a name." });
@@ -221,7 +219,6 @@ function DetailsPanel({ showOwner, c, carry, onCarry, onCarryUsed, saved, onSave
           <Field label="Company">{(x) => <Input {...x} value={form.company} onChange={(e) => set({ company: e.target.value })} disabled={!canEdit} maxLength={120} />}</Field>
           <Field label="Email" action={c.email ? <a className="inline-flex text-sm text-fg-muted underline underline-offset-2 hover:text-fg pointer-coarse:min-h-11 pointer-coarse:items-center pointer-coarse:px-2" href={mailtoHref(c.email)}>Send email</a> : undefined}>{(x) => <Input {...x} type="email" inputMode="email" value={form.email} onChange={(e) => set({ email: e.target.value })} disabled={!canEdit} />}</Field>
           <Field label="Phone" action={c.phone ? <a className="inline-flex text-sm text-fg-muted underline underline-offset-2 hover:text-fg pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:items-center pointer-coarse:justify-center pointer-coarse:px-2" href={telHref(c.phone)}>Call</a> : undefined}>{(x) => <Input {...x} type="tel" inputMode="tel" value={form.phone} onChange={(e) => set({ phone: e.target.value })} disabled={!canEdit} />}</Field>
-          <Field label="Lifecycle stage">{(x) => <Select {...x} value={form.stage} onChange={(e) => set({ stage: e.target.value })} disabled={!canEdit}>{stageOptions.map((s) => <option key={s.id} value={s.id}>{s.name}{s.archived ? " (archived)" : ""}</option>)}</Select>}</Field>
           {showOwner && <Field label="Owner">{(x) => <Select {...x} value={form.owner} onChange={(e) => set({ owner: e.target.value })} disabled={!canEdit}><option value="">Unassigned</option>{members.map((m) => <option key={m.userId} value={m.userId}>{m.name}{m.userId === myUserId ? " (you)" : ""}</option>)}</Select>}</Field>}
           <Field label="Source">{(x) => <Select {...x} value={form.source} onChange={(e) => set({ source: e.target.value })} disabled={!canEdit}>{Object.keys(SOURCE_LABEL).map((s) => <option key={s} value={s}>{sourceLabel(s)}</option>)}</Select>}</Field>
         </div>

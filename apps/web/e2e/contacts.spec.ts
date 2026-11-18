@@ -67,8 +67,8 @@ test.describe("contacts list", () => {
     await page.getByRole("button", { name: "Clear filters" }).click();
     await expect(page.getByText("Showing 25 of 40")).toBeVisible();
 
-    await page.getByLabel("Lifecycle stage").selectOption({ label: "Qualified" });
-    await expect(page.getByRole("heading", { name: "No contacts match these filters" })).toBeVisible(); // nobody is in Qualified
+    await page.getByLabel("Source").selectOption({ label: "Referral" });
+    await expect(page.getByRole("heading", { name: "No contacts match these filters" })).toBeVisible(); // nobody came by referral
     await page.getByRole("button", { name: "Clear", exact: true }).click();
 
     const nameHeader = page.getByRole("columnheader", { name: /Contact/ });

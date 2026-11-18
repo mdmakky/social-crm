@@ -1,11 +1,12 @@
 "use client";
 import * as React from "react";
-import { Lock, Workflow } from "lucide-react";
+import { Lock, Trash2, Workflow } from "lucide-react";
 import { endpoints, type ContactDetail, type ContactLead, type LostReasonDto, type Member, type PipelineDto } from "@crm/contracts";
 import { Status } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { Input, Select } from "@/components/ui/input";
+import { Dialog, DialogActions, DialogClose, DialogContent } from "@/components/ui/overlays";
 import { Panel, PanelHeader } from "@/components/ui/panel";
 import { Alert, EmptyState } from "@/components/ui/states";
 import { ToastProvider, useToast } from "@/components/ui/toast";
@@ -15,7 +16,7 @@ import { CURRENCIES, fromMinor, toMinor } from "@/lib/leads";
 
 type Props = {
   workspaceId: string; contact: ContactDetail; lead: ContactLead | null; pipelines: PipelineDto[]; lostReasons: LostReasonDto[]; members: Member[];
-  canEdit: boolean; canEditOwner: boolean; canSetValue: boolean; myUserId: string;
+  canEdit: boolean; canEditOwner: boolean; canSetValue: boolean; canRemove: boolean; myUserId: string;
   onLead: (l: ContactLead | null) => void; onContact: (c: ContactDetail) => void;
 };
 
@@ -28,7 +29,8 @@ export function LeadPanel(props: Props) {
   return <ToastProvider><Form key={`${props.lead?.id ?? "none"}:${props.lead?.version ?? 0}:${props.contact.version}`} {...props} /></ToastProvider>;
 }
 
-function Form({ workspaceId, contact, lead, pipelines, lostReasons, members, canEdit, canEditOwner, canSetValue, onLead, onContact }: Props) {
+function Form({ workspaceId, contact, lead, pipelines, lostReasons, members, canEdit, canEditOwner, canSetValue, canRemove, onLead, onContact }: Props) {
+  const [removeOpen, setRemoveOpen] = React.useState(false);
   const stages = stagesForContact(pipelines, { lead });
   const cur = shownStage(pipelines, lead);
   const currency0 = lead?.currency ?? defaultPipeline(pipelines)?.defaultCurrency ?? "USD";
@@ -128,6 +130,96 @@ function Form({ workspaceId, contact, lead, pipelines, lostReasons, members, can
           </div>
         )}
       </form>
+      {lead && canEdit && (
+        <div className="flex flex-wrap items-center gap-3 border-t border-border px-4 py-3">
+          <Button variant="secondary" size="sm" disabled={!canRemove} onClick={() => setRemoveOpen(true)}><Trash2 aria-hidden />Remove from pipeline</Button>
+          {!canRemove && <p className="text-xs text-fg-subtle">Only an owner or admin can remove a contact from the pipeline.</p>}
+        </div>
+      )}
+      {lead && canRemove && <ValueAccess workspaceId={workspaceId} leadId={lead.id} members={members} />}
+      {lead && (
+        <RemoveDialog open={removeOpen} onOpenChange={setRemoveOpen} name={contact.name} workspaceId={workspaceId} contactId={contact.id} lead={lead} onLead={onLead} />
+      )}
     </Panel>
+  );
+}
+
+/** Soft delete of the primary lead (DELETE /leads/:id). The contact, its history and tasks stay; an owner or admin restores it under Contacts, Recently removed. */
+function RemoveDialog({ open, onOpenChange, name, workspaceId, contactId, lead, onLead }: { open: boolean; onOpenChange: (o: boolean) => void; name: string; workspaceId: string; contactId: string; lead: ContactLead; onLead: (l: ContactLead | null) => void }) {
+  const [busy, setBusy] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+  const toast = useToast();
+  async function remove() {
+    setBusy(true); setError(null);
+    const r = await browserApi.call(endpoints.deleteLead, { params: { workspaceId, leadId: lead.id }, query: { expectedVersion: lead.version } });
+    if (!r.ok) {
+      setBusy(false);
+      if (r.error.kind === "http" && r.error.code === "version_conflict") {
+        const fresh = await browserApi.call(endpoints.getContactLead, { params: { workspaceId, contactId } });
+        if (fresh.ok) onLead(fresh.data.lead);
+        return setError("Someone else changed this just now. The latest values are shown; review them and try again.");
+      }
+      return setError(errorMessage(r.error));
+    }
+    const fresh = await browserApi.call(endpoints.getContactLead, { params: { workspaceId, contactId } });
+    setBusy(false);
+    onOpenChange(false);
+    toast("Removed from the pipeline. Restore it under Contacts, Recently removed.");
+    onLead(fresh.ok ? fresh.data.lead : null);
+  }
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent title="Remove from pipeline?" description={`${name} leaves the pipeline: the stage and value are no longer tracked. The contact, notes, tasks and history stay. You can restore it any time from Contacts, Recently removed.`}>
+        {error && <Alert tone="error" className="mb-3">{error}</Alert>}
+        <DialogActions><DialogClose asChild><Button variant="ghost">Cancel</Button></DialogClose><Button variant="danger" loading={busy} onClick={() => void remove()}>Remove</Button></DialogActions>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/** Owner/admin only: which agents may see (and edit) this contact's value. Everyone else never receives the value from the API. */
+function ValueAccess({ workspaceId, leadId, members }: { workspaceId: string; leadId: string; members: Member[] }) {
+  const [grants, setGrants] = React.useState<Map<string, boolean> | null>(null);
+  const [error, setError] = React.useState<string | null>(null);
+  const [busy, setBusy] = React.useState<string | null>(null);
+  const agents = members.filter((m) => m.role === "agent" && m.status === "active");
+  const params = { workspaceId, leadId };
+  const load = React.useCallback(async () => {
+    const r = await browserApi.call(endpoints.listLeadValueGrants, { params: { workspaceId, leadId } });
+    if (!r.ok) return setError(errorMessage(r.error));
+    setError(null);
+    setGrants(new Map(r.data.items.map((g) => [g.userId, g.canEdit])));
+  }, [workspaceId, leadId]);
+  React.useEffect(() => { void load(); }, [load]);
+
+  async function change(userId: string, v: string) {
+    setBusy(userId); setError(null);
+    const r = v === "none"
+      ? await browserApi.call(endpoints.removeLeadValueGrant, { params: { ...params, userId } })
+      : await browserApi.call(endpoints.setLeadValueGrant, { params: { ...params, userId }, body: { canEdit: v === "edit" } });
+    setBusy(null);
+    if (!r.ok) return setError(errorMessage(r.error));
+    await load();
+  }
+  return (
+    <div className="border-t border-border px-4 py-3" role="group" aria-label="Who can see the value">
+      <h3 className="text-sm font-medium text-fg">Who can see the value</h3>
+      <p className="mb-2 text-xs text-fg-subtle">Owners and admins always can. Agents only when you allow it here, for this contact.</p>
+      {error && <Alert tone="error" className="mb-2">{error} <button type="button" className="underline" onClick={() => void load()}>Try again</button></Alert>}
+      {!grants && !error && <p role="status" className="text-sm text-fg-muted">Loading…</p>}
+      {grants && agents.length === 0 && <p className="text-sm text-fg-muted">No agents in this workspace.</p>}
+      {grants && agents.length > 0 && (
+        <ul className="grid gap-2">
+          {agents.map((m) => (
+            <li key={m.userId} className="flex items-center justify-between gap-3 text-sm">
+              <span className="min-w-0 truncate">{m.name}</span>
+              <Select aria-label={`Value access for ${m.name}`} wrapperClassName="w-auto" disabled={busy === m.userId} value={grants.has(m.userId) ? (grants.get(m.userId) ? "edit" : "view") : "none"} onChange={(e) => void change(m.userId, e.target.value)}>
+                <option value="none">No access</option><option value="view">Can see</option><option value="edit">Can see and edit</option>
+              </Select>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }

@@ -48,7 +48,7 @@ export default async function ContactsPage({ params, searchParams }: { params: P
       members={dataOf(members) ?? []}
       views={dataOf(views) ?? []}
       fields={(dataOf(fields) ?? []).filter((f) => !f.archived)}
-      perms={{ lead: can(role, "lead.edit", {}), viewValue: can(role, "lead.value.view", {}), edit: can(role, "contact.edit", {}), import: can(role, "data.import", {}), export: can(role, "data.export", {}), shareViews: can(role, "view.share", {}), schema: can(role, "schema.manage", {}) }}
+      perms={{ lead: can(role, "lead.edit", {}), removeLeads: can(role, "lead.delete", {}), viewValue: can(role, "lead.value.view", {}), edit: can(role, "contact.edit", {}), import: can(role, "data.import", {}), export: can(role, "data.export", {}), shareViews: can(role, "view.share", {}), schema: can(role, "schema.manage", {}) }}
     />
   );
 }

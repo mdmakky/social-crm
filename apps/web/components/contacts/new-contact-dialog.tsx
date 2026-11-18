@@ -24,9 +24,8 @@ export function NewContactDialog({ open, onOpenChange, ...rest }: Props & { open
   );
 }
 
-function NewContactForm({ workspaceId, stages, members, fields, myUserId, onClose }: Props & { onClose: () => void }) {
+function NewContactForm({ workspaceId, members, fields, myUserId, onClose }: Props & { onClose: () => void }) {
   const router = useRouter();
-  const active = stages.filter((s) => !s.archived);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = React.useState<Record<string, string>>({});
@@ -43,7 +42,7 @@ function NewContactForm({ workspaceId, stages, members, fields, myUserId, onClos
     setBusy(true);
     const res = await browserApi.call(endpoints.createContact, {
       params: { workspaceId },
-      body: { name, email: String(f.get("email") ?? "").trim() || null, phone: String(f.get("phone") ?? "").trim() || null, company: String(f.get("company") ?? "").trim() || null, lifecycleStageId: String(f.get("stage") ?? "") || undefined, ownerUserId: String(f.get("owner") ?? "") || null, custom, allowDuplicate },
+      body: { name, email: String(f.get("email") ?? "").trim() || null, phone: String(f.get("phone") ?? "").trim() || null, company: String(f.get("company") ?? "").trim() || null, ownerUserId: String(f.get("owner") ?? "") || null, custom, allowDuplicate },
     });
     setBusy(false);
     if (res.ok) { onClose(); router.push(`/w/${workspaceId}/contacts/${res.data.id}`); return; }
@@ -73,7 +72,6 @@ function NewContactForm({ workspaceId, stages, members, fields, myUserId, onClos
       </div>
       <Field label="Company">{(p) => <Input {...p} name="company" autoComplete="off" maxLength={120} />}</Field>
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field label="Lifecycle stage">{(p) => <Select {...p} name="stage" defaultValue={active[0]?.id}>{active.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</Select>}</Field>
         <Field label="Owner">{(p) => <Select {...p} name="owner" defaultValue={myUserId}><option value="">Unassigned</option>{members.map((m) => <option key={m.userId} value={m.userId}>{m.name}{m.userId === myUserId ? " (you)" : ""}</option>)}</Select>}</Field>
       </div>
       {fields.map((f) => <CustomFieldInput key={f.id} def={f} value={custom[f.key]} onChange={(v) => setCustom((c) => ({ ...c, [f.key]: v }))} error={fieldErrors[f.key]} />)}

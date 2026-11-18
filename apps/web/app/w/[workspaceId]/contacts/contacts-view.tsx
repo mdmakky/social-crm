@@ -2,7 +2,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowDown, ArrowUp, ArrowUpDown, Bookmark, Columns3, Download, FilterX, Lock, Pencil, Plus, RefreshCw, Search, SlidersHorizontal, Trash2, Upload, Users } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, Bookmark, Columns3, Download, FilterX, Lock, Pencil, Plus, RefreshCw, RotateCcw, Search, SlidersHorizontal, Trash2, Upload, Users } from "lucide-react";
 import { CONTACT_COLUMNS, endpoints, type ContactColumn, type ContactListQuery, type ContactPage, type ContactStageCounts, type ContactSummary, type CustomField, type LifecycleStage, type LostReasonDto, type Member, type PipelineDto, type SavedView, type Tag, type ViewConfig } from "@crm/contracts";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge, hueOf, Status } from "@/components/ui/badge";
@@ -17,6 +17,7 @@ import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import { tabClass } from "@/components/ui/tabs";
 import { ToastProvider } from "@/components/ui/toast";
 import { StageBadge, StageDialog, StageMenu } from "@/components/contacts/stage-control";
+import { RemovedLeadsDialog } from "@/components/contacts/removed-leads";
 import { NewContactDialog } from "@/components/contacts/new-contact-dialog";
 import { browserApi, errorMessage } from "@/lib/client-api";
 import { COLUMN_LABEL, DEFAULT_COLUMNS, relativeTime, SORT_FOR_COLUMN, SORT_OPTIONS, sortOptionFor, sourceLabel, TAG_TONE } from "@/lib/contacts";
@@ -25,7 +26,7 @@ import { formatMoney } from "@/lib/leads";
 import { orderedStages, defaultPipeline } from "@/lib/contact-lead";
 
 type Q = Pick<ContactListQuery, "search" | "lifecycleStageId" | "stageId" | "ownerId" | "tagIds" | "source" | "sort" | "dir">;
-type Perms = { lead: boolean; viewValue: boolean; edit: boolean; import: boolean; export: boolean; shareViews: boolean; schema: boolean };
+type Perms = { lead: boolean; removeLeads: boolean; viewValue: boolean; edit: boolean; import: boolean; export: boolean; shareViews: boolean; schema: boolean };
 type Props = { workspaceId: string; timeZone: string; myUserId: string; initial: ContactPage | null; initialQuery: ContactListQuery; pipelines: PipelineDto[]; lostReasons: LostReasonDto[]; initialCounts: ContactStageCounts | null; stages: LifecycleStage[]; tags: Tag[]; members: Member[]; views: SavedView[]; fields: CustomField[]; perms: Perms };
 
 const FILTERS: (keyof Q)[] = ["search", "lifecycleStageId", "stageId", "ownerId", "tagIds", "source"];
@@ -54,6 +55,7 @@ function Inner({ workspaceId, timeZone, myUserId, initial, initialQuery, pipelin
   const [activeView, setActiveView] = React.useState<string | null>(null);
   const [baseView, setBaseView] = React.useState<string | null>(null); // last applied or saved view; stays after filters change so it can be updated
   const [newOpen, setNewOpen] = React.useState(false);
+  const [removedOpen, setRemovedOpen] = React.useState(false);
   const [colsOpen, setColsOpen] = React.useState(false);
   const [saveOpen, setSaveOpen] = React.useState(false);
   const [renameOpen, setRenameOpen] = React.useState(false);
@@ -215,6 +217,7 @@ function Inner({ workspaceId, timeZone, myUserId, initial, initialQuery, pipelin
         description={status === "error" && !page.items.length ? undefined : stale ? "Showing previous results" : `${page.total.toLocaleString("en-US")} ${page.total === 1 ? "contact" : "contacts"}${filtered ? " match your filters" : ""}`}
         actions={
           <div className="flex flex-wrap items-center gap-2">
+            {perms.removeLeads && <Button variant="ghost" onClick={() => setRemovedOpen(true)}><RotateCcw />Recently removed</Button>}
             {perms.import && <Button asChild variant="secondary"><Link href={`/w/${workspaceId}/contacts/import`}><Upload />Import</Link></Button>}
             {perms.export && <Button variant="secondary" onClick={() => void doExport()} loading={exporting}><Download />Export</Button>}
             {perms.edit && <Button variant="primary" onClick={() => setNewOpen(true)}><Plus />Add contact</Button>}
@@ -238,10 +241,6 @@ function Inner({ workspaceId, timeZone, myUserId, initial, initialQuery, pipelin
         </div>
         <Button variant="secondary" className="md:hidden" aria-expanded={showFilters} onClick={() => setShowFilters((s) => !s)}><SlidersHorizontal />Filters{filtered ? " (on)" : ""}</Button>
         <div className={`${showFilters ? "flex" : "hidden"} w-full flex-wrap items-center gap-1 md:flex md:w-auto`}>
-          <Select aria-label="Lifecycle stage" quiet active={!!query.lifecycleStageId} className="w-auto" value={query.lifecycleStageId ?? ""} onChange={(e) => set({ lifecycleStageId: e.target.value || undefined })}>
-            <option value="">Any lifecycle stage</option>
-            {stages.filter((s) => !s.archived).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-          </Select>
           <Select aria-label="Owner" quiet active={!!query.ownerId} className="w-auto" value={query.ownerId ?? ""} onChange={(e) => set({ ownerId: e.target.value || undefined })}>
             <option value="">All owners</option>
             <option value="me">Me</option>
@@ -313,6 +312,7 @@ function Inner({ workspaceId, timeZone, myUserId, initial, initialQuery, pipelin
       </Panel>
 
       {moving && <StageDialog key={moving.join()} ids={moving} pipelines={pipelines} lostReasons={lostReasons} workspaceId={workspaceId} onClose={() => setMoving(null)} onDone={(moved) => afterMove(moved)} />}
+      {perms.removeLeads && <RemovedLeadsDialog open={removedOpen} onOpenChange={setRemovedOpen} workspaceId={workspaceId} timeZone={timeZone} pipelines={pipelines} onRestored={() => { void load(query); void loadCounts(); }} />}
       <NewContactDialog open={newOpen} onOpenChange={setNewOpen} workspaceId={workspaceId} stages={stages} members={members} fields={fields} myUserId={myUserId} />
       <ColumnsDialog open={colsOpen} onOpenChange={setColsOpen} columns={columns} onChange={(c) => { setActiveView(null); saveColumns(c); }} />
       <ViewNameDialog open={renameOpen} onOpenChange={setRenameOpen} view={views.find((v) => v.id === baseView) ?? null} onSave={async (name) => { const v = views.find((x) => x.id === baseView); if (!v) return null; const r = await browserApi.call(endpoints.updateView, { params: { workspaceId, viewId: v.id }, body: { name } }); if (!r.ok) return errorMessage(r.error); setViews((x) => x.map((y) => (y.id === v.id ? r.data : y)).sort((a, b) => a.name.localeCompare(b.name))); return null; }} />
@@ -464,7 +464,7 @@ function ViewsMenu({ views, active, base, canManageShared, onApply, onSave, onRe
 }
 
 function ColumnsDialog({ open, onOpenChange, columns, onChange }: { open: boolean; onOpenChange: (o: boolean) => void; columns: ContactColumn[]; onChange: (c: ContactColumn[]) => void }) {
-  const hidden = CONTACT_COLUMNS.filter((c) => !columns.includes(c));
+  const hidden = CONTACT_COLUMNS.filter((c) => c !== "lifecycle" && !columns.includes(c)); // one stage concept: lifecycle is not offered
   const [note, setNote] = React.useState("");
   const list = React.useRef<HTMLUListElement>(null);
   const refocus = React.useRef<string | null>(null);

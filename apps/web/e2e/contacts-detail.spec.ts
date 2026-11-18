@@ -9,10 +9,9 @@ test.describe("contact detail", () => {
     const save = page.getByRole("button", { name: "Save changes" });
     await expect(save).toBeDisabled();
     await page.getByLabel("Company").fill("Hall Industries");
-    await page.getByLabel("Lifecycle stage").selectOption({ label: "Engaged" });
     await save.click();
     await expect(page.getByText("Saved.")).toBeVisible();
-    await expect(page.getByText("Edit Owner moved the lifecycle stage from New to Engaged")).toBeVisible();
+    await expect(page.getByLabel("Lifecycle stage")).toHaveCount(0);
     await expect(page.getByText("Edit Owner updated company")).toBeVisible();
 
     // someone else edits in the meantime
