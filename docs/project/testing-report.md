@@ -333,3 +333,8 @@ Private DB `inv_f` (fresh via `scripts/db-create.sh inv_f`), migration 0035.
 - `tsc --noEmit` and `eslint`: clean.
 - Playwright on a fresh database: `inbox`, `inbox-attachments`, `ai-settings`, `ai-streaming` (one flaky run, passes alone), `contact-methods`, `email`, `mobile`, `telegram`, `one-lead-fixes`, `one-lead-per-contact`: 47 of 47 after fixes (voice language button name must contain its visible text; the panel button keeps the name "Lead"; email block text reworded so it is not duplicated). A first batch that reused one database failed on leftovers (WhatsApp number already connected), not on the change.
 - Screenshots reviewed at 1440 and 390. Not run: the full e2e suite, a real phone.
+
+## Agent page (2026-11-19, `feat/agent-page`, fresh DBs)
+- `tsc --noEmit` and `eslint`: clean.
+- Playwright: `ai-agents` 5 of 5 (rewritten for the page: template, steps, tool modes, sensitive tool locked, save draft, activate, dry run and live run, rejected answers, layout at 375/768/1440 with axe on all four steps, viewer blocked on the list and on the new-agent URL), `ai-streaming`, `settings-nav`, `knowledge-base`, `automation-approval`: 21 of 21 together.
+- Screenshots reviewed at 1440 and 390. Not run: the full e2e suite, a real AI provider.

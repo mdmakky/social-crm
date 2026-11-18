@@ -143,33 +143,34 @@ test("an agent on a tool-capable model shows native tool calls and a pending act
   expect(created.ok()).toBe(true);
   const agent = (await created.json()) as { id: string };
   expect((await api(owner).post(`${W()}/ai/agents/${agent.id}/activate`, {})).ok()).toBe(true);
-  await owner.goto(`/w/${workspaceId}/settings/ai-agents`);
-  await owner.getByRole("button", { name: "Edit Native helper" }).click();
+  const AGENT = `/w/${workspaceId}/agents/${agent.id}`;
+  const openCaps = async () => { await owner.goto(AGENT); await owner.getByRole("button", { name: /What it can do/ }).click(); await owner.getByText("Advanced: model and creativity").click(); };
+  await openCaps();
   const caps = owner.getByTestId("model-caps");
   await expect(caps).toContainText("Native tool calls");
   await expect(caps).toContainText("This model will use");
-  await owner.getByLabel("Customer message").fill('Please note it [[MOCK_TOOL:crm__add_note:{"body":"native e2e note"}]]');
+  await owner.getByRole("button", { name: /Test and start/ }).click();
+  await owner.getByLabel("Pretend the customer writes").fill('Please note it [[MOCK_TOOL:crm__add_note:{"body":"native e2e note"}]]');
   await owner.getByLabel(/^Lead \(needed/).selectOption({ label: "Pat Pending" });
   await owner.getByLabel("Dry run (change nothing)").uncheck();
-  await owner.getByRole("button", { name: "Run test" }).click();
-  await expect(owner.getByText("Pending approval", { exact: true }).first()).toBeVisible();
+  await owner.getByRole("button", { name: /^Run (test|again)$/ }).click();
+  await expect(owner.getByText("Waits for you", { exact: true }).first()).toBeVisible();
   await expect(owner.getByText(/Version 1 · mock-1 · native tool calls/)).toBeVisible();
-  await owner.getByRole("link", { name: /^Overview/ }).click(); // approvals live in one queue on the hub Overview
+  await owner.goto(`/w/${workspaceId}/settings/ai`); // approvals live in one queue on the hub Overview
   await expect(owner.getByRole("button", { name: "Approve crm.add_note" })).toBeVisible();
   const notes = (await (await api(owner).get(`${W()}/contacts/${contactId}/notes`)).json()) as { body: string }[];
   expect(notes).toHaveLength(0); // proposed, not done
-  await owner.getByRole("link", { name: /^Agents/ }).click();
-  await owner.getByRole("button", { name: "Edit Native helper" }).click();
+  await openCaps();
   await expect(caps).toBeVisible();
   // Turning the tool off changes how the model is asked: no tools granted means the reply is requested as structured JSON (mock supports it).
-  await owner.getByLabel("Mode for crm.add_note").selectOption("off");
+  await owner.getByRole("group", { name: "Mode for crm.add_note" }).getByRole("button", { name: "Off" }).click();
   await expect(caps).toContainText("Structured output");
   for (const w of [375, 768, 1440]) {
     await owner.setViewportSize({ width: w, height: 900 });
     await expect(caps).toBeVisible();
     expect(await noOverflow(owner)).toBe(true);
   }
-  await axe(owner, "settings-ai-agents-caps");
+  await axe(owner, "agent-page-caps");
   await owner.setViewportSize({ width: 1440, height: 900 });
 });
 
