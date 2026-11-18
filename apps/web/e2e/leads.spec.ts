@@ -14,7 +14,7 @@ async function seedLead(page: Page, workspaceId: string, body: Record<string, un
   if (r.status() !== 201) throw new Error(`seed lead failed: ${r.status()} ${await r.text()}`);
   return (await r.json()) as { id: string; version: number };
 }
-const noOverflow = async (page: Page) => expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+const noOverflow = async (page: Page, where = "") => expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), `horizontal overflow ${where}`).toBe(true);
 const axe = async (page: Page) => expect((await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"]).analyze()).violations.map((v) => `${v.id}: ${v.nodes[0]?.target}`)).toEqual([]);
 
 test("pipeline settings: add, rename, reorder with buttons, archive a stage with a move target", async ({ page }) => {
@@ -60,97 +60,96 @@ test("pipeline settings: add, rename, reorder with buttons, archive a stage with
   await expect(page.getByRole("button", { name: /Show archived pipelines \(1\)/ })).toBeVisible();
 });
 
-test("lead lifecycle in the UI: create, filter, move, edit, lose with a reason, history", async ({ page }) => {
+test("one contact, one stage: set a value, move it, lose it with a reason, find it by stage, search and clear", async ({ page }) => {
   test.setTimeout(150_000);
   const { workspaceId } = await signUpAndCreate(page, "Olive Owner", "Leads Co");
-  await seedContacts(page, workspaceId, [{ name: "Ana Costa", email: "ana@example.com" }]);
-  await page.goto(`/w/${workspaceId}/leads`);
-  await expect(page.getByRole("heading", { level: 1, name: "Leads" })).toBeVisible();
-  await expect(page.getByText("No open leads")).toBeVisible();
+  const [contactId] = await seedContacts(page, workspaceId, [{ name: "Ana Costa", email: "ana@example.com" }]);
+  await page.goto(`/w/${workspaceId}/contacts`);
+  await expect(page.getByRole("heading", { level: 1, name: "Contacts" })).toBeVisible();
+  // no lead yet: shown as the first stage, nothing written
+  await expect(page.getByRole("button", { name: "Stage of Ana Costa: New. Change stage" })).toBeVisible();
+  expect(((await (await page.request.get(ws(workspaceId, "/leads"))).json()) as { items: unknown[] }).items).toHaveLength(0);
 
-  await page.getByRole("button", { name: "New lead", exact: true }).first().click();
-  const dlg = page.getByRole("dialog");
-  await dlg.getByLabel("Title").fill("Annual contract");
-  await dlg.getByLabel("Primary contact").fill("Ana");
-  await dlg.getByRole("option", { name: /Ana Costa/ }).click();
-  await dlg.getByLabel("Value").fill("2,500.50");
-  await dlg.getByRole("button", { name: "Create lead" }).click();
+  await page.getByRole("link", { name: "Ana Costa" }).first().click();
+  await expect(page.getByRole("heading", { level: 1, name: "Ana Costa" })).toBeVisible();
+  const section = page.locator("[data-panel]").filter({ has: page.getByRole("heading", { name: "Stage, value and owner" }) });
+  await expect(section.getByLabel("Stage", { exact: true })).toHaveValue(/.+/);
+  await section.getByLabel("Value", { exact: true }).fill("2,500.50");
+  await section.getByRole("button", { name: "Update", exact: true }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Saved." })).toHaveCount(1);
+  const created = (await (await page.request.get(ws(workspaceId, "/leads"))).json()) as { items: { valueMinor: number; title: string }[] };
+  expect(created.items).toHaveLength(1); // the first write created the lead
+  expect(created.items[0]).toMatchObject({ valueMinor: 250050, title: "Ana Costa" });
 
-  await expect(page.getByRole("heading", { level: 1, name: "Annual contract" })).toBeVisible();
+  await section.getByLabel("Stage", { exact: true }).selectOption({ label: "Qualified" });
+  await section.getByRole("button", { name: "Update", exact: true }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Saved." })).toHaveCount(2); // the first toast is still on screen
+  await page.reload();
+  await expect(page.getByLabel("Stage", { exact: true })).toHaveValue(/.+/);
+  await expect(page.getByLabel("Value", { exact: true })).toHaveValue("2500.50");
+  await expect(page.getByRole("main").getByText("Qualified").first()).toBeVisible(); // the header and the section both show the stage
+
+  await section.getByLabel("Stage", { exact: true }).selectOption({ label: "Lost" });
+  await page.getByLabel("Why was it lost?").selectOption({ label: "Timing" });
+  await section.getByRole("button", { name: "Update", exact: true }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Saved." })).toHaveCount(1);
+
+  await page.goto(`/w/${workspaceId}/contacts`);
+  await expect(page.getByRole("button", { name: "Stage of Ana Costa: Lost. Change stage" })).toBeVisible();
   await expect(page.getByText("$2,500.50")).toBeVisible();
-  await expect(page.getByRole("navigation", { name: "Stage" }).getByRole("button", { name: /^New/ })).toHaveAttribute("aria-current", "step");
-
-  await page.getByRole("navigation", { name: "Stage" }).getByRole("button", { name: /^Qualified/ }).click();
-  await expect(page.getByRole("navigation", { name: "Stage" }).getByRole("button", { name: /^Qualified/ })).toHaveAttribute("aria-current", "step");
-  await expect(page.getByLabel("Stage history")).toContainText("New → Qualified");
-
-  await page.getByRole("button", { name: "Edit", exact: true }).click();
-  await page.getByLabel("Probability (%)").fill("70");
-  await page.getByRole("dialog").getByRole("button", { name: "Save" }).click();
-  await expect(page.getByText("Manual", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: /Reset to 40%/ }).click();
-  await expect(page.getByText("Manual", { exact: true })).toHaveCount(0);
-
-  await page.getByRole("button", { name: "Lost", exact: true }).click();
-  await page.getByRole("dialog").getByLabel("Reason").selectOption({ label: "Timing" });
-  await page.getByRole("dialog").getByRole("button", { name: "Mark as lost" }).click();
-  await expect(page.getByText("Lost", { exact: true }).first()).toBeVisible();
-  await expect(page.getByLabel("Stage history")).toContainText("Timing");
-
-  await page.goto(`/w/${workspaceId}/leads`);
-  await expect(page.getByText("No open leads")).toBeVisible(); // default filter is Open; the lost one is not listed
-  await page.getByLabel("Status").selectOption("lost");
-  await expect(page.getByRole("link", { name: "Annual contract" })).toBeVisible();
-  await page.getByLabel("Search leads by title").fill("zzz");
-  await expect(page.getByText("No leads match these filters")).toBeVisible();
+  await page.getByRole("group", { name: "Filter by stage" }).getByRole("button", { name: /^Lost/ }).click();
+  await expect(page.getByRole("link", { name: "Ana Costa" }).first()).toBeVisible();
+  await page.getByRole("group", { name: "Filter by stage" }).getByRole("button", { name: /^New/ }).click();
+  await expect(page.getByText("No contacts match these filters")).toBeVisible();
   await page.getByRole("button", { name: "Clear filters" }).click();
-  await expect(page.getByText("No open leads")).toBeVisible(); // back to the default Open filter
+  await expect(page.getByRole("link", { name: "Ana Costa" }).first()).toBeVisible();
+  await page.getByLabel("Search contacts").fill("zzz");
+  await expect(page.getByText("No contacts match these filters")).toBeVisible();
+  await page.getByRole("button", { name: "Clear filters" }).click();
+  await expect(page.getByRole("link", { name: "Ana Costa" }).first()).toBeVisible();
+  expect(contactId).toBeTruthy();
 });
 
-test("lead value is restricted for agents: not in the page, the API response or the list; a grant opens it", async ({ page, browser }) => {
+test("lead value is restricted for agents: not in the page, the API response or the list", async ({ page, browser }) => {
   test.setTimeout(150_000);
   const { workspaceId } = await signUpAndCreate(page, "Olive Owner", "Value Co");
   const agent = await newUser(browser, "Sam Agent");
   await addMemberByEmail(workspaceId, agent.email, "agent");
   const [contactId] = await seedContacts(page, workspaceId, [{ name: "Ana Costa" }]);
-  const lead = await seedLead(page, workspaceId, { title: "Secret lead", primaryContactId: contactId, valueMinor: 987654, currency: "USD" });
+  await seedLead(page, workspaceId, { title: "Secret", primaryContactId: contactId, valueMinor: 987654, currency: "USD" });
 
-  await agent.page.goto(`/w/${workspaceId}/leads`);
-  await expect(agent.page.getByRole("link", { name: "Secret lead" })).toBeVisible();
+  await agent.page.goto(`/w/${workspaceId}/contacts`);
+  await expect(agent.page.getByRole("link", { name: "Ana Costa" }).first()).toBeVisible();
   await expect(agent.page.getByText("Hidden").first()).toBeVisible();
-  await agent.page.goto(`/w/${workspaceId}/leads/${lead.id}`);
-  await expect(agent.page.getByText("Restricted")).toBeVisible();
+  await expect(agent.page.getByRole("button", { name: "Highest value" })).toHaveCount(0);
+  await agent.page.goto(`/w/${workspaceId}/contacts/${contactId}`);
+  await expect(agent.page.getByText("Value is hidden for your role.")).toBeVisible();
   expect(await agent.page.content()).not.toContain("9,876.54");
   expect(await agent.page.content()).not.toContain("987654");
-  const raw = await agent.page.request.get(ws(workspaceId, `/leads/${lead.id}`));
-  expect((await raw.json()).valueMinor).toBeNull();
-  await expect(agent.page.getByText("Lead value access")).toHaveCount(0);
+  const raw = await agent.page.request.get(ws(workspaceId, `/contacts/${contactId}/lead`));
+  expect(await raw.json()).toMatchObject({ lead: { valueMinor: null, valueHidden: true } });
+  expect((await agent.page.request.get(ws(workspaceId, "/contacts?sort=value"))).status()).toBe(403);
 
-  await page.goto(`/w/${workspaceId}/leads/${lead.id}`);
+  await page.goto(`/w/${workspaceId}/contacts`);
   await expect(page.getByText("$9,876.54")).toBeVisible();
-  await page.getByLabel("Grant access to").selectOption({ label: "Sam Agent" });
-  await page.getByRole("button", { name: "Grant" }).click();
-  await expect(page.getByRole("combobox", { name: "Access for Sam Agent" })).toBeVisible();
-  await agent.page.reload();
-  await expect(agent.page.getByText("$9,876.54")).toBeVisible();
 });
 
-test("responsive and accessible: list, detail and pipeline settings at 375, 768, 1024 and 1440", async ({ page }) => {
+test("responsive and accessible: contacts, contact and stage settings at 375, 768, 1024 and 1440", async ({ page }) => {
   test.setTimeout(180_000);
   const { workspaceId } = await signUpAndCreate(page, "Olive Owner", "Responsive Leads Co");
   const [contactId] = await seedContacts(page, workspaceId, [{ name: "Ana Costa" }]);
-  const lead = await seedLead(page, workspaceId, { title: "Responsive lead with a rather long title to test wrapping on narrow screens", primaryContactId: contactId, valueMinor: 100000, currency: "USD" });
+  await seedLead(page, workspaceId, { title: "Responsive lead with a rather long title to test wrapping on narrow screens", primaryContactId: contactId, valueMinor: 100000, currency: "USD" });
   for (const width of [375, 768, 1024, 1440]) {
     await page.setViewportSize({ width, height: 900 });
-    for (const path of ["/leads", `/leads/${lead.id}`, "/settings/pipelines"]) {
+    for (const path of ["/contacts", `/contacts/${contactId}`, "/settings/pipelines"]) {
       await page.goto(`/w/${workspaceId}${path}`);
       await expect(page.getByRole("heading", { level: 1 }).first()).toBeVisible();
-      await noOverflow(page);
+      await noOverflow(page, `${width} ${path}`);
       await axe(page);
     }
   }
   await page.setViewportSize({ width: 375, height: 800 });
-  await page.goto(`/w/${workspaceId}/leads`);
-  await expect(page.getByRole("list", { name: "Leads" }).getByRole("link")).toHaveCount(1); // cards, not a squeezed table
+  await page.goto(`/w/${workspaceId}/contacts`);
+  await expect(page.locator("ul.t-cards").getByRole("link")).toHaveCount(1); // cards, not a squeezed table
   await expect(page.getByRole("table")).toBeHidden();
 });

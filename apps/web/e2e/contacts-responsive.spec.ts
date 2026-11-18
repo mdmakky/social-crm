@@ -65,7 +65,7 @@ test("contacts screens hold at 375, 768 and 1440: no page overflow, no axe viola
   await axe(page, "list-filters-open@375");
   await page.setViewportSize({ width: 1440, height: 900 });
   await expect(page.getByRole("table")).toBeVisible();
-  await expect(page.getByRole("columnheader")).toHaveCount(7);
+  await expect(page.getByRole("columnheader")).toHaveCount(9); // eight default columns plus the select column
 
   // overlays
   await page.getByRole("button", { name: "Add contact" }).first().click();

@@ -122,7 +122,7 @@ function Form({ workspaceId, contact, lead, pipelines, lostReasons, members, can
         <Field label="Owner">{(x) => <Select {...x} value={owner} onChange={(e) => setOwner(e.target.value)} disabled={!canEditOwner}><option value="">Unassigned</option>{members.map((m) => <option key={m.userId} value={m.userId}>{m.name}</option>)}</Select>}</Field>
         {(canEdit || canEditOwner) && (
           <div className="flex items-center gap-3">
-            <Button type="submit" variant="primary" size="sm" loading={busy} disabled={!dirty}>Save</Button>
+            <Button type="submit" variant="primary" size="sm" loading={busy} disabled={!dirty}>Update</Button>
           </div>
         )}
       </form>

@@ -203,10 +203,10 @@ function Inner({ workspaceId, timeZone, myUserId, initial, initialQuery, pipelin
       />
 
       {chipStages.length > 0 && (
-        <div className="mb-3 flex gap-1.5 overflow-x-auto pb-1" role="group" aria-label="Filter by stage">
-          <button type="button" className={tabClass(!query.stageId)} aria-pressed={!query.stageId} onClick={() => set({ stageId: undefined })}>All{counts && <>{" "}<span className="tabular-nums">{count(counts.total)}</span></>}<span className="sr-only"> contacts</span></button>
+        <div data-scroll="allowed" className="relative mb-3 flex gap-1.5 overflow-x-auto pb-1" role="group" aria-label="Filter by stage">
+          <button type="button" className={tabClass(!query.stageId)} aria-pressed={!query.stageId} onClick={() => set({ stageId: undefined })}>All{counts && <>{" "}<span className="tabular-nums">{count(counts.total)}</span></>}</button>
           {chipStages.map((s) => (
-            <button key={s.id} type="button" className={tabClass(query.stageId === s.id)} aria-pressed={query.stageId === s.id} onClick={() => set({ stageId: s.id })}>{s.name}{counts && <>{" "}<span className="tabular-nums">{count(countOf(s.id))}</span></>}<span className="sr-only"> {countOf(s.id) === 1 ? "contact" : "contacts"}</span></button>
+            <button key={s.id} type="button" className={tabClass(query.stageId === s.id)} aria-pressed={query.stageId === s.id} onClick={() => set({ stageId: s.id })}>{s.name}{counts && <>{" "}<span className="tabular-nums">{count(countOf(s.id))}</span></>}</button>
           ))}
         </div>
       )}
@@ -218,8 +218,8 @@ function Inner({ workspaceId, timeZone, myUserId, initial, initialQuery, pipelin
         </div>
         <Button variant="secondary" className="md:hidden" aria-expanded={showFilters} onClick={() => setShowFilters((s) => !s)}><SlidersHorizontal />Filters{filtered ? " (on)" : ""}</Button>
         <div className={`${showFilters ? "flex" : "hidden"} w-full flex-wrap items-center gap-1 md:flex md:w-auto`}>
-          <Select aria-label="Lifecycle" quiet active={!!query.lifecycleStageId} className="w-auto" value={query.lifecycleStageId ?? ""} onChange={(e) => set({ lifecycleStageId: e.target.value || undefined })}>
-            <option value="">Any lifecycle</option>
+          <Select aria-label="Lifecycle stage" quiet active={!!query.lifecycleStageId} className="w-auto" value={query.lifecycleStageId ?? ""} onChange={(e) => set({ lifecycleStageId: e.target.value || undefined })}>
+            <option value="">Any lifecycle stage</option>
             {stages.filter((s) => !s.archived).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
           </Select>
           <Select aria-label="Owner" quiet active={!!query.ownerId} className="w-auto" value={query.ownerId ?? ""} onChange={(e) => set({ ownerId: e.target.value || undefined })}>
@@ -332,7 +332,7 @@ function ContactsTable({ items, columns, query, onSort, workspaceId, timeZone, l
       </THead>
       <TBody>
         {items.map((c) => (
-          <TR key={c.id} className={`group cursor-pointer hover:bg-row-hover ${lead.selected.has(c.id) ? "bg-selected" : "bg-surface"}`} onClick={(e) => { if (!(e.target as HTMLElement).closest("a,button,input,label")) router.push(`/w/${workspaceId}/contacts/${c.id}`); }}>
+          <TR key={c.id} className={`group cursor-pointer hover:bg-row-hover ${lead.selected.has(c.id) ? "bg-selected" : "bg-surface"}`} onClick={(e) => { if (e.currentTarget.contains(e.target as Node) && !(e.target as HTMLElement).closest("a,button,input,label")) router.push(`/w/${workspaceId}/contacts/${c.id}`); }}>
             {lead.enabled && <TD className="sticky left-0 z-10 w-10 bg-inherit pr-0"><input type="checkbox" className="size-4 accent-[var(--accent)]" aria-label={`Select ${c.name}`} checked={lead.selected.has(c.id)} onChange={() => lead.toggle(c.id)} /></TD>}
             {columns.map((col) => <TD key={col} className={col === "contact" ? `sticky z-10 w-[22rem] min-w-60 max-w-[22rem] bg-inherit ${lead.enabled ? "left-10" : "left-0"}` : "whitespace-nowrap"}>{cell(col, c, workspaceId, timeZone, lead)}</TD>)}
           </TR>
