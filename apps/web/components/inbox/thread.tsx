@@ -1,4 +1,5 @@
 "use client";
+import { VoiceInputButton } from "@/components/ui/voice-input";
 import * as React from "react";
 import Link from "next/link";
 import { ArrowDown, Check, ChevronLeft, Copy, MoreHorizontal, PanelRight, Send, Sparkles, Square, X } from "lucide-react";
@@ -397,6 +398,7 @@ export function Thread({ conversationId }: { conversationId: string }) {
                   rows={2}
                 />
                 <div className="flex items-center gap-2 px-3 pb-2.5">
+                  <VoiceInputButton target={composerRef} disabled={!canType || submitting || suggesting} />
                   <AttachControls uploads={uploads} platform={detail.platform} storageConfigured={att?.storageConfigured ?? false} disabled={!canType || submitting} />
                   {suggesting
                     ? <Button type="button" size="sm" onClick={() => suggestAbort.current?.abort()} aria-label="Stop AI suggestion"><Square aria-hidden />Stop</Button>
