@@ -2,7 +2,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Loading() {
   return (
-    <div role="status" aria-label="Loading contacts">
+    <div role="status" aria-label="Loading leads">
       <div className="mb-5 flex items-center justify-between"><Skeleton className="h-7 w-32" /><Skeleton className="h-8 w-28" /></div>
       <div className="mb-3 flex gap-2"><Skeleton className="h-8 w-64" /><Skeleton className="h-8 w-32" /><Skeleton className="h-8 w-32" /></div>
       <div className="rounded-card border border-line bg-surface">

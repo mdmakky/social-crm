@@ -277,9 +277,9 @@ function TestPanel({ params, agent, contacts, onActions }: P & { agent: AgentDto
       <PanelHeader title="Test playground" description="Try it on a sample message. A dry run changes nothing." />
       <form onSubmit={(e) => { e.preventDefault(); void run(); }} className="flex flex-col gap-3 p-4" noValidate>
         <Field label="Customer message">{(p) => <Textarea {...p} rows={3} maxLength={4000} value={input} disabled={busy} onChange={(e) => setInput(e.target.value)} />}</Field>
-        <Field label="Contact (needed for tools that change a contact)">{(p) => (
+        <Field label="Lead (needed for tools that change a lead)">{(p) => (
           <Select {...p} value={contactId} disabled={busy} onChange={(e) => setContactId(e.target.value)}>
-            <option value="">No contact</option>
+            <option value="">No lead</option>
             {contacts.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </Select>
         )}</Field>

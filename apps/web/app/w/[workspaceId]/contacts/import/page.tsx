@@ -9,7 +9,7 @@ import { EmptyState } from "@/components/ui/states";
 import { must, serverApi } from "@/lib/api";
 import { ImportWizard } from "./import-wizard";
 
-export const metadata: Metadata = { title: "Import contacts" };
+export const metadata: Metadata = { title: "Import leads" };
 
 export default async function ImportPage({ params }: { params: Promise<{ workspaceId: string }> }) {
   const { workspaceId } = await params;
@@ -17,14 +17,14 @@ export default async function ImportPage({ params }: { params: Promise<{ workspa
   if (!can(ws.role, "data.import", {})) {
     return (
       <>
-        <PageHeader title="Import contacts" />
+        <PageHeader title="Import leads" />
         <Panel><EmptyState icon={Lock} title="Only owners and admins can import contacts" description="Ask an owner or admin, or add contacts one by one." action={<Button asChild><Link href={`/w/${workspaceId}/contacts`}>Back to contacts</Link></Button>} /></Panel>
       </>
     );
   }
   return (
     <>
-      <PageHeader title="Import contacts" description="Bring contacts in from a CSV file." />
+      <PageHeader title="Import leads" description="Bring leads in from a CSV file." />
       <ImportWizard workspaceId={workspaceId} />
     </>
   );

@@ -6,7 +6,7 @@ const ROLE: Record<string, string> = { owner: "owner", admin: "admin", agent: "a
 /** Plain verbs for audit actions whose summary needs no extra detail. Anything not listed falls back to the raw key. */
 const KNOWN: Record<string, string> = {
   "invitation.created": "invited someone", "invitation.resent": "resent an invitation", "invitation.revoked": "revoked an invitation", "invitation.accepted": "accepted an invitation",
-  "auth.password_reset": "reset their password", "contact.deleted": "deleted a contact", "data.exported": "exported data", "data.imported": "imported data",
+  "auth.password_reset": "reset their password", "contact.deleted": "deleted a lead", "data.exported": "exported data", "data.imported": "imported data",
   "lead.created": "created a lead", "lead.updated": "updated a lead", "lead.deleted": "deleted a lead", "lead.restored": "restored a lead",
   "lead.value_access_granted": "granted lead value access", "lead.value_access_revoked": "revoked lead value access",
   "custom_field.created": "added a custom field", "custom_field.updated": "updated a custom field", "lifecycle_stage.created": "added a lifecycle stage", "lifecycle_stage.reordered": "reordered lifecycle stages",

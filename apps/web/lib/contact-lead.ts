@@ -27,7 +27,7 @@ export const stageHue = (s: Pick<ShownStage, "kind" | "position">): 1 | 2 | 3 | 
 /** Why a bulk move did not go through, in plain words (same codes as the lead bulk move). */
 export const CODE_TEXT: Record<string, string> = { not_found: "no longer exist", forbidden: "you may not move", lost_reason_required: "need a lost reason", version_conflict: "changed meanwhile", contact_deleted: "were deleted", pipeline_archived: "are in an archived pipeline", invalid_body: "cannot go to that stage", rate_limited: "were skipped (too many changes, wait a minute)", no_pipeline: "have no pipeline to join" };
 
-/** Map an old /leads URL to the Contacts list: only the filters that exist there survive. */
+/** Map an old /leads URL to the Leads list: only the filters that exist there survive. */
 export function leadsQueryToContacts(sp: Record<string, string | string[] | undefined>): string {
   const one = (k: string) => (typeof sp[k] === "string" ? (sp[k] as string) : "");
   const out = new URLSearchParams();

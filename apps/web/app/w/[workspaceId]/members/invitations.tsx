@@ -15,7 +15,7 @@ import { formatDate, ROLE_LABEL } from "@/lib/format";
 type InviteRole = "admin" | "agent" | "viewer";
 const ROLE_HELP: Record<InviteRole, string> = {
   admin: "Manages members, integrations and settings.",
-  agent: "Works conversations and contacts.",
+  agent: "Works conversations and leads.",
   viewer: "Can look around, never change anything.",
 };
 const MESSAGES = {

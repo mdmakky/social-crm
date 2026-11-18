@@ -47,7 +47,7 @@ describe("global search", () => {
     const res = await h.app.request(`/v1/workspaces/${W}/search?q=elodie`.replace("elodie", "%C3%A9lodie"), { headers: { cookie: owner.cookie } });
     const data = SearchResponse.parse(await res.json());
     const g = data.groups.find((x) => x.type === "contacts")!;
-    expect(g.label).toBe("Contacts");
+    expect(g.label).toBe("Leads");
     expect(g.hits[0]).toMatchObject({ title: "Élodie Ünal", subtitle: "Café Société", meta: { company: "Café Société" } });
     expect(g.hits[0]!.href).toBe(`/w/${W}/contacts/${g.hits[0]!.id}`);
   });

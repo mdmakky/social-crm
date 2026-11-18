@@ -16,7 +16,7 @@ type Props = { workspaceId: string; stages: LifecycleStage[]; members: Member[];
 export function NewContactDialog({ open, onOpenChange, ...rest }: Props & { open: boolean; onOpenChange: (o: boolean) => void }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent title="Add contact" description="Start with what you know." className="max-h-[90dvh] max-w-lg overflow-y-auto">
+      <DialogContent title="Add lead" description="Start with what you know." className="max-h-[90dvh] max-w-lg overflow-y-auto">
         {/* The form lives inside the content, so it remounts (and resets) every time the dialog opens. */}
         <NewContactForm {...rest} onClose={() => onOpenChange(false)} />
       </DialogContent>
@@ -57,7 +57,7 @@ function NewContactForm({ workspaceId, members, fields, myUserId, onClose }: Pro
       {error && <Alert tone="error">{error}</Alert>}
       {dupes && (
         <Alert tone="warning">
-          <p className="font-medium">This looks like a contact you already have.</p>
+          <p className="font-medium">This looks like a lead you already have.</p>
           <ul className="mt-1">
             {dupes.map((d) => (
               <li key={d.id}><Link className="underline underline-offset-2" href={`/w/${workspaceId}/contacts/${d.id}`}>{d.name}</Link> <span className="text-fg-muted">· same {d.matchedOn.join(" and ")}</span></li>
@@ -78,7 +78,7 @@ function NewContactForm({ workspaceId, members, fields, myUserId, onClose }: Pro
       <DialogActions className="mt-2">
         <DialogClose asChild><Button variant="ghost">Cancel</Button></DialogClose>
         {dupes ? <Button variant="secondary" loading={busy} onClick={() => void submit(true)}>Create anyway</Button> : null}
-        <Button type="submit" variant="primary" loading={busy}>Add contact</Button>
+        <Button type="submit" variant="primary" loading={busy}>Add lead</Button>
       </DialogActions>
     </form>
   );

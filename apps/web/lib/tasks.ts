@@ -44,7 +44,7 @@ export function eventText(e: TaskEvent, tz: string): string {
     case "assignee_changed": return who(d.to) ? `${actor} assigned the task to ${who(d.to)}` : `${actor} removed the assignee`;
     case "due_date_changed": return day(d.to, tz) ? `${actor} set the due date to ${day(d.to, tz)}` : `${actor} removed the due date`;
     case "priority_changed": return `${actor} changed the priority from ${PRIORITY_LABEL[d.from as TaskPriority] ?? String(d.from)} to ${PRIORITY_LABEL[d.to as TaskPriority] ?? String(d.to)}`;
-    case "contact_changed": return who(d.to) ? `${actor} linked the task to ${who(d.to)}` : `${actor} removed the contact link`;
+    case "contact_changed": return who(d.to) ? `${actor} linked the task to ${who(d.to)}` : `${actor} removed the lead link`;
     case "deleted": return `${actor} deleted the task`;
   }
 }

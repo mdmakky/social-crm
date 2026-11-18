@@ -101,7 +101,7 @@ export function ContactSettings({ workspaceId, canManage, stages: s0, tags: t0, 
       {!canManage && <Alert tone="info">Only owners and admins can change these settings.</Alert>}
 
       <Panel>
-        <PanelHeader title="Lifecycle stages" description="Where a contact is in your relationship." />
+        <PanelHeader title="Lifecycle stages" description="Where a lead is in your relationship." />
         <ul>
           {stages.map((s, i) => (
             <li key={s.id} className="flex flex-wrap items-center gap-2 border-b border-line px-4 py-2.5 last:border-b-0">
@@ -114,7 +114,7 @@ export function ContactSettings({ workspaceId, canManage, stages: s0, tags: t0, 
               ) : (
                 <>
                   <span className={`flex-1 text-base ${s.archived ? "text-fg-subtle line-through" : "text-fg"}`}>{s.name}</span>
-                  <span className="tnum text-sm text-fg-subtle">{s.contactCount} {s.contactCount === 1 ? "contact" : "contacts"}</span>
+                  <span className="tnum text-sm text-fg-subtle">{s.contactCount} {s.contactCount === 1 ? "lead" : "leads"}</span>
                   {s.archived && <Badge>Archived</Badge>}
                   {canManage && (
                     <span className="flex items-center gap-1">
@@ -138,7 +138,7 @@ export function ContactSettings({ workspaceId, canManage, stages: s0, tags: t0, 
       </Panel>
 
       <Panel>
-        <PanelHeader title="Custom fields" description="Extra information on every contact." />
+        <PanelHeader title="Custom fields" description="Extra information on every lead." />
         {fields.length === 0 ? <p className="px-4 py-4 text-sm text-fg-muted">No custom fields yet.</p> : (
           <ul>
             {fields.map((f) => (
@@ -159,15 +159,15 @@ export function ContactSettings({ workspaceId, canManage, stages: s0, tags: t0, 
             <Field label="Key" hint="Lowercase letters, numbers, underscores.">{(x) => <Input {...x} value={nf.key} onChange={(e) => { setKeyTouched(true); setNf({ ...nf, key: e.target.value }); }} maxLength={40} />}</Field>
             <Field label="Type">{(x) => <Select {...x} value={nf.type} onChange={(e) => setNf({ ...nf, type: e.target.value })}>{CUSTOM_FIELD_TYPES.map((t) => <option key={t} value={t}>{TYPE_LABEL[t]}</option>)}</Select>}</Field>
             {(nf.type === "select" || nf.type === "multiselect") && <Field label="Options" hint="One per line or comma-separated.">{(x) => <Input {...x} value={nf.options} onChange={(e) => setNf({ ...nf, options: e.target.value })} />}</Field>}
-            <div className="flex items-center sm:col-span-2"><Checkbox label="Required when adding a contact" checked={nf.required} onChange={(e) => setNf({ ...nf, required: e.target.checked })} /></div>
+            <div className="flex items-center sm:col-span-2"><Checkbox label="Required when adding a lead" checked={nf.required} onChange={(e) => setNf({ ...nf, required: e.target.checked })} /></div>
             <div className="sm:col-span-2"><Button type="submit" disabled={!nf.label.trim()}><Plus />Add field</Button></div>
           </form>
         )}
       </Panel>
 
       <Panel>
-        <PanelHeader title="Tags" description="Anyone who edits contacts can add tags." />
-        {tags.length === 0 ? <p className="px-4 py-4 text-sm text-fg-muted">No tags yet. Add one from any contact.</p> : (
+        <PanelHeader title="Tags" description="Anyone who edits leads can add tags." />
+        {tags.length === 0 ? <p className="px-4 py-4 text-sm text-fg-muted">No tags yet. Add one from any lead.</p> : (
           <ul>
             {tags.map((t) => (
               <li key={t.id} className="flex flex-wrap items-center gap-2 border-b border-line px-4 py-2.5 last:border-b-0">
@@ -181,7 +181,7 @@ export function ContactSettings({ workspaceId, canManage, stages: s0, tags: t0, 
                 ) : (
                   <>
                     <Badge tone={TAG_TONE[t.color]}>{t.name}</Badge>
-                    <span className="flex-1 tnum text-sm text-fg-subtle">{t.contactCount} {t.contactCount === 1 ? "contact" : "contacts"}</span>
+                    <span className="flex-1 tnum text-sm text-fg-subtle">{t.contactCount} {t.contactCount === 1 ? "lead" : "leads"}</span>
                     {canManage && <span className="flex gap-1"><Button variant="secondary" size="sm" onClick={() => setEditTag({ id: t.id, name: t.name, color: t.color })}>Edit</Button><Button variant="ghost" icon size="sm" aria-label={`Delete tag ${t.name}`} onClick={() => { setDialogError(null); setConfirmTag(t); }}><Trash2 /></Button></span>}
                   </>
                 )}
@@ -192,7 +192,7 @@ export function ContactSettings({ workspaceId, canManage, stages: s0, tags: t0, 
       </Panel>
 
       <Dialog open={!!confirmStage} onOpenChange={(o) => { if (!o && !busy) setConfirmStage(null); }}>
-        <DialogContent title={`Archive "${confirmStage?.name ?? ""}"?`} description={`${confirmStage?.contactCount ?? 0} ${confirmStage?.contactCount === 1 ? "contact is" : "contacts are"} in this stage. Archived stages stay on the contacts that already have them but cannot be newly assigned. You can restore the stage later.`}>
+        <DialogContent title={`Archive "${confirmStage?.name ?? ""}"?`} description={`${confirmStage?.contactCount ?? 0} ${confirmStage?.contactCount === 1 ? "lead is" : "leads are"} in this stage. Archived stages stay on the leads that already have them but cannot be newly assigned. You can restore the stage later.`}>
           {dialogError && <Alert tone="error" className="mb-3">{dialogError}</Alert>}
           <DialogActions>
             <DialogClose asChild><Button variant="ghost">Cancel</Button></DialogClose>
@@ -202,7 +202,7 @@ export function ContactSettings({ workspaceId, canManage, stages: s0, tags: t0, 
       </Dialog>
 
       <Dialog open={!!confirmTag} onOpenChange={(o) => { if (!o && !busy) setConfirmTag(null); }}>
-        <DialogContent title={`Delete tag "${confirmTag?.name ?? ""}"?`} description={`It will be removed from ${confirmTag?.contactCount ?? 0} ${confirmTag?.contactCount === 1 ? "contact" : "contacts"}. This cannot be undone.`}>
+        <DialogContent title={`Delete tag "${confirmTag?.name ?? ""}"?`} description={`It will be removed from ${confirmTag?.contactCount ?? 0} ${confirmTag?.contactCount === 1 ? "lead" : "leads"}. This cannot be undone.`}>
           {dialogError && <Alert tone="error" className="mb-3">{dialogError}</Alert>}
           <DialogActions>
             <DialogClose asChild><Button variant="ghost">Cancel</Button></DialogClose>

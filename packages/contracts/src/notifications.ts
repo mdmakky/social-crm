@@ -3,10 +3,10 @@ import { endpoint } from "./endpoint.ts";
 
 /** Notification kinds shipped now. A new kind = add it here + register a generator in apps/api/src/notifications/generators.ts. */
 export const NOTIFICATION_KINDS = {
-  "contact.owner_assigned": { label: "Contact assigned to you", description: "Someone makes you the owner of a contact." },
-  "lead.owner_assigned": { label: "Lead assigned to you", description: "Someone makes you the owner of a lead." },
+  "contact.owner_assigned": { label: "Lead assigned to you", description: "Someone makes you the owner of a lead." },
+  "lead.owner_assigned": { label: "Lead record assigned to you", description: "Someone makes you the owner of a lead record." },
   "task.assigned": { label: "Task assigned to you", description: "Someone assigns a task to you." },
-  "import.completed": { label: "Import finished", description: "A contact import you started has completed." },
+  "import.completed": { label: "Import finished", description: "A lead import you started has completed." },
 } as const;
 export type NotificationKind = keyof typeof NOTIFICATION_KINDS;
 export const NotificationKindSchema = z.enum(Object.keys(NOTIFICATION_KINDS) as [NotificationKind, ...NotificationKind[]]);

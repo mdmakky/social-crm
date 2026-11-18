@@ -80,7 +80,7 @@ function Palette({ onOpenChange, workspace, workspaces, role }: Props) {
       <Command label="Command menu" shouldFilter value={selected} onValueChange={(v) => setPicked({ forKey: firstKey, value: v })}>
         <div className="flex items-center gap-2 border-b border-line px-3">
           <Search className="size-4 text-fg-subtle" aria-hidden />
-          <Command.Input value={input} onValueChange={setInput} placeholder="Search contacts, pages and actions" className="h-11 flex-1 bg-transparent text-base text-fg outline-none pointer-coarse:text-md" />
+          <Command.Input value={input} onValueChange={setInput} placeholder="Search leads, pages and actions" className="h-11 flex-1 bg-transparent text-base text-fg outline-none pointer-coarse:text-md" />
           <Kbd>Esc</Kbd>
         </div>
         {q.length >= MIN_CHARS && (

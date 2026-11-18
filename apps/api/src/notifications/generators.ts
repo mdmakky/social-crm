@@ -23,5 +23,5 @@ registerGenerator("task.assigned", (e, raw) => {
 
 registerGenerator("import.completed", (e, raw) => {
   const p = raw as P<"import.completed">;
-  return [{ userId: p.importedByUserId, kind: "import.completed", title: "Your contact import finished", body: `${p.created} created, ${p.updated} updated, ${p.skipped} skipped`, entityType: "import", entityId: e.entityId, data: { created: p.created, updated: p.updated, skipped: p.skipped } }];
+  return [{ userId: p.importedByUserId, kind: "import.completed", title: "Your lead import finished", body: `${p.created} created, ${p.updated} updated, ${p.skipped} skipped`, entityType: "import", entityId: e.entityId, data: { created: p.created, updated: p.updated, skipped: p.skipped } }];
 });

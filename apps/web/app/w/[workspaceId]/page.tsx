@@ -49,14 +49,14 @@ export default async function Home({ params }: { params: Promise<{ workspaceId: 
 
       <p className="mb-4 text-md font-medium tracking-title text-fg">
         <span className={s && s.overdue > 0 ? "text-danger-fg" : undefined}>{lead}</span>{" "}
-        <span className="text-fg-subtle">{plural(dataOf(contacts)?.total ?? 0, "contact")}{r ? `, ${`${r.openTotal.count} still open`}${r.valuesVisible && sum(r.openTotal.values) ? ` worth ${sum(r.openTotal.values)}` : ""}` : ""}.</span>
+        <span className="text-fg-subtle">{plural(dataOf(leads)?.total ?? 0, "lead")}{r ? `, ${`${r.openTotal.count} still open`}${r.valuesVisible && sum(r.openTotal.values) ? ` worth ${sum(r.openTotal.values)}` : ""}` : ""}.</span>
       </p>
 
       {canLeads && r && total > 0 && (
-        <Panel aria-label="Contacts by stage" className="mb-4 p-4">
+        <Panel aria-label="Leads by stage" className="mb-4 p-4">
           <div className="mb-2 flex items-baseline justify-between">
-            <h2 className="text-base font-semibold text-fg">Open contacts by stage</h2>
-            <Link href={`${base}/contacts`} className="inline-flex items-center gap-1 text-sm font-medium text-accent-fg hover:underline pointer-coarse:min-h-11">Open contacts <ArrowRight className="size-3.5" aria-hidden /></Link>
+            <h2 className="text-base font-semibold text-fg">Open leads by stage</h2>
+            <Link href={`${base}/contacts`} className="inline-flex items-center gap-1 text-sm font-medium text-accent-fg hover:underline pointer-coarse:min-h-11">Open leads <ArrowRight className="size-3.5" aria-hidden /></Link>
           </div>
           <div className="flex h-2 gap-0.5 overflow-hidden rounded-full" role="img" aria-label={stages.map((x) => `${x.name}: ${x.count}`).join(", ")}>
             {stages.map((x, i) => <span key={x.stageId} className={`${STAGE_HUES[i % STAGE_HUES.length]} h-full transition-[flex-grow] duration-[var(--dur-slow)] ease-[var(--ease-out)]`} style={{ flexGrow: x.count }} />)}
@@ -81,7 +81,7 @@ export default async function Home({ params }: { params: Promise<{ workspaceId: 
             <Link href={`${base}/tasks`} className="inline-flex items-center gap-1 text-sm font-medium text-accent-fg hover:underline pointer-coarse:min-h-11">All tasks <ArrowRight className="size-3.5" aria-hidden /></Link>
           </div>
           {myTasks.length === 0 ? (
-            <EmptyState icon={CheckSquare} title="Nothing assigned to you" description={noContacts ? "Add your first contact, then create follow-ups for it." : "Tasks assigned to you appear here, soonest first."} action={noContacts ? <Link href={`${base}/contacts`} className="text-sm font-medium text-accent-fg hover:underline">Go to contacts</Link> : undefined} />
+            <EmptyState icon={CheckSquare} title="Nothing assigned to you" description={noContacts ? "Add your first lead, then create follow-ups for it." : "Tasks assigned to you appear here, soonest first."} action={noContacts ? <Link href={`${base}/contacts`} className="text-sm font-medium text-accent-fg hover:underline">Go to leads</Link> : undefined} />
           ) : (
             <ul className="-mx-2">
               {myTasks.map((t) => {
@@ -90,7 +90,7 @@ export default async function Home({ params }: { params: Promise<{ workspaceId: 
                   <li key={t.id}>
                     <Link href={`${base}/tasks`} className="press flex items-center gap-3 rounded-control px-2 py-2 hover:bg-hover">
                       <span aria-hidden className={`size-1.5 shrink-0 rounded-full ${t.priority === "urgent" ? "bg-danger" : t.priority === "high" ? "bg-hue-3-dot" : "bg-fg-disabled"}`} />
-                      <span className="min-w-0 flex-1"><span className="block truncate font-medium text-fg">{t.title}</span><span className="block truncate text-sm text-fg-subtle">{t.contact?.name ?? "No contact"}</span></span>
+                      <span className="min-w-0 flex-1"><span className="block truncate font-medium text-fg">{t.title}</span><span className="block truncate text-sm text-fg-subtle">{t.contact?.name ?? "No lead"}</span></span>
                       <span className={overdue ? "tnum shrink-0 text-sm font-medium text-danger-fg" : "tnum shrink-0 text-sm text-fg-muted"}>{t.dueAt ? `${overdue ? "Overdue · " : ""}${formatDateTime(t.dueAt, ws.timezone)}` : "No date"}</span>
                       <Badge tone={PRIORITY_TONE[t.priority]} className="hidden capitalize sm:inline-flex">{t.priority}</Badge>
                     </Link>

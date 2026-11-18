@@ -1,8 +1,8 @@
 import type { ContactColumn, TagColor } from "@crm/contracts";
 import { CONTACT_COLUMNS } from "@crm/contracts";
 
-export const COLUMN_LABEL: Record<ContactColumn, string> = { contact: "Contact", stage: "Stage", value: "Value", lifecycle: "Lifecycle stage", owner: "Owner", tags: "Tags", source: "Source", lastActivity: "Last activity", created: "Created" };
-/** Lifecycle is the older, separate label; it is available under Columns but no longer shown by default, so a contact reads as one thing: stage, value, owner. */
+export const COLUMN_LABEL: Record<ContactColumn, string> = { contact: "Lead", stage: "Stage", value: "Value", lifecycle: "Lifecycle stage", owner: "Owner", tags: "Tags", source: "Source", lastActivity: "Last activity", created: "Created" };
+/** Lifecycle is the older, separate label; it is available under Columns but no longer shown by default, so a lead reads as one thing: stage, value, owner. */
 export const DEFAULT_COLUMNS: ContactColumn[] = CONTACT_COLUMNS.filter((c) => c !== "lifecycle");
 export const SORT_FOR_COLUMN: Partial<Record<ContactColumn, "name" | "lastActivity" | "created" | "stage" | "value">> = { contact: "name", stage: "stage", value: "value", lastActivity: "lastActivity", created: "created" };
 
@@ -40,10 +40,10 @@ export function activityText(kind: string, d: Record<string, unknown>, actor: st
   const who = actor ?? "System";
   const s = (v: unknown) => (typeof v === "string" ? v : "");
   switch (kind) {
-    case "contact.created": return `${who} created this contact`;
-    case "contact.imported": return `${who} imported this contact from ${s(d.filename) || "a CSV file"}`;
-    case "contact.updated": return `${who} updated ${Array.isArray(d.fields) ? (d.fields as string[]).join(", ") : "the contact"}`;
-    case "contact.owner_changed": return d.to ? `${who} assigned this contact to ${s(d.to)}` : `${who} removed the owner`;
+    case "contact.created": return `${who} created this lead`;
+    case "contact.imported": return `${who} imported this lead from ${s(d.filename) || "a CSV file"}`;
+    case "contact.updated": return `${who} updated ${Array.isArray(d.fields) ? (d.fields as string[]).join(", ") : "the lead"}`;
+    case "contact.owner_changed": return d.to ? `${who} assigned this lead to ${s(d.to)}` : `${who} removed the owner`;
     case "contact.lifecycle_changed": return `${who} moved the lifecycle stage from ${s(d.from)} to ${s(d.to)}`;
     case "contact.tag_added": return `${who} added the tag ${s(d.tag)}`;
     case "contact.tag_removed": return `${who} removed the tag ${s(d.tag)}`;
@@ -55,8 +55,8 @@ export function activityText(kind: string, d: Record<string, unknown>, actor: st
     // --- track:tasks ---
     case "task.cancelled": return `${who} cancelled the task "${s(d.title)}"`;
     case "task.deleted": return `${who} deleted the task "${s(d.title)}"`;
-    case "task.linked": return `${who} linked the task "${s(d.title)}" to this contact`;
-    case "task.unlinked": return `${who} moved the task "${s(d.title)}" away from this contact`;
+    case "task.linked": return `${who} linked the task "${s(d.title)}" to this lead`;
+    case "task.unlinked": return `${who} moved the task "${s(d.title)}" away from this lead`;
     default: return `${who}: ${kind}`;
   }
 }

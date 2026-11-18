@@ -122,7 +122,7 @@ export function NotificationList({ workspaceId, timeZone, initial }: { workspace
         ) : status === "error" ? (
           <ErrorState title="Couldn't load notifications" description="Check your connection and try again." onRetry={() => void load(filter)} />
         ) : items.length === 0 ? (
-          <EmptyState icon={Bell} title={filter === "unread" ? "You're all caught up" : "No notifications yet"} description={filter === "unread" ? "No unread notifications." : "When someone assigns you a contact or a task, it shows up here."} />
+          <EmptyState icon={Bell} title={filter === "unread" ? "You're all caught up" : "No notifications yet"} description={filter === "unread" ? "No unread notifications." : "When someone assigns you a lead or a task, it shows up here."} />
         ) : (
           <ul className="divide-y divide-line">
             {items.map((n) => {

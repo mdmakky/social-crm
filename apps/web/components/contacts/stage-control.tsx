@@ -82,7 +82,7 @@ export function StageDialog({ ids, pipelines, lostReasons, workspaceId, initialS
     if (!r.ok) { setProblem(errorMessage(r.error)); return; }
     const done = r.data.results.filter((x) => x.ok).map((x) => x.id);
     const failed = r.data.results.filter((x) => !x.ok);
-    if (failed.length === 0) { toast(`${n(done.length)} ${done.length === 1 ? "contact" : "contacts"} moved to ${target.name}.`); onDone(done); onClose(); return; }
+    if (failed.length === 0) { toast(`${n(done.length)} ${done.length === 1 ? "lead" : "leads"} moved to ${target.name}.`); onDone(done); onClose(); return; }
     const byCode = new Map<string, number>();
     for (const x of failed) byCode.set(x.code, (byCode.get(x.code) ?? 0) + 1);
     setProblem(`${n(done.length)} moved to ${target.name}. ${n(failed.length)} not moved: ${[...byCode].map(([c, k]) => `${k} ${CODE_TEXT[c] ?? "could not be moved"}`).join(", ")}.`);
@@ -91,12 +91,12 @@ export function StageDialog({ ids, pipelines, lostReasons, workspaceId, initialS
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent title={many ? `Change stage of ${n(ids.length)} contacts` : "Change stage"} description="Each contact moves as if you had moved it yourself. History, automations and ad events follow.">
+      <DialogContent title={many ? `Change stage of ${n(ids.length)} leads` : "Change stage"} description="Each lead moves as if you had moved it yourself. History, automations and ad events follow.">
         <form className="flex flex-col gap-4" onSubmit={submit}>
           <Field label="New stage">{(p) => <Select {...p} value={stageId} onChange={(e) => setStageId(e.target.value)}><option value="">Choose a stage</option>{stages.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</Select>}</Field>
           {target?.kind === "lost" && <Field label="Why was it lost?">{(p) => <Select {...p} value={reasonId} onChange={(e) => setReasonId(e.target.value)}>{lostReasons.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</Select>}</Field>}
           {problem && <Alert tone="warning">{problem}</Alert>}
-          <DialogActions><Button type="button" onClick={onClose}>{problem ? "Close" : "Cancel"}</Button><Button type="submit" variant="primary" disabled={!target || busy || (target.kind === "lost" && !reasonId)}>{busy ? "Moving…" : `Move ${n(ids.length)} ${ids.length === 1 ? "contact" : "contacts"}`}</Button></DialogActions>
+          <DialogActions><Button type="button" onClick={onClose}>{problem ? "Close" : "Cancel"}</Button><Button type="submit" variant="primary" disabled={!target || busy || (target.kind === "lost" && !reasonId)}>{busy ? "Moving…" : `Move ${n(ids.length)} ${ids.length === 1 ? "lead" : "leads"}`}</Button></DialogActions>
         </form>
       </DialogContent>
     </Dialog>

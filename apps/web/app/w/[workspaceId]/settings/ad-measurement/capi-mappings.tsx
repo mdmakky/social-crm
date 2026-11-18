@@ -28,7 +28,7 @@ const ZERO_DECIMAL = new Set(["BIF", "CLP", "DJF", "GNF", "JPY", "KMF", "KRW", "
 const toMinor = (major: string, cur: string) => Math.round(Number(major) * (ZERO_DECIMAL.has(cur) ? 1 : 100));
 const toMajor = (minor: number, cur: string) => String(ZERO_DECIMAL.has(cur) ? minor : minor / 100);
 const SKIP_TEXT: Record<string, string> = {
-  mapping_disabled: "This rule is turned off.", dataset_inactive: "The dataset is disabled.", no_value: "The lead has no value.", no_consent: "No ad measurement consent for this contact.", opted_out: "The contact withdrew consent.",
+  mapping_disabled: "This rule is turned off.", dataset_inactive: "The dataset is disabled.", no_value: "The lead has no value.", no_consent: "No ad measurement consent for this lead.", opted_out: "The lead withdrew consent.",
 };
 
 type Draft = { triggerType: Trigger; stageId: string; event: string; custom: string; valueMode: "lead_value" | "fixed" | "none"; amount: string; currency: string; enabled: boolean };
@@ -100,7 +100,7 @@ export function CapiMappings({ workspaceId, datasets, canManage }: { workspaceId
   return (
     <section aria-labelledby="capi-rules" className="border-t border-line-card pt-4">
       <h3 id="capi-rules" className="text-sm font-medium text-fg">Event rules</h3>
-      <p className="mb-3 text-sm text-fg-subtle">Choose which changes in your CRM send an event to Meta. Only contacts with ad measurement consent are sent; <Link className="underline" href={`/w/${workspaceId}/contacts`}>record consent on the contact</Link>.</p>
+      <p className="mb-3 text-sm text-fg-subtle">Choose which changes in your CRM send an event to Meta. Only leads with ad measurement consent are sent; <Link className="underline" href={`/w/${workspaceId}/contacts`}>record consent on the lead</Link>.</p>
       {error && <Alert tone="error" className="mb-3">{error}</Alert>}
       {rules === null && !error ? <div role="status" aria-label="Loading rules" className="flex flex-col gap-2"><Skeleton className="h-12" /><Skeleton className="h-12" /></div> : rules === null ? <ErrorState title="Could not load rules" description={error ?? undefined} onRetry={() => void load()} /> : (
         <div className="flex flex-col gap-4">

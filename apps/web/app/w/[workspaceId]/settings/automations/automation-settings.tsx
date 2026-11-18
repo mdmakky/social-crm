@@ -17,9 +17,9 @@ import { formatDateTime } from "@/lib/format";
 
 type Member = { id: string; name: string };
 const FIELDS: Record<AutomationTrigger, { field: string; label: string }[]> = {
-  "contact.created": [{ field: "source", label: "Source" }, { field: "contactName", label: "Contact name" }, { field: "lifecycleStageId", label: "Lifecycle stage id" }, { field: "ownerUserId", label: "Owner id" }],
+  "contact.created": [{ field: "source", label: "Source" }, { field: "contactName", label: "Lead name" }, { field: "lifecycleStageId", label: "Lifecycle stage id" }, { field: "ownerUserId", label: "Owner id" }],
   "lead.stage_changed": [{ field: "toStageId", label: "New stage id" }, { field: "fromStageId", label: "Previous stage id" }, { field: "outcome", label: "Outcome (open, won, lost)" }, { field: "pipelineId", label: "Pipeline id" }, { field: "leadTitle", label: "Lead title" }],
-  "contact.owner_assigned": [{ field: "ownerUserId", label: "New owner id" }, { field: "previousOwnerUserId", label: "Previous owner id" }, { field: "contactName", label: "Contact name" }],
+  "contact.owner_assigned": [{ field: "ownerUserId", label: "New owner id" }, { field: "previousOwnerUserId", label: "Previous owner id" }, { field: "contactName", label: "Lead name" }],
   "lead.owner_assigned": [{ field: "ownerUserId", label: "New owner id" }, { field: "previousOwnerUserId", label: "Previous owner id" }, { field: "leadTitle", label: "Lead title" }],
 };
 const OPS = { equals: "is", in: "is one of", contains: "contains" } as const;
@@ -113,7 +113,7 @@ export function AutomationSettings({ workspaceId, timeZone, members }: { workspa
       <Panel>
         <PanelHeader title="Rules" description="A rule runs when its trigger happens and its conditions match." actions={<Button variant="primary" size="sm" onClick={() => setEditing("new")}><Plus />New rule</Button>} />
         {rules.length === 0 ? (
-          <EmptyState icon={Workflow} title="No rules yet" description="For example, tag a new contact and open a follow-up task." action={<Button variant="primary" onClick={() => setEditing("new")}><Plus />New rule</Button>} />
+          <EmptyState icon={Workflow} title="No rules yet" description="For example, tag a new lead and open a follow-up task." action={<Button variant="primary" onClick={() => setEditing("new")}><Plus />New rule</Button>} />
         ) : (
           <ul className="divide-y divide-line">
             {rules.map((r) => (
@@ -209,7 +209,7 @@ function RuleDialog({ workspaceId, rule, members, onSaved }: { workspaceId: stri
   return (
     <DialogContent title={rule ? "Edit rule" : "New rule"} description="Actions run when the trigger and all conditions match." className="max-h-[90vh] w-full max-w-2xl overflow-y-auto">
       <form onSubmit={save} className="space-y-4" noValidate>
-        <Field label="Name">{(p) => <Input {...p} value={name} maxLength={120} onChange={(e) => setName(e.target.value)} placeholder="Welcome new contacts" />}</Field>
+        <Field label="Name">{(p) => <Input {...p} value={name} maxLength={120} onChange={(e) => setName(e.target.value)} placeholder="Welcome new leads" />}</Field>
         <Field label="When">{(p) => (
           <Select {...p} value={trigger} onChange={(e) => { setTrigger(e.target.value as AutomationTrigger); setRows([]); }}>
             {(Object.keys(AUTOMATION_TRIGGERS) as AutomationTrigger[]).map((t) => <option key={t} value={t}>{AUTOMATION_TRIGGERS[t].label}</option>)}

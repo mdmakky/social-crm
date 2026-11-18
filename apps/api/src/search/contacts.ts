@@ -9,7 +9,7 @@ type Row = { id: string; name: string; email: string | null; phone: string | nul
 /** Same matching as the contacts list `search` filter; ranked: exact email/phone, then name prefix, then substring, ties by recency. */
 export const contactsProvider: SearchProvider = {
   type: "contacts",
-  label: "Contacts",
+  label: "Leads",
   requires: (role) => can(role, "contact.view", {}),
   async search(tx, ctx, query, limit) {
     const f = filters(ctx.workspaceId, ctx.userId, { search: query });

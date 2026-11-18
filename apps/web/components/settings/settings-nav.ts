@@ -19,7 +19,7 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
     { label: "Notifications", description: "Alerts you receive. Personal to you.", path: "settings/notifications", icon: Bell },
   ] },
   { label: "CRM data", items: [
-    { label: "Contact fields", description: "Lifecycle stages, custom fields and tags.", path: "settings/contacts", icon: Contact },
+    { label: "Lead fields", description: "Lifecycle stages, custom fields and tags.", path: "settings/contacts", icon: Contact },
     { label: "Lead stages", description: "Pipelines, stages and lost reasons.", path: "settings/pipelines", icon: Kanban },
   ] },
   { label: "AI and automation", items: [

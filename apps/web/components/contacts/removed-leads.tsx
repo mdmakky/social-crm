@@ -43,21 +43,21 @@ export function RemovedLeadsDialog({ open, onOpenChange, workspaceId, timeZone, 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent title="Recently removed" description="Contacts removed from the pipeline. The contact and its history are untouched; restoring puts it back where it was.">
+      <DialogContent title="Recently removed" description="Leads removed from the pipeline. The lead and its history are untouched; restoring puts it back where it was.">
         {error && <Alert tone="error" className="mb-3">{error}</Alert>}
         <div role="status">{note && <Alert tone="success" className="mb-3">{note}</Alert>}</div>
-        {status === "loading" && <p role="status" className="py-6 text-center text-sm text-fg-muted">Loading removed contacts…</p>}
+        {status === "loading" && <p role="status" className="py-6 text-center text-sm text-fg-muted">Loading removed leads…</p>}
         {status === "error" && <div className="py-2"><Button variant="secondary" onClick={() => void load()}>Try again</Button></div>}
-        {status === "ready" && items.length === 0 && <EmptyState icon={RotateCcw} title="Nothing removed" description="Contacts you remove from the pipeline show up here so you can restore them." className="py-8" />}
+        {status === "ready" && items.length === 0 && <EmptyState icon={RotateCcw} title="Nothing removed" description="Leads you remove from the pipeline show up here so you can restore them." className="py-8" />}
         {status === "ready" && items.length > 0 && (
-          <ul className="max-h-[50vh] divide-y divide-border overflow-y-auto" aria-label="Removed contacts">
+          <ul className="max-h-[50vh] divide-y divide-border overflow-y-auto" aria-label="Removed leads">
             {items.map((l) => (
               <li key={l.id} className="flex items-center justify-between gap-3 py-2.5">
                 <div className="min-w-0">
                   <Link href={`/w/${workspaceId}/contacts/${l.primaryContact.id}`} className="block truncate text-sm font-medium text-fg underline-offset-2 hover:underline">{l.primaryContact.name}</Link>
-                  <p className="truncate text-xs text-fg-subtle">{stageOf(l)}{l.deletedAt ? ` · removed ${formatDate(l.deletedAt, timeZone)}` : ""}{l.primaryContact.deleted ? " · contact deleted" : ""}</p>
+                  <p className="truncate text-xs text-fg-subtle">{stageOf(l)}{l.deletedAt ? ` · removed ${formatDate(l.deletedAt, timeZone)}` : ""}{l.primaryContact.deleted ? " · lead deleted" : ""}</p>
                 </div>
-                <Button variant="secondary" size="sm" loading={busyId === l.id} disabled={l.primaryContact.deleted || (busyId !== null && busyId !== l.id)} title={l.primaryContact.deleted ? "Restore the contact first" : undefined} aria-label={`Restore ${l.primaryContact.name}`} onClick={() => void restore(l)}><RotateCcw aria-hidden />Restore</Button>
+                <Button variant="secondary" size="sm" loading={busyId === l.id} disabled={l.primaryContact.deleted || (busyId !== null && busyId !== l.id)} title={l.primaryContact.deleted ? "Restore the lead first" : undefined} aria-label={`Restore ${l.primaryContact.name}`} onClick={() => void restore(l)}><RotateCcw aria-hidden />Restore</Button>
               </li>
             ))}
           </ul>

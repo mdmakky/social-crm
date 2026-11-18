@@ -92,7 +92,7 @@ function Body({ task: initial, workspaceId, timeZone, canEdit, onClose, onEdit, 
         <dd className="text-fg">{task.dueAt ? formatDateTime(task.dueAt, timeZone) : "No due date"}</dd>
         <dt className="text-fg-muted">Assignee</dt>
         <dd className="text-fg">{task.assignee?.name ?? "Unassigned"}</dd>
-        <dt className="text-fg-muted">Contact</dt>
+        <dt className="text-fg-muted">Lead</dt>
         <dd className="text-fg">{task.contact ? <Link className="inline-flex items-center gap-1 underline underline-offset-2" href={`/w/${workspaceId}/contacts/${task.contact.id}`}><User className="size-3.5" aria-hidden />{task.contact.name}</Link> : "Not linked"}</dd>
         <dt className="text-fg-muted">Created</dt>
         <dd className="text-fg">{formatDateTime(task.createdAt, timeZone)}{task.createdBy?.name ? ` by ${task.createdBy.name}` : ""}</dd>
