@@ -13,6 +13,7 @@ const MAX_WIDGETS = 10;
 const dto = (w: Row): ChatWidgetDto => ({
   id: w.id, name: w.name, publicKey: w.publicKey, allowedOrigins: w.allowedOrigins, enabled: w.enabled, greeting: w.greeting, offlineMessage: w.offlineMessage, color: w.color,
   prechatForm: w.prechatForm, createdAt: w.createdAt.toISOString(), updatedAt: w.updatedAt.toISOString(),
+  avatarUrl: w.avatarUrl, subtitle: w.subtitle, position: w.position as "left" | "right", quickReplies: w.quickReplies, awayMode: w.awayMode, awayText: w.awayText, defaultLanguage: w.defaultLanguage as "en" | "bn",
 });
 /** Random 15 digit number (no leading zero): the external ids of every channel are digit strings. 64 random bits reduced modulo 9e14 (bias is negligible). */
 export const randomDigits = () => String(100000000000000n + (BigInt(`0x${randomBytes(8).toString("hex")}`) % 900000000000000n));
@@ -54,7 +55,7 @@ export function webChatAdminRoutes(db: Db, workerDb?: Db, previewKey?: Buffer) {
     if (!accountId) return fail(c, 500, "internal_error", "Could not create the widget. Try again.");
     // 2. the widget (user role, RLS: owner/admin only)
     const row = await withContext(db, wctx(c), async (tx) => {
-      const [w] = await tx.insert(schema.chatWidgets).values({ workspaceId: ws, integrationAccountId: accountId!, publicKey: newKey(), name: b.data.name, allowedOrigins: b.data.allowedOrigins, color: b.data.color, greeting: b.data.greeting, offlineMessage: b.data.offlineMessage, prechatForm: b.data.prechatForm, createdBy: c.get("userId") }).returning();
+      const [w] = await tx.insert(schema.chatWidgets).values({ workspaceId: ws, integrationAccountId: accountId!, publicKey: newKey(), name: b.data.name, allowedOrigins: b.data.allowedOrigins, color: b.data.color, greeting: b.data.greeting, offlineMessage: b.data.offlineMessage, prechatForm: b.data.prechatForm, avatarUrl: b.data.avatarUrl, subtitle: b.data.subtitle, position: b.data.position, quickReplies: b.data.quickReplies, awayMode: b.data.awayMode, awayText: b.data.awayText, defaultLanguage: b.data.defaultLanguage, createdBy: c.get("userId") }).returning();
       await writeAudit(tx, { ...actor(c), workspaceId: ws, action: "widget.created", entityType: "chat_widget", entityId: w!.id, summary: { name: w!.name, origins: w!.allowedOrigins.length } });
       return w!;
     });

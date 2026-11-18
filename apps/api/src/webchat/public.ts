@@ -2,7 +2,7 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { Hono, type Context } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { sql } from "drizzle-orm";
-import { WEB_CHAT_LIMITS, WidgetContactBody, WidgetSendBody, type WidgetMessage, type WidgetPublicConfig } from "@crm/contracts";
+import { WEB_CHAT_LIMITS, cleanPageUrl, WidgetContactBody, WidgetSendBody, type WidgetMessage, type WidgetPublicConfig } from "@crm/contracts";
 import { withContext, type Db, type Tx } from "@crm/db";
 import { hasNul } from "../routes/scope.ts";
 import { saveExtracted } from "../inbox/extract.ts";
@@ -72,7 +72,9 @@ export function publicWidgetRoutes(deps: WidgetDeps) {
     if (!row) return err(c, 404, "not_found", "Unknown widget.");
     const widget: Widget = {
       id: row.id as string, workspaceId: row.workspace_id as string, accountId: row.integration_account_id as string, enabled: row.enabled as boolean, origins: (row.allowed_origins as string[]).map(normOrigin),
-      config: { name: row.name as string, color: row.color as string, greeting: (row.greeting as string | null) ?? null, offlineMessage: (row.offline_message as string | null) ?? null, prechatForm: row.prechat_form as boolean, enabled: row.enabled as boolean },
+      config: { name: row.name as string, color: row.color as string, greeting: (row.greeting as string | null) ?? null, offlineMessage: (row.offline_message as string | null) ?? null, prechatForm: row.prechat_form as boolean, enabled: row.enabled as boolean,
+        avatarUrl: (row.avatar_url as string | null) ?? null, subtitle: row.subtitle as string, position: row.position as "left" | "right", quickReplies: (row.quick_replies as string[]) ?? [], awayMode: row.away_mode as boolean,
+        awayText: (row.away_text as string | null) ?? null, defaultLanguage: row.default_language as "en" | "bn" },
     };
     // The site that embeds the widget: the browser's Origin when the call comes from that site directly; otherwise (our own iframe, or a same-origin GET that carries no Origin) the X-Widget-Host
     // the widget page sets from the parent it was framed by. Both are client-supplied, so a non-browser can claim any allowed value: the allowlist stops browsers, the rate limits stop the rest.
@@ -198,13 +200,15 @@ export function publicWidgetRoutes(deps: WidgetDeps) {
     const raw = await c.req.json().catch(() => null);
     const parsed = hasNul(raw) ? null : WidgetSendBody.safeParse(raw);
     if (!parsed?.success) return err(c, 400, "invalid_body", parsed?.error.issues[0]?.message ?? "Write a message of 1 to 2000 characters.");
-    const { body: text, website, clientId } = parsed.data;
+    const { body: text, website, clientId, pageUrl } = parsed.data;
+    const page = cleanPageUrl(pageUrl); // origin + path only, whatever the widget sent (D283)
     const res = await run(c, async (tx) => {
       const s = await sessionOf(c, tx);
       if (!s) return { bad: "session" as const };
       if (!messages.allow(`msg:${s.id}`)) return { bad: "limited" as const };
       // Honeypot: a field no human sees. A bot that fills it gets the normal answer and nothing is stored.
       if (website) return { fake: true as const };
+      if (page) await tx.execute(sql`UPDATE chat_visitor_sessions SET last_page_url = ${page} WHERE workspace_id = ${w.workspaceId} AND id = ${s.id}`);
       if (!s.hasMessage && now() - s.createdAt.getTime() < minFirst) return { bad: "fast" as const };
       const { conversationId, contactId } = await ensureConversation(tx, w, s);
       const ext = `wc:${clientId ?? randomUUID()}`;
