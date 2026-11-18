@@ -81,4 +81,24 @@ describe("web chat tenancy", () => {
     await expect(root.query(`INSERT INTO chat_widgets(workspace_id,integration_account_id,public_key,name,created_by) VALUES ($1,$2,'short','x',$3)`, [A, acc, U.owner])).rejects.toThrow(/chat_widgets_key_shape/);
     await expect(root.query(`INSERT INTO chat_widgets(workspace_id,integration_account_id,public_key,name,color,created_by) VALUES ($1,$2,$3,'x','red',$4)`, [A, acc, "q".repeat(32), U.owner])).rejects.toThrow(/chat_widgets_color/);
   });
+  it("appearance columns (0041): same RLS, constraints, resolve returns them, last_page_url is worker-only and read by the Inbox only through the narrow function", async () => {
+    // owner of A can edit appearance of A's widget, never B's; an agent cannot
+    expect(await q(app, ctx(U.owner, A), sql`UPDATE chat_widgets SET subtitle = 'Ask us', quick_replies = ARRAY['a','b'], position = 'left' WHERE id = ${widgetA} RETURNING id`)).toHaveLength(1);
+    expect(await q(app, ctx(U.owner, A), sql`UPDATE chat_widgets SET subtitle = 'x' WHERE id = ${widgetB} RETURNING id`)).toHaveLength(0);
+    expect(await q(app, ctx(U.agent, A), sql`UPDATE chat_widgets SET subtitle = 'x' WHERE id = ${widgetA} RETURNING id`)).toHaveLength(0);
+    await expect(root.query(`UPDATE chat_widgets SET quick_replies = ARRAY['a','b','c','d'] WHERE id = $1`, [widgetA])).rejects.toThrow(/chat_widgets_quick/);
+    await expect(root.query(`UPDATE chat_widgets SET quick_replies = ARRAY['x'||repeat('y',30)] WHERE id = $1`, [widgetA])).rejects.toThrow(/chat_widgets_quick/);
+    await expect(root.query(`UPDATE chat_widgets SET avatar_url = 'http://a.example/x.png' WHERE id = $1`, [widgetA])).rejects.toThrow(/chat_widgets_avatar/);
+    await expect(root.query(`UPDATE chat_widgets SET default_language = 'fr' WHERE id = $1`, [widgetA])).rejects.toThrow(/chat_widgets_lang/);
+    const r = await q<{ subtitle: string; quick_replies: string[]; position: string }>(worker, ctx(), sql`SELECT * FROM chat_widget_resolve(${keyA})`);
+    expect(r[0]).toMatchObject({ subtitle: "Ask us", quick_replies: ["a", "b"], position: "left" });
+    // page url: worker writes, application role cannot, shape is enforced
+    expect(await q(worker, ctx(undefined, A), sql`UPDATE chat_visitor_sessions SET last_page_url = 'https://a.example/p' WHERE token_hash = ${hashA} RETURNING id`)).toHaveLength(1);
+    await expect(q(app, ctx(U.owner, A), sql`UPDATE chat_visitor_sessions SET last_page_url = 'https://evil.example/' WHERE token_hash = ${hashA}`)).rejects.toMatchObject({ cause: { message: expect.stringMatching(/permission denied/) } });
+    await expect(root.query(`UPDATE chat_visitor_sessions SET last_page_url = 'javascript:alert(1)' WHERE token_hash = $1`, [hashA])).rejects.toThrow(/chat_visitor_sessions_page/);
+    // the Inbox lookup is scoped to the caller's workspace
+    const conv = (await one(`SELECT gen_random_uuid() AS id`)).id as string;
+    expect(await q(app, ctx(U.owner, B), sql`SELECT chat_conversation_page(${conv}::uuid) AS p`)).toEqual([{ p: null }]);
+  });
 });
+

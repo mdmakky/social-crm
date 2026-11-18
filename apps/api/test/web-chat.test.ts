@@ -410,3 +410,62 @@ describe("owner preview grant (D270)", () => {
     expect((await json(await prev(w, g, "/config", { origin: ORIGIN, host: ORIGIN }))).enabled).toBe(false);
   });
 });
+
+describe("widget appearance and page url (migration 0041)", () => {
+  const patch = (w: W, body: unknown) => adminCall(owner, ws, "PATCH", `/${w.id}`, body);
+  it("defaults, and /config returns exactly the public fields (no workspace internals)", async () => {
+    const w = await mk(owner, ws, "Defaults", [SITE]);
+    const cfg = await json(await pub(w.publicKey, "GET", "/config"));
+    expect(Object.keys(cfg).sort()).toEqual(["avatarUrl", "awayMode", "awayText", "color", "defaultLanguage", "enabled", "greeting", "name", "offlineMessage", "position", "prechatForm", "quickReplies", "subtitle"]);
+    expect(cfg).toMatchObject({ subtitle: "We reply here", position: "right", quickReplies: [], awayMode: false, defaultLanguage: "en", avatarUrl: null });
+  });
+  it("saves the new fields and /config shows them", async () => {
+    const r = await patch(wA1, { avatarUrl: " https://cdn.example/a.png ", subtitle: "Ask us", greeting: "Hi!", position: "left", quickReplies: ["Prices", "Dates"], awayMode: true, awayText: "Back soon", defaultLanguage: "bn" });
+    expect(r.status).toBe(200);
+    const cfg = await json(await pub(wA1.publicKey, "GET", "/config"));
+    expect(cfg).toMatchObject({ avatarUrl: "https://cdn.example/a.png", subtitle: "Ask us", greeting: "Hi!", position: "left", quickReplies: ["Prices", "Dates"], awayMode: true, awayText: "Back soon", defaultLanguage: "bn" });
+    expect((await patch(wA1, { avatarUrl: "", awayText: "", quickReplies: [], awayMode: false, defaultLanguage: "en", position: "right" })).status).toBe(200);
+    expect(await json(await pub(wA1.publicKey, "GET", "/config"))).toMatchObject({ avatarUrl: null, awayText: null, quickReplies: [] });
+  });
+  it("validates avatar url, quick replies, lengths, enums", async () => {
+    for (const bad of [
+      { avatarUrl: "http://cdn.example/a.png" }, { avatarUrl: "javascript:alert(1)" }, { avatarUrl: "data:image/png;base64,AAAA" }, { avatarUrl: "https://u:p@cdn.example/a.png" }, { avatarUrl: `https://cdn.example/${"a".repeat(500)}` },
+      { quickReplies: ["a", "b", "c", "d"] }, { quickReplies: [""] }, { quickReplies: ["x".repeat(31)] },
+      { subtitle: "x".repeat(61) }, { subtitle: "" }, { greeting: "x".repeat(91) }, { awayText: "x".repeat(161) }, { position: "top" }, { defaultLanguage: "fr" },
+    ]) expect([JSON.stringify(bad), (await patch(wA1, bad)).status]).toEqual([JSON.stringify(bad), 400]);
+    expect((await patch(wA1, { quickReplies: ["x".repeat(30)], subtitle: "x".repeat(60), greeting: "x".repeat(90), awayText: "x".repeat(160) })).status).toBe(200);
+    // the database refuses the same things even if the API were bypassed
+    await expect(h.admin.query("UPDATE chat_widgets SET quick_replies = ARRAY['a','b','c','d'] WHERE id = $1", [wA1.id])).rejects.toThrow();
+    await expect(h.admin.query("UPDATE chat_widgets SET avatar_url = 'http://x.example/a.png' WHERE id = $1", [wA1.id])).rejects.toThrow();
+  });
+  it("creates with the new fields", async () => {
+    const r = await adminCall(owner, ws, "POST", "", { name: "Styled", allowedOrigins: [SITE], quickReplies: ["One"], position: "left", defaultLanguage: "bn" });
+    expect(r.status).toBe(201);
+    expect(await json(r)).toMatchObject({ quickReplies: ["One"], position: "left", defaultLanguage: "bn", subtitle: "We reply here", awayMode: false });
+    expect((await adminCall(owner, ws, "POST", "", { name: "Bad", quickReplies: ["a", "b", "c", "d"] })).status).toBe(400);
+  });
+  it("agents cannot change appearance (owner/admin only)", async () => {
+    expect((await adminCall(agent, ws, "PATCH", `/${wA1.id}`, { subtitle: "x" })).status).toBe(403);
+  });
+  it("stores the page without query string or fragment, ignores junk, and the Inbox detail shows it", async () => {
+    const t = await newSession(wA1);
+    expect((await send(wA1, t, { body: "hi", pageUrl: "https://site-a.example/pricing/plans?token=SECRET&email=a@b.c#frag" })).status).toBe(201);
+    const page = async () => (await q("SELECT last_page_url FROM chat_visitor_sessions WHERE token_hash=$1", [sha(t)]))[0]!.last_page_url;
+    expect(await page()).toBe("https://site-a.example/pricing/plans");
+    for (const junk of ["javascript:alert(1)", "ftp://x.example/a", "not a url", `https://site-a.example/${"a".repeat(300)}`]) {
+      expect((await send(wA1, t, { body: "again", pageUrl: junk })).status).toBe(201); // a bad page never blocks a message
+      expect(await page()).toBe("https://site-a.example/pricing/plans"); // and never replaces the stored one
+    }
+    const conv = await convOf(t);
+    const d = await json(await h.app.request(`/v1/workspaces/${ws}/conversations/${conv}`, { headers: { cookie: agent.cookie } }));
+    expect(d.fromPage).toBe("https://site-a.example/pricing/plans");
+    expect(JSON.stringify(d)).not.toContain("SECRET");
+  });
+  it("the Inbox page lookup does not leak across workspaces", async () => {
+    const t = await newSession(wA1);
+    await send(wA1, t, { body: "x", pageUrl: "https://site-a.example/private" });
+    const conv = await convOf(t);
+    const r = await h.app.request(`/v1/workspaces/${ws2}/conversations/${conv}`, { headers: { cookie: owner2.cookie } });
+    expect(r.status).toBe(404);
+  });
+});
