@@ -87,9 +87,9 @@ test.describe("shell", () => {
   test("sidebar: daily work and one Settings entry; admin pages and unbuilt features are not in it", async ({ page }) => {
     await signUpAndCreate(page, "Ada Owner", "Shell Test Co");
     const nav = page.getByRole("navigation", { name: "Main" }).first();
-    for (const label of ["Home", "Inbox", "Contacts", "Settings"]) await expect(nav.getByRole("link", { name: label })).toBeVisible();
+    for (const label of ["Home", "Inbox", "Leads", "Settings"]) await expect(nav.getByRole("link", { name: label })).toBeVisible();
     await expect(nav.getByRole("link", { name: "Home" })).toHaveAttribute("aria-current", "page");
-    for (const label of ["Leads", "Integrations", "Members", "Audit log", "Automation", "AI assistant"]) await expect(nav.getByRole("link", { name: label })).toHaveCount(0); // one home per thing: Settings; Leads is part of Contacts
+    for (const label of ["Contacts", "Integrations", "Members", "Audit log", "Automation", "AI assistant"]) await expect(nav.getByRole("link", { name: label })).toHaveCount(0); // one home per thing: Settings; the old name Contacts is gone (D300)
     await expect(nav.getByText("Coming soon")).toHaveCount(0);
     await expect(nav.getByText(/Phase \d/)).toHaveCount(0); // no internal roadmap language in the product
   });

@@ -15,10 +15,11 @@ test("remove and restore, value access for an agent, and no lifecycle stage", as
 
   // owner sets stage and value
   await page.goto(url);
-  await page.getByLabel("Stage", { exact: true }).selectOption({ label: "Qualified" });
+  await page.getByRole("button", { name: "Set stage to Qualified" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Saved" }).first()).toBeVisible();
   await page.getByLabel("Value", { exact: true }).fill("1200");
-  await page.getByRole("button", { name: "Update" }).click();
-  await expect(page.getByRole("status").filter({ hasText: "Saved." }).first()).toBeVisible();
+  await page.getByLabel("Value", { exact: true }).blur(); // autosaves; there is no Update button
+  await expect(page.getByRole("status").filter({ hasText: "Saved" }).first()).toBeVisible();
 
   // one stage concept: no lifecycle control on the page, in the list filters or in the new-contact dialog
   await expect(page.getByLabel("Lifecycle stage")).toHaveCount(0);
@@ -29,13 +30,16 @@ test("remove and restore, value access for an agent, and no lifecycle stage", as
   await agent.goto(url);
   await expect(agent.getByText("Value is hidden for your role.")).toBeVisible();
   await expect(agent.getByRole("group", { name: "Who can see the value" })).toHaveCount(0);
-  await expect(agent.getByRole("button", { name: "Remove from pipeline" })).toBeDisabled();
-  await expect(agent.getByText("Only an owner or admin can remove a contact from the pipeline.")).toBeVisible();
+  await agent.getByRole("button", { name: "More actions" }).click();
+  await expect(agent.getByRole("menuitem", { name: /Remove from pipeline/ })).toHaveAttribute("aria-disabled", "true");
+  await expect(agent.getByRole("menuitem", { name: /Remove from pipeline/ })).toContainText("owner or admin");
+  await agent.keyboard.press("Escape");
   await agent.goto(`/w/${workspaceId}/contacts`);
   await expect(agent.getByRole("button", { name: "Recently removed" })).toHaveCount(0);
   await expect(agent.getByText("1,200")).toHaveCount(0);
 
   // the owner grants access; the agent now sees the value
+  await page.getByText("Value access", { exact: true }).click(); // collapsed by default (D308)
   const access = page.getByRole("group", { name: "Who can see the value" });
   await expect(access.getByLabel("Value access for Alex Agent")).toHaveValue("none");
   await access.getByLabel("Value access for Alex Agent").selectOption({ label: "Can see" });
@@ -52,13 +56,16 @@ test("remove and restore, value access for an agent, and no lifecycle stage", as
   await expect(agent.getByText("Value is hidden for your role.")).toBeVisible();
 
   // remove from the pipeline: dialog says what happens, then the panel is back to "not tracked"
-  await page.getByRole("button", { name: "Remove from pipeline" }).click();
+  await page.getByRole("button", { name: "More actions" }).click();
+  await page.getByRole("menuitem", { name: "Remove from pipeline" }).click();
   const dlg = page.getByRole("dialog");
-  await expect(dlg.getByText(/restore it any time from Contacts, Recently removed/)).toBeVisible();
+  await expect(dlg.getByText(/restore it any time from Leads, Recently removed/)).toBeVisible();
   await dlg.getByRole("button", { name: "Remove", exact: true }).click();
   await expect(page.getByRole("status").filter({ hasText: "Removed from the pipeline" }).first()).toBeVisible();
   await expect(page.getByText("Not tracked yet. Change anything here to start.")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Remove from pipeline" })).toHaveCount(0);
+  await page.getByRole("button", { name: "More actions" }).click();
+  await expect(page.getByRole("menuitem", { name: "Remove from pipeline" })).toHaveCount(0); // nothing to remove without a lead
+  await page.keyboard.press("Escape");
 
   // Recently removed lists it; restore brings it back with its stage
   await page.goto(`/w/${workspaceId}/contacts`);
@@ -72,8 +79,10 @@ test("remove and restore, value access for an agent, and no lifecycle stage", as
   await page.screenshot({ path: "/tmp/ol2-removed-empty-1440.png" });
   await removed.getByRole("button", { name: "Done" }).click();
   await page.goto(url);
-  await expect(page.getByLabel("Stage", { exact: true })).toHaveValue(/.+/);
-  await expect(page.getByRole("button", { name: "Remove from pipeline" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Set stage to Qualified" })).toHaveAttribute("aria-current", "step");
+  await page.getByRole("button", { name: "More actions" }).click();
+  await expect(page.getByRole("menuitem", { name: "Remove from pipeline" })).toBeVisible();
+  await page.keyboard.press("Escape");
   await expect(page.getByLabel("Value", { exact: true })).toHaveValue(/1,?200/);
 
   // 375: contact page and removed list have no serious a11y problems
@@ -81,12 +90,15 @@ test("remove and restore, value access for an agent, and no lifecycle stage", as
   await page.goto(url);
   await axe(page, "contact@375");
   await page.screenshot({ path: "/tmp/ol2-contact-375.png", fullPage: true });
-  await page.getByRole("button", { name: "Remove from pipeline" }).click();
+  await page.getByRole("button", { name: "More actions" }).click();
+  await page.getByRole("menuitem", { name: "Remove from pipeline" }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Remove", exact: true }).click();
   await expect(page.getByText("Not tracked yet. Change anything here to start.")).toBeVisible();
   await page.goto(`/w/${workspaceId}/contacts`);
-  await page.getByRole("button", { name: "Recently removed" }).click();
+  await page.getByRole("button", { name: "More actions" }).click(); // on a phone the header buttons live in the More menu (D305)
+  await page.getByRole("menuitem", { name: "Recently removed" }).click();
   await expect(page.getByRole("dialog").getByRole("link", { name: "Ana Costa" })).toBeVisible();
+  await expect(page.locator("[role=menu], [role=menuitem]")).toHaveCount(0); // axe must not catch the More menu mid fade-out
   await axe(page, "removed@375");
   await page.screenshot({ path: "/tmp/ol2-removed-375.png" });
   await page.setViewportSize({ width: 1440, height: 900 });

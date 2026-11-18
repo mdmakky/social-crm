@@ -20,7 +20,7 @@ async function setup(page: Page) {
     { name: "Ben Okafor", email: "ben@example.com" },
   ]);
   await page.goto(`/w/${workspaceId}/contacts`);
-  await expect(page.getByRole("heading", { level: 1, name: "Contacts" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Leads" })).toBeVisible();
   return { workspaceId, ids };
 }
 
@@ -42,15 +42,15 @@ test("palette: Ctrl+K, live contact results with page items, keyboard open, focu
   await expect(opt).toBeVisible();
   await expect(opt).toContainText("ana.costa@example.com");
   await expect(opt).toContainText("Costa Foods");
-  await expect(dialog(page).getByText("Contacts", { exact: true })).toBeVisible();
+  await expect(dialog(page).getByText("Leads", { exact: true })).toBeVisible();
   for (const fake of ["Tasks", "Conversations", "Pipeline", "Messages"]) await expect(dialog(page).getByText(fake, { exact: true })).toHaveCount(0);
   expect(seen.length).toBe(1);
   expect(seen[0]).toContain("q=costa");
   await page.screenshot({ path: `${SHOTS}palette-results-1440.png` });
 
   // pages still match alongside contacts
-  await input(page).fill("contacts");
-  await expect(dialog(page).getByRole("option", { name: "Contacts" }).first()).toBeVisible();
+  await input(page).fill("leads");
+  await expect(dialog(page).getByRole("option", { name: "Leads" }).first()).toBeVisible();
 
   // keyboard: arrow to the hit and Enter opens it
   await input(page).fill("anabel");

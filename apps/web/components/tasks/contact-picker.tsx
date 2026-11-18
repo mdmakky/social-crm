@@ -39,7 +39,7 @@ export function ContactPicker({ id, workspaceId, value, onChange, describedBy, i
     return (
       <div className="flex min-h-10 items-center justify-between gap-2 rounded-control border border-line-control bg-surface px-3 py-1.5 pointer-coarse:min-h-11">
         <span id={id} className="min-w-0 truncate text-base text-fg">{value.name}</span>
-        <button type="button" onClick={() => onChange(null)} aria-label={`Remove contact ${value.name}`} className="flex size-7 shrink-0 items-center justify-center rounded text-fg-muted hover:bg-hover hover:text-fg pointer-coarse:size-11"><X className="size-4" aria-hidden /></button>
+        <button type="button" onClick={() => onChange(null)} aria-label={`Remove lead ${value.name}`} className="flex size-7 shrink-0 items-center justify-center rounded text-fg-muted hover:bg-hover hover:text-fg pointer-coarse:size-11"><X className="size-4" aria-hidden /></button>
       </div>
     );
   }
@@ -56,7 +56,7 @@ export function ContactPicker({ id, workspaceId, value, onChange, describedBy, i
         aria-describedby={describedBy}
         aria-invalid={invalid}
         autoComplete="off"
-        placeholder="Search contacts by name, email or phone"
+        placeholder="Search leads by name, email or phone"
         className="pl-8"
         value={text}
         onFocus={() => setOpen(true)}
@@ -70,9 +70,9 @@ export function ContactPicker({ id, workspaceId, value, onChange, describedBy, i
         }}
       />
       {open && (
-        <ul id={listId} role="listbox" aria-label="Matching contacts" className="absolute z-20 mt-1 max-h-60 w-full overflow-auto rounded-control border border-line bg-surface py-1 shadow-lg">
-          {state === "error" ? <li role="presentation" className="px-3 py-2 text-sm text-danger-fg">Contacts could not be loaded. Keep typing to try again.</li>
-            : options.length === 0 ? <li role="presentation" className="px-3 py-2 text-sm text-fg-muted">{state === "loading" ? "Searching…" : "No contacts found."}</li>
+        <ul id={listId} role="listbox" aria-label="Matching leads" className="absolute z-20 mt-1 max-h-60 w-full overflow-auto rounded-control border border-line bg-surface py-1 shadow-lg">
+          {state === "error" ? <li role="presentation" className="px-3 py-2 text-sm text-danger-fg">Leads could not be loaded. Keep typing to try again.</li>
+            : options.length === 0 ? <li role="presentation" className="px-3 py-2 text-sm text-fg-muted">{state === "loading" ? "Searching…" : "No leads found."}</li>
             : options.map((o, i) => (
               <li key={o.id} id={`${id}-opt-${o.id}`} role="option" aria-selected={i === active} onMouseDown={(e) => { e.preventDefault(); pick(o); }} onMouseEnter={() => setActive(i)} className={`cursor-pointer px-3 py-2 pointer-coarse:py-3 ${i === active ? "bg-hover" : ""}`}>
                 <span className="block truncate text-base text-fg">{o.name}</span>

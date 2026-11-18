@@ -29,7 +29,7 @@ type Props = {
 export function TaskDialog({ open, onOpenChange, ...rest }: Props) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent title={rest.task ? "Edit task" : "New task"} description={rest.task ? "Change the details. Every change is added to the task's history." : "Something to do, for you or a teammate. Link a contact if it relates to one."} className="max-h-[92dvh] overflow-y-auto sm:max-w-xl">
+      <DialogContent title={rest.task ? "Edit task" : "New task"} description={rest.task ? "Change the details. Every change is added to the task's history." : "Something to do, for you or a teammate. Link a lead if it relates to one."} className="max-h-[92dvh] overflow-y-auto sm:max-w-xl">
         <TaskForm {...rest} close={() => onOpenChange(false)} />
       </DialogContent>
     </Dialog>
@@ -95,7 +95,7 @@ function TaskForm({ workspaceId, members, myUserId, task, defaultContact, leadId
         <Field label="Due">{(p) => <Input {...p} name="due" type="datetime-local" value={f.due} onChange={(e) => set({ due: e.target.value })} />}</Field>
         {task && <Field label="Status">{(p) => <Select {...p} name="status" value={f.status} onChange={(e) => set({ status: e.target.value as TaskStatus })}>{TASK_STATUSES.map((x) => <option key={x} value={x}>{STATUS_LABEL[x]}</option>)}</Select>}</Field>}
       </div>
-      <Field label="Related contact" hint="Optional. The task also shows on that contact's page.">{(p) => <ContactPicker id={p.id} describedBy={p["aria-describedby"]} workspaceId={workspaceId} value={f.contact} onChange={(c) => set({ contact: c })} />}</Field>
+      <Field label="Related lead" hint="Optional. The task also shows on that lead's page.">{(p) => <ContactPicker id={p.id} describedBy={p["aria-describedby"]} workspaceId={workspaceId} value={f.contact} onChange={(c) => set({ contact: c })} />}</Field>
       <DialogActions className="mt-2">
         <DialogClose asChild><Button type="button" variant="ghost">Cancel</Button></DialogClose>
         <Button type="submit" variant="primary" loading={busy}>{task ? "Save changes" : "Create task"}</Button>

@@ -20,7 +20,7 @@ test.describe("import wizard: plan consistency (F5)", () => {
     await seedContacts(page, workspaceId, [{ name: "Existing Erin", email: "erin@exist.example" }]);
     await page.goto(`/w/${workspaceId}/contacts/import`);
     await toReview(page, [HEADER, "New Nia,nia@i.example,,,,,", "Erin Again,erin@exist.example,,,,,"].join("\n"));
-    await expect(page.getByRole("button", { name: /^Import 1 contact$/ })).toBeEnabled();
+    await expect(page.getByRole("button", { name: /^Import 1 lead$/ })).toBeEnabled();
 
     const previews: string[] = [];
     const commits: string[] = [];
@@ -37,7 +37,7 @@ test.describe("import wizard: plan consistency (F5)", () => {
     await expect(page.getByLabel("Decision for row 3")).toBeDisabled();
     await expect(page.getByLabel("Import them anyway").first()).toBeDisabled();
     await expect(page.getByRole("button", { name: /^Import / })).toBeDisabled();
-    const next = page.getByRole("button", { name: /^Import 2 contacts$/ });
+    const next = page.getByRole("button", { name: /^Import 2 leads$/ });
     await expect(next).toBeEnabled();
     await next.click();
     await expect(page.getByText("2 added · 0 updated · 0 skipped.")).toBeVisible();
@@ -51,19 +51,19 @@ test.describe("import wizard: plan consistency (F5)", () => {
     await page.goto(`/w/${workspaceId}/contacts/import`);
     await toReview(page, [HEADER, "New Nia,nia@i.example,,,,,", "Erin Again,erin@exist.example,,,,,"].join("\n"));
     await page.route("**/imports/*/preview", (r) => r.fulfill(json(500, "internal")));
-    await page.getByLabel("Update the existing contact").check();
+    await page.getByLabel("Update the existing lead").check();
     await expect(page.getByRole("alert").filter({ hasText: "Something went wrong" })).toBeVisible();
     await expect(page.getByRole("button", { name: /^Import / })).toBeDisabled();
     await page.unroute("**/imports/*/preview");
     await page.getByRole("button", { name: "Refresh preview" }).click();
-    await expect(page.getByRole("button", { name: /^Import 2 contacts$/ })).toBeEnabled();
+    await expect(page.getByRole("button", { name: /^Import 2 leads$/ })).toBeEnabled();
   });
 
   test("skip-problem-rows toggle re-runs the preview and commits the same plan", async ({ page }) => {
     const { workspaceId } = await signUpAndCreate(page, "Skip Owner", "Skip Co");
     await page.goto(`/w/${workspaceId}/contacts/import`);
     await toReview(page, [HEADER, "Good Gia,gia@i.example,,,,,", "Bad Bo,not-an-email,,,,,"].join("\n"));
-    const importBtn = page.getByRole("button", { name: /^Import 1 contact$/ });
+    const importBtn = page.getByRole("button", { name: /^Import 1 lead$/ });
     await expect(importBtn).toBeDisabled();
     const previews: string[] = [];
     const commits: string[] = [];
@@ -83,8 +83,8 @@ test.describe("import wizard: plan consistency (F5)", () => {
     await seedContacts(page, workspaceId, [{ name: "Existing Erin", email: "erin@exist.example" }]);
     await page.goto(`/w/${workspaceId}/contacts/import`);
     await toReview(page, [HEADER, "Erin Again,erin@exist.example,,,,,"].join("\n"));
-    await page.getByLabel("Update the existing contact").check();
-    await expect(page.getByRole("button", { name: /^Import 1 contact$/ })).toBeEnabled();
+    await page.getByLabel("Update the existing lead").check();
+    await expect(page.getByRole("button", { name: /^Import 1 lead$/ })).toBeEnabled();
     await page.getByRole("button", { name: "Back to columns" }).click();
     await page.getByRole("button", { name: "Check my data" }).click();
     await expect(page.getByLabel("Skip them")).toBeChecked();
@@ -130,9 +130,9 @@ test.describe("import wizard: API errors and warnings (mocked responses)", () =>
     await page.getByRole("button", { name: "Check my data" }).click();
     await expect(page.getByRole("heading", { name: "Review before importing" })).toBeFocused();
     await page.route("**/imports/*/commit", (r) => r.fulfill(json(409, "import_busy")));
-    await page.getByRole("button", { name: /^Import 1 contact$/ }).click();
+    await page.getByRole("button", { name: /^Import 1 lead$/ }).click();
     await expect(page.getByRole("alert").filter({ hasText: /Another import is running.*Wait a moment/ })).toBeVisible();
-    await expect(page.getByRole("button", { name: /^Import 1 contact$/ })).toBeEnabled(); // can retry
+    await expect(page.getByRole("button", { name: /^Import 1 lead$/ })).toBeEnabled(); // can retry
   });
 
   test("preview warnings are listed with their reasons", async ({ page }) => {

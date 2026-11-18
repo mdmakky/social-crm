@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { and, desc, eq, inArray, isNull, lt, sql } from "drizzle-orm";
-import { AddContactTagBody, BulkContactStageBody, ContactListQuery, ContactStageCountsQuery, CreateContactBody, NoteBody, PageQuery, PutContactLeadBody, UpdateContactBody } from "@crm/contracts";
+import { AddContactTagBody, BulkContactStageBody, ContactListQuery, ContactOwnerCountsQuery, ContactStageCountsQuery, CreateContactBody, NoteBody, PageQuery, PutContactLeadBody, UpdateContactBody } from "@crm/contracts";
 import { normalizeEmail, normalizePhone, toCsv, validateCustomValues, type BlobStore } from "@crm/core";
 import { can } from "@crm/core/permissions";
 import { schema, user, withContext, type Db, type Tx } from "@crm/db";
@@ -112,6 +112,18 @@ export function contactRoutes(db: Db, hooks: { blobs?: BlobStore } = {}) {
     });
   });
 
+  r.get("/contacts/owner-counts", async (c) => {
+    const q = query(c, ContactOwnerCountsQuery);
+    if (!q.ok) return q.res;
+    return withContext(db, wctx(c), async (tx) => {
+      const { workspaceId, userId } = wctx(c);
+      const f = filters(workspaceId, userId, q.data as Q);
+      if (f.error) return fail(c, 400, "invalid_query", f.error);
+      const rows = (await tx.execute(sql`SELECT c.owner_user_id AS owner_id, count(*)::int AS n FROM contacts c WHERE ${sql.join(f.where, sql` AND `)} GROUP BY 1`)).rows as { owner_id: string | null; n: number }[];
+      return c.json({ items: rows.map((x) => ({ ownerId: x.owner_id, count: x.n })) });
+    });
+  });
+
   r.post("/contacts/bulk-stage", async (c) => {
     if (!ops.writer(c)) return forbidden(c);
     if (!bulkCalls.allow(`${c.get("workspaceId")}:${c.get("userId")}`)) { c.header("Retry-After", "60"); return fail(c, 429, "rate_limited", "Too many bulk moves. Try again in a minute."); }
@@ -211,7 +223,7 @@ export function contactRoutes(db: Db, hooks: { blobs?: BlobStore } = {}) {
       if (!d.allowDuplicate) {
         await lockContactWrites(tx, workspaceId, [email && `email:${email}`, phone && `phone:${phone}`]);
         const dupes = await findDuplicates(tx, workspaceId, { email, phone });
-        if (dupes.length) return fail(c, 409, "duplicate_contact", "A contact with the same email or phone already exists.", { candidates: dupes });
+        if (dupes.length) return fail(c, 409, "duplicate_contact", "A lead with the same email or phone already exists.", { candidates: dupes });
       }
       const tagIds = Array.from(new Set(d.tagIds ?? []));
       if (tagIds.length) {

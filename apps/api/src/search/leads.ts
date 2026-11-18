@@ -11,7 +11,7 @@ type Row = { id: string; title: string; contact_name: string; stage_name: string
  */
 export const leadsProvider: SearchProvider = {
   type: "leads",
-  label: "Leads",
+  label: "Lead records",
   requires: (role) => can(role, "lead.view", {}),
   async search(tx, ctx, query, limit) {
     const q = query.trim().toLowerCase();

@@ -2,14 +2,14 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Check, ChevronDown, Clock, MessageSquare, MoreHorizontal, Pencil, Plus, Trash2, X } from "lucide-react";
+import { ArrowLeft, Check, ChevronDown, Clock, MoreHorizontal, Pencil, Plus, Trash2, UserX, X } from "lucide-react";
 import { endpoints, type ActivityItem, type ContactDetail, type ContactMethodDto, type CustomField, type DuplicateCandidate, type LifecycleStage, type Member, type Note, type ContactLead, type LostReasonDto, type Role, type PipelineDto, type Tag, type Task } from "@crm/contracts";
 import { can } from "@crm/core/permissions";
 import { AdConsentPanel } from "./ad-consent-panel";
 import { CustomFieldInput } from "@/components/contacts/custom-field-input";
 import { DetectedMethodsPanel } from "@/components/contacts/detected-methods";
 import { Avatar } from "@/components/ui/avatar";
-import { Badge, Status } from "@/components/ui/badge";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { Textarea } from "@/components/ui/form-controls";
@@ -17,11 +17,12 @@ import { Input, Select } from "@/components/ui/input";
 import { Dialog, DialogClose, DialogContent, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DialogActions } from "@/components/ui/overlays";
 import { Panel, PanelHeader } from "@/components/ui/panel";
 import { Alert, EmptyState } from "@/components/ui/states";
+import { ToastProvider } from "@/components/ui/toast";
 import { browserApi, errorMessage } from "@/lib/client-api";
 import { activityText, relativeTime, sourceLabel, SOURCE_LABEL, TAG_TONE } from "@/lib/contacts";
 import { formatDateTime } from "@/lib/format";
-import { LeadPanel } from "@/components/contacts/lead-panel";
-import { shownStage, stageHue } from "@/lib/contact-lead";
+import { LeadPanel, RemoveLeadDialog, ValueAccess } from "@/components/contacts/lead-panel";
+import { Accordion, ConversationSummary } from "@/components/contacts/lead-sections";
 
 type Props = {
   workspaceId: string; role: Role; timeZone: string; myUserId: string;
@@ -33,7 +34,8 @@ type Props = {
 /** Panels inside one group share a single surface and are divided by hairlines (no stack of identical boxes). */
 const GROUP = "overflow-hidden rounded-card bg-surface shadow-sheet [&>[data-panel]]:rounded-none [&>[data-panel]]:bg-transparent [&>[data-panel]]:shadow-none [&>[data-panel]+[data-panel]]:border-t [&>[data-panel]+[data-panel]]:border-line-card";
 
-/** Well-known stage names get a meaningful dot; custom stages hash to a stable hue. */
+/** Panels nested in a collapsed section: no card of their own, divided by a hairline. */
+const SEAM = "[&>[data-panel]]:rounded-none [&>[data-panel]]:bg-transparent [&>[data-panel]]:shadow-none [&>[data-panel]+[data-panel]]:border-t [&>[data-panel]+[data-panel]]:border-line-card";
 const mailtoHref = (e: string) => `mailto:${encodeURI(e)}`;
 const telHref = (p: string) => `tel:${p.replace(/[^\d+*#,;]/g, "")}`;
 
@@ -73,12 +75,13 @@ export function ContactDetailView(props: Props) {
     if (r.ok) setActivity((prev) => (prev.items.length === 0 ? r.data : { items: [...r.data.items.filter((i) => !prev.items.some((x) => x.id === i.id)), ...prev.items], nextCursor: prev.nextCursor }));
   }, [workspaceId, props.contact.id]);
 
-  const headStage = props.leadInfo?.loaded ? shownStage(props.leadInfo.pipelines, lead) : null;
+  const [removeOpen, setRemoveOpen] = React.useState(false);
+  const loaded = !!props.leadInfo?.loaded;
 
   return (
-    <>
-      <Link href={`/w/${workspaceId}/contacts`} className="mb-3 inline-flex items-center gap-1 text-sm text-fg-muted hover:text-fg pointer-coarse:min-h-11"><ArrowLeft className="size-4" aria-hidden />Contacts</Link>
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+    <ToastProvider>
+      <Link href={`/w/${workspaceId}/contacts`} className="mb-3 inline-flex items-center gap-1 text-sm text-fg-muted hover:text-fg pointer-coarse:min-h-11"><ArrowLeft className="size-4" aria-hidden />Leads</Link>
+      <div className="mb-4 flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
           <Avatar name={c.name} size="xl" />
           <div className="min-w-0">
@@ -86,46 +89,43 @@ export function ContactDetailView(props: Props) {
             <p className="break-words text-base text-fg-subtle">
               {!c.email && !c.phone && !c.company && "No contact details yet"}
               {[
+                c.company && <span key="c">{c.company}</span>,
                 c.email && <a key="e" className="underline underline-offset-2 hover:text-fg" href={mailtoHref(c.email)}>{c.email}</a>,
                 c.phone && <a key="p" className="underline underline-offset-2 hover:text-fg" href={telHref(c.phone)}>{c.phone}</a>,
-                c.company && <span key="c">{c.company}</span>,
               ].filter(Boolean).flatMap((x, i) => (i ? [" · ", x] : [x]))}
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          {headStage && <Status hue={stageHue(headStage)}>{headStage.name}</Status>}
-          {perms.delete && <DeleteMenu workspaceId={workspaceId} contact={c} onDeleted={() => router.push(`/w/${workspaceId}/contacts`)} />}
-        </div>
+        {(perms.delete || (lead && perms.lead)) && <LeadMenu canDelete={perms.delete} canRemove={!!lead && perms.lead} removeAllowed={perms.removeLead} onRemove={() => setRemoveOpen(true)} workspaceId={workspaceId} contact={c} onDeleted={() => router.push(`/w/${workspaceId}/contacts`)} />}
       </div>
+      {lead && <RemoveLeadDialog open={removeOpen} onOpenChange={setRemoveOpen} name={c.name} workspaceId={workspaceId} contactId={c.id} lead={lead} onLead={setLead} />}
 
-      <div className="grid items-start gap-4 lg:grid-cols-3">
-        <div className="grid gap-4 lg:col-span-2">
-          <div className={GROUP}>
-          {props.leadInfo?.loaded && <LeadPanel workspaceId={workspaceId} contact={c} lead={lead} pipelines={props.leadInfo.pipelines} lostReasons={props.leadInfo.lostReasons} members={members} canEdit={perms.lead} canEditOwner={perms.edit} canSetValue={perms.setValue} canRemove={perms.removeLead} myUserId={myUserId} onLead={setLead} onContact={(d) => { setC(d); void refreshActivity(); }} />}
-          <DetailsPanel key={c.version} c={c} carry={carry} onCarryUsed={() => setCarry(null)} onCarry={setCarry} saved={savedVersion === c.version} onSaved={(d, viaSave) => { setC(d); if (viaSave) setSavedVersion(d.version); void refreshActivity(); }} stages={stages} members={members} fields={fields} canEdit={perms.edit} workspaceId={workspaceId} myUserId={myUserId} showOwner={!props.leadInfo?.loaded} />
-          <DetectedMethodsPanel workspaceId={workspaceId} contactId={c.id} initial={props.methods} canEdit={perms.edit} timeZone={timeZone} onPrimaryChanged={() => { void browserApi.call(endpoints.getContact, { params: { workspaceId, contactId: c.id } }).then((r) => { if (r.ok) setC(r.data); }); }} />
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-3">
+        <div className="grid min-w-0 grid-cols-1 gap-4 lg:col-span-2">
+          {loaded && <LeadPanel workspaceId={workspaceId} contact={c} lead={lead} pipelines={props.leadInfo!.pipelines} lostReasons={props.leadInfo!.lostReasons} members={members} canEdit={perms.lead} canEditOwner={perms.edit} canSetValue={perms.setValue} myUserId={myUserId} onLead={setLead} onContact={(d) => { setC(d); void refreshActivity(); }} />}
+          <ConversationSummary workspaceId={workspaceId} contactId={c.id} contactName={c.name} canView={can(role, "conversation.view", {})} timeZone={timeZone} />
+          <Accordion title="Details" hint="Name, company, email, phone, source, detected">
+            <div className={SEAM}>
+              <DetailsPanel key={c.version} c={c} carry={carry} onCarryUsed={() => setCarry(null)} onCarry={setCarry} saved={savedVersion === c.version} onSaved={(d, viaSave) => { setC(d); if (viaSave) setSavedVersion(d.version); void refreshActivity(); }} stages={stages} members={members} fields={fields} canEdit={perms.edit} workspaceId={workspaceId} myUserId={myUserId} showOwner={!loaded} />
+              <DetectedMethodsPanel workspaceId={workspaceId} contactId={c.id} initial={props.methods} canEdit={perms.edit} timeZone={timeZone} onPrimaryChanged={() => { void browserApi.call(endpoints.getContact, { params: { workspaceId, contactId: c.id } }).then((r) => { if (r.ok) setC(r.data); }); }} />
+            </div>
+          </Accordion>
+          {lead && perms.removeLead && <Accordion title="Value access" hint="Who can see the value"><ValueAccess workspaceId={workspaceId} leadId={lead.id} members={members} /></Accordion>}
           <AdConsentPanel workspaceId={workspaceId} contactId={c.id} canEdit={perms.consent} timeZone={timeZone} members={members} />
           <TagsPanel c={c} allTags={allTags} canEdit={perms.edit} workspaceId={workspaceId} onChanged={(d, t) => { setC(d); if (t) setAllTags(t); void refreshActivity(); }} />
-          </div>
           <div className={GROUP}>
-          <NotesPanel notes={notes} setNotes={setNotes} p={p} role={role} myUserId={myUserId} canEdit={perms.edit} timeZone={timeZone} onChanged={refreshActivity} />
-          <ActivityPanel activity={activity} setActivity={setActivity} p={p} timeZone={timeZone} />
+            <NotesPanel notes={notes} setNotes={setNotes} p={p} role={role} myUserId={myUserId} canEdit={perms.edit} timeZone={timeZone} onChanged={refreshActivity} />
+            <ActivityPanel activity={activity} setActivity={setActivity} p={p} timeZone={timeZone} />
           </div>
         </div>
-        <div className={GROUP}>
-          <TasksPanel tasks={tasks} setTasks={setTasks} p={p} canEdit={perms.edit} role={role} myUserId={myUserId} members={members} timeZone={timeZone} onChanged={async () => { void refreshActivity(); const d = await browserApi.call(endpoints.getContact, { params: p }); if (d.ok) setC(d.data); }} />
-          <Panel>
-            <PanelHeader title="Conversations" />
-            <EmptyState icon={MessageSquare} title="No conversations yet" description="Messages from this contact show here." className="py-8" />
-          </Panel>
-        </div>
+        <TasksPanel tasks={tasks} setTasks={setTasks} p={p} canEdit={perms.edit} role={role} myUserId={myUserId} members={members} timeZone={timeZone} onChanged={async () => { void refreshActivity(); const d = await browserApi.call(endpoints.getContact, { params: p }); if (d.ok) setC(d.data); }} />
       </div>
-    </>
+    </ToastProvider>
   );
 }
 
-function DeleteMenu({ workspaceId, contact, onDeleted }: { workspaceId: string; contact: ContactDetail; onDeleted: () => void }) {
+/** More menu: take the lead out of the pipeline (with the existing confirm dialog) or delete it. */
+function LeadMenu({ canDelete, canRemove, removeAllowed, onRemove, workspaceId, contact, onDeleted }: { canDelete: boolean; canRemove: boolean; removeAllowed: boolean; onRemove: () => void; workspaceId: string; contact: ContactDetail; onDeleted: () => void }) {
   const [open, setOpen] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -133,14 +133,17 @@ function DeleteMenu({ workspaceId, contact, onDeleted }: { workspaceId: string; 
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild><Button variant="secondary" icon aria-label="More actions"><MoreHorizontal /></Button></DropdownMenuTrigger>
-        <DropdownMenuContent align="end"><DropdownMenuItem danger onSelect={() => { setError(null); setOpen(true); }}><Trash2 aria-hidden />Delete contact</DropdownMenuItem></DropdownMenuContent>
+        <DropdownMenuContent align="end">
+          {canRemove && <DropdownMenuItem disabled={!removeAllowed} onSelect={onRemove}><UserX aria-hidden />Remove from pipeline{!removeAllowed && <span className="ml-1 text-xs text-fg-subtle">(owner or admin)</span>}</DropdownMenuItem>}
+          {canDelete && <DropdownMenuItem danger onSelect={() => { setError(null); setOpen(true); }}><Trash2 aria-hidden />Delete lead</DropdownMenuItem>}
+        </DropdownMenuContent>
       </DropdownMenu>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent title={`Delete ${contact.name}?`} description="They leave lists and search. Recorded in the audit log.">
           {error && <Alert tone="error" className="mb-3">{error}</Alert>}
           <DialogActions>
             <DialogClose asChild><Button variant="ghost">Cancel</Button></DialogClose>
-            <Button variant="danger" loading={busy} onClick={async () => { setBusy(true); const r = await browserApi.call(endpoints.deleteContact, { params: { workspaceId, contactId: contact.id } }); setBusy(false); if (r.ok) onDeleted(); else setError(errorMessage(r.error)); }}>Delete contact</Button>
+            <Button variant="danger" loading={busy} onClick={async () => { setBusy(true); const r = await browserApi.call(endpoints.deleteContact, { params: { workspaceId, contactId: contact.id } }); setBusy(false); if (r.ok) onDeleted(); else setError(errorMessage(r.error)); }}>Delete lead</Button>
           </DialogActions>
         </DialogContent>
       </Dialog>
@@ -192,13 +195,13 @@ function DetailsPanel({ showOwner, c, carry, onCarry, onCarryUsed, saved, onSave
 
   return (
     <Panel>
-      <PanelHeader title="Details" description={canEdit ? undefined : "You have read-only access."} />
+      {!canEdit && <p className="border-b border-line-card px-4 py-2 text-sm text-fg-subtle">You have read-only access.</p>}
       <form noValidate onSubmit={(e) => { e.preventDefault(); void save(); }} className="flex flex-col gap-3 p-4">
         {error && <Alert tone="error">{error}</Alert>}
         {saved && !dirty && <Alert tone="success">Saved.</Alert>}
         {conflict && (
           <Alert tone="warning">
-            <p className="font-medium">Someone else changed this contact.</p>
+            <p className="font-medium">Someone else changed this lead.</p>
             <p>Your edits weren&rsquo;t saved, and they are still in the form.</p>
             {(() => { const theirs = changedLabels(initial, toForm(conflict), fields); return theirs.length > 0 && <p>They changed: {theirs.join(", ")}.</p>; })()}
             <div className="mt-2 flex flex-wrap gap-2">
@@ -209,7 +212,7 @@ function DetailsPanel({ showOwner, c, carry, onCarry, onCarryUsed, saved, onSave
         )}
         {dupes && (
           <Alert tone="warning">
-            <p className="font-medium">Another contact has that email or phone.</p>
+            <p className="font-medium">Another lead has that email or phone.</p>
             <ul>{dupes.map((d) => <li key={d.id}><Link className="underline underline-offset-2" href={`/w/${workspaceId}/contacts/${d.id}`}>{d.name}</Link></li>)}</ul>
             <Button className="mt-2" size="sm" onClick={() => void save(true)}>Save anyway</Button>
           </Alert>
@@ -270,7 +273,7 @@ function TagsPanel({ c, allTags, canEdit, workspaceId, onChanged }: { c: Contact
       <div className="flex flex-col gap-3 p-4">
         {error && <Alert tone="error">{error}</Alert>}
         {c.tags.length === 0 ? <p className="text-sm text-fg-muted">No tags yet.</p> : (
-          <ul className="flex flex-wrap gap-1.5" aria-label="Tags on this contact">
+          <ul className="flex flex-wrap gap-1.5" aria-label="Tags on this lead">
             {c.tags.map((t) => (
               <li key={t.id}>
                 <Badge shape="square" tone={TAG_TONE[t.color]} className="gap-1 pr-1">
@@ -327,7 +330,7 @@ function NotesPanel({ notes, setNotes, p, role, myUserId, canEdit, timeZone, onC
         {error && <Alert tone="error">{error}</Alert>}
         {canEdit && (
           <form onSubmit={add} className="flex flex-col gap-2">
-            <Field label="Add a note">{(x) => <Textarea {...x} voice placeholder="Write a note about this contact" value={text} onChange={(e) => setText(e.target.value)} maxLength={5000} />}</Field>
+            <Field label="Add a note">{(x) => <Textarea {...x} voice placeholder="Write a note about this lead" value={text} onChange={(e) => setText(e.target.value)} maxLength={5000} />}</Field>
             <div><Button type="submit" variant="primary" loading={busy}>Add note</Button></div>
           </form>
         )}
@@ -378,7 +381,7 @@ function ActivityPanel({ activity, setActivity, p, timeZone }: { activity: { ite
   return (
     <Panel>
       <PanelHeader title="Activity" description="Newest first." />
-      {activity.items.length === 0 ? <EmptyState icon={Clock} title="No activity yet" description="Changes, notes and tasks for this contact appear here." className="py-8" /> : (
+      {activity.items.length === 0 ? <EmptyState icon={Clock} title="No activity yet" description="Changes, notes and tasks for this lead appear here." className="py-8" /> : (
         <ol>
           {activity.items.map((a) => (
             <li key={a.id} className="flex items-start gap-3 border-b border-line px-4 py-3 last:border-b-0">
@@ -437,7 +440,7 @@ function TasksPanel({ tasks, setTasks, p, canEdit, role, myUserId, members, time
       <PanelHeader title="Tasks and follow-ups" description={open.length ? `${open.length} open` : undefined} />
       <div className="flex flex-col gap-3 p-4">
         {error && <Alert tone="error">{error}</Alert>}
-        {tasks.length === 0 ? <p className="text-sm text-fg-muted">No tasks yet.{canEdit ? " Add a follow-up so this contact isn’t forgotten." : ""}</p> : (
+        {tasks.length === 0 ? <p className="text-sm text-fg-muted">No tasks yet.{canEdit ? " Add a follow-up so this lead isn’t forgotten." : ""}</p> : (
           <ul className="flex flex-col gap-2">
             {tasks.map((t) => {
               const mine = can(role, "task.edit", { isOwn: t.assignee?.id === myUserId || t.createdBy?.id === myUserId });

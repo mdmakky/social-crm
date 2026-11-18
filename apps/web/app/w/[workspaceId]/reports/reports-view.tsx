@@ -41,7 +41,7 @@ export function ReportsView({ workspaceId, pipelines, initial }: { workspaceId: 
 
   return (
     <>
-      <PageHeader title="Reports" description="How contacts are moving through your stages." actions={
+      <PageHeader title="Reports" description="How leads are moving through your stages." actions={
         <div className="flex gap-2">
           {pipelines.length > 1 && <Select aria-label="Pipeline" wrapperClassName="w-auto" value={pipelineId} onChange={(e) => setPipelineId(e.target.value)}>{pipelines.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</Select>}
           <Select aria-label="Period" wrapperClassName="w-auto" value={period} onChange={(e) => setPeriod(e.target.value)}>{PERIODS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</Select>
@@ -77,7 +77,7 @@ export function ReportsView({ workspaceId, pipelines, initial }: { workspaceId: 
               </ul>
             </Panel>
             <Panel>
-              <PanelHeader title="Expected closing" description="Open contacts by expected close date." />
+              <PanelHeader title="Expected closing" description="Open leads by expected close date." />
               <ul className="divide-y divide-line" aria-label="Expected closing">
                 {report.closing.map((b) => (
                   <li key={b.bucket} className="px-4 py-2.5">

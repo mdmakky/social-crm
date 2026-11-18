@@ -18,7 +18,7 @@ export const NAV: NavGroup[] = [
     label: "Customers",
     items: [
       { key: "inbox", label: "Inbox", icon: Inbox, path: "inbox", requires: "conversation.view" },
-      { key: "contacts", label: "Contacts", icon: Contact, path: "contacts" },
+      { key: "contacts", label: "Leads", icon: Contact, path: "contacts" },
       // --- track:tasks ---
       { key: "tasks", label: "Tasks", icon: CheckSquare, path: "tasks" },
       { key: "reports", label: "Reports", icon: PieChart, path: "reports", requires: "lead.view" },

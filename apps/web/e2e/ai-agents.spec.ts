@@ -47,7 +47,7 @@ test("test playground: dry run changes nothing, live run queues the action, appr
   await owner.goto(PAGE());
   await owner.getByRole("button", { name: "Edit Support helper" }).click();
   await owner.getByLabel("Customer message").fill(MARKER);
-  await owner.getByLabel(/^Contact \(needed/).selectOption({ label: "Pat Pending" });
+  await owner.getByLabel(/^Lead \(needed/).selectOption({ label: "Pat Pending" });
   await expect(owner.getByLabel("Dry run (change nothing)")).toBeChecked();
   await owner.getByRole("button", { name: "Run test" }).click();
   await expect(owner.getByText("Happy to help with that.")).toBeVisible();

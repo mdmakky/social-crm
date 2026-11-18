@@ -60,7 +60,7 @@ test("stage chips show server counts and filter the list; the filter lives in th
   test.setTimeout(120_000);
   const { page } = owner;
   await page.goto(`/w/${workspaceId}/contacts`);
-  await expect(page.getByRole("heading", { level: 1, name: "Contacts" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Leads" })).toBeVisible();
   const chips = page.getByRole("group", { name: "Filter by stage" });
   await expect(chips.getByRole("button", { name: `All ${TOTAL}` })).toHaveAttribute("aria-pressed", "true");
   await expect(chips.getByRole("button", { name: `New ${TOTAL - IN_QUALIFIED}` })).toBeVisible(); // lead-less contacts count as the first stage
@@ -82,17 +82,18 @@ test("stage chips show server counts and filter the list; the filter lives in th
   await expect(chips.getByRole("button", { name: `Qualified ${IN_QUALIFIED}` })).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByText(new RegExp(`Showing ${IN_QUALIFIED} of ${IN_QUALIFIED}$`))).toBeVisible();
   // other filters narrow the counts but not each other: searching keeps every chip
-  await page.getByLabel("Search contacts").fill("Scale contact 00");
+  await page.getByLabel("Search leads").fill("Scale contact 00");
   await expect(page).toHaveURL(/search=Scale\+contact\+00/);
   await expect(chips.getByRole("button", { name: "Qualified 10" })).toBeVisible();
-  await page.getByLabel("Search contacts").fill("");
+  await page.getByLabel("Search leads").fill("");
 });
 
 test("owner filter works with the stage filter, and the screen never says deal", async () => {
   const { page } = owner;
   await page.goto(`/w/${workspaceId}/contacts`);
-  await page.getByLabel("Owner", { exact: true }).selectOption("me");
-  await expect(page.getByText("No contacts match these filters")).toBeVisible(); // nothing is assigned yet
+  await page.getByRole("button", { name: "Agent" }).click(); // Agent is a multi-select menu now (D303)
+  await page.getByRole("menuitem", { name: "Me", exact: true }).click();
+  await expect(page.getByText("No leads match these filters")).toBeVisible(); // nothing is assigned yet
   await page.getByRole("button", { name: "Clear filters" }).click();
   await expect(page.getByText(new RegExp(`Showing 25 of ${TOTAL}$`))).toBeVisible();
   expect(await page.locator("body").innerText()).not.toMatch(/\bdeals?\b/i);
@@ -115,9 +116,9 @@ test("bulk change stage: select on the page, confirm, counts refresh, failures a
   const n = 3;
   await page.getByRole("button", { name: "Change stage", exact: true }).first().click();
   const dlg = page.getByRole("dialog");
-  await expect(dlg.getByRole("button", { name: `Move ${n} contacts` })).toBeDisabled(); // nothing chosen yet
+  await expect(dlg.getByRole("button", { name: `Move ${n} leads` })).toBeDisabled(); // nothing chosen yet
   await dlg.getByLabel("New stage").selectOption({ label: "Qualified" });
-  await dlg.getByRole("button", { name: `Move ${n} contacts` }).click();
+  await dlg.getByRole("button", { name: `Move ${n} leads` }).click();
   await expect(dlg).toBeHidden();
   await expect(chips.getByRole("button", { name: `Qualified ${IN_QUALIFIED + n}` })).toBeVisible(); // server counts refetched
   await expect(chips.getByRole("button", { name: `New ${TOTAL - IN_QUALIFIED - n}` })).toBeVisible();
@@ -133,18 +134,19 @@ test("bulk change stage: select on the page, confirm, counts refresh, failures a
   expect(del.status()).toBe(204);
   await page.getByRole("button", { name: "Change stage", exact: true }).first().click();
   await page.getByRole("dialog").getByLabel("New stage").selectOption({ label: "Qualified" });
-  await page.getByRole("dialog").getByRole("button", { name: "Move 1 contact" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Move 1 lead" }).click();
   await expect(page.getByRole("dialog").getByText(/1 not moved: 1 no longer exist/)).toBeVisible();
 });
 
-test("/pipeline and /leads redirect to Contacts, the sidebar has neither, and Settings > Lead stages stays", async () => {
+test("/pipeline and /leads redirect to the Leads list, the sidebar has Leads but no Pipeline, and Settings > Lead stages stays", async () => {
   const { page } = owner;
   await page.goto(`/w/${workspaceId}/pipeline`);
   await expect(page).toHaveURL(new RegExp(`/w/${workspaceId}/contacts$`));
   await page.goto(`/w/${workspaceId}/leads`);
   await expect(page).toHaveURL(new RegExp(`/w/${workspaceId}/contacts$`));
-  await expect(page.getByRole("heading", { level: 1, name: "Contacts" })).toBeVisible();
-  for (const gone of ["Pipeline", "Leads"]) await expect(page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: gone })).toHaveCount(0);
+  await expect(page.getByRole("heading", { level: 1, name: "Leads" })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Pipeline" })).toHaveCount(0);
+  await expect(page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Leads" })).toHaveCount(1);
   await page.goto(`/w/${workspaceId}/settings/pipelines`);
   await expect(page.getByRole("heading", { level: 1, name: "Lead stages" })).toBeVisible();
 });

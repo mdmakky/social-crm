@@ -4,7 +4,7 @@ import { can } from "@crm/core/permissions";
 import { dataOf, must, serverApi } from "@/lib/api";
 import { ContactDetailView } from "./contact-detail";
 
-export const metadata: Metadata = { title: "Contact" };
+export const metadata: Metadata = { title: "Lead" };
 
 export default async function ContactPage({ params }: { params: Promise<{ workspaceId: string; contactId: string }> }) {
   const { workspaceId, contactId } = await params;

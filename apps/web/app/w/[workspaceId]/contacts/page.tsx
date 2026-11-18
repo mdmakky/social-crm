@@ -4,9 +4,9 @@ import { can } from "@crm/core/permissions";
 import { dataOf, must, serverApi } from "@/lib/api";
 import { ContactsView } from "./contacts-view";
 
-export const metadata: Metadata = { title: "Contacts" };
+export const metadata: Metadata = { title: "Leads" };
 
-const FILTER_KEYS = ["search", "lifecycleStageId", "stageId", "ownerId", "tagIds", "source", "sort", "dir"] as const;
+const FILTER_KEYS = ["search", "lifecycleStageId", "stageId", "ownerId", "tagIds", "source", "createdFrom", "sort", "dir"] as const;
 
 export default async function ContactsPage({ params, searchParams }: { params: Promise<{ workspaceId: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const { workspaceId } = await params;

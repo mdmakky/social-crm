@@ -211,7 +211,7 @@ function Inner({ children, members }: { children: React.ReactNode; members: Memb
             )}
         </div>
         <p role="status" className="sr-only">{items ? `${items.length} conversations${unreadTotal ? `, ${unreadTotal} unread` : ""}` : "Loading conversations"}</p>
-        <p aria-hidden className="hidden items-center gap-3 border-t border-line px-4 py-2 text-xs text-fg-subtle lg:flex"><span><Kbd>J</Kbd> <Kbd>K</Kbd> move</span><span><Kbd>/</Kbd> search</span><span><Kbd>C</Kbd> contact</span></p>
+        <p aria-hidden className="hidden items-center gap-3 border-t border-line px-4 py-2 text-xs text-fg-subtle lg:flex"><span><Kbd>J</Kbd> <Kbd>K</Kbd> move</span><span><Kbd>/</Kbd> search</span><span><Kbd>C</Kbd> lead</span></p>
       </section>
 
       <div className={cn("min-w-0 flex-1 md:flex", selected ? "flex" : "hidden")}>{children}</div>

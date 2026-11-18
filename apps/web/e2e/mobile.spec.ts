@@ -181,7 +181,7 @@ test.describe.serial("mobile experience", () => {
     const t = await touch(browser, 820, 1180);
     await t.page.goto(`/w/${ws}`);
     await expect(t.page.getByRole("navigation", { name: "Primary" })).toBeHidden();
-    for (const name of ["Inbox", "Contacts", "Tasks"]) {
+    for (const name of ["Inbox", "Leads", "Tasks"]) {
       const b = (await t.page.getByRole("navigation", { name: "Main" }).filter({ visible: true }).getByRole("link", { name }).boundingBox())!;
       expect(b.width, name).toBeGreaterThanOrEqual(44);
       expect(b.height, name).toBeGreaterThanOrEqual(44);

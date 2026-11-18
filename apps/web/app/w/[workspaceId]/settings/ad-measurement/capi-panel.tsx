@@ -18,7 +18,7 @@ const STATUS: Record<CapiEventDto["status"], { label: string; tone: "success" | 
   pending: { label: "Waiting to send", tone: "warning" }, sent: { label: "Accepted (mock)", tone: "success" }, failed: { label: "Failed", tone: "danger" }, skipped_no_consent: { label: "Skipped, no consent", tone: "neutral" }, skipped: { label: "Skipped", tone: "neutral" }, cancelled: { label: "Cancelled, contact deleted", tone: "neutral" },
 };
 const ERROR_TEXT: Record<string, string> = {
-  no_consent: "No ad measurement consent recorded for the contact.", opted_out: "The contact withdrew consent.", event_too_old: "Older than 7 days, Meta would reject it.", dataset_inactive: "The dataset was disabled.",
+  no_consent: "No ad measurement consent recorded for the lead.", opted_out: "The lead withdrew consent.", event_too_old: "Older than 7 days, Meta would reject it.", dataset_inactive: "The dataset was disabled.",
   mode_mismatch: "Dataset mode does not match the sender.", token_unavailable: "The stored token could not be opened.", invalid_payload: "The event failed validation.", no_value: "The lead has no value, so a Purchase cannot be sent.", auth: "The token was rejected.",
 };
 const errorText = (code: string | null) => (code === null ? "" : ERROR_TEXT[code] ?? (code.startsWith("max_attempts:") ? "Gave up after repeated failures." : code.startsWith("http_") ? `Request failed (${code.slice(5)}).` : code));
@@ -84,7 +84,7 @@ export function CapiPanel({ workspaceId, canManage }: { workspaceId: string; can
 
   return (
     <Panel>
-      <PanelHeader title="Meta Conversions API" description="Only contacts who agreed to ad measurement are sent." actions={<Tooltip label="Mock mode: events are recorded here, nothing is sent to Meta."><span><Badge tone="warning">MOCK</Badge></span></Tooltip>} />
+      <PanelHeader title="Meta Conversions API" description="Only leads who agreed to ad measurement are sent." actions={<Tooltip label="Mock mode: events are recorded here, nothing is sent to Meta."><span><Badge tone="warning">MOCK</Badge></span></Tooltip>} />
       <div className="flex flex-col gap-4 p-4">
         {loadError ? <ErrorState title="Could not load Conversions API" description={loadError} onRetry={() => { setLoadError(null); void load(); }} /> : datasets === null ? (
           <div className="flex flex-col gap-2" role="status" aria-label="Loading"><Skeleton className="h-10" /><Skeleton className="h-10" /><Skeleton className="h-24" /></div>

@@ -328,7 +328,7 @@ export function Thread({ conversationId }: { conversationId: string }) {
                 {assigneeOptions.map((o) => <option key={o.id} value={o.id} disabled={!canAssignAny && o.id !== myUserId && o.id !== current?.userId}>{o.name}</option>)}
               </Select>
             ) : <span className="text-sm text-fg-muted">{detail.assignee ? `Assigned to ${detail.assignee.name}` : "Unassigned"}</span>}
-            <Button variant={panelOpen ? "secondary" : "ghost"} size="sm" aria-expanded={panelOpen} aria-controls="contact-panel" onClick={toggleCtx} title="Contact (C)" className={cn("max-sm:px-0 max-sm:w-7 pointer-coarse:max-sm:w-11", panelOpen && "border-accent/30 bg-accent-subtle text-accent-fg")}><PanelRight aria-hidden /><span className="max-sm:sr-only">Contact</span></Button>
+            <Button variant={panelOpen ? "secondary" : "ghost"} size="sm" aria-expanded={panelOpen} aria-controls="contact-panel" onClick={toggleCtx} title="Lead (C)" className={cn("max-sm:px-0 max-sm:w-7 pointer-coarse:max-sm:w-11", panelOpen && "border-accent/30 bg-accent-subtle text-accent-fg")}><PanelRight aria-hidden /><span className="max-sm:sr-only">Lead</span></Button>
             {canReply && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild><Button variant="ghost" icon size="sm" aria-label="More actions"><MoreHorizontal aria-hidden /></Button></DropdownMenuTrigger>
@@ -369,8 +369,8 @@ export function Thread({ conversationId }: { conversationId: string }) {
         <footer className="px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-1">
           {!canReply ? <p className="py-3 text-sm text-fg-muted">You have read-only access.</p> : (
             <>
-              {emailBlock === "unverified" && <Alert tone="warning" className="mb-2">Unverified sender: this email failed the sender checks (SPF/DKIM), so it may not be from {detail.email?.address}. Replying is turned off. Contact them another way.</Alert>}
-              {emailBlock === "bounced" && <Alert tone="warning" className="mb-2">Email to {detail.email?.address} bounced, so it is not sent again. Update the contact&apos;s email or contact them another way.</Alert>}
+              {emailBlock === "unverified" && <Alert tone="warning" className="mb-2">Unverified sender: this email failed the sender checks (SPF/DKIM), so it may not be from {detail.email?.address}. Replying is turned off. Reach them another way.</Alert>}
+              {emailBlock === "bounced" && <Alert tone="warning" className="mb-2">Email to {detail.email?.address} bounced, so it is not sent again. Update the lead&apos;s email or reach them another way.</Alert>}
               {detail.replyWindow === "closed" && <Alert tone="warning" className="mb-2">You can&apos;t reply: more than 24 hours have passed since {name}&apos;s last message. {detail.platform === "whatsapp" ? "WhatsApp allows replies only within 24 hours of the customer's last message." : "Meta only allows replies within 24 hours."} You can reply as soon as {name} writes again.</Alert>}
               {detail.replyWindow === "none" && <Alert tone="info" className="mb-2">There is no reply window yet. You can reply after {name} writes first.</Alert>}
               {left !== null && left < 120 && <Alert tone="warning" className="mb-2">The 24-hour reply window closes in {Math.floor(left / 60)} h {left % 60} min. After that you can&apos;t reply until {name} writes again.</Alert>}
@@ -414,13 +414,13 @@ export function Thread({ conversationId }: { conversationId: string }) {
       </section>
 
       {/* Closed by default. On wide screens the panel slides open in place; below that it is a sheet. */}
-      <aside id="contact-panel" aria-label="Contact" aria-hidden={!(lg && ctxOpen)} inert={!(lg && ctxOpen)}
+      <aside id="contact-panel" aria-label="Lead" aria-hidden={!(lg && ctxOpen)} inert={!(lg && ctxOpen)}
         className={cn("hidden shrink-0 overflow-hidden border-l bg-surface transition-[width,border-color] duration-[var(--dur-slow)] ease-[var(--ease-out)] lg:block", lg && ctxOpen ? "w-[320px] border-line" : "w-0 border-transparent")}>
         <div className={cn("h-full w-[320px] overflow-y-auto transition-transform duration-[var(--dur-slow)] ease-[var(--ease-out)]", lg && ctxOpen ? "translate-x-0" : "translate-x-3")}>
           <ContactPanel d={detail} workspaceId={workspaceId} now={now} lead={lead} canEditLead={canEditLead} onClose={toggleCtx} />
         </div>
       </aside>
-      <Sheet open={sheet && !lg} onOpenChange={setSheet} title="Contact" description={`Details for ${name}`}>
+      <Sheet open={sheet && !lg} onOpenChange={setSheet} title="Lead" description={`Details for ${name}`}>
         <ContactPanel d={detail} workspaceId={workspaceId} now={now} lead={lead} canEditLead={canEditLead} />
       </Sheet>
     </div>
@@ -497,7 +497,7 @@ function ContactPanel({ d, workspaceId, now, lead, canEditLead, onClose }: { d: 
       <div className="flex items-center gap-3 border-b border-line p-5">
         <Avatar name={c.name} src={c.avatarUrl} size="xl" />
         <div className="min-w-0 flex-1"><p className="truncate font-semibold text-fg">{c.name}</p><ChannelBadge platform={d.platform} account={d.accountName} /></div>
-        {onClose && <Button variant="ghost" icon size="sm" aria-label="Close contact panel" onClick={onClose}><X aria-hidden /></Button>}
+        {onClose && <Button variant="ghost" icon size="sm" aria-label="Close lead panel" onClick={onClose}><X aria-hidden /></Button>}
       </div>
       <div className="space-y-1 border-b border-line p-5">
         <h3 className="mb-1 text-xs font-semibold text-fg-subtle">Details</h3>
@@ -520,15 +520,15 @@ function ContactPanel({ d, workspaceId, now, lead, canEditLead, onClose }: { d: 
                 })}
               </div>
             )}
-            <Link href={`/w/${workspaceId}/contacts/${lead.lead.primaryContact.id}`} className="mt-3 inline-block text-sm font-medium text-accent-fg hover:underline">Open contact</Link>
+            <Link href={`/w/${workspaceId}/contacts/${lead.lead.primaryContact.id}`} className="mt-3 inline-block text-sm font-medium text-accent-fg hover:underline">Open lead</Link>
           </div>
         ) : (
-          <div><p className="mb-2 text-sm text-fg-muted">No lead for this contact yet.</p><StageControl ctl={lead} canEdit={canEditLead} block className="w-full justify-start" /></div>
+          <div><p className="mb-2 text-sm text-fg-muted">This lead is not in the pipeline yet.</p><StageControl ctl={lead} canEdit={canEditLead} block className="w-full justify-start" /></div>
         )}
       </div>
       <div className="space-y-4 p-5">
         <DetectedMethods methods={c.methods} />
-        <Button variant="secondary" size="sm" asChild><Link href={`/w/${workspaceId}/contacts/${c.id}`}>Open contact</Link></Button>
+        <Button variant="secondary" size="sm" asChild><Link href={`/w/${workspaceId}/contacts/${c.id}`}>Open lead</Link></Button>
       </div>
     </div>
   );

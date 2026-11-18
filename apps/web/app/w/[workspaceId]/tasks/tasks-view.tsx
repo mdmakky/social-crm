@@ -180,8 +180,8 @@ export function TasksView({ workspaceId, timeZone, role, myUserId, initial, init
                   {(["urgent", "high", "normal", "low"] as const).map((p) => <option key={p} value={p}>{PRIORITY_LABEL[p]}</option>)}
                 </Select>
                 <div className="w-full max-w-full">
-                  {!f.contactId && <label htmlFor="task-filter-contact" className="sr-only">Filter by contact</label>}
-                  <ContactPicker id="task-filter-contact" workspaceId={workspaceId} value={f.contactId ? { id: f.contactId, name: f.contactName ?? "Contact" } : null} onChange={(c) => set({ contactId: c?.id, contactName: c?.name })} />
+                  {!f.contactId && <label htmlFor="task-filter-contact" className="sr-only">Filter by lead</label>}
+                  <ContactPicker id="task-filter-contact" workspaceId={workspaceId} value={f.contactId ? { id: f.contactId, name: f.contactName ?? "Lead" } : null} onChange={(c) => set({ contactId: c?.id, contactName: c?.name })} />
                 </div>
                 <label className="flex items-center gap-1.5 text-sm text-fg-muted">Due from<Input aria-label="Due from" type="date" className="w-36" value={f.dueFrom ?? ""} onChange={(e) => set({ dueFrom: e.target.value || undefined })} /></label>
                 <label className="flex items-center gap-1.5 text-sm text-fg-muted">to<Input aria-label="Due to" type="date" className="w-36" value={f.dueTo ?? ""} onChange={(e) => set({ dueTo: e.target.value || undefined })} /></label>

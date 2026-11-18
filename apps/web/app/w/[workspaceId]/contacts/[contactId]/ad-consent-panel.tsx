@@ -42,7 +42,7 @@ export function AdConsentPanel({ workspaceId, contactId, canEdit, timeZone, memb
 
   return (
     <Panel>
-      <PanelHeader title="Ad measurement consent" description="Allow sending this contact to Meta for ad measurement." actions={consent && <Badge tone={STATE[consent.status].tone}>{STATE[consent.status].label}</Badge>} />
+      <PanelHeader title="Ad measurement consent" description="Allow sending this lead to Meta for ad measurement." actions={consent && <Badge tone={STATE[consent.status].tone}>{STATE[consent.status].label}</Badge>} />
       <div className="flex flex-col gap-3 p-4" aria-live="polite">
         {!canEdit ? (
           <Alert>You do not have permission to change consent. Nothing is sent without it.</Alert>
@@ -53,7 +53,7 @@ export function AdConsentPanel({ workspaceId, contactId, canEdit, timeZone, memb
         ) : (
           <>
             <p className="text-sm text-fg">
-              {consent.status === "none" ? "No consent recorded. Nothing about this contact is sent to Meta." : <>{consent.status === "granted" ? "Granted" : "Withdrawn"} on {when(consent.recordedAt!)} by {who(consent.recordedBy)}. Source: {SOURCE[consent.source ?? ""] ?? consent.source}.</>}
+              {consent.status === "none" ? "No consent recorded. Nothing about this lead is sent to Meta." : <>{consent.status === "granted" ? "Granted" : "Withdrawn"} on {when(consent.recordedAt!)} by {who(consent.recordedBy)}. Source: {SOURCE[consent.source ?? ""] ?? consent.source}.</>}
             </p>
             {error && !pending && <Alert tone="error">{error}</Alert>}
             <div className="flex flex-wrap gap-2">
@@ -75,8 +75,8 @@ export function AdConsentPanel({ workspaceId, contactId, canEdit, timeZone, memb
         <DialogContent
           title={pending === "granted" ? "Record ad measurement consent?" : "Record withdrawal of consent?"}
           description={pending === "granted"
-            ? "Confirm only if this contact agreed. It lets us send hashed identifiers and won leads to Meta."
-            : "Nothing more is sent to Meta for this contact. Waiting events are skipped."}
+            ? "Confirm only if this lead agreed. It lets us send hashed identifiers and won leads to Meta."
+            : "Nothing more is sent to Meta for this lead. Waiting events are skipped."}
         >
           {error && <Alert tone="error" className="mb-3">{error}</Alert>}
           <DialogActions>

@@ -85,7 +85,7 @@ test("tasks screens hold at 375, 768 and 1440: no overflow, no axe violations, p
     await page.goto(`/w/${workspaceId}/tasks`);
     await page.getByRole("button", { name: "New task" }).first().click();
     const dlg = page.getByRole("dialog", { name: "New task" });
-    await dlg.getByPlaceholder("Search contacts by name, email or phone").focus();
+    await dlg.getByPlaceholder("Search leads by name, email or phone").focus();
     await expect(dlg.getByRole("option", { name: /Ana Costa/ })).toBeVisible();
     await axe(page, `new-task-picker@${s.name}`);
     await page.screenshot({ path: `${SHOTS}new-task-${s.name}.png` });
@@ -138,11 +138,11 @@ test.describe("touch", () => {
     const dlg = page.getByRole("dialog", { name: "New task" });
     await page.waitForTimeout(400); // let the open animation (a small scale) finish before measuring
     for (const label of ["Title", "Description", "Assignee", "Priority", "Due"]) expect((await dlg.getByLabel(label, { exact: true }).boundingBox())!.height, label).toBeGreaterThanOrEqual(44);
-    expect((await dlg.getByPlaceholder("Search contacts by name, email or phone").boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    expect((await dlg.getByPlaceholder("Search leads by name, email or phone").boundingBox())!.height).toBeGreaterThanOrEqual(44);
     expect((await dlg.getByRole("button", { name: "Create task" }).boundingBox())!.height).toBeGreaterThanOrEqual(44);
-    await dlg.getByPlaceholder("Search contacts by name, email or phone").focus();
-    await expect(dlg.getByRole("listbox", { name: "Matching contacts" }).getByRole("option").first()).toBeVisible();
-    const opt = await dlg.getByRole("listbox", { name: "Matching contacts" }).getByRole("option").first().boundingBox();
+    await dlg.getByPlaceholder("Search leads by name, email or phone").focus();
+    await expect(dlg.getByRole("listbox", { name: "Matching leads" }).getByRole("option").first()).toBeVisible();
+    const opt = await dlg.getByRole("listbox", { name: "Matching leads" }).getByRole("option").first().boundingBox();
     expect(opt!.height).toBeGreaterThanOrEqual(44);
   });
 });

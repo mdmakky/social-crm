@@ -125,7 +125,7 @@ test.describe("touch devices", () => {
       expect(box!.width, name).toBeGreaterThanOrEqual(44);
     }
     await page.getByRole("button", { name: "Open command menu" }).click();
-    const input = page.getByPlaceholder("Search contacts, pages and actions");
+    const input = page.getByPlaceholder("Search leads, pages and actions");
     expect(await input.evaluate((el) => getComputedStyle(el).fontSize)).toBe("16px");
   });
 });

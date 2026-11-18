@@ -174,3 +174,6 @@ Email channel v1 (2026-11-17, `feat/email-channel`, MOCK): built and tested agai
 
 ## One contact, one lead (2026-11-18, branch `feat/one-lead-per-contact`, local, not merged)
 Owner decision D260 to D269: Leads and Contacts are one list and one page; a contact has a stage, a value and an owner. Lead creation from a contact is done (lazy, on the first stage, value or owner write). Open: whether to merge existing duplicate leads, a "start another lead" action, reword the remaining "lead" copy (inbox, audit, reports), and a place for value access grants.
+
+## Leads page (2026-11-18, branch `feat/leads-page`, local, not merged)
+Owner decisions D300 to D309: the unified list is called Leads everywhere (URLs and API keep `contacts`), a one-line stage strip, a multi-select Agent filter with counts, only filters the API supports, a phone layout with one filter sheet, cards, stage sheet and Select mode, and a cleaner lead page (stepper, autosaving value and owner, collapsed Details). Open for the owner: a total value in the header and value or last-activity filters need new API aggregates (D304); real-device check of the phone layout.

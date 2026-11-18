@@ -1,11 +1,12 @@
 import { expect, test } from "@playwright/test";
-import { api, seedContacts, signUpAndCreate } from "./helpers";
+import { api, seedContacts, signUpAndCreate, openDetails } from "./helpers";
 
 test.describe("contact detail", () => {
   test("edits save with a version, record activity, and a concurrent edit is detected", async ({ page }) => {
     const { workspaceId } = await signUpAndCreate(page, "Edit Owner", "Edit Co");
     const [id] = await seedContacts(page, workspaceId, [{ name: "Gus Hall", email: "gus@edit.example", company: "Hall & Co" }]);
     await page.goto(`/w/${workspaceId}/contacts/${id}`);
+    await openDetails(page);
     const save = page.getByRole("button", { name: "Save changes" });
     await expect(save).toBeDisabled();
     await page.getByLabel("Company").fill("Hall Industries");
@@ -19,7 +20,7 @@ test.describe("contact detail", () => {
     await api(page).patch(`/v1/workspaces/${workspaceId}/contacts/${id}`, { expectedVersion: current.version, name: "Gus Hall Jr" });
     await page.getByLabel("Company").fill("Stale Edit Co");
     await save.click();
-    await expect(page.getByText("Someone else changed this contact.")).toBeVisible();
+    await expect(page.getByText("Someone else changed this lead.")).toBeVisible();
     await page.getByRole("button", { name: "Load latest" }).click();
     await expect(page.getByLabel("Name")).toHaveValue("Gus Hall Jr");
     await expect(page.getByLabel("Company")).toHaveValue("Hall Industries");
@@ -30,9 +31,10 @@ test.describe("contact detail", () => {
     const [id] = await seedContacts(page, workspaceId, [{ name: "Hana Sato", email: "hana@work.example" }]);
     await page.goto(`/w/${workspaceId}/contacts/${id}`);
 
+    await openDetails(page);
     await page.getByLabel("Add a tag").fill("wholesale");
     await page.getByRole("button", { name: "Add", exact: true }).click();
-    await expect(page.getByRole("list", { name: "Tags on this contact" }).getByText("wholesale")).toBeVisible();
+    await expect(page.getByRole("list", { name: "Tags on this lead" }).getByText("wholesale")).toBeVisible();
     await expect(page.getByText("Work Owner added the tag wholesale")).toBeVisible();
     await page.getByRole("button", { name: "Remove tag wholesale" }).click();
     await expect(page.getByText("No tags yet.")).toBeVisible();
@@ -66,8 +68,9 @@ test.describe("contact detail", () => {
     const { workspaceId } = await signUpAndCreate(page, "Related Owner", "Related Co");
     const [id] = await seedContacts(page, workspaceId, [{ name: "Ivan Petrov" }]);
     await page.goto(`/w/${workspaceId}/contacts/${id}`);
-    await expect(page.getByRole("heading", { name: "No conversations yet" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Stage, value and owner" })).toBeVisible(); // the old Leads panel is one section now
+    await openDetails(page);
+    await expect(page.getByText(/No conversations yet/)).toBeVisible();
+    await expect(page.getByRole("list", { name: "Stage" })).toBeVisible(); // the stage stepper is the one place for stage, value and owner (D307)
     await expect(page.getByText("Not tracked yet. Change anything here to start.")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Leads", exact: true })).toHaveCount(0);
     await expect(page.getByText(/will appear here/)).toHaveCount(0);
@@ -77,13 +80,14 @@ test.describe("contact detail", () => {
     const { workspaceId } = await signUpAndCreate(page, "Del Owner", "Delete Co");
     const [id] = await seedContacts(page, workspaceId, [{ name: "Jia Li", email: "jia@del.example" }]);
     await page.goto(`/w/${workspaceId}/contacts/${id}`);
+    await openDetails(page);
     await page.getByRole("button", { name: "More actions" }).click();
-    await page.getByRole("menuitem", { name: "Delete contact" }).click();
+    await page.getByRole("menuitem", { name: "Delete lead" }).click();
     await page.getByRole("dialog").getByRole("button", { name: "Cancel" }).click();
     await expect(page.getByRole("heading", { name: "Jia Li", level: 1 })).toBeVisible();
     await page.getByRole("button", { name: "More actions" }).click();
-    await page.getByRole("menuitem", { name: "Delete contact" }).click();
-    await page.getByRole("dialog").getByRole("button", { name: "Delete contact" }).click();
+    await page.getByRole("menuitem", { name: "Delete lead" }).click();
+    await page.getByRole("dialog").getByRole("button", { name: "Delete lead" }).click();
     await expect(page).toHaveURL(new RegExp(`/w/${workspaceId}/contacts$`));
     await page.goto(`/w/${workspaceId}/contacts/${id}`);
     await expect(page.getByText("We couldn't find that page")).toBeVisible();

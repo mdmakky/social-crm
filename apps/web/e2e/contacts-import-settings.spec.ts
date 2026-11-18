@@ -36,27 +36,27 @@ test.describe("csv import wizard", () => {
     await expect(problems.getByText(/Row 6:.*Unknown lifecycle stage/)).toBeVisible();
     await expect(page.getByText("1 possible duplicate")).toBeVisible();
     await expect(page.getByRole("link", { name: "Existing Erin" })).toBeVisible();
-    const importBtn = page.getByRole("button", { name: /^Import 2 contacts$/ });
+    const importBtn = page.getByRole("button", { name: /^Import 2 leads$/ });
     await expect(importBtn).toBeDisabled(); // problems must be acknowledged first
     await axe(page, "import-step3");
 
     await page.getByLabel(/Skip the 2 problem rows/).check();
     await expect(importBtn).toBeEnabled();
     // choose to update the existing contact instead of skipping it
-    await page.getByLabel("Update the existing contact").check();
-    await expect(page.getByRole("button", { name: /^Import 3 contacts$/ })).toBeEnabled();
-    await page.getByRole("button", { name: /^Import 3 contacts$/ }).click();
+    await page.getByLabel("Update the existing lead").check();
+    await expect(page.getByRole("button", { name: /^Import 3 leads$/ })).toBeEnabled();
+    await page.getByRole("button", { name: /^Import 3 leads$/ }).click();
 
     await expect(page.getByRole("heading", { name: "Import complete" })).toBeFocused();
     await expect(page.getByText("2 added · 1 updated · 0 skipped.")).toBeVisible();
-    await page.getByRole("link", { name: "View contacts" }).click();
-    await expect(page.getByText("3 contacts")).toBeVisible();
-    await page.getByLabel("Search contacts").fill("erin@exist");
+    await page.getByRole("link", { name: "View leads" }).click();
+    await expect(page.getByText("3 leads")).toBeVisible();
+    await page.getByLabel("Search leads").fill("erin@exist");
     await expect(page.getByRole("link", { name: "Erin Again" })).toBeVisible(); // name and company were updated
-    await page.getByLabel("Search contacts").fill("mia@");
+    await page.getByLabel("Search leads").fill("mia@");
     await page.getByRole("link", { name: "Mia Import" }).click();
-    await expect(page.getByText("Import Owner imported this contact from people.csv")).toBeVisible();
-    await expect(page.getByRole("list", { name: "Tags on this contact" }).getByText("vip")).toBeVisible();
+    await expect(page.getByText("Import Owner imported this lead from people.csv")).toBeVisible();
+    await expect(page.getByRole("list", { name: "Tags on this lead" }).getByText("vip")).toBeVisible();
   });
 
   test("unusable files are refused with a clear message before anything is read further", async ({ page }) => {
@@ -86,7 +86,7 @@ test.describe("contact settings", () => {
   test("lifecycle stages can be renamed, added, reordered, archived and restored", async ({ page }) => {
     const { workspaceId } = await signUpAndCreate(page, "Stage Owner", "Stages Co");
     await page.goto(`/w/${workspaceId}/settings/contacts`);
-    await expect(page.getByRole("link", { name: "Contacts", exact: true }).filter({ visible: true }).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: "Leads", exact: true }).filter({ visible: true }).first()).toBeVisible();
     const stages = page.getByRole("heading", { name: "Lifecycle stages" }).locator("xpath=ancestor::div[contains(@class,'rounded-card')][1]");
     await expect(stages.getByRole("listitem")).toHaveCount(5);
     await stages.getByRole("listitem").filter({ hasText: "New" }).getByRole("button", { name: "Rename" }).click();
@@ -122,18 +122,18 @@ test.describe("contact settings", () => {
     await page.getByLabel("Label").fill("Tier");
     await page.getByLabel("Type").selectOption({ label: "Single choice" });
     await page.getByLabel("Options").fill("gold, silver");
-    await page.getByLabel("Required when adding a contact").check();
+    await page.getByLabel("Required when adding a lead").check();
     await page.getByRole("button", { name: "Add field" }).click();
 
     await page.goto(`/w/${workspaceId}/contacts`);
-    await page.getByRole("button", { name: "Add contact" }).first().click();
-    const dialog = page.getByRole("dialog", { name: "Add contact" });
+    await page.getByRole("button", { name: "Add lead" }).first().click();
+    const dialog = page.getByRole("dialog", { name: "Add lead" });
     await dialog.getByLabel("Name").fill("Field Person");
-    await dialog.getByRole("button", { name: "Add contact" }).click();
+    await dialog.getByRole("button", { name: "Add lead" }).click();
     await expect(dialog.getByText("Tier is required")).toBeVisible();
     await dialog.getByLabel("Tier (required)").selectOption("gold");
     await dialog.getByLabel("Budget").fill("1500");
-    await dialog.getByRole("button", { name: "Add contact" }).click();
+    await dialog.getByRole("button", { name: "Add lead" }).click();
     await expect(page.getByRole("heading", { name: "Field Person", level: 1 })).toBeVisible();
     await expect(page.getByLabel("Budget")).toHaveValue("1500");
     await expect(page.getByLabel("Tier (required)")).toHaveValue("gold");
@@ -145,10 +145,10 @@ test.describe("contact settings", () => {
     await page.goto(`/w/${workspaceId}/contacts/${id}`);
     await page.getByLabel("Add a tag").fill("trial");
     await page.getByRole("button", { name: "Add", exact: true }).click();
-    await expect(page.getByRole("list", { name: "Tags on this contact" }).getByText("trial")).toBeVisible();
+    await expect(page.getByRole("list", { name: "Tags on this lead" }).getByText("trial")).toBeVisible();
 
     await page.goto(`/w/${workspaceId}/settings/contacts`);
-    await expect(page.getByText("1 contact").first()).toBeVisible();
+    await expect(page.getByText("1 lead").first()).toBeVisible();
     await page.getByRole("button", { name: "Edit", exact: true }).click();
     await page.getByLabel("Rename tag trial").fill("trial-user");
     await page.getByRole("button", { name: "Save", exact: true }).click();
@@ -156,7 +156,7 @@ test.describe("contact settings", () => {
 
     await page.getByRole("button", { name: "Delete tag trial-user" }).click();
     const dialog = page.getByRole("dialog", { name: 'Delete tag "trial-user"?' });
-    await expect(dialog).toContainText("removed from 1 contact");
+    await expect(dialog).toContainText("removed from 1 lead");
     await dialog.getByRole("button", { name: "Delete tag" }).click();
     await expect(page.getByText("No tags yet.")).toBeVisible();
     await page.goto(`/w/${workspaceId}/contacts/${id}`);

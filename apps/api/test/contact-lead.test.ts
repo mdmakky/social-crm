@@ -328,3 +328,20 @@ describe("CAPI keeps firing through the existing lead code", () => {
     expect(await events(d.id)).toEqual(["Schedule"]);
   });
 });
+
+describe("agent filter: several owners and per-owner counts", () => {
+  it("ownerId takes comma-separated me/unassigned/user ids; owner-counts follows the other filters but not the owner", async () => {
+    const [m, a] = [await mk("OwnMulti Me"), await mk("OwnMulti Agent")];
+    await mk("OwnMulti None");
+    ok(await as(owner).call(endpoints.updateContact, { params: { workspaceId: A, contactId: m.id }, body: { expectedVersion: m.version, ownerUserId: owner.id } }));
+    ok(await as(owner).call(endpoints.updateContact, { params: { workspaceId: A, contactId: a.id }, body: { expectedVersion: a.version, ownerUserId: agent.id } }));
+    const names = async (ownerId: string) => (await list({ search: "OwnMulti ", ownerId })).items.map((x) => x.name).sort();
+    expect(await names(`me,${agent.id}`)).toEqual(["OwnMulti Agent", "OwnMulti Me"]);
+    expect(await names("unassigned,me")).toEqual(["OwnMulti Me", "OwnMulti None"]);
+    expect(await names(agent.id)).toEqual(["OwnMulti Agent"]);
+    const oc = ok(await as(owner).call(endpoints.contactOwnerCounts, { params: { workspaceId: A }, query: { search: "OwnMulti " } }));
+    const n = (id: string | null) => oc.items.find((x) => x.ownerId === id)?.count ?? 0;
+    expect([n(owner.id), n(agent.id), n(null)]).toEqual([1, 1, 1]);
+    expect((await as(viewer).call(endpoints.contactOwnerCounts, { params: { workspaceId: A }, query: {} })).ok).toBe(true);
+  });
+});

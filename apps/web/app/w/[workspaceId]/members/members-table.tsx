@@ -20,7 +20,7 @@ const ROLES: Role[] = ["owner", "admin", "agent", "viewer"];
 const ROLE_HELP: Record<Role, string> = {
   owner: "Full control, including ownership transfer and deleting the workspace.",
   admin: "Manages members, integrations, automation and settings.",
-  agent: "Works conversations and contacts.",
+  agent: "Works conversations and leads.",
   viewer: "Read-only access.",
 };
 

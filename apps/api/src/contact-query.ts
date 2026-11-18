@@ -18,9 +18,14 @@ export function filters(workspaceId: string, userId: string, q: Q): Parsed {
     where.push(sql`(lower(c.name) LIKE ${like} ESCAPE '\\' OR c.email_normalized LIKE ${like} ESCAPE '\\' OR lower(coalesce(c.company, '')) LIKE ${like} ESCAPE '\\' OR ${digits.length >= 3 ? sql`c.phone_normalized LIKE ${`%${digits}%`}` : sql`false`})`);
   }
   if (q.lifecycleStageId) where.push(sql`c.lifecycle_stage_id = ${String(q.lifecycleStageId)}::uuid`);
-  if (q.ownerId === "me") where.push(sql`c.owner_user_id = ${userId}`);
-  else if (q.ownerId === "unassigned") where.push(sql`c.owner_user_id IS NULL`);
-  else if (q.ownerId) where.push(sql`c.owner_user_id = ${String(q.ownerId)}`);
+  if (q.ownerId) {
+    // One or several (comma-separated): "me", "unassigned" and user ids; a contact matches when its owner is any of them.
+    const toks = [...new Set(String(q.ownerId).split(",").map((t) => t.trim()).filter(Boolean))];
+    if (toks.length === 0 || toks.length > 30) return { where, error: "ownerId must be up to 30 comma-separated values" };
+    const ids = toks.map((t) => (t === "me" ? userId : t)).filter((t) => t !== "unassigned");
+    const parts = [...(ids.length ? [sql`c.owner_user_id IN (${sql.join(ids.map((i) => sql`${i}`), sql`, `)})`] : []), ...(toks.includes("unassigned") ? [sql`c.owner_user_id IS NULL`] : [])];
+    where.push(parts.length === 1 ? parts[0]! : sql`(${sql.join(parts, sql` OR `)})`);
+  }
   if (q.source) where.push(sql`c.source = ${String(q.source)}`);
   if (q.tagIds) {
     const ids = String(q.tagIds).split(",").filter(Boolean);

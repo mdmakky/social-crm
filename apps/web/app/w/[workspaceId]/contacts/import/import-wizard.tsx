@@ -16,13 +16,13 @@ type Step = 1 | 2 | 3 | 4;
 type Dup = "skip" | "update" | "create";
 const STEPS = ["Upload file", "Match columns", "Review", "Done"];
 const TEMPLATE = "Name,Email,Phone,Company,Lifecycle stage,Owner email,Tags\nAna Costa,ana@example.com,+1 555 010 0000,Acme,New,,vip; lead\n";
-const DUP_LABEL: Record<Dup, string> = { skip: "Skip them", update: "Update the existing contact", create: "Import them anyway" };
+const DUP_LABEL: Record<Dup, string> = { skip: "Skip them", update: "Update the existing lead", create: "Import them anyway" };
 
 const IMPORT_MESSAGES: Record<string, string> = {
   too_large: "That file is too large. Split it into files up to 5 MB and 5,000 rows.",
   rate_limited: "You started too many imports. Wait a few minutes and try again.",
   import_expired: "This upload expired. Nothing was imported. Upload it again.",
-  already_committed: "This import has already been completed. Check your contacts, or upload another file.",
+  already_committed: "This import has already been completed. Check your leads, or upload another file.",
   import_busy: "Another import is running in this workspace. Wait a moment, then try again.",
 };
 const STATUS_CODE: Record<number, string> = { 413: "too_large", 429: "rate_limited" };
@@ -126,7 +126,7 @@ export function ImportWizard({ workspaceId }: { workspaceId: string }) {
               {busy ? "Reading file…" : "Choose file"}
               <input type="file" accept=".csv,text/csv,text/plain" className="sr-only" disabled={busy} onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; void onFile(f); }} aria-label="CSV file" />
             </label>
-            <Button asChild variant="ghost"><a download="contacts-template.csv" href={`data:text/csv;charset=utf-8,${encodeURIComponent(TEMPLATE)}`}>Download a template</a></Button>
+            <Button asChild variant="ghost"><a download="leads-template.csv" href={`data:text/csv;charset=utf-8,${encodeURIComponent(TEMPLATE)}`}>Download a template</a></Button>
           </div>
           <p className="mt-4 text-sm text-fg-subtle">Nothing is saved until the last step.</p>
         </Panel>
@@ -191,7 +191,7 @@ export function ImportWizard({ workspaceId }: { workspaceId: string }) {
               <div className="border-b border-line px-4 py-3">
                 <h3 className="text-base font-semibold text-fg">{preview.duplicates.length}{preview.truncated ? "+" : ""} possible {preview.duplicates.length === 1 ? "duplicate" : "duplicates"}</h3>
                 <fieldset className="mt-2">
-                  <legend className="text-sm text-fg-muted">For rows that match a contact you already have, or repeat an earlier row:</legend>
+                  <legend className="text-sm text-fg-muted">For rows that match a lead you already have, or repeat an earlier row:</legend>
                   <div className="mt-1 flex flex-wrap gap-x-4">
                     {(Object.keys(DUP_LABEL) as Dup[]).map((d) => (
                       <label key={d} className="inline-flex min-h-6 cursor-pointer items-center gap-2 text-base pointer-coarse:min-h-11">
@@ -207,7 +207,7 @@ export function ImportWizard({ workspaceId }: { workspaceId: string }) {
                   {preview.duplicates.map((d) => (
                     <TR key={d.row}>
                       <TD className="tnum">{d.row + 1}</TD>
-                      <TD>{d.existing ? <>Existing contact <Link className="font-medium text-accent-fg underline underline-offset-2" href={`/w/${workspaceId}/contacts/${d.existing.id}`} target="_blank">{d.existing.name}</Link> (same {d.matchedOn})</> : <>Row {d.duplicateOfRow! + 1} in this file (same {d.matchedOn})</>}</TD>
+                      <TD>{d.existing ? <>Existing lead <Link className="font-medium text-accent-fg underline underline-offset-2" href={`/w/${workspaceId}/contacts/${d.existing.id}`} target="_blank">{d.existing.name}</Link> (same {d.matchedOn})</> : <>Row {d.duplicateOfRow! + 1} in this file (same {d.matchedOn})</>}</TD>
                       <TD>
                         <Select aria-label={`Decision for row ${d.row + 1}`} disabled={busy} value={rowDecisions[String(d.row)] ?? d.action} onChange={(e) => { const next = { ...rowDecisions, [String(d.row)]: e.target.value as Dup }; setRowDecisions(next); void runPreview(plan({ rowDecisions: next })); }}>
                           {(Object.keys(DUP_LABEL) as Dup[]).map((o) => <option key={o} value={o}>{DUP_LABEL[o]}</option>)}
@@ -236,7 +236,7 @@ export function ImportWizard({ workspaceId }: { workspaceId: string }) {
               {blocked && <span className="text-sm text-fg-muted">Fix the file or choose to skip the problem rows.</span>}
               {stale && !busy && <Button variant="secondary" onClick={() => void runPreview(plan())}>Refresh preview</Button>}
               <Button variant="primary" loading={busy} disabled={blocked || stale || importCount === 0} onClick={() => void commit()}>
-                {importCount === 0 ? "Nothing to import" : `Import ${importCount.toLocaleString("en-US")} ${importCount === 1 ? "contact" : "contacts"}`}
+                {importCount === 0 ? "Nothing to import" : `Import ${importCount.toLocaleString("en-US")} ${importCount === 1 ? "lead" : "leads"}`}
               </Button>
             </div>
           </div>
@@ -248,7 +248,7 @@ export function ImportWizard({ workspaceId }: { workspaceId: string }) {
           <CheckCircle2 className="mb-2 size-5 text-success-fg" aria-hidden />
           <h2 ref={headingRef} tabIndex={-1} className="text-md font-semibold text-fg outline-none">Import complete</h2>
           <p className="mt-1 text-sm text-fg-muted">{result.created} added · {result.updated} updated · {result.skipped} skipped.</p>
-          <div className="mt-4 flex gap-2"><Button asChild variant="primary"><Link href={`/w/${workspaceId}/contacts`}>View contacts</Link></Button><Button variant="ghost" onClick={startOver}>Import another file</Button></div>
+          <div className="mt-4 flex gap-2"><Button asChild variant="primary"><Link href={`/w/${workspaceId}/contacts`}>View leads</Link></Button><Button variant="ghost" onClick={startOver}>Import another file</Button></div>
         </Panel>
       )}
     </div>

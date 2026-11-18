@@ -2,7 +2,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { devices, expect, test, type Page } from "@playwright/test";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
-import { CONTACT_NAMES, seedContacts, signUpAndCreate } from "./helpers";
+import { CONTACT_NAMES, openDetails, seedContacts, signUpAndCreate } from "./helpers";
 
 const SHOTS = (process.env.UPDATE_SCREENSHOTS ? join(__dirname, "../../../docs/design/screenshots/phase2-contacts") : join(__dirname, "../test-results/shots-contacts")) + "/";
 mkdirSync(SHOTS, { recursive: true });
@@ -35,10 +35,10 @@ test("contacts screens hold at 375, 768 and 1440: no page overflow, no axe viola
   await a(`/v1/workspaces/${workspaceId}/contacts/${ids[0]}/tasks`, { title: "Send the revised quote and onboarding schedule", dueAt: "2026-12-20T09:00:00Z" });
 
   const routes = [
-    { key: "list", path: `/w/${workspaceId}/contacts`, heading: "Contacts" },
+    { key: "list", path: `/w/${workspaceId}/contacts`, heading: "Leads" },
     { key: "detail", path: `/w/${workspaceId}/contacts/${ids[0]}`, heading: /Ana Costa/ },
-    { key: "import", path: `/w/${workspaceId}/contacts/import`, heading: "Import contacts" },
-    { key: "settings", path: `/w/${workspaceId}/settings/contacts`, heading: "Contact fields" },
+    { key: "import", path: `/w/${workspaceId}/contacts/import`, heading: "Import leads" },
+    { key: "settings", path: `/w/${workspaceId}/settings/contacts`, heading: "Lead fields" },
   ];
   for (const s of SIZES) {
     await page.setViewportSize({ width: s.width, height: s.height });
@@ -59,16 +59,17 @@ test("contacts screens hold at 375, 768 and 1440: no page overflow, no axe viola
   await expect(card).toBeVisible();
   expect((await card.boundingBox())!.height).toBeGreaterThanOrEqual(56);
   await expect(page.getByRole("button", { name: "Filters" })).toBeVisible();
-  await expect(page.getByLabel("Owner", { exact: true })).toBeHidden();
-  await page.getByRole("button", { name: "Filters" }).click();
-  await expect(page.getByLabel("Owner", { exact: true })).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "Filters" })).toBeHidden();
+  await page.getByRole("button", { name: "Filters" }).click(); // Agent and Filters are one bottom sheet on a phone (D305)
+  await expect(page.getByRole("dialog", { name: "Filters" }).getByText("Agent", { exact: true })).toBeVisible();
   await axe(page, "list-filters-open@375");
+  await page.keyboard.press("Escape");
   await page.setViewportSize({ width: 1440, height: 900 });
   await expect(page.getByRole("table")).toBeVisible();
-  await expect(page.getByRole("columnheader")).toHaveCount(9); // eight default columns plus the select column
+  await expect(page.getByRole("columnheader")).toHaveCount(7); // six default columns (Lead, Stage, Value, Agent, Source, Last activity) plus the select column (D309)
 
   // overlays
-  await page.getByRole("button", { name: "Add contact" }).first().click();
+  await page.getByRole("button", { name: "Add lead" }).first().click();
   await axe(page, "new-contact-dialog");
   await page.screenshot({ path: `${SHOTS}new-contact-dialog-1440.png` });
   await page.keyboard.press("Escape");
@@ -84,13 +85,14 @@ test.describe("touch", () => {
     const { workspaceId } = await signUpAndCreate(page, "Touch Contacts", "Touch Contacts Co");
     const [id] = await seedContacts(page, workspaceId, [{ name: "Tap Target", email: "tap@x.example" }]);
     await page.goto(`/w/${workspaceId}/contacts`);
-    for (const name of ["Add contact", "Filters", "Views"]) {
-      const b = await page.getByRole("button", { name: name, exact: name !== "Add contact" }).first().boundingBox();
+    for (const name of ["Add lead", "Filters", "Views"]) {
+      const b = await page.getByRole("button", { name: name, exact: name !== "Add lead" }).first().boundingBox();
       expect(b!.height, name).toBeGreaterThanOrEqual(44);
     }
-    expect((await page.getByLabel("Search contacts").boundingBox())!.height).toBeGreaterThanOrEqual(44);
-    expect(await page.getByLabel("Search contacts").evaluate((e) => getComputedStyle(e).fontSize)).toBe("16px");
+    expect((await page.getByLabel("Search leads").boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    expect(await page.getByLabel("Search leads").evaluate((e) => getComputedStyle(e).fontSize)).toBe("16px");
     await page.goto(`/w/${workspaceId}/contacts/${id}`);
+    await openDetails(page);
     for (const label of ["Name", "Email", "Add a note", "New task"]) {
       const field = page.getByLabel(label, { exact: true }).first();
       await field.waitFor(); // the page streams in behind a skeleton; measure only once the field exists

@@ -65,46 +65,46 @@ test("one contact, one stage: set a value, move it, lose it with a reason, find 
   const { workspaceId } = await signUpAndCreate(page, "Olive Owner", "Leads Co");
   const [contactId] = await seedContacts(page, workspaceId, [{ name: "Ana Costa", email: "ana@example.com" }]);
   await page.goto(`/w/${workspaceId}/contacts`);
-  await expect(page.getByRole("heading", { level: 1, name: "Contacts" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Leads" })).toBeVisible();
   // no lead yet: shown as the first stage, nothing written
   await expect(page.getByRole("button", { name: "Stage of Ana Costa: New. Change stage" })).toBeVisible();
   expect(((await (await page.request.get(ws(workspaceId, "/leads"))).json()) as { items: unknown[] }).items).toHaveLength(0);
 
   await page.getByRole("link", { name: "Ana Costa" }).first().click();
   await expect(page.getByRole("heading", { level: 1, name: "Ana Costa" })).toBeVisible();
-  const section = page.locator("[data-panel]").filter({ has: page.getByRole("heading", { name: "Stage, value and owner" }) });
-  await expect(section.getByLabel("Stage", { exact: true })).toHaveValue(/.+/);
-  await section.getByLabel("Value", { exact: true }).fill("2,500.50");
-  await section.getByRole("button", { name: "Update", exact: true }).click();
-  await expect(page.getByRole("status").filter({ hasText: "Saved." })).toHaveCount(1);
+  // no lead yet: the first stage is current (nothing written); value and stage autosave, there is no Update button (D307)
+  await expect(page.getByRole("button", { name: "Set stage to New" })).toHaveAttribute("aria-current", "step");
+  await expect(page.getByRole("button", { name: "Update", exact: true })).toHaveCount(0);
+  await page.getByLabel("Value", { exact: true }).fill("2,500.50");
+  await page.getByLabel("Value", { exact: true }).blur();
+  await expect(page.getByRole("status").filter({ hasText: "Saved" })).toBeVisible();
   const created = (await (await page.request.get(ws(workspaceId, "/leads"))).json()) as { items: { valueMinor: number; title: string }[] };
   expect(created.items).toHaveLength(1); // the first write created the lead
   expect(created.items[0]).toMatchObject({ valueMinor: 250050, title: "Ana Costa" });
 
-  await section.getByLabel("Stage", { exact: true }).selectOption({ label: "Qualified" });
-  await section.getByRole("button", { name: "Update", exact: true }).click();
-  await expect(page.getByRole("status").filter({ hasText: "Saved." })).toHaveCount(2); // the first toast is still on screen
+  await page.getByRole("button", { name: "Set stage to Qualified" }).click();
+  await expect(page.getByRole("button", { name: "Set stage to Qualified" })).toHaveAttribute("aria-current", "step");
   await page.reload();
-  await expect(page.getByLabel("Stage", { exact: true })).toHaveValue(/.+/);
   await expect(page.getByLabel("Value", { exact: true })).toHaveValue("2500.50");
-  await expect(page.getByRole("main").getByText("Qualified").first()).toBeVisible(); // the header and the section both show the stage
+  await expect(page.getByRole("button", { name: "Set stage to Qualified" })).toHaveAttribute("aria-current", "step");
+  await expect(page.locator('main :text-is("Qualified"):visible')).toHaveCount(1); // the stage is shown once, not in a header chip and a form
 
-  await section.getByLabel("Stage", { exact: true }).selectOption({ label: "Lost" });
+  await page.getByRole("button", { name: "Lost", exact: true }).click();
   await page.getByLabel("Why was it lost?").selectOption({ label: "Timing" });
-  await section.getByRole("button", { name: "Update", exact: true }).click();
-  await expect(page.getByRole("status").filter({ hasText: "Saved." })).toHaveCount(1);
+  await page.getByRole("dialog").getByRole("button", { name: "Mark as lost" }).click();
+  await expect(page.getByRole("button", { name: "Lost", exact: true })).toHaveAttribute("aria-pressed", "true");
 
   await page.goto(`/w/${workspaceId}/contacts`);
   await expect(page.getByRole("button", { name: "Stage of Ana Costa: Lost. Change stage" })).toBeVisible();
-  await expect(page.getByText("$2,500.50")).toBeVisible();
+  await expect(page.getByText("$2,500.50").filter({ visible: true })).toBeVisible(); // the table and the phone cards both carry it; one is shown
   await page.getByRole("group", { name: "Filter by stage" }).getByRole("button", { name: /^Lost/ }).click();
   await expect(page.getByRole("link", { name: "Ana Costa" }).first()).toBeVisible();
   await page.getByRole("group", { name: "Filter by stage" }).getByRole("button", { name: /^New/ }).click();
-  await expect(page.getByText("No contacts match these filters")).toBeVisible();
+  await expect(page.getByText("No leads match these filters")).toBeVisible();
   await page.getByRole("button", { name: "Clear filters" }).click();
   await expect(page.getByRole("link", { name: "Ana Costa" }).first()).toBeVisible();
-  await page.getByLabel("Search contacts").fill("zzz");
-  await expect(page.getByText("No contacts match these filters")).toBeVisible();
+  await page.getByLabel("Search leads").fill("zzz");
+  await expect(page.getByText("No leads match these filters")).toBeVisible();
   await page.getByRole("button", { name: "Clear filters" }).click();
   await expect(page.getByRole("link", { name: "Ana Costa" }).first()).toBeVisible();
   expect(contactId).toBeTruthy();
@@ -131,7 +131,7 @@ test("lead value is restricted for agents: not in the page, the API response or 
   expect((await agent.page.request.get(ws(workspaceId, "/contacts?sort=value"))).status()).toBe(403);
 
   await page.goto(`/w/${workspaceId}/contacts`);
-  await expect(page.getByText("$9,876.54")).toBeVisible();
+  await expect(page.getByText("$9,876.54").filter({ visible: true })).toBeVisible();
 });
 
 test("responsive and accessible: contacts, contact and stage settings at 375, 768, 1024 and 1440", async ({ page }) => {

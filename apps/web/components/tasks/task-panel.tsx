@@ -142,7 +142,7 @@ export function TaskPanel({ task, workspaceId, timeZone, members, myUserId, canE
               </Select>
             ) : task.assignee?.name ?? "Unassigned"}
           </Row>
-          <Row label="Contact">
+          <Row label="Lead">
             {task.contact ? <Link href={`/w/${workspaceId}/contacts/${task.contact.id}`} className="inline-flex items-center gap-2 underline-offset-2 hover:underline"><Avatar name={task.contact.name} size="xs" />{task.contact.name}</Link> : <span className="text-fg-subtle">Not linked</span>}
           </Row>
         </div>

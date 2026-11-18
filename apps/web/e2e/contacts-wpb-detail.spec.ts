@@ -1,6 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
-import { api, seedContacts, signUpAndCreate } from "./helpers";
+import { api, seedContacts, signUpAndCreate, openDetails } from "./helpers";
 
 const SIZES = [{ width: 375, height: 812 }, { width: 768, height: 1024 }, { width: 1440, height: 900 }] as const;
 
@@ -9,11 +9,12 @@ test.describe("contact detail (WP-B)", () => {
     const { workspaceId } = await signUpAndCreate(page, "Conf Owner", "Conf Co");
     const [id] = await seedContacts(page, workspaceId, [{ name: "Gus Hall", email: "gus@conf.example", company: "Hall & Co" }]);
     await page.goto(`/w/${workspaceId}/contacts/${id}`);
+    await openDetails(page);
     const current = await (await api(page).get(`/v1/workspaces/${workspaceId}/contacts/${id}`)).json();
     await api(page).patch(`/v1/workspaces/${workspaceId}/contacts/${id}`, { expectedVersion: current.version, name: "Gus Hall Jr" });
     await page.getByLabel("Company").fill("Mine Co");
     await page.getByRole("button", { name: "Save changes" }).click();
-    const alert = page.locator("form").filter({ hasText: "Someone else changed this contact." });
+    const alert = page.locator("form").filter({ hasText: "Someone else changed this lead." });
     await expect(alert).toContainText("They changed: Name");
     await expect(page.getByLabel("Company")).toHaveValue("Mine Co"); // edits are still there
     await alert.getByRole("button", { name: "Apply my changes on top" }).click();
@@ -29,6 +30,7 @@ test.describe("contact detail (WP-B)", () => {
     const { workspaceId } = await signUpAndCreate(page, "Disc Owner", "Disc Co");
     const [id] = await seedContacts(page, workspaceId, [{ name: "Ida Ray", company: "Ray Co" }]);
     await page.goto(`/w/${workspaceId}/contacts/${id}`);
+    await openDetails(page);
     const current = await (await api(page).get(`/v1/workspaces/${workspaceId}/contacts/${id}`)).json();
     await api(page).patch(`/v1/workspaces/${workspaceId}/contacts/${id}`, { expectedVersion: current.version, name: "Ida Ray II" });
     await page.getByLabel("Company").fill("Mine Co");
@@ -42,6 +44,7 @@ test.describe("contact detail (WP-B)", () => {
     const { workspaceId } = await signUpAndCreate(page, "Link Owner", "Link Co");
     const [id] = await seedContacts(page, workspaceId, [{ name: "Ana Costa", email: "ana@links.example", phone: "+1 555 010 2030" }]);
     await page.goto(`/w/${workspaceId}/contacts/${id}`);
+    await openDetails(page);
     await expect(page.getByRole("link", { name: "ana@links.example" })).toHaveAttribute("href", "mailto:ana@links.example");
     await expect(page.getByRole("link", { name: "+1 555 010 2030" })).toHaveAttribute("href", "tel:+15550102030");
     await expect(page.getByRole("link", { name: "Send email" })).toHaveAttribute("href", "mailto:ana@links.example");
@@ -56,6 +59,7 @@ test.describe("contact detail (WP-B)", () => {
     const [id] = await seedContacts(page, workspaceId, [{ name: "Kai Lund" }]);
     for (let i = 0; i < 25; i++) await api(page).post(`/v1/workspaces/${workspaceId}/contacts/${id}/notes`, { body: `seed note ${i}` });
     await page.goto(`/w/${workspaceId}/contacts/${id}`);
+    await openDetails(page);
     const rows = page.getByRole("list").filter({ has: page.locator("time") }).last().getByRole("listitem");
     await page.getByRole("button", { name: "Load older activity" }).click();
     await expect(rows.first()).toBeVisible();
@@ -71,10 +75,12 @@ test.describe("contact detail (WP-B)", () => {
     const { workspaceId } = await signUpAndCreate(page, "Guard Owner", "Guard Co");
     const [id] = await seedContacts(page, workspaceId, [{ name: "Lia Moss" }]);
     await page.goto(`/w/${workspaceId}/contacts/${id}`);
+    await openDetails(page);
     let prompts = 0;
     page.on("dialog", (d) => { prompts++; void d.accept(); });
     await page.reload(); // clean
     expect(prompts).toBe(0);
+    await openDetails(page);
     await page.getByLabel("Company").fill("Dirty Co");
     await page.reload({ waitUntil: "load" });
     expect(prompts).toBe(1);
@@ -95,6 +101,7 @@ test("F7, F15, F22: labelled inputs, 24px targets, distinct note button names, a
   for (const b of ["first note", "second note"]) await api(page).post(`/v1/workspaces/${workspaceId}/contacts/${id}/notes`, { body: b });
   await page.goto(`/w/${workspaceId}/contacts/${id}`);
 
+  await openDetails(page);
   for (const name of ["Add a tag", "Add a note", "New task", "Due", "Assign to"]) {
     await expect(page.getByLabel(name, { exact: true })).toBeVisible();
     await expect(page.locator("label", { hasText: new RegExp(`^${name}$`) })).toBeVisible();

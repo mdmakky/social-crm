@@ -1,5 +1,5 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
-import { addMemberByEmail, CONTACT_NAMES, register, seedContacts, signUpAndCreate } from "./helpers";
+import { addMemberByEmail, CONTACT_NAMES, register, seedContacts, signUpAndCreate, openDetails } from "./helpers";
 
 async function withRoles(browser: Browser, page: Page, workspaceId: string) {
   const make = async (name: string, role: string) => {
@@ -16,32 +16,32 @@ async function withRoles(browser: Browser, page: Page, workspaceId: string) {
 test.describe("contacts list", () => {
   test("empty workspace offers the next steps; adding a contact lands on its detail page", async ({ page }) => {
     const { workspaceId } = await signUpAndCreate(page, "Olive Owner", "Empty Contacts Co");
-    await page.getByRole("link", { name: "Contacts" }).first().click();
-    await expect(page.getByRole("heading", { name: "No contacts yet" })).toBeVisible();
+    await page.getByRole("link", { name: "Leads" }).first().click();
+    await expect(page.getByRole("heading", { name: "No leads yet" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Import a CSV" })).toBeVisible();
-    await page.getByRole("button", { name: "Add contact" }).first().click();
-    const dialog = page.getByRole("dialog", { name: "Add contact" });
-    await dialog.getByRole("button", { name: "Add contact" }).click();
+    await page.getByRole("button", { name: "Add lead" }).first().click();
+    const dialog = page.getByRole("dialog", { name: "Add lead" });
+    await dialog.getByRole("button", { name: "Add lead" }).click();
     await expect(dialog.getByText("Enter a name.")).toBeVisible();
     await dialog.getByLabel("Name").fill("Priya Nair");
     await dialog.getByLabel("Email").fill("priya@example.com");
     await dialog.getByLabel("Phone").fill("+91 98765 43210");
-    await dialog.getByRole("button", { name: "Add contact" }).click();
+    await dialog.getByRole("button", { name: "Add lead" }).click();
     await expect(page).toHaveURL(new RegExp(`/w/${workspaceId}/contacts/[0-9a-f-]{36}$`));
     await expect(page.getByRole("heading", { name: "Priya Nair", level: 1 })).toBeVisible();
-    await expect(page.getByText("Olive Owner created this contact")).toBeVisible();
+    await expect(page.getByText("Olive Owner created this lead")).toBeVisible();
   });
 
   test("a duplicate email is flagged with a link to the existing contact, and can still be created deliberately", async ({ page }) => {
     const { workspaceId } = await signUpAndCreate(page, "Dupe Owner", "Dupes Co");
     await seedContacts(page, workspaceId, [{ name: "Alice Anders", email: "alice@dupe.example" }]);
     await page.goto(`/w/${workspaceId}/contacts`);
-    await page.getByRole("button", { name: "Add contact" }).first().click();
-    const dialog = page.getByRole("dialog", { name: "Add contact" });
+    await page.getByRole("button", { name: "Add lead" }).first().click();
+    const dialog = page.getByRole("dialog", { name: "Add lead" });
     await dialog.getByLabel("Name").fill("Alice Again");
     await dialog.getByLabel("Email").fill("ALICE@dupe.example");
-    await dialog.getByRole("button", { name: "Add contact" }).click();
-    await expect(dialog.getByText("This looks like a contact you already have.")).toBeVisible();
+    await dialog.getByRole("button", { name: "Add lead" }).click();
+    await expect(dialog.getByText("This looks like a lead you already have.")).toBeVisible();
     await expect(dialog.getByRole("link", { name: "Alice Anders" })).toBeVisible();
     await dialog.getByRole("button", { name: "Create anyway" }).click();
     await expect(page.getByRole("heading", { name: "Alice Again", level: 1 })).toBeVisible();
@@ -55,23 +55,25 @@ test.describe("contacts list", () => {
     await page.getByRole("button", { name: "Load more" }).click();
     await expect(page.getByText("Showing 40 of 40")).toBeVisible();
 
-    await page.getByLabel("Search contacts").fill("okafor");
-    await expect(page.getByText("4 contacts match your filters")).toBeVisible();
+    await page.getByLabel("Search leads").fill("okafor");
+    await expect(page.getByText("4 leads match your filters")).toBeVisible();
     await expect(page).toHaveURL(/search=okafor/);
     await page.reload();
-    await expect(page.getByLabel("Search contacts")).toHaveValue("okafor");
-    await expect(page.getByText("4 contacts match your filters")).toBeVisible();
+    await expect(page.getByLabel("Search leads")).toHaveValue("okafor");
+    await expect(page.getByText("4 leads match your filters")).toBeVisible();
 
-    await page.getByLabel("Search contacts").fill("no-such-person");
-    await expect(page.getByRole("heading", { name: "No contacts match these filters" })).toBeVisible();
+    await page.getByLabel("Search leads").fill("no-such-person");
+    await expect(page.getByRole("heading", { name: "No leads match these filters" })).toBeVisible();
     await page.getByRole("button", { name: "Clear filters" }).click();
     await expect(page.getByText("Showing 25 of 40")).toBeVisible();
 
-    await page.getByLabel("Source").selectOption({ label: "Referral" });
-    await expect(page.getByRole("heading", { name: "No contacts match these filters" })).toBeVisible(); // nobody came by referral
+    await page.getByRole("button", { name: "Filters", exact: true }).click();
+    await page.getByRole("menuitemradio", { name: "Referral" }).click();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("heading", { name: "No leads match these filters" })).toBeVisible(); // nobody came by referral
     await page.getByRole("button", { name: "Clear", exact: true }).click();
 
-    const nameHeader = page.getByRole("columnheader", { name: /Contact/ });
+    const nameHeader = page.getByRole("columnheader", { name: /^Lead/ });
     await nameHeader.getByRole("button").click();
     await expect(nameHeader).toHaveAttribute("aria-sort", "ascending");
     await expect(page.getByRole("row").nth(1)).toContainText("Ana Costa 0");
@@ -84,32 +86,32 @@ test.describe("contacts list", () => {
     const { workspaceId } = await signUpAndCreate(page, "Cols Owner", "Columns Co");
     await seedContacts(page, workspaceId, [{ name: "Col Person", email: "col@x.example" }]);
     await page.goto(`/w/${workspaceId}/contacts`);
-    await expect(page.getByRole("columnheader")).toHaveText(["", "Contact", "Stage", "Value", "Owner", "Tags", "Source", "Last activity", "Created"]);
+    await expect(page.getByRole("columnheader")).toHaveText(["", "Lead", "Stage", "Value", "Agent", "Source", "Last activity"]);
     await page.getByRole("button", { name: "Columns", exact: true }).click();
     const dialog = page.getByRole("dialog", { name: "Columns" });
     await dialog.getByRole("listitem").filter({ hasText: "Source" }).getByRole("button", { name: "Hide" }).click();
     // F11: the row's button turns into Show and keeps focus; a status announces the change
     await expect(dialog.getByRole("listitem").filter({ hasText: "Source" }).getByRole("button", { name: "Show" })).toBeFocused();
     await expect(dialog.getByRole("status")).toHaveText("Source hidden");
-    await dialog.getByRole("button", { name: "Move Created up" }).click();
-    await expect(dialog.getByRole("button", { name: "Move Created up" })).toBeFocused();
-    await expect(dialog.getByRole("status")).toHaveText("Created, position 6 of 7");
+    await dialog.getByRole("button", { name: "Move Last activity up" }).click();
+    await expect(dialog.getByRole("button", { name: "Move Last activity up" })).toBeFocused();
+    await expect(dialog.getByRole("status")).toHaveText("Last activity, position 4 of 5");
     await dialog.getByRole("button", { name: "Done" }).click();
-    await expect(page.getByRole("columnheader")).toHaveText(["", "Contact", "Stage", "Value", "Owner", "Tags", "Created", "Last activity"]);
+    await expect(page.getByRole("columnheader")).toHaveText(["", "Lead", "Stage", "Value", "Last activity", "Agent"]);
     await page.reload();
-    await expect(page.getByRole("columnheader")).toHaveText(["", "Contact", "Stage", "Value", "Owner", "Tags", "Created", "Last activity"]);
+    await expect(page.getByRole("columnheader")).toHaveText(["", "Lead", "Stage", "Value", "Last activity", "Agent"]);
     await page.getByRole("button", { name: "Columns", exact: true }).click();
     await page.getByRole("dialog", { name: "Columns" }).getByRole("button", { name: "Reset to default" }).click();
     await page.getByRole("dialog", { name: "Columns" }).getByRole("button", { name: "Done" }).click();
-    await expect(page.getByRole("columnheader")).toHaveCount(9);
+    await expect(page.getByRole("columnheader")).toHaveCount(7);
   });
 
   test("saved views store filters and columns, can be applied and deleted", async ({ page }) => {
     const { workspaceId } = await signUpAndCreate(page, "View Owner", "Views Co");
     await seedContacts(page, workspaceId, [{ name: "Ana Costa", email: "ana@v.example" }, { name: "Ben Okafor", email: "ben@v.example" }]);
     await page.goto(`/w/${workspaceId}/contacts`);
-    await page.getByLabel("Search contacts").fill("ben");
-    await expect(page.getByText("1 contact match your filters")).toBeVisible();
+    await page.getByLabel("Search leads").fill("ben");
+    await expect(page.getByText("1 lead match your filters")).toBeVisible();
     await page.getByRole("button", { name: "Views", exact: true }).click();
     await page.getByRole("menuitem", { name: /Save current view/ }).click();
     const dialog = page.getByRole("dialog", { name: "Save view" });
@@ -121,13 +123,13 @@ test.describe("contacts list", () => {
     await expect(page.getByRole("button", { name: "Just Ben" })).toBeVisible();
 
     await page.getByRole("button", { name: "Clear", exact: true }).click();
-    await expect(page.getByText("2 contacts")).toBeVisible();
+    await expect(page.getByText("2 leads")).toBeVisible();
     await expect(page.getByRole("button", { name: "Views", exact: true })).toBeVisible(); // changing filters leaves the saved view
     await page.getByRole("button", { name: "Views", exact: true }).click();
     await page.getByRole("menuitem", { name: /Just Ben/ }).first().click();
     await expect(page.getByRole("button", { name: "Just Ben" })).toBeVisible();
-    await expect(page.getByLabel("Search contacts")).toHaveValue("ben");
-    await expect(page.getByText("1 contact match your filters")).toBeVisible();
+    await expect(page.getByLabel("Search leads")).toHaveValue("ben");
+    await expect(page.getByText("1 lead match your filters")).toBeVisible();
 
     // F12: rename, update with the current filters, and delete only after confirming
     await page.getByRole("button", { name: "Just Ben" }).click();
@@ -136,15 +138,15 @@ test.describe("contacts list", () => {
     await rename.getByLabel("View name").fill("Only Ben");
     await rename.getByRole("button", { name: "Rename" }).click();
     await expect(page.getByRole("dialog")).toHaveCount(0);
-    await page.getByLabel("Search contacts").fill("ana");
-    await expect(page.getByText("1 contact match your filters")).toBeVisible();
+    await page.getByLabel("Search leads").fill("ana");
+    await expect(page.getByText("1 lead match your filters")).toBeVisible();
     await page.getByRole("button", { name: "Views", exact: true }).click();
     await page.getByRole("menuitem", { name: /Update “Only Ben” with current filters/ }).click();
     await page.getByRole("button", { name: "Clear", exact: true }).click();
-    await expect(page.getByText("2 contacts")).toBeVisible();
+    await expect(page.getByText("2 leads")).toBeVisible();
     await page.getByRole("button", { name: "Views", exact: true }).click();
     await page.getByRole("menuitem", { name: /Only Ben/ }).first().click();
-    await expect(page.getByLabel("Search contacts")).toHaveValue("ana"); // the saved filters were replaced, and the name changed
+    await expect(page.getByLabel("Search leads")).toHaveValue("ana"); // the saved filters were replaced, and the name changed
 
     await page.getByRole("button", { name: "Only Ben" }).click();
     await page.getByRole("menuitem", { name: /Delete “Only Ben”/ }).click();
@@ -175,12 +177,12 @@ test.describe("contacts list", () => {
     await cols.click();
     await page.getByRole("dialog", { name: "Columns" }).getByRole("button", { name: "Reset to default" }).click();
     await page.getByRole("dialog", { name: "Columns" }).getByRole("button", { name: "Done" }).click();
-    await expect(page.getByRole("columnheader")).toHaveCount(9); // personal layout: the eight default columns plus the select column
+    await expect(page.getByRole("columnheader")).toHaveCount(7); // personal layout: the six default columns plus the select column
     await page.getByRole("button", { name: "Views", exact: true }).click();
     await page.getByRole("menuitem", { name: /No source/ }).first().click();
-    await expect(page.getByRole("columnheader")).toHaveCount(8); // the view overlays it (one column fewer)
+    await expect(page.getByRole("columnheader")).toHaveCount(6); // the view overlays it (one column fewer)
     await page.reload();
-    await expect(page.getByRole("columnheader")).toHaveCount(9); // the personal layout is untouched
+    await expect(page.getByRole("columnheader")).toHaveCount(7); // the personal layout is untouched
   });
 });
 
@@ -193,23 +195,26 @@ test.describe("permissions in the UI", () => {
     for (const p of [r.owner, r.admin]) {
       await expect(p.getByRole("link", { name: "Import" })).toBeVisible();
       await expect(p.getByRole("button", { name: "Export" })).toBeVisible(); // a button: it fetches and checks the response before downloading (F2)
-      await expect(p.getByRole("button", { name: "Add contact" }).first()).toBeVisible();
+      await expect(p.getByRole("button", { name: "Add lead" }).first()).toBeVisible();
     }
-    await expect(r.agent.getByRole("button", { name: "Add contact" }).first()).toBeVisible();
+    await expect(r.agent.getByRole("button", { name: "Add lead" }).first()).toBeVisible();
     await expect(r.agent.getByRole("link", { name: "Import" })).toHaveCount(0);
     await expect(r.agent.getByRole("button", { name: "Export" })).toHaveCount(0);
-    for (const k of ["Add contact", "Import", "Export"]) await expect(r.viewer.getByRole(k === "Import" ? "link" : "button", { name: k })).toHaveCount(0);
+    for (const k of ["Add lead", "Import", "Export"]) await expect(r.viewer.getByRole(k === "Import" ? "link" : "button", { name: k })).toHaveCount(0);
 
     await r.viewer.goto(`/w/${workspaceId}/contacts/${id}`);
+
+    await openDetails(r.viewer);
     await expect(r.viewer.getByLabel("Name")).toBeDisabled();
     await expect(r.viewer.getByRole("button", { name: "Save changes" })).toHaveCount(0);
     await expect(r.viewer.getByLabel("Add a note")).toHaveCount(0);
     await expect(r.viewer.getByRole("button", { name: "More actions" })).toHaveCount(0);
     await r.agent.goto(`/w/${workspaceId}/contacts/${id}`);
+    await openDetails(r.agent);
     await expect(r.agent.getByLabel("Name")).toBeEnabled();
     await expect(r.agent.getByRole("button", { name: "More actions" })).toHaveCount(0); // agents cannot delete
     await r.agent.goto(`/w/${workspaceId}/contacts/import`);
-    await expect(r.agent.getByRole("heading", { name: "Only owners and admins can import contacts" })).toBeVisible();
+    await expect(r.agent.getByRole("heading", { name: "Only owners and admins can import leads" })).toBeVisible();
     await r.agent.goto(`/w/${workspaceId}/settings/contacts`);
     await expect(r.agent.getByText("Only owners and admins can change these settings.")).toBeVisible();
     await expect(r.agent.getByRole("button", { name: "Add stage" })).toHaveCount(0);

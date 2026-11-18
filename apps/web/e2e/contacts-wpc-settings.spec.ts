@@ -11,7 +11,7 @@ test.describe("contact settings confirmations", () => {
     await seedContacts(page, workspaceId, [{ name: "In Stage" }]);
     await page.goto(`/w/${workspaceId}/settings/contacts`);
     const stages = stagesPanel(page);
-    const row = stages.getByRole("listitem").filter({ hasText: "1 contact" });
+    const row = stages.getByRole("listitem").filter({ hasText: "1 lead" });
     await row.getByRole("button", { name: "Archive" }).click();
     const dialog = page.getByRole("dialog");
     await expect(dialog).toContainText(/cannot be newly assigned/);
@@ -37,7 +37,7 @@ test.describe("contact settings confirmations", () => {
     await seedContacts(page, workspaceId, [{ name: "In Stage" }]);
     await page.goto(`/w/${workspaceId}/settings/contacts`);
     await page.route("**/lifecycle-stages/*", (r) => r.fulfill(err500));
-    await stagesPanel(page).getByRole("listitem").filter({ hasText: "1 contact" }).getByRole("button", { name: "Archive" }).click();
+    await stagesPanel(page).getByRole("listitem").filter({ hasText: "1 lead" }).getByRole("button", { name: "Archive" }).click();
     await page.getByRole("dialog").getByRole("button", { name: "Archive stage" }).click();
     await expect(page.getByRole("dialog").getByRole("alert")).toContainText("Something went wrong");
   });
@@ -48,7 +48,7 @@ test.describe("contact settings confirmations", () => {
     await page.goto(`/w/${workspaceId}/contacts/${id}`);
     await page.getByLabel("Add a tag").fill("keepme");
     await page.getByRole("button", { name: "Add", exact: true }).click();
-    await expect(page.getByRole("list", { name: "Tags on this contact" }).getByText("keepme")).toBeVisible();
+    await expect(page.getByRole("list", { name: "Tags on this lead" }).getByText("keepme")).toBeVisible();
     await page.goto(`/w/${workspaceId}/settings/contacts`);
     page.on("dialog", () => { throw new Error("native dialog used"); });
     await page.getByRole("button", { name: "Delete tag keepme" }).click();

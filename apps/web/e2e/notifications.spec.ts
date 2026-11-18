@@ -163,7 +163,7 @@ test("preferences: a muted kind creates no notification, toggles persist and are
   await emit(t.workspaceId, "import.completed", "import", "i-2", null, { importedByUserId: t.samId, created: 1, updated: 0, skipped: 0 }); // sentinel processed after the muted event
   await expect.poll(() => countRows(t.workspaceId, t.samId), { timeout: 15_000 }).toBe(1);
   await t.sam.goto(`/w/${t.workspaceId}/notifications`);
-  await expect(t.sam.getByText("Your contact import finished")).toBeVisible();
+  await expect(t.sam.getByText("Your lead import finished")).toBeVisible();
   await expect(t.sam.getByText("Muted task")).toHaveCount(0);
   await t.close();
 });
@@ -184,7 +184,7 @@ test("notification screens hold at 375, 768 and 1440: no overflow, axe clean", a
   await expect.poll(() => countRows(t.workspaceId, t.samId), { timeout: 15_000 }).toBe(3);
   await t.sam.goto(`/w/${t.workspaceId}/notifications`);
   await t.sam.locator("li[data-unread]").first().waitFor();
-  await t.sam.getByRole("button", { name: /Mark as read: Your contact import finished/ }).click(); // a mix of read and unread
+  await t.sam.getByRole("button", { name: /Mark as read: Your lead import finished/ }).click(); // a mix of read and unread
   for (const s of SIZES) {
     await t.sam.setViewportSize({ width: s.width, height: s.height });
     for (const [key, path, heading] of [["inbox", `/w/${t.workspaceId}/notifications`, "Notifications"], ["preferences", `/w/${t.workspaceId}/settings/notifications`, "Notification preferences"]] as const) {
