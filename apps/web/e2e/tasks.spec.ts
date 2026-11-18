@@ -14,7 +14,18 @@ async function seedTask(page: Page, workspaceId: string, body: Record<string, un
   if (r.status() !== 201) throw new Error(`seed task failed: ${r.status()} ${await r.text()}`);
   return (await r.json()) as { id: string; version: number };
 }
-const rowOf = (page: Page, title: string) => page.getByRole("row", { name: new RegExp(title) });
+const list = (page: Page) => page.getByRole("list", { name: "Tasks", exact: true });
+const rows = (page: Page) => list(page).getByRole("button");
+const rowOf = (page: Page, title: string) => rows(page).filter({ hasText: new RegExp(title) });
+const panel = (page: Page) => page.getByRole("region", { name: "Task detail" });
+const openFilters = (page: Page) => page.getByRole("button", { name: /^Filters/ }).click();
+/** Finish the open task in the detail panel: choose "No follow-up" (or a day) and press Mark done. */
+async function finish(page: Page, followUpDay?: number) {
+  const p = panel(page);
+  if (followUpDay === undefined) await p.getByRole("button", { name: /^No follow-up/ }).click();
+  else await p.getByRole("group", { name: "Day" }).getByRole("button").nth(followUpDay).click();
+  await p.getByRole("button", { name: "Mark done" }).click();
+}
 const tab = (page: Page, name: string) => page.getByRole("group", { name: "Task views" }).getByRole("button", { name: new RegExp(`^${name}`) });
 
 test("create, edit, complete, reopen and see the history; the task shows on its contact", async ({ page }) => {
@@ -43,49 +54,52 @@ test("create, edit, complete, reopen and see the history; the task shows on its 
   const row = rowOf(page, "Send the revised quote");
   await expect(row).toContainText("High");
   await expect(row).toContainText("Ana Costa");
-  await expect(row).toContainText("Olive Owner");
   await expect(tab(page, "Open")).toContainText("1");
 
-  // complete with the keyboard, undo, complete again
-  const box = page.getByRole("checkbox", { name: "Mark done: Send the revised quote" });
-  await box.focus();
-  await page.keyboard.press("Space");
+  // open it; the Mark done button waits until you choose what happens next
+  await row.click();
+  const p = panel(page);
+  await expect(p.getByRole("heading", { name: "Send the revised quote" })).toBeVisible();
+  await expect(p.getByLabel("Assignee").locator("option:checked")).toHaveText(/Olive Owner/);
+  await expect(p.getByRole("link", { name: "Ana Costa" })).toHaveAttribute("href", `/w/${workspaceId}/contacts/${contactId}`);
+  await expect(p.getByRole("button", { name: "Mark done" })).toBeDisabled();
+  await p.getByRole("button", { name: /^No follow-up/ }).click();
+  await expect(p.getByRole("button", { name: "Mark done" })).toBeEnabled();
+
+  // complete without a follow-up, undo, complete again with one
+  await p.getByRole("button", { name: "Mark done" }).click();
   await expect(page.getByText("Marked done: Send the revised quote")).toBeVisible();
   await expect(page.getByText("No open tasks")).toBeVisible();
   await page.getByRole("button", { name: "Undo" }).click();
   await expect(page.getByText("Restored: Send the revised quote")).toBeVisible();
   await expect(row).toBeVisible();
-  await page.getByRole("checkbox", { name: "Mark done: Send the revised quote" }).click();
+  await finish(page, 1);
+  await expect(page.getByText(/^Done\. Follow-up set for/)).toBeVisible();
+  await expect(rowOf(page, "Follow up: Send the revised quote")).toContainText("Ana Costa");
   await tab(page, "Completed").click();
   await expect(page).toHaveURL(/view=completed/);
-  await expect(page.getByRole("checkbox", { name: "Reopen: Send the revised quote" })).toBeVisible();
 
-  // detail and history
-  await rowOf(page, "Send the revised quote").getByRole("button", { name: "Send the revised quote", exact: true }).click();
-  const detail = page.getByRole("dialog", { name: "Send the revised quote" });
-  await expect(detail.getByText("Done", { exact: true }).first()).toBeVisible();
-  await expect(detail.getByRole("link", { name: "Ana Costa" })).toHaveAttribute("href", `/w/${workspaceId}/contacts/${contactId}`);
-  const history = detail.getByRole("list", { name: /Task history/ });
+  // history
+  await rowOf(page, "Send the revised quote").click();
+  const history = p.getByRole("list", { name: /Task history/ });
   await expect(history.getByRole("listitem")).toHaveCount(4); // created, completed, reopened, completed
   await expect(history.getByRole("listitem").first()).toContainText("Olive Owner marked the task done");
   await expect(history.getByRole("listitem").last()).toContainText("Olive Owner created the task");
 
-  // reopen from the detail, then edit
-  await detail.getByRole("button", { name: "Reopen" }).click();
+  // reopen from the panel, then edit
+  await p.getByRole("button", { name: "Reopen" }).click();
   await expect(history.getByRole("listitem").first()).toContainText("reopened the task");
-  await detail.getByRole("button", { name: "Edit" }).click();
+  await p.getByRole("button", { name: "Edit" }).click();
   const edit = page.getByRole("dialog", { name: "Edit task" });
   await edit.getByLabel("Title").fill("Send the revised quote and schedule");
   await edit.getByLabel("Status").selectOption("in_progress");
   await edit.getByRole("button", { name: "Save changes" }).click();
   await expect(edit).toBeHidden();
   await tab(page, "Open").click();
-  await expect(rowOf(page, "Send the revised quote and schedule")).toContainText("In progress");
-  await rowOf(page, "Send the revised quote and schedule").getByRole("button", { name: "Send the revised quote and schedule", exact: true }).click();
-  const again = page.getByRole("dialog", { name: "Send the revised quote and schedule" });
-  await expect(again.getByRole("list", { name: /Task history/ })).toContainText("edited the title");
-  await expect(again.getByRole("list", { name: /Task history/ })).toContainText("changed the status from Open to In progress");
-  await page.keyboard.press("Escape");
+  await rowOf(page, "Send the revised quote and schedule").click();
+  await expect(p.getByLabel("Status", { exact: true })).toHaveValue("in_progress");
+  await expect(p.getByRole("list", { name: /Task history/ })).toContainText("edited the title");
+  await expect(p.getByRole("list", { name: /Task history/ })).toContainText("changed the status from Open to In progress");
 
   // the contact page shows the task and its timeline
   await page.goto(`/w/${workspaceId}/contacts/${contactId}`);
@@ -95,10 +109,10 @@ test("create, edit, complete, reopen and see the history; the task shows on its 
 
   // delete
   await page.goto(`/w/${workspaceId}/tasks`);
-  await rowOf(page, "Send the revised quote and schedule").getByRole("button", { name: "Send the revised quote and schedule", exact: true }).click();
-  await page.getByRole("dialog").getByRole("button", { name: "Delete" }).click();
-  await page.getByRole("dialog").getByRole("button", { name: "Delete" }).click();
-  await expect(page.getByText("No open tasks")).toBeVisible();
+  await rowOf(page, "Send the revised quote and schedule").click();
+  await panel(page).getByRole("button", { name: "Delete" }).click();
+  await panel(page).getByRole("button", { name: "Delete" }).click();
+  await expect(rowOf(page, "Send the revised quote and schedule")).toHaveCount(0);
 });
 
 test("a task created on a contact page appears in the workspace list, and a stale edit is caught", async ({ page }) => {
@@ -109,8 +123,8 @@ test("a task created on a contact page appears in the workspace list, and a stal
   await expect(rowOf(page, "Call Ben about the invoice")).toContainText("Ben Okafor");
 
   // someone else edits while this dialog is open
-  await rowOf(page, "Call Ben about the invoice").getByRole("button", { name: "Call Ben about the invoice", exact: true }).click();
-  await page.getByRole("dialog").getByRole("button", { name: "Edit" }).click();
+  await rowOf(page, "Call Ben about the invoice").click();
+  await panel(page).getByRole("button", { name: "Edit" }).click();
   const edit = page.getByRole("dialog", { name: "Edit task" });
   const id = (await (await api(page).get(ws(workspaceId, `/contacts/${contactId}/tasks`))).json())[0].id as string;
   await api(page).patch(ws(workspaceId, `/tasks/${id}`), { priority: "urgent" });
@@ -141,57 +155,58 @@ test("views, counts, filters, sorting, paging and a shareable URL", async ({ pag
   await expect(tab(page, "Upcoming")).toContainText("1");
   await expect(tab(page, "No date")).toContainText("1");
   await expect(tab(page, "Completed")).toContainText("1");
-  await expect(page.getByRole("row")).toHaveCount(4); // header + 3
+  await expect(rows(page)).toHaveCount(3);
 
   // views
   await tab(page, "Overdue").click();
   await expect(rowOf(page, "Chase the late payment")).toContainText("Overdue");
-  await expect(page.getByRole("row")).toHaveCount(2);
+  await expect(rows(page)).toHaveCount(1);
   await tab(page, "Upcoming").click();
   await expect(rowOf(page, "Prepare the renewal deck")).toBeVisible();
-  await expect(page.getByRole("row")).toHaveCount(2);
+  await expect(rows(page)).toHaveCount(1);
   await tab(page, "No date").click();
   await expect(rowOf(page, "Tidy the shared inbox")).toBeVisible();
   await tab(page, "Completed").click();
   await expect(rowOf(page, "Book the venue")).toBeVisible();
-  await expect(page.getByRole("row")).toHaveCount(2);
+  await expect(rows(page)).toHaveCount(1);
   await tab(page, "Open").click();
 
   // filters
+  await openFilters(page);
   await page.getByLabel("Search tasks").fill("renewal");
-  await expect(page.getByRole("row")).toHaveCount(2);
+  await expect(rows(page)).toHaveCount(1);
   await page.getByLabel("Search tasks").fill("");
   await page.getByLabel("Assignee", { exact: true }).selectOption("unassigned");
-  await expect(page.getByRole("row")).toHaveCount(3);
+  await expect(rows(page)).toHaveCount(2);
   await page.getByLabel("Assignee", { exact: true }).selectOption("me");
-  await expect(page.getByRole("row")).toHaveCount(2); // the renewal deck (default assignee: creator)
+  await expect(rows(page)).toHaveCount(1); // the renewal deck (default assignee: creator)
   await expect(rowOf(page, "Prepare the renewal deck")).toBeVisible();
   await page.getByLabel("Assignee", { exact: true }).selectOption("");
   await page.getByLabel("Priority", { exact: true }).selectOption("urgent");
   await expect(rowOf(page, "Chase the late payment")).toBeVisible();
-  await expect(page.getByRole("row")).toHaveCount(2);
+  await expect(rows(page)).toHaveCount(1);
   await page.getByLabel("Priority", { exact: true }).selectOption("");
   await page.getByLabel("Status", { exact: true }).selectOption("any");
-  await expect(page.getByRole("row")).toHaveCount(5);
+  await expect(rows(page)).toHaveCount(4);
   await page.getByLabel("Status", { exact: true }).selectOption("");
   await page.getByLabel("Filter by contact").fill("Ben");
   await page.getByRole("option", { name: /Ben Okafor/ }).click();
-  await expect(page.getByRole("row")).toHaveCount(2);
+  await expect(rows(page)).toHaveCount(1);
   await expect(rowOf(page, "Prepare the renewal deck")).toBeVisible();
   await page.getByRole("button", { name: "Remove contact Ben Okafor" }).click();
   await page.getByLabel("Search tasks").fill("nothing matches this");
   await expect(page.getByText("No tasks match these filters")).toBeVisible();
   await page.getByRole("button", { name: "Clear filters" }).click();
-  await expect(page.getByRole("row")).toHaveCount(4);
+  await expect(rows(page)).toHaveCount(3);
 
   // due range
   await page.getByLabel("Due from").fill(localInput(2).slice(0, 10));
-  await expect(page.getByRole("row")).toHaveCount(2);
+  await expect(rows(page)).toHaveCount(1);
   await expect(rowOf(page, "Prepare the renewal deck")).toBeVisible();
   await page.getByRole("button", { name: "Clear" }).click();
 
   // sorting
-  const titles = () => page.locator("tbody tr td:nth-child(2) > button").allInnerTexts();
+  const titles = () => rows(page).allInnerTexts();
   await page.getByLabel("Sort by").selectOption("priority:desc");
   await expect.poll(async () => (await titles())[0]).toContain("Chase the late payment");
   await page.getByLabel("Sort by").selectOption("priority:asc");
@@ -257,11 +272,11 @@ test("permissions per role: viewers read only, agents change only their own, own
   await viewer.page.goto(`/w/${workspaceId}/tasks`);
   await expect(rowOf(viewer.page, "Assigned to Sam")).toBeVisible();
   await expect(viewer.page.getByRole("button", { name: "New task" })).toHaveCount(0);
-  await expect(viewer.page.getByRole("checkbox", { name: "Mark done: Assigned to Sam" })).toHaveAttribute("aria-disabled", "true");
-  await rowOf(viewer.page, "Assigned to Sam").getByRole("button", { name: "Assigned to Sam", exact: true }).click();
-  const vd = viewer.page.getByRole("dialog", { name: "Assigned to Sam" });
-  await expect(vd.getByText(/You can view this task but not change it/)).toBeVisible();
+  await rowOf(viewer.page, "Assigned to Sam").click();
+  const vd = panel(viewer.page);
+  await expect(vd.getByText(/View only/)).toBeVisible();
   await expect(vd.getByRole("button", { name: "Edit" })).toHaveCount(0);
+  await expect(vd.getByRole("button", { name: "Mark done" })).toHaveCount(0);
   await expect(vd.getByRole("list", { name: /Task history/ })).toBeVisible(); // history is readable
   const id = (await (await api(page).get(ws(workspaceId, "/tasks?search=Assigned"))).json()).items[0].id as string;
   expect((await api(viewer.page).patch(ws(workspaceId, `/tasks/${id}`), { status: "done" })).status()).toBe(403);
@@ -269,31 +284,33 @@ test("permissions per role: viewers read only, agents change only their own, own
   // agent: own task yes, someone else's no
   await agent.page.goto(`/w/${workspaceId}/tasks`);
   await expect(agent.page.getByRole("button", { name: "New task" })).toBeVisible();
-  await expect(agent.page.getByRole("checkbox", { name: "Mark done: Assigned to Sam" })).toHaveAttribute("aria-disabled", "false");
-  await expect(agent.page.getByRole("checkbox", { name: "Mark done: Owner only follow up" })).toHaveAttribute("aria-disabled", "true");
-  await rowOf(agent.page, "Owner only follow up").getByRole("button", { name: "Owner only follow up", exact: true }).click();
-  await expect(agent.page.getByRole("dialog").getByText(/You can view this task but not change it/)).toBeVisible();
-  await agent.page.keyboard.press("Escape");
-  await agent.page.getByRole("checkbox", { name: "Mark done: Assigned to Sam" }).click();
+  await rowOf(agent.page, "Owner only follow up").click();
+  await expect(panel(agent.page).getByText(/View only/)).toBeVisible();
+  await expect(panel(agent.page).getByRole("button", { name: "Mark done" })).toHaveCount(0);
+  await rowOf(agent.page, "Assigned to Sam").click();
+  await expect(panel(agent.page).getByRole("button", { name: "Mark done" })).toBeVisible();
+  await finish(agent.page);
   await expect(agent.page.getByText("Marked done: Assigned to Sam")).toBeVisible();
   await agent.page.getByRole("button", { name: "New task" }).click();
   await agent.page.getByRole("dialog").getByLabel("Title").fill("Sam's own task");
   await agent.page.getByRole("dialog").getByRole("button", { name: "Create task" }).click();
   await expect(rowOf(agent.page, "Sam's own task")).toBeVisible();
-  await expect(rowOf(agent.page, "Sam's own task")).toContainText("Sam Agent");
+  await rowOf(agent.page, "Sam's own task").click();
+  await expect(panel(agent.page).getByLabel("Assignee").locator("option:checked")).toHaveText(/Sam Agent/);
 
   // admin and owner change anything
   await admin.page.goto(`/w/${workspaceId}/tasks`);
-  await expect(admin.page.getByRole("checkbox", { name: "Mark done: Sam's own task" })).toHaveAttribute("aria-disabled", "false");
-  await admin.page.getByRole("checkbox", { name: "Mark done: Sam's own task" }).click();
+  await rowOf(admin.page, "Sam's own task").click();
+  await finish(admin.page);
   await expect(admin.page.getByText("Marked done: Sam's own task")).toBeVisible();
   await page.goto(`/w/${workspaceId}/tasks`);
-  await expect(page.getByRole("checkbox", { name: "Mark done: Owner only follow up" })).toHaveAttribute("aria-disabled", "false");
+  await rowOf(page, "Owner only follow up").click();
+  await expect(panel(page).getByRole("button", { name: "Mark done" })).toBeVisible();
 
   // the history shows who did what
   await tab(page, "Completed").click();
-  await rowOf(page, "Sam's own task").getByRole("button", { name: "Sam's own task", exact: true }).click();
-  const hist = page.getByRole("dialog").getByRole("list", { name: /Task history/ });
+  await rowOf(page, "Sam's own task").click();
+  const hist = panel(page).getByRole("list", { name: /Task history/ });
   await expect(hist).toContainText("Dana Admin marked the task done");
   await expect(hist).toContainText("Sam Agent created the task");
 });

@@ -327,7 +327,7 @@ function NotesPanel({ notes, setNotes, p, role, myUserId, canEdit, timeZone, onC
         {error && <Alert tone="error">{error}</Alert>}
         {canEdit && (
           <form onSubmit={add} className="flex flex-col gap-2">
-            <Field label="Add a note">{(x) => <Textarea {...x} placeholder="Write a note about this contact" value={text} onChange={(e) => setText(e.target.value)} maxLength={5000} />}</Field>
+            <Field label="Add a note">{(x) => <Textarea {...x} voice placeholder="Write a note about this contact" value={text} onChange={(e) => setText(e.target.value)} maxLength={5000} />}</Field>
             <div><Button type="submit" variant="primary" loading={busy}>Add note</Button></div>
           </form>
         )}
@@ -350,7 +350,7 @@ function NotesPanel({ notes, setNotes, p, role, myUserId, canEdit, timeZone, onC
                   </div>
                   {editing?.id === n.id ? (
                     <div className="flex flex-col gap-2">
-                      <Textarea aria-label="Edit note" value={editing.body} onChange={(e) => setEditing({ id: n.id, body: e.target.value })} maxLength={5000} />
+                      <Textarea voice aria-label="Edit note" value={editing.body} onChange={(e) => setEditing({ id: n.id, body: e.target.value })} maxLength={5000} />
                       <div className="flex gap-2"><Button variant="primary" size="sm" onClick={() => void saveEdit()}>Save</Button><Button variant="ghost" size="sm" onClick={() => setEditing(null)}>Cancel</Button></div>
                     </div>
                   ) : <p className="whitespace-pre-wrap break-words text-base text-fg">{n.body}</p>}
