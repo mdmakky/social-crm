@@ -19,7 +19,7 @@ beforeAll(async () => {
   A = await h.workspace(owner, "Contacts A", { admin, agent, agent2, viewer });
   B = await h.workspace(ownerB, "Contacts B");
   alice = await h.contact(as(agent), A, { name: "Alice Anders", email: "alice@a.example", phone: "+1 555 010 0001", company: "Acme" });
-  bob = await h.contact(as(ownerB), B, { name: "Bob Brown", email: "bob@b.example" });
+  bob = await h.contact(as(ownerB), B, { name: "Bob Brown", email: "bob@b.example", phone: "+1 555 010 0002" });
 });
 afterAll(async () => h.close());
 

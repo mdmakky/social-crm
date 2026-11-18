@@ -118,8 +118,9 @@ describe("worker: inbound messages", () => {
     expect(c.last_inbound_at).not.toBeNull();
     const [m] = await q("SELECT direction, sender_kind, delivery_state, body, external_id FROM messages WHERE conversation_id = $1", [c.id]);
     expect(m).toMatchObject({ direction: "in", sender_kind: "contact", delivery_state: "received", body: "Hello from WhatsApp, my email is buyer@example.com", external_id: id });
-    const [ct] = await q("SELECT name, source FROM contacts WHERE id = $1", [c.contact_id]);
+    const [ct] = await q("SELECT name, source, phone, phone_normalized FROM contacts WHERE id = $1", [c.contact_id]);
     expect(ct.source).toBe("whatsapp");
+    expect(ct).toMatchObject({ phone: `+${from}`, phone_normalized: `+${from}` }); // the sender id IS the phone number, so a WhatsApp sender is a lead at once (D311)
     expect(ct.name).toBe(`WhatsApp user ${from.slice(-4)}`); // no platform-provided text is used as a name in this slice
     const [ev] = await q("SELECT status, workspace_id, last_error FROM webhook_events WHERE account_ref = $1", [a.phone]);
     expect(ev).toMatchObject({ status: "processed", workspace_id: ws, last_error: null });

@@ -46,3 +46,13 @@ export function filters(workspaceId: string, userId: string, q: Q): Parsed {
   }
   return { where };
 }
+
+/**
+ * Lead or enquiry (D310). Computed, never stored. A person is a LEAD when they have a phone number (the contact's own phone, or ANY phone contact method: entered, imported,
+ * channel-provided or detected in a conversation) or a live lead row; otherwise an ENQUIRY. Needs the alias `c`; independent of PRIMARY_LEAD_JOIN so every query can use it.
+ */
+// WhatsApp people created before D311 have no stored phone, but their sender id (wa_id) is one: counted here without touching data.
+const HAS_PHONE = sql`(c.phone_normalized IS NOT NULL OR EXISTS (SELECT 1 FROM contact_methods cm WHERE cm.workspace_id = c.workspace_id AND cm.contact_id = c.id AND cm.kind = 'phone')
+  OR EXISTS (SELECT 1 FROM platform_identities pi JOIN integration_accounts ia ON ia.workspace_id = pi.workspace_id AND ia.id = pi.integration_account_id WHERE pi.workspace_id = c.workspace_id AND pi.contact_id = c.id AND ia.platform = 'whatsapp' AND pi.external_user_id ~ '^[0-9]{7,15}$'))`;
+const HAS_LEAD_ROW = sql`EXISTS (SELECT 1 FROM leads l WHERE l.workspace_id = c.workspace_id AND l.primary_contact_id = c.id AND l.deleted_at IS NULL)`;
+export const kindWhere = (kind: "lead" | "enquiry" | "all" | undefined): SQL | null => (kind === "all" ? null : kind === "enquiry" ? sql`NOT (${HAS_PHONE} OR ${HAS_LEAD_ROW})` : sql`(${HAS_PHONE} OR ${HAS_LEAD_ROW})`);

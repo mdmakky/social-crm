@@ -71,7 +71,7 @@ describe("NUL bytes are a 400, never a 500", () => {
   });
   it("in a nested value and in a query string", async () => {
     expect(failure(await o().call(endpoints.createContact, { params: p(), body: { name: "ok", custom: { x: "a\u0000" } as never } })).status).toBe(400);
-    expect(failure(await o().call(endpoints.listContacts, { params: p(), query: { search: "a\u0000b" } })).status).toBe(400);
+    expect(failure(await o().call(endpoints.listContacts, { params: p(), query: { kind: "all", search: "a\u0000b" } })).status).toBe(400);
   });
 });
 
@@ -79,23 +79,23 @@ describe("list cursors and date filters", () => {
   beforeAll(async () => { for (let i = 0; i < 3; i++) await h.contact(o(), W, { name: `List ${i}`, email: `list${i}@hx.example` }); });
   const cursor = (k: string, sort = "lastActivity") => Buffer.from(JSON.stringify({ k, id: "00000000-0000-7000-8000-000000000000", sort, dir: "desc" })).toString("base64url");
   it.each(["garbage", "", "9999-99-99", "infinity", "-infinity", "2024-01-01"])("a tampered cursor key %j is a 400", async (k) => {
-    const e = failure(await o().call(endpoints.listContacts, { params: p(), query: { sort: "lastActivity", dir: "desc", cursor: cursor(k) } }));
+    const e = failure(await o().call(endpoints.listContacts, { params: p(), query: { kind: "all", sort: "lastActivity", dir: "desc", cursor: cursor(k) } }));
     expect(e.status).toBe(400);
   });
   it("a real cursor still pages", async () => {
-    const first = ok(await o().call(endpoints.listContacts, { params: p(), query: { limit: 1, search: "hx.example" } }));
+    const first = ok(await o().call(endpoints.listContacts, { params: p(), query: { kind: "all", limit: 1, search: "hx.example" } }));
     expect(first.nextCursor).toBeTruthy();
-    const second = ok(await o().call(endpoints.listContacts, { params: p(), query: { limit: 1, search: "hx.example", cursor: first.nextCursor! } }));
+    const second = ok(await o().call(endpoints.listContacts, { params: p(), query: { kind: "all", limit: 1, search: "hx.example", cursor: first.nextCursor! } }));
     expect(second.items[0]!.id).not.toBe(first.items[0]!.id);
   });
   it.each(["1", "yesterday", "2024-01-01T00:00:00", "9999-12-31", "+275760-09-13", "1800-01-01", "2024-13-45"])("createdFrom %j is refused with a 400", async (v) => {
-    expect(failure(await o().call(endpoints.listContacts, { params: p(), query: { createdFrom: v } })).status).toBe(400);
-    expect(failure(await o().call(endpoints.listContacts, { params: p(), query: { createdTo: v } })).status).toBe(400);
+    expect(failure(await o().call(endpoints.listContacts, { params: p(), query: { kind: "all", createdFrom: v } })).status).toBe(400);
+    expect(failure(await o().call(endpoints.listContacts, { params: p(), query: { kind: "all", createdTo: v } })).status).toBe(400);
   });
   it("accepts a date, and a date-time with an offset", async () => {
-    expect(ok(await o().call(endpoints.listContacts, { params: p(), query: { createdFrom: "2020-01-01", createdTo: "2100-01-01" } })).total).toBeGreaterThan(0);
-    expect(ok(await o().call(endpoints.listContacts, { params: p(), query: { createdFrom: "2020-01-01T00:00:00.000000+02:00" } })).total).toBeGreaterThan(0);
-    expect(ok(await o().call(endpoints.listContacts, { params: p(), query: { createdTo: "2020-01-01T00:00:00Z" } })).total).toBe(0);
+    expect(ok(await o().call(endpoints.listContacts, { params: p(), query: { kind: "all", createdFrom: "2020-01-01", createdTo: "2100-01-01" } })).total).toBeGreaterThan(0);
+    expect(ok(await o().call(endpoints.listContacts, { params: p(), query: { kind: "all", createdFrom: "2020-01-01T00:00:00.000000+02:00" } })).total).toBeGreaterThan(0);
+    expect(ok(await o().call(endpoints.listContacts, { params: p(), query: { kind: "all", createdTo: "2020-01-01T00:00:00Z" } })).total).toBe(0);
   });
 });
 
@@ -138,7 +138,7 @@ describe("races", () => {
     const res = await Promise.all(Array.from({ length: 10 }, () => o().call(endpoints.createContact, { params: p(), body: { name: "Racer", email: "racer@hx.example" } })));
     expect(res.filter((r) => r.ok)).toHaveLength(1);
     expect(res.filter((r) => !r.ok).every((r) => !r.ok && r.error.code === "duplicate_contact")).toBe(true);
-    expect(ok(await o().call(endpoints.listContacts, { params: p(), query: { search: "racer@hx.example" } })).total).toBe(1);
+    expect(ok(await o().call(endpoints.listContacts, { params: p(), query: { kind: "all", search: "racer@hx.example" } })).total).toBe(1);
   });
   it("parallel add-tag-by-name creates the tag once and never answers 500", async () => {
     const c = await h.contact(o(), W, { name: "Tag Racer", email: "tr@hx.example" });

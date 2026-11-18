@@ -63,8 +63,12 @@ export const ContactSummary = z.object({
   lastActivityAt: iso.nullable(),
   createdAt: iso,
   version: z.number().int(),
+  /** True when the person has no phone number (own or detected) and no lead record (D310). Computed, never stored. */
+  isEnquiry: z.boolean(),
   /** Set by the contact list and GET /contacts/:id/lead; absent elsewhere. null = no lead yet. */
   lead: ContactLead.nullable().optional(),
+  /** Latest conversation; only on the enquiries list, and only for roles who may see the Inbox. */
+  conversation: z.object({ id: uuid, platform: z.string(), preview: z.string().nullable(), previewDirection: z.enum(["in", "out"]).nullable(), lastMessageAt: iso.nullable() }).nullable().optional(),
 });
 export type ContactSummary = z.infer<typeof ContactSummary>;
 export const ContactDetail = ContactSummary.extend({ custom: z.record(z.string(), z.unknown()), updatedAt: iso, openTaskCount: z.number().int() });
@@ -107,6 +111,8 @@ export const ContactListQuery = z.object({
   /** comma-separated tag ids; a contact matches when it has any of them */
   tagIds: z.string().max(400).optional(),
   source: ContactSource.optional(),
+  /** "lead" (default): has a phone number or a lead record. "enquiry": wrote to you but has neither. "all": everyone (pickers, search). */
+  kind: z.enum(["lead", "enquiry", "all"]).optional(),
   createdFrom: z.string().max(40).optional(),
   createdTo: z.string().max(40).optional(),
   sort: z.enum(CONTACT_SORTS).optional(),
@@ -116,12 +122,12 @@ export const ContactListQuery = z.object({
 });
 export type ContactListQuery = z.input<typeof ContactListQuery>;
 /** Same filters as the list, minus stage, paging and sort. Contacts without a lead count under the default pipeline's first stage. */
-export const ContactStageCountsQuery = ContactListQuery.omit({ stageId: true, cursor: true, limit: true, sort: true, dir: true });
+export const ContactStageCountsQuery = ContactListQuery.omit({ stageId: true, kind: true, cursor: true, limit: true, sort: true, dir: true });
 export type ContactStageCountsQuery = z.input<typeof ContactStageCountsQuery>;
-export const ContactStageCounts = z.object({ items: z.array(z.object({ stageId: uuid, count: z.number().int() })), total: z.number().int() });
+export const ContactStageCounts = z.object({ items: z.array(z.object({ stageId: uuid, count: z.number().int() })), total: z.number().int(), /** People under the same filters who have no phone number and no lead record. */ enquiryCount: z.number().int() });
 export type ContactStageCounts = z.infer<typeof ContactStageCounts>;
 /** Leads per owner under the same filters except the owner itself (ownerId null = unassigned); feeds the Agent filter. */
-export const ContactOwnerCountsQuery = ContactStageCountsQuery.omit({ ownerId: true });
+export const ContactOwnerCountsQuery = ContactListQuery.omit({ stageId: true, ownerId: true, cursor: true, limit: true, sort: true, dir: true });
 export const ContactOwnerCounts = z.object({ items: z.array(z.object({ ownerId: z.string().nullable(), count: z.number().int() })) });
 export type ContactOwnerCounts = z.infer<typeof ContactOwnerCounts>;
 export const ContactLeadState = z.object({ lead: ContactLead.nullable() });

@@ -9,7 +9,7 @@ import { purgeContactCapi } from "../capi/enqueue.ts";
 import { deleteAttachmentBlobs } from "../inbox/attachments.ts";
 import { emitEvent } from "../events.ts";
 import { activeMember, activeStages, customDefs, findDuplicates, loadContact, lockContactWrites, recordActivity, toDetail, toFieldDef, toSummaries } from "../crm-service.ts";
-import { filters, type Q } from "../contact-query.ts";
+import { filters, kindWhere, type Q } from "../contact-query.ts";
 import { firstStage, leadsFor, PRIMARY_LEAD_JOIN, Rollback, stageWhere, upsertContactLead, type FirstStage } from "../contact-lead.ts";
 import { WindowCounter } from "../throttle.ts";
 import { leadOps } from "./leads.ts";
@@ -50,7 +50,10 @@ export function contactRoutes(db: Db, hooks: { blobs?: BlobStore } = {}) {
     const needJoin = withStage && (!!q.stageId || sort === "stage" || sort === "value");
     const first = needJoin || !withStage ? await firstStage(tx, workspaceId) : null;
     const where = [...f.where];
-    if (withStage && q.stageId) where.push(stageWhere(String(q.stageId), first));
+    // Leads only by default; the stage counts pass withStage=false and add their own lead/enquiry split.
+    const kind = withStage ? kindWhere(q.kind as "lead" | "enquiry" | "all" | undefined) : kindWhere("lead");
+    if (kind) where.push(kind);
+    if (withStage && q.stageId && q.kind !== "enquiry") where.push(stageWhere(String(q.stageId), first));
     return { where, needJoin, first, sort } as const;
   }
 
@@ -84,7 +87,17 @@ export function contactRoutes(db: Db, hooks: { blobs?: BlobStore } = {}) {
     const byId = new Map(full.map((x) => [x.id, x]));
     const summaries = await toSummaries(tx, workspaceId, pageRows.map((x) => byId.get(x.id)!).filter(Boolean));
     const leads = await leadsFor(tx, c, ops, summaries.map((x) => x.id));
-    const items = summaries.map((x) => ({ ...x, lead: leads.get(x.id) ?? null }));
+    // Enquiries show where they wrote from: latest conversation (Inbox permission needed, like the Inbox itself).
+    const convs = new Map<string, NonNullable<(typeof summaries)[number]["conversation"]>>();
+    if (q.kind === "enquiry" && summaries.length && can(c.get("role"), "conversation.view", {})) {
+      const cr = (await tx.execute(sql`SELECT DISTINCT ON (cv.contact_id) cv.contact_id, cv.id, a.platform, left(lm.body, 120) AS preview, lm.direction AS dir, ${sql.raw(TS("cv.last_message_at"))} AS at
+        FROM conversations cv JOIN integration_accounts a ON a.workspace_id = cv.workspace_id AND a.id = cv.integration_account_id
+        LEFT JOIN LATERAL (SELECT m.body, m.direction FROM messages m WHERE m.workspace_id = cv.workspace_id AND m.conversation_id = cv.id ORDER BY m.seq DESC LIMIT 1) lm ON true
+        WHERE cv.workspace_id = ${workspaceId} AND cv.contact_id IN (${sql.join(summaries.map((x) => sql`${x.id}::uuid`), sql`, `)})
+        ORDER BY cv.contact_id, cv.last_message_at DESC NULLS LAST, cv.id DESC`)).rows as { contact_id: string; id: string; platform: string; preview: string | null; dir: "in" | "out" | null; at: string | null }[];
+      for (const x of cr) convs.set(x.contact_id, { id: x.id, platform: x.platform, preview: x.preview, previewDirection: x.dir, lastMessageAt: x.at });
+    }
+    const items = summaries.map((x) => ({ ...x, lead: leads.get(x.id) ?? null, ...(q.kind === "enquiry" ? { conversation: convs.get(x.id) ?? null } : {}) }));
     const last = pageRows[pageRows.length - 1];
     return { items, total, nextCursor: rows.length > limit && last ? enc({ k: last.k, id: last.id, sort, dir }) : null } as const;
   }
@@ -108,7 +121,9 @@ export function contactRoutes(db: Db, hooks: { blobs?: BlobStore } = {}) {
       if ("forbidden" in lf) return forbidden(c);
       // Same lateral join and same where as the list, so the numbers add up to the list's totals. No lead counts under the default pipeline's first stage.
       const rows = (await tx.execute(sql`SELECT ${lf.first ? sql`coalesce(pl.stage_id, ${lf.first.id}::uuid)` : sql`pl.stage_id`} AS stage_id, count(*)::int AS n FROM contacts c ${PRIMARY_LEAD_JOIN} WHERE ${sql.join(lf.where, sql` AND `)} GROUP BY 1`)).rows as { stage_id: string | null; n: number }[];
-      return c.json({ items: rows.filter((x) => x.stage_id).map((x) => ({ stageId: x.stage_id!, count: x.n })), total: rows.reduce((t, x) => t + x.n, 0) });
+      const f = filters(wctx(c).workspaceId, wctx(c).userId, q.data as Q);
+      const enquiryCount = ((await tx.execute(sql`SELECT count(*)::int AS n FROM contacts c WHERE ${sql.join([...f.where, kindWhere("enquiry")!], sql` AND `)}`)).rows[0] as { n: number }).n;
+      return c.json({ items: rows.filter((x) => x.stage_id).map((x) => ({ stageId: x.stage_id!, count: x.n })), total: rows.reduce((t, x) => t + x.n, 0), enquiryCount });
     });
   });
 
@@ -119,7 +134,8 @@ export function contactRoutes(db: Db, hooks: { blobs?: BlobStore } = {}) {
       const { workspaceId, userId } = wctx(c);
       const f = filters(workspaceId, userId, q.data as Q);
       if (f.error) return fail(c, 400, "invalid_query", f.error);
-      const rows = (await tx.execute(sql`SELECT c.owner_user_id AS owner_id, count(*)::int AS n FROM contacts c WHERE ${sql.join(f.where, sql` AND `)} GROUP BY 1`)).rows as { owner_id: string | null; n: number }[];
+      const kind = kindWhere(q.data.kind);
+      const rows = (await tx.execute(sql`SELECT c.owner_user_id AS owner_id, count(*)::int AS n FROM contacts c WHERE ${sql.join(kind ? [...f.where, kind] : f.where, sql` AND `)} GROUP BY 1`)).rows as { owner_id: string | null; n: number }[];
       return c.json({ items: rows.map((x) => ({ ownerId: x.owner_id, count: x.n })) });
     });
   });
@@ -177,8 +193,10 @@ export function contactRoutes(db: Db, hooks: { blobs?: BlobStore } = {}) {
     return withContext(db, wctx(c), async (tx) => {
       const f = filters(workspaceId, userId, q.data as Q);
       if (f.error) return fail(c, 400, "invalid_query", f.error);
-      const stageId = q.data.stageId;
+      const stageId = q.data.kind === "enquiry" ? undefined : q.data.stageId;
       const from = stageId ? sql`contacts c ${PRIMARY_LEAD_JOIN}` : sql`contacts c`;
+      const kind = kindWhere(q.data.kind);
+      if (kind) f.where.push(kind);
       if (stageId) f.where.push(stageWhere(stageId, await firstStage(tx, workspaceId)));
       const total = ((await tx.execute(sql`SELECT count(*)::int AS n FROM ${from} WHERE ${sql.join(f.where, sql` AND `)}`)).rows[0] as { n: number }).n;
       if (total > EXPORT_LIMIT) return fail(c, 413, "too_many_rows", `Export up to ${EXPORT_LIMIT} contacts at a time. Narrow the filters.`);
