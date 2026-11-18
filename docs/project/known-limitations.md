@@ -296,3 +296,11 @@ Updated: 2026-11-13 (Phase 0).
 - UI restructure only. Knowledge is still workspace-wide: per-agent knowledge scoping from the demo options B and C is not built.
 - The old component files still live in `settings/ai-agents/`, `settings/knowledge/` and `settings/automations/`; only their pages moved. A later cleanup can move them.
 - The status strip and Overview read several endpoints in parallel; each failing one shows a gap, not an error page.
+
+## Enquiries (2026-11-18, branch `feat/enquiries`)
+- Detected numbers count at once and without a confidence threshold. False positives are possible: order or reference numbers written like a Bangladeshi mobile (01XXXXXXXXX with 11 digits), a number a person gives for someone else, or a +CC number inside a pasted text. Such a person leaves Enquiries and shows in Leads, New. An agent can correct or delete a detected number on the lead page; if it was the only phone, the person goes back to Enquiries. A bare foreign number without +CC or 00CC is not detected, so that person stays an enquiry until an agent adds it.
+- Enquiries have no stage, value or Won/Lost. Setting a stage, value or owner on one (for example from the Inbox Stage control) creates a lead row and makes them a lead without a phone, on purpose.
+- Promotion to a lead does not fire CAPI (`lead_created`), automations or lead notifications: no lead row is written (D313). A rule that should run when someone gives a number does not exist and was not added.
+- On release, every existing person without a phone moves from Leads to Enquiries in the UI (no data touched). WhatsApp people created before D311 count as leads through their WhatsApp identity but show no number.
+- Settings per-stage and per-tag counts still count everyone and say "leads". The Inbox does not show an Enquiry badge. Bulk actions on enquiries: only export (no bulk stage change, no bulk delete). Saved views do not remember the Enquiries tab.
+- The WhatsApp id to phone rule is checked on mock data only; a BSUID-only (username) sender stays an enquiry.

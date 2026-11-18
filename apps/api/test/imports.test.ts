@@ -13,7 +13,7 @@ const p = () => ({ workspaceId: W });
 const MAP: ImportPlanBody["mapping"] = ["name", "email", "phone", "company", "lifecycle_stage", "owner_email", "tags"];
 const header = "Name,Email,Phone,Company,Stage,Owner,Tags";
 const upload = async (csv: string, u: TestUser = owner) => ok(await h.clientFor(u).call(endpoints.uploadImport, { params: p(), body: { filename: "people.csv", csv } }));
-const count = async () => ok(await o().call(endpoints.listContacts, { params: p(), query: { limit: 1 } })).total;
+const count = async () => ok(await o().call(endpoints.listContacts, { params: p(), query: { kind: "all", limit: 1 } })).total;
 const plan = (over: Partial<ImportPlanBody> = {}): ImportPlanBody => ({ mapping: MAP, onDuplicate: "skip", ...over });
 
 beforeAll(async () => {
@@ -92,7 +92,7 @@ describe("commit", () => {
     const mapping = [...MAP, "custom:budget"] as ImportPlanBody["mapping"];
     const res = ok(await o().call(endpoints.commitImport, { params: { ...p(), importId: up.id }, body: plan({ mapping }) }));
     expect(res).toMatchObject({ created: 2, updated: 0, skipped: 0 });
-    const mia = ok(await o().call(endpoints.listContacts, { params: p(), query: { search: "mia@i.example" } })).items[0]!;
+    const mia = ok(await o().call(endpoints.listContacts, { params: p(), query: { kind: "all", search: "mia@i.example" } })).items[0]!;
     expect(mia).toMatchObject({ name: "Mia Import", lifecycleStage: { name: "Qualified" }, owner: { id: agent.id }, source: "import" });
     expect(mia.tags.map((t) => t.name).sort()).toEqual(["vip", "wholesale"]);
     const detail = ok(await o().call(endpoints.getContact, { params: { ...p(), contactId: mia.id } }));
@@ -105,11 +105,11 @@ describe("commit", () => {
     const csv = [header, "Erin Updated,erin@exist.example,,NewCo,Customer,,loyal"].join("\n");
     const skip = await upload(csv);
     expect(ok(await o().call(endpoints.commitImport, { params: { ...p(), importId: skip.id }, body: plan({ onDuplicate: "skip" }) }))).toMatchObject({ created: 0, updated: 0, skipped: 1 });
-    expect(ok(await o().call(endpoints.listContacts, { params: p(), query: { search: "erin@exist" } })).items[0]!.company).toBe("OldCo");
+    expect(ok(await o().call(endpoints.listContacts, { params: p(), query: { kind: "all", search: "erin@exist" } })).items[0]!.company).toBe("OldCo");
 
     const upd = await upload(csv);
     expect(ok(await o().call(endpoints.commitImport, { params: { ...p(), importId: upd.id }, body: plan({ onDuplicate: "update" }) }))).toMatchObject({ created: 0, updated: 1, skipped: 0 });
-    const erin = ok(await o().call(endpoints.listContacts, { params: p(), query: { search: "erin@exist" } })).items;
+    const erin = ok(await o().call(endpoints.listContacts, { params: p(), query: { kind: "all", search: "erin@exist" } })).items;
     expect(erin).toHaveLength(1);
     expect(erin[0]).toMatchObject({ company: "NewCo", name: "Erin Updated" });
     expect(erin[0]!.tags.map((t) => t.name)).toContain("loyal");
@@ -117,12 +117,12 @@ describe("commit", () => {
 
     const dupe = await upload(csv);
     expect(ok(await o().call(endpoints.commitImport, { params: { ...p(), importId: dupe.id }, body: plan({ onDuplicate: "create" }) }))).toMatchObject({ created: 1 });
-    expect(ok(await o().call(endpoints.listContacts, { params: p(), query: { search: "erin@exist" } })).total).toBe(2);
+    expect(ok(await o().call(endpoints.listContacts, { params: p(), query: { kind: "all", search: "erin@exist" } })).total).toBe(2);
   });
   it("a duplicate inside the file can be merged into the row that created it", async () => {
     const up = await upload([header, "Pat First,pat@i.example,,PatCo,,,", "Pat Second,pat@i.example,,PatCo Two,,,"].join("\n"));
     expect(ok(await o().call(endpoints.commitImport, { params: { ...p(), importId: up.id }, body: plan({ onDuplicate: "update" }) }))).toMatchObject({ created: 1, updated: 1 });
-    const pat = ok(await o().call(endpoints.listContacts, { params: p(), query: { search: "pat@i.example" } })).items;
+    const pat = ok(await o().call(endpoints.listContacts, { params: p(), query: { kind: "all", search: "pat@i.example" } })).items;
     expect(pat).toHaveLength(1);
     expect(pat[0]).toMatchObject({ company: "PatCo Two", name: "Pat Second" });
   });
@@ -142,7 +142,7 @@ describe("commit", () => {
     failAtRow = 0;
     expect(e).toMatchObject({ status: 500, code: "import_failed" });
     expect(await count()).toBe(before); // rows 1 and 2 were rolled back
-    expect(ok(await o().call(endpoints.listContacts, { params: p(), query: { search: "r1@i.example" } })).items).toEqual([]);
+    expect(ok(await o().call(endpoints.listContacts, { params: p(), query: { kind: "all", search: "r1@i.example" } })).items).toEqual([]);
     const tags = ok(await o().call(endpoints.listTags, { params: p() }));
     expect(tags.every((t) => t.name !== "never-committed")).toBe(true);
     // not marked committed: retry succeeds
@@ -154,7 +154,7 @@ describe("commit", () => {
     expect([a.ok, b.ok].filter(Boolean)).toHaveLength(1);
     const loser = a.ok ? b : a;
     expect(failure(loser).code).toBe("already_committed");
-    expect(ok(await o().call(endpoints.listContacts, { params: p(), query: { search: "once@i.example" } })).total).toBe(1);
+    expect(ok(await o().call(endpoints.listContacts, { params: p(), query: { kind: "all", search: "once@i.example" } })).total).toBe(1);
     expect(failure(await o().call(endpoints.previewImport, { params: { ...p(), importId: up.id }, body: plan() })).code).toBe("already_committed");
   });
   it("another workspace cannot see or commit this import", async () => {
@@ -170,7 +170,7 @@ describe("export", () => {
   it("exports the filtered set with custom fields, neutralises formula injection, and is audited", async () => {
     const evil = await h.contact(o(), W, { name: "=HYPERLINK(\"http://evil\",\"x\")", email: "evil@i.example", company: "+cmd|' /C calc'!A0", custom: { budget: 5 } });
     expect(evil.id).toBeTruthy();
-    const csv = ok(await o().call(endpoints.exportContacts, { params: p(), query: { search: "evil@i.example" } }));
+    const csv = ok(await o().call(endpoints.exportContacts, { params: p(), query: { kind: "all", search: "evil@i.example" } }));
     const parsed = parseCsv(csv);
     expect(parsed.headers).toEqual(["Name", "Email", "Phone", "Company", "Lifecycle stage", "Owner email", "Tags", "Source", "Last activity", "Created", "Budget"]);
     expect(parsed.rows).toHaveLength(1);
@@ -183,7 +183,7 @@ describe("export", () => {
     expect(audit.items.some((i) => i.action === "data.exported" && (i.summary as { count: number }).count === 1)).toBe(true);
   });
   it("round-trips: an export can be re-imported without duplicates being created when skipping", async () => {
-    const csv = ok(await o().call(endpoints.exportContacts, { params: p(), query: { search: "mia@i.example" } }));
+    const csv = ok(await o().call(endpoints.exportContacts, { params: p(), query: { kind: "all", search: "mia@i.example" } }));
     const up = await upload(csv);
     const pv = ok(await o().call(endpoints.previewImport, { params: { ...p(), importId: up.id }, body: plan({ mapping: up.suggestedMapping as ImportPlanBody["mapping"] }) }));
     expect(JSON.stringify(pv.errors)).toBe("[]");

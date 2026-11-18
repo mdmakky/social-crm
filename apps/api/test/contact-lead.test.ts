@@ -16,7 +16,7 @@ const open = () => pipe.stages.filter((s) => s.kind === "open");
 const won = () => pipe.stages.find((s) => s.kind === "won")!;
 const lost = () => pipe.stages.find((s) => s.kind === "lost")!;
 let seq = 0;
-const mk = (name: string, ws = A, u = owner) => h.contact(as(u), ws, { name, email: `cl${seq++}-${Date.now()}@example.com` });
+const mk = (name: string, ws = A, u = owner) => h.contact(as(u), ws, { name, email: `cl${seq}-${Date.now()}@example.com`, phone: `+8801700${String(seq++).padStart(6, "0")}` }); // a phone makes the person a lead (D310)
 const put = (c: { id: string }, body: Record<string, unknown>, u = owner, ws = A) => as(u).call(endpoints.putContactLead, { params: { workspaceId: ws, contactId: c.id }, body: body as never });
 const list = async (query: Record<string, unknown> = {}, u = owner, ws = A) => ok(await as(u).call(endpoints.listContacts, { params: { workspaceId: ws }, query: { limit: 100, ...query } as never }));
 const counts = async (query: Record<string, unknown> = {}, u = owner, ws = A) => ok(await as(u).call(endpoints.contactStageCounts, { params: { workspaceId: ws }, query: query as never }));

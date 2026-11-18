@@ -6,7 +6,7 @@ import { ContactsView } from "./contacts-view";
 
 export const metadata: Metadata = { title: "Leads" };
 
-const FILTER_KEYS = ["search", "lifecycleStageId", "stageId", "ownerId", "tagIds", "source", "createdFrom", "sort", "dir"] as const;
+const FILTER_KEYS = ["kind", "search", "lifecycleStageId", "stageId", "ownerId", "tagIds", "source", "createdFrom", "sort", "dir"] as const;
 
 export default async function ContactsPage({ params, searchParams }: { params: Promise<{ workspaceId: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const { workspaceId } = await params;
@@ -18,7 +18,7 @@ export default async function ContactsPage({ params, searchParams }: { params: P
 
   const api = await serverApi();
   const p = { workspaceId };
-  const { stageId: _s, sort: _o, dir: _d, cursor: _c, limit: _l, ...shared } = query;
+  const { stageId: _s, kind: _k, sort: _o, dir: _d, cursor: _c, limit: _l, ...shared } = query;
   const [ws, me, first, stages, tags, members, views, fields, pipelines, counts] = await Promise.all([
     api.call(endpoints.getWorkspace, { params: p }),
     api.call(endpoints.me),

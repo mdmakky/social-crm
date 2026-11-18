@@ -23,7 +23,7 @@ export function ContactPicker({ id, workspaceId, value, onChange, describedBy, i
     const mine = ++seq.current;
     const t = setTimeout(async () => {
       setState("loading");
-      const r = await browserApi.call(endpoints.listContacts, { params: { workspaceId }, query: { search: text.trim() || undefined, limit: 8 } });
+      const r = await browserApi.call(endpoints.listContacts, { params: { workspaceId }, query: { search: text.trim() || undefined, kind: "all", limit: 8 } });
       if (mine !== seq.current) return;
       if (!r.ok) return setState("error");
       setOptions(r.data.items.map((c) => ({ id: c.id, name: c.name, detail: c.email ?? c.phone ?? c.company })));

@@ -131,7 +131,7 @@ test.describe.serial("leads on phones", () => {
     await expect(page.getByRole("list", { name: "Leads" }).getByRole("listitem")).toHaveCount(4);
     await expect(page.getByRole("button", { name: "Filters, 1 on" })).toBeVisible();
     await expect(page).toHaveURL(/ownerId=/);
-    await expect(page.getByText("4 leads match your filters")).toBeVisible();
+    await expect(page.getByText(/^4 leads? · \d+ enquir(y|ies) match your filters/)).toBeVisible();
     await page.getByRole("button", { name: "Filters, 1 on" }).click();
     await page.getByRole("dialog", { name: "Filters" }).getByRole("button", { name: "Clear" }).click();
     await expect(page.getByRole("button", { name: "Filters", exact: true })).toBeVisible();

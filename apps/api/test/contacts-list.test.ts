@@ -124,7 +124,9 @@ describe("filters", () => {
   });
   it("by owner: me, unassigned, and a specific member", async () => {
     expect((await list({ ownerId: "me" })).total).toBe(20);
-    expect((await list({ ownerId: "unassigned" })).total).toBe(21); // 20 seeded plus "Late Arrival" from the pagination test
+    // 20 seeded leads. "Late Arrival" (pagination test) has no phone, so it is an enquiry (D310) and only shows with kind "all" (21).
+    expect((await list({ ownerId: "unassigned" })).total).toBe(20);
+    expect((await list({ ownerId: "unassigned", kind: "all" })).total).toBe(21);
     expect((await list({ ownerId: agent.id })).total).toBe(20);
   });
   it("by tag: any of several tags", async () => {
@@ -135,7 +137,8 @@ describe("filters", () => {
   it("by source and by created range (a plain end date includes that whole day)", async () => {
     expect((await list({ source: "messenger" })).total).toBe(30);
     const today = new Date().toISOString().slice(0, 10);
-    expect((await list({ createdFrom: today, createdTo: today })).total).toBe(61);
+    expect((await list({ createdFrom: today, createdTo: today })).total).toBe(60); // 60 leads; the phone-less "Late Arrival" is an enquiry (D310)
+    expect((await list({ createdFrom: today, createdTo: today, kind: "all" })).total).toBe(61);
     expect((await list({ createdTo: "2000-01-01" })).total).toBe(0);
     expect(failure(await c().call(endpoints.listContacts, { params: { workspaceId: W }, query: { createdFrom: "yesterday-ish" } })).status).toBe(400);
   });

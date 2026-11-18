@@ -43,7 +43,7 @@ test.beforeAll(async ({ browser }) => {
   const ids: string[] = [];
   for (let i = 0; i < TOTAL; i += 10) {
     const batch = await Promise.all(Array.from({ length: Math.min(10, TOTAL - i) }, async (_, k) => {
-      const r = await api(owner.page).post(ws(workspaceId, "/contacts"), { name: `Scale contact ${String(i + k).padStart(3, "0")}` });
+      const r = await api(owner.page).post(ws(workspaceId, "/contacts"), { name: `Scale contact ${String(i + k).padStart(3, "0")}`, phone: `+8801700${String(i + k).padStart(6, "0")}` });
       if (r.status() !== 201) throw new Error(`seed contact failed: ${r.status()} ${await r.text()}`);
       return (await r.json()).id as string;
     }));

@@ -59,12 +59,13 @@ export const api = (page: Page) => ({
   get: async (path: string) => page.request.get(path),
 });
 
-/** Creates contacts through the API so list tests do not depend on typing into forms. */
-export async function seedContacts(page: Page, workspaceId: string, people: { name: string; email?: string; phone?: string; company?: string }[]) {
+let seedPhone = Math.floor(Math.random() * 1e5) * 1000;
+/** Creates contacts through the API so list tests do not depend on typing into forms. A person without a phone is an ENQUIRY (D310), so seeded people get a unique phone unless one is given; pass phone: null to seed an enquiry. */
+export async function seedContacts(page: Page, workspaceId: string, people: { name: string; email?: string; phone?: string | null; company?: string }[]) {
   const a = api(page);
   const ids: string[] = [];
   for (const p of people) {
-    const res = await a.post(`/v1/workspaces/${workspaceId}/contacts`, p);
+    const res = await a.post(`/v1/workspaces/${workspaceId}/contacts`, { ...p, phone: p.phone === undefined ? `+88017${String(++seedPhone).padStart(8, "0")}` : p.phone });
     if (res.status() !== 201) throw new Error(`seed failed: ${res.status()} ${await res.text()}`);
     ids.push((await res.json()).id);
   }

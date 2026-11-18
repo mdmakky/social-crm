@@ -210,6 +210,9 @@ async function ensureConversation(tx: Tx, ctx: Ctx, userId: string, profileName:
     const contact = rowsOf(
       await tx.execute(sql`INSERT INTO contacts (workspace_id, name, lifecycle_stage_id, source) VALUES (${ctx.workspaceId}, ${profileName ?? `${label} user ${userId.slice(-4)}`}, ${stage.id}, ${ctx.platform}) RETURNING id`),
     )[0]!;
+    // WhatsApp: the sender id (wa_id) IS the phone number, so the person is a lead at once (D311). A BSUID-only sender (not 7-15 digits) stays an enquiry.
+    const wa = ctx.platform === "whatsapp" && /^\d{7,15}$/.test(userId) ? `+${userId}` : null;
+    if (wa) await tx.execute(sql`UPDATE contacts SET phone = ${wa}, phone_normalized = ${wa} WHERE workspace_id = ${ctx.workspaceId} AND id = ${contact.id as string} AND phone IS NULL AND phone_normalized IS NULL`);
     identity = rowsOf(
       await tx.execute(sql`INSERT INTO platform_identities (workspace_id, integration_account_id, external_user_id, contact_id, profile_name) VALUES (${ctx.workspaceId}, ${ctx.accountId}, ${userId}, ${contact.id}, ${profileName}) RETURNING id, contact_id`),
     )[0]!;

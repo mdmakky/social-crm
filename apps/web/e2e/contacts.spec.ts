@@ -40,6 +40,7 @@ test.describe("contacts list", () => {
     const dialog = page.getByRole("dialog", { name: "Add lead" });
     await dialog.getByLabel("Name").fill("Alice Again");
     await dialog.getByLabel("Email").fill("ALICE@dupe.example");
+    await dialog.getByLabel("Phone").fill("01711000111"); // a phone makes it a lead (D310); without one it would be saved as an enquiry
     await dialog.getByRole("button", { name: "Add lead" }).click();
     await expect(dialog.getByText("This looks like a lead you already have.")).toBeVisible();
     await expect(dialog.getByRole("link", { name: "Alice Anders" })).toBeVisible();
@@ -56,11 +57,11 @@ test.describe("contacts list", () => {
     await expect(page.getByText("Showing 40 of 40")).toBeVisible();
 
     await page.getByLabel("Search leads").fill("okafor");
-    await expect(page.getByText("4 leads match your filters")).toBeVisible();
+    await expect(page.getByText(/^4 leads? · \d+ enquir(y|ies) match your filters/)).toBeVisible();
     await expect(page).toHaveURL(/search=okafor/);
     await page.reload();
     await expect(page.getByLabel("Search leads")).toHaveValue("okafor");
-    await expect(page.getByText("4 leads match your filters")).toBeVisible();
+    await expect(page.getByText(/^4 leads? · \d+ enquir(y|ies) match your filters/)).toBeVisible();
 
     await page.getByLabel("Search leads").fill("no-such-person");
     await expect(page.getByRole("heading", { name: "No leads match these filters" })).toBeVisible();
@@ -111,7 +112,7 @@ test.describe("contacts list", () => {
     await seedContacts(page, workspaceId, [{ name: "Ana Costa", email: "ana@v.example" }, { name: "Ben Okafor", email: "ben@v.example" }]);
     await page.goto(`/w/${workspaceId}/contacts`);
     await page.getByLabel("Search leads").fill("ben");
-    await expect(page.getByText("1 lead match your filters")).toBeVisible();
+    await expect(page.getByText(/^1 leads? · \d+ enquir(y|ies) match your filters/)).toBeVisible();
     await page.getByRole("button", { name: "Views", exact: true }).click();
     await page.getByRole("menuitem", { name: /Save current view/ }).click();
     const dialog = page.getByRole("dialog", { name: "Save view" });
@@ -129,7 +130,7 @@ test.describe("contacts list", () => {
     await page.getByRole("menuitem", { name: /Just Ben/ }).first().click();
     await expect(page.getByRole("button", { name: "Just Ben" })).toBeVisible();
     await expect(page.getByLabel("Search leads")).toHaveValue("ben");
-    await expect(page.getByText("1 lead match your filters")).toBeVisible();
+    await expect(page.getByText(/^1 leads? · \d+ enquir(y|ies) match your filters/)).toBeVisible();
 
     // F12: rename, update with the current filters, and delete only after confirming
     await page.getByRole("button", { name: "Just Ben" }).click();
@@ -139,7 +140,7 @@ test.describe("contacts list", () => {
     await rename.getByRole("button", { name: "Rename" }).click();
     await expect(page.getByRole("dialog")).toHaveCount(0);
     await page.getByLabel("Search leads").fill("ana");
-    await expect(page.getByText("1 lead match your filters")).toBeVisible();
+    await expect(page.getByText(/^1 leads? · \d+ enquir(y|ies) match your filters/)).toBeVisible();
     await page.getByRole("button", { name: "Views", exact: true }).click();
     await page.getByRole("menuitem", { name: /Update “Only Ben” with current filters/ }).click();
     await page.getByRole("button", { name: "Clear", exact: true }).click();

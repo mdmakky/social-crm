@@ -2,6 +2,7 @@ import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
 import type { ContactDetail, ContactSummary, DuplicateCandidate } from "@crm/contracts";
 import { normalizeEmail, normalizePhone, type CustomFieldDef } from "@crm/core";
 import { schema, user, type Tx } from "@crm/db";
+import { kindWhere } from "./contact-query.ts";
 
 export const DEFAULT_STAGES = ["New", "Engaged", "Qualified", "Customer", "Inactive"];
 
@@ -66,7 +67,7 @@ export async function toSummaries(tx: Tx, workspaceId: string, rows: Row[]): Pro
   const ids = rows.map((r) => r.id);
   const stageIds = Array.from(new Set(rows.map((r) => r.lifecycleStageId)));
   const ownerIds = Array.from(new Set(rows.map((r) => r.ownerUserId).filter((x): x is string => !!x)));
-  const [stages, owners, tagRows] = await Promise.all([
+  const [stages, owners, tagRows, enq] = await Promise.all([
     tx.select({ id: schema.lifecycleStages.id, name: schema.lifecycleStages.name }).from(schema.lifecycleStages).where(and(eq(schema.lifecycleStages.workspaceId, workspaceId), inArray(schema.lifecycleStages.id, stageIds))),
     ownerIds.length ? tx.select({ id: user.id, name: user.name }).from(user).where(inArray(user.id, ownerIds)) : Promise.resolve([] as { id: string; name: string }[]),
     tx
@@ -75,7 +76,9 @@ export async function toSummaries(tx: Tx, workspaceId: string, rows: Row[]): Pro
       .innerJoin(schema.tags, and(eq(schema.tags.workspaceId, schema.contactTags.workspaceId), eq(schema.tags.id, schema.contactTags.tagId)))
       .where(and(eq(schema.contactTags.workspaceId, workspaceId), inArray(schema.contactTags.contactId, ids)))
       .orderBy(asc(schema.tags.name)),
+    tx.execute(sql`SELECT c.id FROM contacts c WHERE c.workspace_id = ${workspaceId} AND c.id IN (${sql.join(ids.map((i) => sql`${i}::uuid`), sql`, `)}) AND ${kindWhere("enquiry")}`),
   ]);
+  const enquiries = new Set((enq.rows as { id: string }[]).map((x) => x.id));
   const stageBy = new Map(stages.map((s) => [s.id, s]));
   const ownerBy = new Map(owners.map((o) => [o.id, o]));
   return rows.map((r) => ({
@@ -91,6 +94,7 @@ export async function toSummaries(tx: Tx, workspaceId: string, rows: Row[]): Pro
     lastActivityAt: (r.lastActivityAt ?? r.createdAt).toISOString(),
     createdAt: r.createdAt.toISOString(),
     version: r.version,
+    isEnquiry: enquiries.has(r.id),
   }));
 }
 

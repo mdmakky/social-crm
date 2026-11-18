@@ -46,7 +46,7 @@ function Inner({ workspaceId }: { workspaceId: string }) {
   const load = React.useCallback(async () => {
     const [l, t, p, c] = await Promise.all([
       browserApi.call(endpoints.listAiAgents, { params: { workspaceId } }), browserApi.call(endpoints.listAiTools, { params: { workspaceId } }),
-      browserApi.call(endpoints.listAiProviders, { params: { workspaceId } }), browserApi.call(endpoints.listContacts, { params: { workspaceId }, query: { limit: 50 } }),
+      browserApi.call(endpoints.listAiProviders, { params: { workspaceId } }), browserApi.call(endpoints.listContacts, { params: { workspaceId }, query: { kind: "all", limit: 50 } }),
     ]);
     const bad = [l, t, p, c].find((r) => !r.ok);
     if (bad && !bad.ok) { setLoadError(errorMessage(bad.error)); return; }
