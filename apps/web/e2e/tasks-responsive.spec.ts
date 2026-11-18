@@ -52,28 +52,32 @@ test("tasks screens hold at 375, 768 and 1440: no overflow, no axe violations, p
     for (const [key, path] of [["list", ""], ["overdue", "?view=overdue"], ["completed", "?view=completed"], ["no-match", "?q=zzzz"]] as const) {
       await page.goto(`/w/${workspaceId}/tasks${path}`);
       await expect(page.getByRole("heading", { level: 1, name: "Tasks" })).toBeVisible();
-      if (key !== "no-match" && key !== "completed") await expect(page.getByRole("button", { name: /^(Prepare the renewal deck|Send the revised quote)/ }).first()).toBeVisible();
+      if (key !== "no-match" && key !== "completed") await expect(page.getByRole("button", { name: /(Prepare the renewal deck|Send the revised quote)/ }).first()).toBeVisible();
       await noPageOverflow(page, `${key}@${s.name}`);
       await axe(page, `${key}@${s.name}`);
       await page.screenshot({ path: `${SHOTS}${key}-${s.name}.png`, fullPage: key === "list" });
     }
   }
 
-  // phones get cards, desktops get the table
+  // list and detail: a phone shows the list first, the task opens full screen
   await page.setViewportSize({ width: 375, height: 812 });
   await page.goto(`/w/${workspaceId}/tasks`);
-  await expect(page.getByRole("table")).toBeHidden();
-  await expect(page.getByRole("list", { name: "Tasks" })).toBeVisible();
+  await expect(page.getByRole("list", { name: "Tasks", exact: true })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Task detail" })).toBeHidden();
   const card = page.getByRole("button", { name: /Send the revised quote/ }).first();
   expect((await card.boundingBox())!.height).toBeGreaterThanOrEqual(56);
   await expect(page.getByLabel("Assignee", { exact: true })).toBeHidden();
-  await page.getByRole("button", { name: "Filters" }).click();
+  await page.getByRole("button", { name: /^Filters/ }).click();
   await expect(page.getByLabel("Assignee", { exact: true })).toBeVisible();
   await axe(page, "filters-open@375");
   await page.screenshot({ path: `${SHOTS}filters-open-375.png` });
+  await card.click();
+  await expect(page.getByRole("region", { name: "Task detail" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Tasks", exact: true })).toBeVisible(); // back to the list
   await page.setViewportSize({ width: 1440, height: 900 });
-  await expect(page.getByRole("table")).toBeVisible();
-  await expect(page.getByRole("columnheader")).toHaveCount(6);
+  await page.goto(`/w/${workspaceId}/tasks`);
+  await expect(page.getByRole("region", { name: "Task detail" })).toBeVisible(); // both panes side by side
+  await expect(page.getByRole("list", { name: "Tasks", exact: true })).toBeVisible();
 
   // overlays at every size
   for (const s of SIZES) {
@@ -89,7 +93,7 @@ test("tasks screens hold at 375, 768 and 1440: no overflow, no axe violations, p
     await page.keyboard.press("Escape");
     await expect(dlg).toBeHidden();
     await page.getByRole("button", { name: /Send the revised quote/ }).first().click();
-    const detail = page.getByRole("dialog", { name: /Send the revised quote/ });
+    const detail = page.getByRole("region", { name: "Task detail" });
     await expect(detail.getByRole("list", { name: /Task history/ })).toBeVisible();
     await axe(page, `task-detail@${s.name}`);
     await page.screenshot({ path: `${SHOTS}task-detail-${s.name}.png` });
@@ -110,16 +114,26 @@ test.describe("touch", () => {
     const { workspaceId } = await signUpAndCreate(page, "Touch Tasks", "Touch Tasks Co");
     await seed(page, workspaceId);
     await page.goto(`/w/${workspaceId}/tasks`);
-    for (const name of ["New task", "Filters"]) expect((await page.getByRole("button", { name, exact: name === "Filters" }).first().boundingBox())!.height, name).toBeGreaterThanOrEqual(44);
+    for (const name of ["New task", "Filters"]) expect((await page.getByRole("button", { name: name === "Filters" ? /^Filters/ : name }).first().boundingBox())!.height, name).toBeGreaterThanOrEqual(44);
     for (const v of ["Open", "Overdue", "Upcoming", "No date", "Completed"]) expect((await page.getByRole("group", { name: "Task views" }).getByRole("button", { name: new RegExp(`^${v}`) }).boundingBox())!.height, v).toBeGreaterThanOrEqual(44);
     expect((await page.getByLabel("Search tasks").boundingBox())!.height).toBeGreaterThanOrEqual(44);
     expect(await page.getByLabel("Search tasks").evaluate((e) => getComputedStyle(e).fontSize)).toBe("16px");
+    const row = await page.getByRole("button", { name: /Prepare the renewal deck/ }).boundingBox();
+    expect(row!.height).toBeGreaterThanOrEqual(44);
+    await page.getByRole("button", { name: /^Filters/ }).click();
     expect((await page.getByLabel("Sort by").boundingBox())!.height).toBeGreaterThanOrEqual(44);
-    const check = await page.getByRole("checkbox", { name: /Mark done: Prepare the renewal deck/ }).boundingBox();
-    expect(check!.height).toBeGreaterThanOrEqual(44);
-    expect(check!.width).toBeGreaterThanOrEqual(44);
-    await page.getByRole("button", { name: "Filters" }).click();
     for (const label of ["Assignee", "Priority"]) expect((await page.getByLabel(label, { exact: true }).boundingBox())!.height, label).toBeGreaterThanOrEqual(44);
+    // the task panel: every tap target is 44px or more
+    await page.getByRole("button", { name: /Prepare the renewal deck/ }).click();
+    const tp = page.getByRole("region", { name: "Task detail" });
+    const tall = async (loc: ReturnType<typeof tp.locator>, what: string) => { for (const el of await loc.all()) expect((await el.boundingBox())!.height, what).toBeGreaterThanOrEqual(44); };
+    await tall(tp.getByRole("group", { name: "Day" }).getByRole("button"), "day");
+    await tall(tp.getByRole("group", { name: "Time" }).getByRole("button"), "time");
+    await tall(tp.getByRole("button", { name: /^No follow-up/ }), "no follow-up");
+    await tall(tp.getByRole("button", { name: "Mark done" }), "mark done");
+    await tall(tp.getByRole("button", { name: /voice typing/i }), "voice");
+    await tall(tp.getByRole("group", { name: "Voice typing language" }).getByRole("button"), "voice language");
+    await tp.getByRole("button", { name: "Tasks", exact: true }).click();
     await page.getByRole("button", { name: "New task" }).first().click();
     const dlg = page.getByRole("dialog", { name: "New task" });
     await page.waitForTimeout(400); // let the open animation (a small scale) finish before measuring

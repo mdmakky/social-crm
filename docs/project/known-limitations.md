@@ -285,3 +285,9 @@ Updated: 2026-11-13 (Phase 0).
 - Phone and tablet layouts were checked in emulated Chromium (touch, 320 to 768 px). Not checked: real iOS or Android devices (safe-area insets, on-screen keyboard, momentum scrolling), Safari, Firefox, a screen reader.
 - The URLs still say `/contacts` (D301); saved column layouts from before keep their old column set (the new default only applies to devices without a saved layout).
 - Notifications created before this change keep the title stored with them (for example "Your contact import finished"); new ones say lead. Activity and audit wording is built at display time and already says lead.
+## Tasks redesign and voice typing (2026-11-18, branch `feat/tasks-redesign`)
+- No reminder for follow-ups: tasks have a due time but no reminder, so the demo's "Remind me" is not built.
+- A follow-up is a new task; it is not linked to the task it came from except by its title and its history line.
+- The completed task panel and list refresh after each action; there is no live update when a teammate changes a task.
+- Voice typing depends on the browser: works in Chrome, Edge and Safari, absent in Firefox. Bangla accuracy is the browser's, not ours. It needs a microphone permission and an internet connection. Verified only with a faked recognizer in Playwright, never with a real microphone or real Bangla speech.
+- The inbox reply composer gained a voice button; no automated test covers it yet.

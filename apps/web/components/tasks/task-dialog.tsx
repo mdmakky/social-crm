@@ -88,7 +88,7 @@ function TaskForm({ workspaceId, members, myUserId, task, defaultContact, leadId
         </Alert>
       )}
       <Field label="Title" error={titleError}>{(p) => <Input {...p} name="title" autoFocus autoComplete="off" maxLength={200} value={f.title} onChange={(e) => set({ title: e.target.value })} />}</Field>
-      <Field label="Description" hint="Optional. Context for whoever picks this up.">{(p) => <Textarea {...p} name="description" rows={3} maxLength={4000} value={f.description} onChange={(e) => set({ description: e.target.value })} />}</Field>
+      <Field label="Description" hint="Optional. Context for whoever picks this up.">{(p) => <Textarea {...p} voice name="description" rows={3} maxLength={4000} value={f.description} onChange={(e) => set({ description: e.target.value })} />}</Field>
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label="Assignee">{(p) => <Select {...p} name="assignee" value={f.assignee} onChange={(e) => set({ assignee: e.target.value })}><option value="">Unassigned</option>{active.map((m) => <option key={m.userId} value={m.userId}>{m.name}{m.userId === myUserId ? " (you)" : ""}</option>)}</Select>}</Field>
         <Field label="Priority">{(p) => <Select {...p} name="priority" value={f.priority} onChange={(e) => set({ priority: e.target.value as TaskPriority })}>{TASK_PRIORITIES.map((x) => <option key={x} value={x}>{PRIORITY_LABEL[x]}</option>)}</Select>}</Field>
