@@ -7,6 +7,7 @@ import { endpoints, type ActivityItem, type ContactDetail, type ContactMethodDto
 import { can } from "@crm/core/permissions";
 import { AdConsentPanel } from "./ad-consent-panel";
 import { CustomFieldInput } from "@/components/contacts/custom-field-input";
+import { AddPhone } from "@/components/contacts/add-phone";
 import { DetectedMethodsPanel } from "@/components/contacts/detected-methods";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -85,7 +86,7 @@ export function ContactDetailView(props: Props) {
         <div className="flex min-w-0 items-center gap-3">
           <Avatar name={c.name} size="xl" />
           <div className="min-w-0">
-            <h1 className="truncate text-xl font-semibold tracking-title text-fg">{c.name}</h1>
+            <h1 className="flex items-center gap-2 text-xl font-semibold tracking-title text-fg"><span className="truncate">{c.name}</span>{c.isEnquiry && <Badge tone="neutral" shape="square">Enquiry</Badge>}</h1>
             <p className="break-words text-base text-fg-subtle">
               {!c.email && !c.phone && !c.company && "No contact details yet"}
               {[
@@ -102,7 +103,8 @@ export function ContactDetailView(props: Props) {
 
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-3">
         <div className="grid min-w-0 grid-cols-1 gap-4 lg:col-span-2">
-          {loaded && <LeadPanel workspaceId={workspaceId} contact={c} lead={lead} pipelines={props.leadInfo!.pipelines} lostReasons={props.leadInfo!.lostReasons} members={members} canEdit={perms.lead} canEditOwner={perms.edit} canSetValue={perms.setValue} myUserId={myUserId} onLead={setLead} onContact={(d) => { setC(d); void refreshActivity(); }} />}
+          {c.isEnquiry && <EnquiryPanel workspaceId={workspaceId} contact={c} canEdit={perms.edit} onSaved={setC} />}
+          {loaded && !c.isEnquiry && <LeadPanel workspaceId={workspaceId} contact={c} lead={lead} pipelines={props.leadInfo!.pipelines} lostReasons={props.leadInfo!.lostReasons} members={members} canEdit={perms.lead} canEditOwner={perms.edit} canSetValue={perms.setValue} myUserId={myUserId} onLead={setLead} onContact={(d) => { setC(d); void refreshActivity(); }} />}
           <ConversationSummary workspaceId={workspaceId} contactId={c.id} contactName={c.name} canView={can(role, "conversation.view", {})} timeZone={timeZone} />
           <Accordion title="Details" hint="Name, company, email, phone, source, detected">
             <div className={SEAM}>
@@ -121,6 +123,20 @@ export function ContactDetailView(props: Props) {
         <TasksPanel tasks={tasks} setTasks={setTasks} p={p} canEdit={perms.edit} role={role} myUserId={myUserId} members={members} timeZone={timeZone} onChanged={async () => { void refreshActivity(); const d = await browserApi.call(endpoints.getContact, { params: p }); if (d.ok) setC(d.data); }} />
       </div>
     </ToastProvider>
+  );
+}
+
+/** An enquiry has no stage (D310): the stepper is replaced by the reason and the one action that makes it a lead. */
+function EnquiryPanel({ workspaceId, contact, canEdit, onSaved }: { workspaceId: string; contact: ContactDetail; canEdit: boolean; onSaved: (c: ContactDetail) => void }) {
+  return (
+    <Panel>
+      <PanelHeader title="Enquiry" description="This person wrote to you but has not given a phone number yet." />
+      <div className="flex flex-col gap-3 p-4">
+        <p className="text-base text-fg" data-testid="enquiry-reason">Add a phone number to make this a lead.</p>
+        <p className="text-sm text-fg-muted">Stage, value and owner are for leads. As soon as a phone number is saved, or found in a conversation, they show in Leads in the first stage.</p>
+        {canEdit ? <div><AddPhone workspaceId={workspaceId} contactId={contact.id} version={contact.version} name={contact.name} onSaved={onSaved} prominent /></div> : <p className="text-sm text-fg-subtle">You do not have permission to edit this person.</p>}
+      </div>
+    </Panel>
   );
 }
 

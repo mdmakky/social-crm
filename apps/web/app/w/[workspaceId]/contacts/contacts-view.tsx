@@ -2,7 +2,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowDown, ArrowUp, ArrowUpDown, Bookmark, CheckSquare, Columns3, Download, FilterX, Lock, MoreHorizontal, Pencil, Plus, RefreshCw, RotateCcw, Search, SlidersHorizontal, Trash2, Upload, Users } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, Bookmark, CheckSquare, Columns3, Download, FilterX, Inbox, Lock, MoreHorizontal, Pencil, Plus, RefreshCw, RotateCcw, Search, SlidersHorizontal, Trash2, Upload, Users } from "lucide-react";
 import { CONTACT_COLUMNS, endpoints, type ContactColumn, type ContactListQuery, type ContactPage, type ContactOwnerCounts, type ContactStageCounts, type ContactSummary, type CustomField, type LifecycleStage, type LostReasonDto, type Member, type PipelineDto, type SavedView, type Tag, type ViewConfig } from "@crm/contracts";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge, hueOf, Status } from "@/components/ui/badge";
@@ -14,8 +14,9 @@ import { Dialog, DialogClose, DialogContent, DropdownMenu, DropdownMenuContent, 
 import { PageHeader, Panel } from "@/components/ui/panel";
 import { Alert, EmptyState, ErrorState } from "@/components/ui/states";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
-import { ToastProvider } from "@/components/ui/toast";
+import { ToastProvider, useToast } from "@/components/ui/toast";
 import { StageBadge, StageDialog, StageMenu } from "@/components/contacts/stage-control";
+import { EnquiryList } from "@/components/contacts/enquiry-list";
 import { StageStrip } from "@/components/contacts/stage-strip";
 import { AgentMenu, FilterSheetButton, FiltersMenu, type LeadFilterValues } from "@/components/contacts/lead-filters";
 import { RemovedLeadsDialog } from "@/components/contacts/removed-leads";
@@ -27,7 +28,7 @@ import { usePhone } from "@/lib/use-phone";
 import { formatMoney } from "@/lib/leads";
 import { orderedStages, defaultPipeline } from "@/lib/contact-lead";
 
-type Q = Pick<ContactListQuery, "search" | "lifecycleStageId" | "stageId" | "ownerId" | "tagIds" | "source" | "createdFrom" | "sort" | "dir">;
+type Q = Pick<ContactListQuery, "kind" | "search" | "lifecycleStageId" | "stageId" | "ownerId" | "tagIds" | "source" | "createdFrom" | "sort" | "dir">;
 type Perms = { lead: boolean; removeLeads: boolean; viewValue: boolean; edit: boolean; import: boolean; export: boolean; shareViews: boolean; schema: boolean };
 type Props = { workspaceId: string; timeZone: string; myUserId: string; initial: ContactPage | null; initialQuery: ContactListQuery; pipelines: PipelineDto[]; lostReasons: LostReasonDto[]; initialCounts: ContactStageCounts | null; stages: LifecycleStage[]; tags: Tag[]; members: Member[]; views: SavedView[]; fields: CustomField[]; perms: Perms };
 
@@ -42,12 +43,14 @@ export function ContactsView(props: Props) {
 }
 
 /** The list state lives in the URL; this reads it (also after Back, when the page props are from an older visit). */
-const fromParams = (sp: { get(k: string): string | null }): Q => ({ search: sp.get("search") ?? undefined, lifecycleStageId: sp.get("lifecycleStageId") ?? undefined, stageId: sp.get("stageId") ?? undefined, ownerId: sp.get("ownerId") ?? undefined, tagIds: sp.get("tagIds") ?? undefined, source: (sp.get("source") ?? undefined) as Q["source"], createdFrom: sp.get("createdFrom") ?? undefined, sort: (sp.get("sort") as Q["sort"]) ?? "lastActivity", dir: sp.get("dir") === "asc" ? "asc" : "desc" });
+const fromParams = (sp: { get(k: string): string | null }): Q => ({ kind: sp.get("kind") === "enquiry" ? "enquiry" : undefined, search: sp.get("search") ?? undefined, lifecycleStageId: sp.get("lifecycleStageId") ?? undefined, stageId: sp.get("stageId") ?? undefined, ownerId: sp.get("ownerId") ?? undefined, tagIds: sp.get("tagIds") ?? undefined, source: (sp.get("source") ?? undefined) as Q["source"], createdFrom: sp.get("createdFrom") ?? undefined, sort: (sp.get("sort") as Q["sort"]) ?? "lastActivity", dir: sp.get("dir") === "asc" ? "asc" : "desc" });
+/** The Enquiries tab and a stage chip are places you can come Back to. */
+const navKey = (q: Q) => `${q.kind ?? ""}|${q.stageId ?? ""}`;
 const sameQuery = (a: Q, b: Q) => (Object.keys({ ...a, ...b }) as (keyof Q)[]).every((k) => (a[k] || undefined) === (b[k] || undefined));
 
 function Inner({ workspaceId, timeZone, myUserId, initial, initialQuery, pipelines, lostReasons, initialCounts, stages, tags, members, views: initialViews, fields, perms }: Props) {
   const urlQuery = fromParams(useSearchParams());
-  const stale0 = !sameQuery(urlQuery, { search: initialQuery.search, lifecycleStageId: initialQuery.lifecycleStageId, stageId: initialQuery.stageId, ownerId: initialQuery.ownerId, tagIds: initialQuery.tagIds, source: initialQuery.source, createdFrom: initialQuery.createdFrom, sort: initialQuery.sort ?? "lastActivity", dir: initialQuery.dir ?? "desc" }); // props older than the URL (Back)
+  const stale0 = !sameQuery(urlQuery, { kind: initialQuery.kind, search: initialQuery.search, lifecycleStageId: initialQuery.lifecycleStageId, stageId: initialQuery.stageId, ownerId: initialQuery.ownerId, tagIds: initialQuery.tagIds, source: initialQuery.source, createdFrom: initialQuery.createdFrom, sort: initialQuery.sort ?? "lastActivity", dir: initialQuery.dir ?? "desc" }); // props older than the URL (Back)
   const [query, setQuery] = React.useState<Q>(urlQuery);
   const [page, setPage] = React.useState<ContactPage>(initial ?? { items: [], nextCursor: null, total: 0 });
   const [status, setStatus] = React.useState<"idle" | "loading" | "error">(initial ? "idle" : "error");
@@ -73,7 +76,7 @@ function Inner({ workspaceId, timeZone, myUserId, initial, initialQuery, pipelin
   const [moving, setMoving] = React.useState<string[] | null>(null);
   const seq = React.useRef(0);
   const first = React.useRef(!stale0);
-  const prevStage = React.useRef(urlQuery.stageId);
+  const prevNav = React.useRef(navKey(urlQuery));
   const storeKey = `crm.contacts.columns.${workspaceId}`;
 
   // The column layout is a per-device convenience. useSyncExternalStore reads it after hydration without a mismatch.
@@ -102,7 +105,7 @@ function Inner({ workspaceId, timeZone, myUserId, initial, initialQuery, pipelin
   };
 
   // Counts follow the filters except the stage itself, so the chips always add up to the list.
-  const { stageId: _sid, sort: _srt, dir: _dir, ...shared } = query;
+  const { stageId: _sid, kind: _kind, sort: _srt, dir: _dir, ...shared } = query;
   const countsKey = JSON.stringify(shared);
   const loadCounts = React.useCallback(async () => {
     const r = await browserApi.call(endpoints.contactStageCounts, { params: { workspaceId }, query: JSON.parse(countsKey) });
@@ -137,8 +140,8 @@ function Inner({ workspaceId, timeZone, myUserId, initial, initialQuery, pipelin
     const t = setTimeout(() => {
       const p = toParams(query).toString();
       // A stage chip is a place you can come Back to; typing in the search box is not.
-      const mode = query.stageId !== prevStage.current ? "pushState" : "replaceState";
-      prevStage.current = query.stageId;
+      const mode = navKey(query) !== prevNav.current ? "pushState" : "replaceState";
+      prevNav.current = navKey(query);
       window.history[mode](null, "", p ? `?${p}` : window.location.pathname);
       void load(query);
     }, 250);
@@ -148,7 +151,7 @@ function Inner({ workspaceId, timeZone, myUserId, initial, initialQuery, pipelin
     const onPop = () => {
       const sp = new URLSearchParams(window.location.search);
       const next = fromParams(sp);
-      prevStage.current = next.stageId;
+      prevNav.current = navKey(next);
       setQuery(next);
     };
     window.addEventListener("popstate", onPop);
@@ -184,6 +187,8 @@ function Inner({ workspaceId, timeZone, myUserId, initial, initialQuery, pipelin
   const currentConfig = (): ViewConfig => ({ columns, filters: Object.fromEntries(FILTERS.filter((k) => query[k]).map((k) => [k, query[k]])) as ViewConfig["filters"], sort: query.sort ?? "lastActivity", dir: query.dir ?? "desc" });
 
   const filtered = hasFilters(query);
+  const enq = query.kind === "enquiry";
+  const toast = useToast();
   const stale = status === "error" && page.items.length > 0;
   async function doExport() {
     setExporting(true);
@@ -195,7 +200,7 @@ function Inner({ workspaceId, timeZone, myUserId, initial, initialQuery, pipelin
     const url = URL.createObjectURL(new Blob([res.data], { type: "text/csv" }));
     const a = document.createElement("a");
     a.href = url;
-    a.download = "leads.csv";
+    a.download = enq ? "enquiries.csv" : "leads.csv";
     document.body.append(a);
     a.click();
     a.remove();
@@ -226,7 +231,7 @@ function Inner({ workspaceId, timeZone, myUserId, initial, initialQuery, pipelin
   const sortSelect = (
     <Select aria-label="Sort by" wrapperClassName="t-cards" className="w-auto" value={sortOptionFor(query.sort, query.dir)} onChange={(e) => { if (e.target.value === "custom") return; const [s, d] = e.target.value.split(":"); set({ sort: s as Q["sort"], dir: d as Q["dir"] }); }}>
       {sortOptionFor(query.sort, query.dir) === "custom" && <option value="custom">Custom order</option>}
-      {SORT_OPTIONS.filter((o) => perms.viewValue || !o.value.startsWith("value")).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+      {SORT_OPTIONS.filter((o) => (perms.viewValue || !o.value.startsWith("value")) && !(enq && /^(stage|value)/.test(o.value))).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
     </Select>
   );
   const viewsMenu = <ViewsMenu views={views} active={activeView} base={baseView} canManageShared={perms.shareViews} onApply={applyView} onSave={() => setSaveOpen(true)} onRename={(v) => { setBaseView(v.id); setRenameOpen(true); }} onUpdate={async (v) => { const r = await browserApi.call(endpoints.updateView, { params: { workspaceId, viewId: v.id }, body: { config: currentConfig() } }); if (!r.ok) return setActionError(errorMessage(r.error)); setViews((x) => x.map((y) => (y.id === v.id ? r.data : y))); }} onDelete={setDeleteView} />;
@@ -244,7 +249,7 @@ function Inner({ workspaceId, timeZone, myUserId, initial, initialQuery, pipelin
     <>
       <PageHeader
         title="Leads"
-        description={status === "error" && !page.items.length ? undefined : stale ? "Showing previous results" : `${page.total.toLocaleString("en-US")} ${page.total === 1 ? "lead" : "leads"}${filtered ? " match your filters" : ""}`}
+        description={status === "error" && !page.items.length ? undefined : stale ? "Showing previous results" : `${(counts?.total ?? (enq ? 0 : page.total)).toLocaleString("en-US")} ${(counts?.total ?? page.total) === 1 ? "lead" : "leads"} · ${(counts?.enquiryCount ?? (enq ? page.total : 0)).toLocaleString("en-US")} ${(counts?.enquiryCount ?? page.total) === 1 ? "enquiry" : "enquiries"}${filtered ? " match your filters" : ""}`}
         actions={
           <div className="flex items-center gap-2">
             {perms.removeLeads && <Button variant="ghost" className="max-md:hidden" onClick={() => setRemovedOpen(true)}><RotateCcw />Recently removed</Button>}
@@ -253,7 +258,7 @@ function Inner({ workspaceId, timeZone, myUserId, initial, initialQuery, pipelin
             <DropdownMenu>
               <DropdownMenuTrigger asChild><Button variant="secondary" icon aria-label="More actions" className={perms.schema ? "" : "t-cards-flex"}><MoreHorizontal /></Button></DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
-                {perms.lead && <DropdownMenuItem className="t-cards-flex" onSelect={() => setSelectMode(true)}><CheckSquare aria-hidden />Select leads</DropdownMenuItem>}
+                {perms.lead && !enq && <DropdownMenuItem className="t-cards-flex" onSelect={() => setSelectMode(true)}><CheckSquare aria-hidden />Select leads</DropdownMenuItem>}
                 {perms.removeLeads && <DropdownMenuItem className="md:hidden" onSelect={() => setRemovedOpen(true)}><RotateCcw aria-hidden />Recently removed</DropdownMenuItem>}
                 {perms.import && <DropdownMenuItem className="md:hidden" asChild><Link href={`/w/${workspaceId}/contacts/import`}><Upload aria-hidden />Import</Link></DropdownMenuItem>}
                 {perms.export && <DropdownMenuItem className="md:hidden" disabled={exporting} onSelect={() => void doExport()}><Download aria-hidden />Export CSV</DropdownMenuItem>}
@@ -264,12 +269,12 @@ function Inner({ workspaceId, timeZone, myUserId, initial, initialQuery, pipelin
         }
       />
 
-      {chipStages.length > 0 && <StageStrip stages={chipStages} counts={counts} activeId={query.stageId} onSelect={(id) => set({ stageId: id })} />}
+      {chipStages.length > 0 && <StageStrip stages={chipStages} counts={counts} activeId={query.stageId} enquiries={enq} onSelect={(id) => set({ stageId: id, kind: undefined })} onSelectEnquiries={() => set({ kind: "enquiry", stageId: undefined })} />}
 
       <div className="mb-3 flex flex-wrap items-center gap-1.5 max-md:sticky max-md:top-0 max-md:z-20 max-md:-mx-4 max-md:bg-canvas max-md:px-4 max-md:pb-2 max-md:pt-1">
         <div className="relative min-w-0 flex-1 basis-40 md:w-80 md:flex-none">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-fg-subtle" aria-hidden />
-          <Input aria-label="Search leads" type="search" enterKeyHint="search" placeholder="Search leads" className="pl-8 shadow-none" value={query.search ?? ""} onChange={(e) => set({ search: e.target.value || undefined })} />
+          <Input aria-label={enq ? "Search enquiries" : "Search leads"} type="search" enterKeyHint="search" placeholder={enq ? "Search enquiries" : "Search leads"} className="pl-8 shadow-none" value={query.search ?? ""} onChange={(e) => set({ search: e.target.value || undefined })} />
         </div>
         {phone ? (
           <FilterSheetButton members={members} myUserId={myUserId} ownerCounts={ownerCounts} tags={tags} value={filterValues} onApply={applyFilters} />
@@ -283,12 +288,12 @@ function Inner({ workspaceId, timeZone, myUserId, initial, initialQuery, pipelin
         <div className="flex items-center gap-1.5 md:ml-auto">
           {sortSelect}
           {viewsMenu}
-          <Button variant="ghost" className="t-table-inline" onClick={() => setColsOpen(true)}><Columns3 />Columns</Button>
+          {!enq && <Button variant="ghost" className="t-table-inline" onClick={() => setColsOpen(true)}><Columns3 />Columns</Button>}
           {perms.export && <Button variant="secondary" className="max-md:hidden" onClick={() => void doExport()} loading={exporting}><Download />Export</Button>}
         </div>
       </div>
 
-      {selected.size > 0 && perms.lead && bulk("sticky top-0 z-10 mb-3 flex t-table-inline", "top")}
+      {selected.size > 0 && perms.lead && !enq && bulk("sticky top-0 z-10 mb-3 flex t-table-inline", "top")}
       {actionError && <Alert tone="error" className="mb-3">{actionError}</Alert>}
       {errorText && page.items.length > 0 && (
         <Alert tone="error" className="mb-3">
@@ -300,8 +305,10 @@ function Inner({ workspaceId, timeZone, myUserId, initial, initialQuery, pipelin
         {status === "error" && page.items.length === 0 ? (
           <ErrorState title="Leads could not be loaded" description={errorText ?? "Check your connection and try again."} onRetry={() => void load(query)} />
         ) : page.items.length === 0 && status !== "loading" ? (
-          filtered ? (
-            <EmptyState icon={FilterX} title="No leads match these filters" description="Try a different search or clear the filters." action={<Button onClick={clearFilters}>Clear filters</Button>} />
+          enq && !filtered ? (
+            <EmptyState icon={Inbox} title="No enquiries" description="People who wrote to you but have not given a phone number yet." />
+          ) : filtered ? (
+            <EmptyState icon={FilterX} title={enq ? "No enquiries match these filters" : "No leads match these filters"} description="Try a different search or clear the filters." action={<Button onClick={clearFilters}>Clear filters</Button>} />
           ) : (
             <EmptyState
               icon={Users}
@@ -311,6 +318,15 @@ function Inner({ workspaceId, timeZone, myUserId, initial, initialQuery, pipelin
             />
           )
         ) : (
+          enq ? (
+            <>
+              <EnquiryList items={page.items} workspaceId={workspaceId} timeZone={timeZone} canEdit={perms.edit} onMoved={() => afterMove([])} />
+              <div className="flex items-center justify-between gap-3 border-t border-line-card px-4 py-2.5 text-sm text-fg-subtle">
+                <span role="status" aria-live="polite">{status === "loading" ? "Updating…" : `Showing ${page.items.length.toLocaleString("en-US")} of ${page.total.toLocaleString("en-US")}`}</span>
+                {page.nextCursor && <Button onClick={loadMore} loading={moreBusy} disabled={status === "loading"}>Load more</Button>}
+              </div>
+            </>
+          ) : (
           <>
             <div className="t-table">
               <ContactsTable items={page.items} columns={columns} query={query} onSort={toggleSort} workspaceId={workspaceId} timeZone={timeZone} lead={lead} />
@@ -323,13 +339,14 @@ function Inner({ workspaceId, timeZone, myUserId, initial, initialQuery, pipelin
               {page.nextCursor && <Button onClick={loadMore} loading={moreBusy} disabled={status === "loading"}>Load more</Button>}
             </div>
           </>
+          )
         )}
       </Panel>
-      {selectMode && perms.lead && bulk("t-cards-flex sticky bottom-0 z-20 mt-3 pb-[max(0.5rem,calc(env(safe-area-inset-bottom)-var(--bottomnav-h)))]", "bottom")}
+      {selectMode && perms.lead && !enq && bulk("t-cards-flex sticky bottom-0 z-20 mt-3 pb-[max(0.5rem,calc(env(safe-area-inset-bottom)-var(--bottomnav-h)))]", "bottom")}
 
       {moving && <StageDialog key={moving.join()} ids={moving} pipelines={pipelines} lostReasons={lostReasons} workspaceId={workspaceId} onClose={() => setMoving(null)} onDone={(moved) => { afterMove(moved); if (selectMode) exitSelect(); }} />}
       {perms.removeLeads && removedOpen && <RemovedLeadsDialog open={removedOpen} onOpenChange={setRemovedOpen} workspaceId={workspaceId} timeZone={timeZone} pipelines={pipelines} onRestored={() => { void load(query); void loadCounts(); }} />}
-      <NewContactDialog open={newOpen} onOpenChange={setNewOpen} workspaceId={workspaceId} stages={stages} members={members} fields={fields} myUserId={myUserId} />
+      <NewContactDialog open={newOpen} onOpenChange={setNewOpen} workspaceId={workspaceId} stages={stages} members={members} fields={fields} myUserId={myUserId} onEnquiry={() => { toast("Saved as an enquiry. Add a phone number to make it a lead."); set({ kind: "enquiry", stageId: undefined }); void loadCounts(); }} />
       <ColumnsDialog open={colsOpen} onOpenChange={setColsOpen} columns={columns} onChange={(c) => { setActiveView(null); saveColumns(c); }} />
       <ViewNameDialog open={renameOpen} onOpenChange={setRenameOpen} view={views.find((v) => v.id === baseView) ?? null} onSave={async (name) => { const v = views.find((x) => x.id === baseView); if (!v) return null; const r = await browserApi.call(endpoints.updateView, { params: { workspaceId, viewId: v.id }, body: { name } }); if (!r.ok) return errorMessage(r.error); setViews((x) => x.map((y) => (y.id === v.id ? r.data : y)).sort((a, b) => a.name.localeCompare(b.name))); return null; }} />
       <DeleteViewDialog view={deleteView} onClose={() => setDeleteView(null)} onConfirm={async (v) => { const r = await browserApi.call(endpoints.deleteView, { params: { workspaceId, viewId: v.id } }); if (!r.ok) return errorMessage(r.error); setViews((x) => x.filter((y) => y.id !== v.id)); if (activeView === v.id) setActiveView(null); if (baseView === v.id) setBaseView(null); return null; }} />

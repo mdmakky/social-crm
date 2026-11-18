@@ -171,6 +171,7 @@ export function ImportWizard({ workspaceId }: { workspaceId: string }) {
                 <div key={String(k)}><dt className="text-xs text-fg-muted">{k}</dt><dd className="tnum text-lg font-semibold text-fg">{(v as number).toLocaleString("en-US")}</dd></div>
               ))}
             </dl>
+            <p className="mt-3 text-sm text-fg-muted">Rows without a phone number are added as enquiries, not leads. They move to Leads when a phone number is added.</p>
           </Panel>
 
           {preview.invalid > 0 && (
@@ -247,7 +248,7 @@ export function ImportWizard({ workspaceId }: { workspaceId: string }) {
         <Panel className="p-6" role="status">
           <CheckCircle2 className="mb-2 size-5 text-success-fg" aria-hidden />
           <h2 ref={headingRef} tabIndex={-1} className="text-md font-semibold text-fg outline-none">Import complete</h2>
-          <p className="mt-1 text-sm text-fg-muted">{result.created} added · {result.updated} updated · {result.skipped} skipped.</p>
+          <p className="mt-1 text-sm text-fg-muted">{result.created} added · {result.updated} updated · {result.skipped} skipped. Rows without a phone number were added as enquiries.</p>
           <div className="mt-4 flex gap-2"><Button asChild variant="primary"><Link href={`/w/${workspaceId}/contacts`}>View leads</Link></Button><Button variant="ghost" onClick={startOver}>Import another file</Button></div>
         </Panel>
       )}

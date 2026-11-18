@@ -11,7 +11,7 @@ import { Alert } from "@/components/ui/states";
 import { browserApi, errorMessage } from "@/lib/client-api";
 import { CustomFieldInput } from "./custom-field-input";
 
-type Props = { workspaceId: string; stages: LifecycleStage[]; members: Member[]; fields: CustomField[]; myUserId: string };
+type Props = { workspaceId: string; stages: LifecycleStage[]; members: Member[]; fields: CustomField[]; myUserId: string; /** called after saving a person without a phone number (they are an enquiry, D310) */ onEnquiry: () => void };
 
 export function NewContactDialog({ open, onOpenChange, ...rest }: Props & { open: boolean; onOpenChange: (o: boolean) => void }) {
   return (
@@ -24,13 +24,14 @@ export function NewContactDialog({ open, onOpenChange, ...rest }: Props & { open
   );
 }
 
-function NewContactForm({ workspaceId, members, fields, myUserId, onClose }: Props & { onClose: () => void }) {
+function NewContactForm({ workspaceId, members, fields, myUserId, onEnquiry, onClose }: Props & { onClose: () => void }) {
   const router = useRouter();
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = React.useState<Record<string, string>>({});
   const [dupes, setDupes] = React.useState<DuplicateCandidate[] | null>(null);
   const [custom, setCustom] = React.useState<Record<string, unknown>>({});
+  const [hasPhone, setHasPhone] = React.useState(false);
   const formRef = React.useRef<HTMLFormElement>(null);
 
   async function submit(allowDuplicate: boolean) {
@@ -45,7 +46,7 @@ function NewContactForm({ workspaceId, members, fields, myUserId, onClose }: Pro
       body: { name, email: String(f.get("email") ?? "").trim() || null, phone: String(f.get("phone") ?? "").trim() || null, company: String(f.get("company") ?? "").trim() || null, ownerUserId: String(f.get("owner") ?? "") || null, custom, allowDuplicate },
     });
     setBusy(false);
-    if (res.ok) { onClose(); router.push(`/w/${workspaceId}/contacts/${res.data.id}`); return; }
+    if (res.ok) { onClose(); if (res.data.isEnquiry) onEnquiry(); else router.push(`/w/${workspaceId}/contacts/${res.data.id}`); return; }
     const e = res.error;
     if (e.code === "duplicate_contact") return setDupes((e.details as { candidates: DuplicateCandidate[] }).candidates);
     if (e.code === "invalid_custom_fields") return setFieldErrors(e.details as Record<string, string>);
@@ -68,8 +69,9 @@ function NewContactForm({ workspaceId, members, fields, myUserId, onClose }: Pro
       <Field label="Name" error={fieldErrors.name}>{(p) => <Input {...p} name="name" autoFocus autoComplete="off" maxLength={120} />}</Field>
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label="Email">{(p) => <Input {...p} name="email" type="email" autoComplete="off" inputMode="email" />}</Field>
-        <Field label="Phone">{(p) => <Input {...p} name="phone" type="tel" autoComplete="off" inputMode="tel" />}</Field>
+        <Field label="Phone">{(p) => <Input {...p} name="phone" type="tel" autoComplete="off" inputMode="tel" onChange={(e) => setHasPhone(e.target.value.trim() !== "")} />}</Field>
       </div>
+      {!hasPhone && <p className="-mt-1 text-sm text-fg-muted" data-testid="enquiry-hint">Without a phone number this is saved as an enquiry, not a lead. Add a number later to make it a lead.</p>}
       <Field label="Company">{(p) => <Input {...p} name="company" autoComplete="off" maxLength={120} />}</Field>
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label="Owner">{(p) => <Select {...p} name="owner" defaultValue={myUserId}><option value="">Unassigned</option>{members.map((m) => <option key={m.userId} value={m.userId}>{m.name}{m.userId === myUserId ? " (you)" : ""}</option>)}</Select>}</Field>
