@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { and, desc, eq, inArray, isNull, lt, sql } from "drizzle-orm";
-import { AddContactTagBody, BulkContactStageBody, ContactListQuery, ContactStageCountsQuery, CreateContactBody, NoteBody, PageQuery, PutContactLeadBody, UpdateContactBody } from "@crm/contracts";
+import { AddContactTagBody, BulkContactStageBody, ContactListQuery, ContactOwnerCountsQuery, ContactStageCountsQuery, CreateContactBody, NoteBody, PageQuery, PutContactLeadBody, UpdateContactBody } from "@crm/contracts";
 import { normalizeEmail, normalizePhone, toCsv, validateCustomValues, type BlobStore } from "@crm/core";
 import { can } from "@crm/core/permissions";
 import { schema, user, withContext, type Db, type Tx } from "@crm/db";
@@ -109,6 +109,18 @@ export function contactRoutes(db: Db, hooks: { blobs?: BlobStore } = {}) {
       // Same lateral join and same where as the list, so the numbers add up to the list's totals. No lead counts under the default pipeline's first stage.
       const rows = (await tx.execute(sql`SELECT ${lf.first ? sql`coalesce(pl.stage_id, ${lf.first.id}::uuid)` : sql`pl.stage_id`} AS stage_id, count(*)::int AS n FROM contacts c ${PRIMARY_LEAD_JOIN} WHERE ${sql.join(lf.where, sql` AND `)} GROUP BY 1`)).rows as { stage_id: string | null; n: number }[];
       return c.json({ items: rows.filter((x) => x.stage_id).map((x) => ({ stageId: x.stage_id!, count: x.n })), total: rows.reduce((t, x) => t + x.n, 0) });
+    });
+  });
+
+  r.get("/contacts/owner-counts", async (c) => {
+    const q = query(c, ContactOwnerCountsQuery);
+    if (!q.ok) return q.res;
+    return withContext(db, wctx(c), async (tx) => {
+      const { workspaceId, userId } = wctx(c);
+      const f = filters(workspaceId, userId, q.data as Q);
+      if (f.error) return fail(c, 400, "invalid_query", f.error);
+      const rows = (await tx.execute(sql`SELECT c.owner_user_id AS owner_id, count(*)::int AS n FROM contacts c WHERE ${sql.join(f.where, sql` AND `)} GROUP BY 1`)).rows as { owner_id: string | null; n: number }[];
+      return c.json({ items: rows.map((x) => ({ ownerId: x.owner_id, count: x.n })) });
     });
   });
 

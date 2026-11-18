@@ -102,8 +102,8 @@ export const ContactListQuery = z.object({
   lifecycleStageId: uuid.optional(),
   /** Pipeline stage of the contact's lead. The default pipeline's first stage also matches contacts that have no lead yet. */
   stageId: uuid.optional(),
-  /** "me", "unassigned" or a user id */
-  ownerId: z.string().max(100).optional(),
+  /** "me", "unassigned" or a user id; several separated by commas match any of them */
+  ownerId: z.string().max(1200).optional(),
   /** comma-separated tag ids; a contact matches when it has any of them */
   tagIds: z.string().max(400).optional(),
   source: ContactSource.optional(),
@@ -120,6 +120,10 @@ export const ContactStageCountsQuery = ContactListQuery.omit({ stageId: true, cu
 export type ContactStageCountsQuery = z.input<typeof ContactStageCountsQuery>;
 export const ContactStageCounts = z.object({ items: z.array(z.object({ stageId: uuid, count: z.number().int() })), total: z.number().int() });
 export type ContactStageCounts = z.infer<typeof ContactStageCounts>;
+/** Leads per owner under the same filters except the owner itself (ownerId null = unassigned); feeds the Agent filter. */
+export const ContactOwnerCountsQuery = ContactStageCountsQuery.omit({ ownerId: true });
+export const ContactOwnerCounts = z.object({ items: z.array(z.object({ ownerId: z.string().nullable(), count: z.number().int() })) });
+export type ContactOwnerCounts = z.infer<typeof ContactOwnerCounts>;
 export const ContactLeadState = z.object({ lead: ContactLead.nullable() });
 export type ContactLeadState = z.infer<typeof ContactLeadState>;
 /** Stage, value and owner of a contact. Creates the lead when the contact has none (expectedVersion is then not needed); otherwise expectedVersion is the lead's version. */
@@ -222,6 +226,7 @@ export const crmEndpoints = {
   bulkContactStage: endpoint({ method: "POST", path: `${W}/contacts/bulk-stage`, body: BulkContactStageBody, response: BulkContactStageResult }),
   getContactLead: endpoint({ method: "GET", path: `${W}/contacts/:contactId/lead`, response: ContactLeadState }),
   putContactLead: endpoint({ method: "PUT", path: `${W}/contacts/:contactId/lead`, body: PutContactLeadBody, response: PutContactLeadResult }),
+  contactOwnerCounts: endpoint({ method: "GET", path: `${W}/contacts/owner-counts`, query: ContactOwnerCountsQuery, response: ContactOwnerCounts }),
   exportContacts: endpoint({ method: "GET", path: `${W}/contacts/export`, query: ContactListQuery, response: z.string(), responseType: "text" }),
   getContact: endpoint({ method: "GET", path: `${W}/contacts/:contactId`, response: ContactDetail }),
   updateContact: endpoint({ method: "PATCH", path: `${W}/contacts/:contactId`, body: UpdateContactBody, response: ContactDetail }),
