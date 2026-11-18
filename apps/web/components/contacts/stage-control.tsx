@@ -8,7 +8,9 @@ import { Field } from "@/components/ui/field";
 import { Select } from "@/components/ui/input";
 import { Dialog, DialogActions, DialogContent, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/overlays";
 import { Alert } from "@/components/ui/states";
+import { Sheet } from "@/components/ui/sheet";
 import { useToast } from "@/components/ui/toast";
+import { usePhone } from "@/lib/use-phone";
 import { browserApi, errorMessage } from "@/lib/client-api";
 import { CODE_TEXT, orderedStages, defaultPipeline, shownStage, stageHue, stagesForContact } from "@/lib/contact-lead";
 
@@ -24,6 +26,8 @@ export function StageMenu({ c, pipelines, lostReasons, workspaceId, onChanged }:
   const toast = useToast();
   const [ask, setAsk] = React.useState<StageDto | null>(null);
   const [busy, setBusy] = React.useState(false);
+  const [sheet, setSheet] = React.useState(false);
+  const phone = usePhone();
   const stages = stagesForContact(pipelines, c);
   const cur = shownStage(pipelines, c.lead ?? null);
   if (!cur || stages.length === 0) return <StageBadge pipelines={pipelines} c={c} />;
@@ -37,6 +41,34 @@ export function StageMenu({ c, pipelines, lostReasons, workspaceId, onChanged }:
     const res = r.ok ? r.data.results[0] : null;
     if (res?.ok) { toast(`${c.name} is now ${s.name}.`); onChanged(); }
     else toast(r.ok ? `Could not change the stage: ${CODE_TEXT[res?.code ?? ""] ?? "something went wrong"}.` : errorMessage(r.error), "error");
+  }
+
+  const trigger = (extra: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
+    <button type="button" disabled={busy} aria-label={`Stage of ${c.name}: ${cur.name}. Change stage`} className="press -mx-1.5 inline-flex min-h-6 max-w-full items-center gap-1 rounded px-1.5 py-0.5 hover:bg-hover disabled:opacity-60 pointer-coarse:min-h-11" {...extra}>
+      <Status hue={stageHue(cur)} className="min-w-0"><span className="truncate">{cur.name}</span></Status>
+      <ChevronDown className="size-3 shrink-0 text-fg-subtle" aria-hidden />
+    </button>
+  );
+  // On a phone the same menu is a bottom sheet with 48 px rows.
+  if (phone) {
+    return (
+      <>
+        {trigger({ onClick: () => setSheet(true), "aria-haspopup": "dialog" })}
+        <Sheet open={sheet} onOpenChange={setSheet} title="Change stage" description={c.name}>
+          <ul className="flex flex-col pb-2">
+            {stages.map((s) => (
+              <li key={s.id}>
+                <button type="button" aria-current={s.id === cur.id ? "true" : undefined} onClick={() => { setSheet(false); void pick(s); }} className="press flex min-h-12 w-full items-center gap-3 rounded-control px-2 text-left text-md text-fg active:bg-hover">
+                  <Status hue={stageHue(s)} className="min-w-0 flex-1 text-md"><span className="truncate">{s.name}</span></Status>
+                  {s.id === cur.id && <Check className="size-5 text-accent" aria-hidden />}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </Sheet>
+        {ask && <StageDialog ids={[c.id]} pipelines={pipelines} lostReasons={lostReasons} workspaceId={workspaceId} initialStageId={ask.id} onClose={() => setAsk(null)} onDone={onChanged} />}
+      </>
+    );
   }
 
   return (

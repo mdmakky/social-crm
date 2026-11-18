@@ -49,7 +49,7 @@ export default async function Home({ params }: { params: Promise<{ workspaceId: 
 
       <p className="mb-4 text-md font-medium tracking-title text-fg">
         <span className={s && s.overdue > 0 ? "text-danger-fg" : undefined}>{lead}</span>{" "}
-        <span className="text-fg-subtle">{plural(dataOf(leads)?.total ?? 0, "lead")}{r ? `, ${`${r.openTotal.count} still open`}${r.valuesVisible && sum(r.openTotal.values) ? ` worth ${sum(r.openTotal.values)}` : ""}` : ""}.</span>
+        <span className="text-fg-subtle">{plural(dataOf(contacts)?.total ?? 0, "lead")}{r ? `, ${`${r.openTotal.count} still open`}${r.valuesVisible && sum(r.openTotal.values) ? ` worth ${sum(r.openTotal.values)}` : ""}` : ""}.</span>
       </p>
 
       {canLeads && r && total > 0 && (

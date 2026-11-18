@@ -3,7 +3,7 @@ import * as React from "react";
 import * as Dropdown from "@radix-ui/react-dropdown-menu";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
-import { X } from "lucide-react";
+import { Check, X } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { Button } from "./button";
 
@@ -39,6 +39,16 @@ export function DropdownMenuItem({ className, danger, ...props }: React.Componen
       {...props}
     />
   );
+}
+const checkItem = "flex cursor-default select-none items-center gap-2 rounded-control py-1.5 pl-8 pr-2 text-base text-fg focus-visible:outline-offset-[-2px] data-[disabled]:opacity-50 data-[highlighted]:bg-hover pointer-coarse:py-2.5";
+const indicator = <span className="absolute left-2 inline-flex size-4 items-center justify-center"><Dropdown.ItemIndicator><Check className="size-4 text-accent" aria-hidden /></Dropdown.ItemIndicator></span>;
+/** A checkable row that keeps the menu open (a filter list): pass `onCheckedChange`. */
+export function DropdownMenuCheckboxItem({ className, children, ...props }: React.ComponentProps<typeof Dropdown.CheckboxItem>) {
+  return <Dropdown.CheckboxItem onSelect={(e) => e.preventDefault()} className={cn("relative", checkItem, className)} {...props}>{indicator}{children}</Dropdown.CheckboxItem>;
+}
+export const DropdownMenuRadioGroup = Dropdown.RadioGroup;
+export function DropdownMenuRadioItem({ className, children, ...props }: React.ComponentProps<typeof Dropdown.RadioItem>) {
+  return <Dropdown.RadioItem onSelect={(e) => e.preventDefault()} className={cn("relative", checkItem, className)} {...props}>{indicator}{children}</Dropdown.RadioItem>;
 }
 export const DropdownMenuLabel = ({ className, ...p }: React.ComponentProps<typeof Dropdown.Label>) => <Dropdown.Label className={cn("px-2 py-1 text-xs font-medium text-fg-subtle", className)} {...p} />;
 export const DropdownMenuSeparator = ({ className, ...p }: React.ComponentProps<typeof Dropdown.Separator>) => <Dropdown.Separator className={cn("my-1 h-px bg-line", className)} {...p} />;

@@ -2,8 +2,8 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowDown, ArrowUp, ArrowUpDown, Bookmark, Columns3, Download, FilterX, Lock, Pencil, Plus, RefreshCw, RotateCcw, Search, SlidersHorizontal, Trash2, Upload, Users } from "lucide-react";
-import { CONTACT_COLUMNS, endpoints, type ContactColumn, type ContactListQuery, type ContactPage, type ContactStageCounts, type ContactSummary, type CustomField, type LifecycleStage, type LostReasonDto, type Member, type PipelineDto, type SavedView, type Tag, type ViewConfig } from "@crm/contracts";
+import { ArrowDown, ArrowUp, ArrowUpDown, Bookmark, CheckSquare, Columns3, Download, FilterX, Lock, MoreHorizontal, Pencil, Plus, RefreshCw, RotateCcw, Search, SlidersHorizontal, Trash2, Upload, Users } from "lucide-react";
+import { CONTACT_COLUMNS, endpoints, type ContactColumn, type ContactListQuery, type ContactPage, type ContactOwnerCounts, type ContactStageCounts, type ContactSummary, type CustomField, type LifecycleStage, type LostReasonDto, type Member, type PipelineDto, type SavedView, type Tag, type ViewConfig } from "@crm/contracts";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge, hueOf, Status } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,24 +14,25 @@ import { Dialog, DialogClose, DialogContent, DropdownMenu, DropdownMenuContent, 
 import { PageHeader, Panel } from "@/components/ui/panel";
 import { Alert, EmptyState, ErrorState } from "@/components/ui/states";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
-import { tabClass } from "@/components/ui/tabs";
 import { ToastProvider } from "@/components/ui/toast";
 import { StageBadge, StageDialog, StageMenu } from "@/components/contacts/stage-control";
+import { StageStrip } from "@/components/contacts/stage-strip";
+import { AgentMenu, FilterSheetButton, FiltersMenu, type LeadFilterValues } from "@/components/contacts/lead-filters";
 import { RemovedLeadsDialog } from "@/components/contacts/removed-leads";
 import { NewContactDialog } from "@/components/contacts/new-contact-dialog";
 import { browserApi, errorMessage } from "@/lib/client-api";
 import { COLUMN_LABEL, DEFAULT_COLUMNS, relativeTime, SORT_FOR_COLUMN, SORT_OPTIONS, sortOptionFor, sourceLabel, TAG_TONE } from "@/lib/contacts";
 import { formatDate } from "@/lib/format";
+import { usePhone } from "@/lib/use-phone";
 import { formatMoney } from "@/lib/leads";
 import { orderedStages, defaultPipeline } from "@/lib/contact-lead";
 
-type Q = Pick<ContactListQuery, "search" | "lifecycleStageId" | "stageId" | "ownerId" | "tagIds" | "source" | "sort" | "dir">;
+type Q = Pick<ContactListQuery, "search" | "lifecycleStageId" | "stageId" | "ownerId" | "tagIds" | "source" | "createdFrom" | "sort" | "dir">;
 type Perms = { lead: boolean; removeLeads: boolean; viewValue: boolean; edit: boolean; import: boolean; export: boolean; shareViews: boolean; schema: boolean };
 type Props = { workspaceId: string; timeZone: string; myUserId: string; initial: ContactPage | null; initialQuery: ContactListQuery; pipelines: PipelineDto[]; lostReasons: LostReasonDto[]; initialCounts: ContactStageCounts | null; stages: LifecycleStage[]; tags: Tag[]; members: Member[]; views: SavedView[]; fields: CustomField[]; perms: Perms };
 
-const FILTERS: (keyof Q)[] = ["search", "lifecycleStageId", "stageId", "ownerId", "tagIds", "source"];
+const FILTERS: (keyof Q)[] = ["search", "lifecycleStageId", "stageId", "ownerId", "tagIds", "source", "createdFrom"];
 const MAX_BULK = 100;
-const count = (x: number) => x.toLocaleString("en");
 const hasFilters = (q: Q) => FILTERS.some((k) => !!q[k]);
 
 export function ContactsView(props: Props) {
@@ -39,12 +40,12 @@ export function ContactsView(props: Props) {
 }
 
 /** The list state lives in the URL; this reads it (also after Back, when the page props are from an older visit). */
-const fromParams = (sp: { get(k: string): string | null }): Q => ({ search: sp.get("search") ?? undefined, lifecycleStageId: sp.get("lifecycleStageId") ?? undefined, stageId: sp.get("stageId") ?? undefined, ownerId: sp.get("ownerId") ?? undefined, tagIds: sp.get("tagIds") ?? undefined, source: (sp.get("source") ?? undefined) as Q["source"], sort: (sp.get("sort") as Q["sort"]) ?? "lastActivity", dir: sp.get("dir") === "asc" ? "asc" : "desc" });
+const fromParams = (sp: { get(k: string): string | null }): Q => ({ search: sp.get("search") ?? undefined, lifecycleStageId: sp.get("lifecycleStageId") ?? undefined, stageId: sp.get("stageId") ?? undefined, ownerId: sp.get("ownerId") ?? undefined, tagIds: sp.get("tagIds") ?? undefined, source: (sp.get("source") ?? undefined) as Q["source"], createdFrom: sp.get("createdFrom") ?? undefined, sort: (sp.get("sort") as Q["sort"]) ?? "lastActivity", dir: sp.get("dir") === "asc" ? "asc" : "desc" });
 const sameQuery = (a: Q, b: Q) => (Object.keys({ ...a, ...b }) as (keyof Q)[]).every((k) => (a[k] || undefined) === (b[k] || undefined));
 
 function Inner({ workspaceId, timeZone, myUserId, initial, initialQuery, pipelines, lostReasons, initialCounts, stages, tags, members, views: initialViews, fields, perms }: Props) {
   const urlQuery = fromParams(useSearchParams());
-  const stale0 = !sameQuery(urlQuery, { search: initialQuery.search, lifecycleStageId: initialQuery.lifecycleStageId, stageId: initialQuery.stageId, ownerId: initialQuery.ownerId, tagIds: initialQuery.tagIds, source: initialQuery.source, sort: initialQuery.sort ?? "lastActivity", dir: initialQuery.dir ?? "desc" }); // props older than the URL (Back)
+  const stale0 = !sameQuery(urlQuery, { search: initialQuery.search, lifecycleStageId: initialQuery.lifecycleStageId, stageId: initialQuery.stageId, ownerId: initialQuery.ownerId, tagIds: initialQuery.tagIds, source: initialQuery.source, createdFrom: initialQuery.createdFrom, sort: initialQuery.sort ?? "lastActivity", dir: initialQuery.dir ?? "desc" }); // props older than the URL (Back)
   const [query, setQuery] = React.useState<Q>(urlQuery);
   const [page, setPage] = React.useState<ContactPage>(initial ?? { items: [], nextCursor: null, total: 0 });
   const [status, setStatus] = React.useState<"idle" | "loading" | "error">(initial ? "idle" : "error");
@@ -62,7 +63,9 @@ function Inner({ workspaceId, timeZone, myUserId, initial, initialQuery, pipelin
   const [deleteView, setDeleteView] = React.useState<SavedView | null>(null);
   const [exporting, setExporting] = React.useState(false);
   const [actionError, setActionError] = React.useState<string | null>(null);
-  const [showFilters, setShowFilters] = React.useState(false);
+  const [selectMode, setSelectMode] = React.useState(false);
+  const [ownerCounts, setOwnerCounts] = React.useState<ContactOwnerCounts | null>(null);
+  const phone = usePhone();
   const [counts, setCounts] = React.useState<ContactStageCounts | null>(initialCounts);
   const [selected, setSelected] = React.useState<Set<string>>(new Set());
   const [moving, setMoving] = React.useState<string[] | null>(null);
@@ -103,6 +106,13 @@ function Inner({ workspaceId, timeZone, myUserId, initial, initialQuery, pipelin
     const r = await browserApi.call(endpoints.contactStageCounts, { params: { workspaceId }, query: JSON.parse(countsKey) });
     setCounts(r.ok ? r.data : null);
   }, [workspaceId, countsKey]);
+  const { ownerId: _oid, ...sharedNoOwner } = shared;
+  const ownerKey = JSON.stringify(sharedNoOwner);
+  const loadOwnerCounts = React.useCallback(async () => {
+    const r = await browserApi.call(endpoints.contactOwnerCounts, { params: { workspaceId }, query: JSON.parse(ownerKey) });
+    setOwnerCounts(r.ok ? r.data : null);
+  }, [workspaceId, ownerKey]);
+  React.useEffect(() => { const t = setTimeout(() => void loadOwnerCounts(), 250); return () => clearTimeout(t); }, [loadOwnerCounts]);
   const firstCounts = React.useRef(!stale0);
   React.useEffect(() => {
     if (firstCounts.current) { firstCounts.current = false; return; }
@@ -117,7 +127,7 @@ function Inner({ workspaceId, timeZone, myUserId, initial, initialQuery, pipelin
     if (mine !== seq.current) return; // a newer request superseded this one
     if (!res.ok) { setErrorText(errorMessage(res.error)); setStatus("error"); return; }
     setPage(res.data);
-    setSelected((s) => new Set([...s].filter((id) => res.data.items.some((c) => c.id === id)))); // a changed list keeps only the selected contacts still in it
+    setSelected((s) => new Set([...s].filter((id) => res.data.items.some((c) => c.id === id)))); // a changed list keeps only the selected leads still in it
     setStatus("idle");
   }, [workspaceId]);
 
@@ -157,7 +167,7 @@ function Inner({ workspaceId, timeZone, myUserId, initial, initialQuery, pipelin
   }
 
   const set = (patch: Partial<Q>) => { setActiveView(null); setQuery((q) => ({ ...q, ...patch })); };
-  const clearFilters = () => set({ search: undefined, lifecycleStageId: undefined, stageId: undefined, ownerId: undefined, tagIds: undefined, source: undefined });
+  const clearFilters = () => set({ search: undefined, lifecycleStageId: undefined, stageId: undefined, ownerId: undefined, tagIds: undefined, source: undefined, createdFrom: undefined });
   const toggleSort = (col: ContactColumn) => {
     const s = SORT_FOR_COLUMN[col];
     if (!s) return;
@@ -184,23 +194,23 @@ function Inner({ workspaceId, timeZone, myUserId, initial, initialQuery, pipelin
     const url = URL.createObjectURL(new Blob([res.data], { type: "text/csv" }));
     const a = document.createElement("a");
     a.href = url;
-    a.download = "contacts.csv";
+    a.download = "leads.csv";
     document.body.append(a);
     a.click();
     a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
   const chipStages = orderedStages(defaultPipeline(pipelines));
-  const countOf = (id: string) => counts?.items.find((x) => x.stageId === id)?.count ?? 0;
   const afterMove = (moved: string[]) => {
     setSelected((s) => { const x = new Set(s); moved.forEach((id) => x.delete(id)); return x; });
     void load(query);
     void loadCounts();
+    void loadOwnerCounts();
   };
   const toggle = (id: string) => setSelected((s) => {
     const x = new Set(s);
     if (x.has(id)) x.delete(id);
-    else if (x.size >= MAX_BULK) setActionError(`You can change up to ${MAX_BULK} contacts at a time.`);
+    else if (x.size >= MAX_BULK) setActionError(`You can change up to ${MAX_BULK} leads at a time.`);
     else x.add(id);
     return x;
   });
@@ -210,70 +220,82 @@ function Inner({ workspaceId, timeZone, myUserId, initial, initialQuery, pipelin
   const lead = { enabled: perms.lead, pipelines, lostReasons, workspaceId, viewValue: perms.viewValue, selected, toggle, allOnPage, selectAll, onChanged: afterMove };
   const sortLabel = SORT_OPTIONS.find((o) => o.value === `${query.sort}:${query.dir}`)?.label;
 
+  const filterValues: LeadFilterValues = { ownerId: query.ownerId, tagIds: query.tagIds, source: query.source, createdFrom: query.createdFrom };
+  const applyFilters = (v: LeadFilterValues) => set({ ownerId: v.ownerId, tagIds: v.tagIds, source: v.source, createdFrom: v.createdFrom });
+  const sortSelect = (
+    <Select aria-label="Sort by" wrapperClassName="lg:hidden" className="w-auto" value={sortOptionFor(query.sort, query.dir)} onChange={(e) => { if (e.target.value === "custom") return; const [s, d] = e.target.value.split(":"); set({ sort: s as Q["sort"], dir: d as Q["dir"] }); }}>
+      {sortOptionFor(query.sort, query.dir) === "custom" && <option value="custom">Custom order</option>}
+      {SORT_OPTIONS.filter((o) => perms.viewValue || !o.value.startsWith("value")).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+    </Select>
+  );
+  const viewsMenu = <ViewsMenu views={views} active={activeView} base={baseView} canManageShared={perms.shareViews} onApply={applyView} onSave={() => setSaveOpen(true)} onRename={(v) => { setBaseView(v.id); setRenameOpen(true); }} onUpdate={async (v) => { const r = await browserApi.call(endpoints.updateView, { params: { workspaceId, viewId: v.id }, body: { config: currentConfig() } }); if (!r.ok) return setActionError(errorMessage(r.error)); setViews((x) => x.map((y) => (y.id === v.id ? r.data : y))); }} onDelete={setDeleteView} />;
+  const exitSelect = () => { setSelectMode(false); setSelected(new Set()); };
+  const bulk = (cls: string, where: "top" | "bottom") => (
+    <div role="region" aria-label="Bulk actions" className={`${cls} items-center gap-2 rounded-card border border-line bg-surface px-3 py-2 shadow-sheet`}>
+      <span className="mr-auto text-sm font-medium text-fg" aria-live="polite">{selected.size === 0 ? "Select leads" : `${selected.size} selected`}</span>
+      {where === "bottom" && <Button variant="ghost" size="sm" onClick={selectAll}>{allOnPage ? "None" : "All"}</Button>}
+      <Button variant="primary" size="sm" disabled={selected.size === 0} onClick={() => setMoving([...selected])}>Change stage</Button>
+      <Button variant="ghost" size="sm" onClick={where === "bottom" ? exitSelect : () => setSelected(new Set())}>{where === "bottom" ? "Done" : "Clear selection"}</Button>
+    </div>
+  );
+
   return (
     <>
       <PageHeader
-        title="Contacts"
-        description={status === "error" && !page.items.length ? undefined : stale ? "Showing previous results" : `${page.total.toLocaleString("en-US")} ${page.total === 1 ? "contact" : "contacts"}${filtered ? " match your filters" : ""}`}
+        title="Leads"
+        description={status === "error" && !page.items.length ? undefined : stale ? "Showing previous results" : `${page.total.toLocaleString("en-US")} ${page.total === 1 ? "lead" : "leads"}${filtered ? " match your filters" : ""}`}
         actions={
-          <div className="flex flex-wrap items-center gap-2">
-            {perms.removeLeads && <Button variant="ghost" onClick={() => setRemovedOpen(true)}><RotateCcw />Recently removed</Button>}
-            {perms.import && <Button asChild variant="secondary"><Link href={`/w/${workspaceId}/contacts/import`}><Upload />Import</Link></Button>}
-            {perms.export && <Button variant="secondary" onClick={() => void doExport()} loading={exporting}><Download />Export</Button>}
-            {perms.edit && <Button variant="primary" onClick={() => setNewOpen(true)}><Plus />Add contact</Button>}
+          <div className="flex items-center gap-2">
+            {perms.removeLeads && <Button variant="ghost" className="max-md:hidden" onClick={() => setRemovedOpen(true)}><RotateCcw />Recently removed</Button>}
+            {perms.import && <Button asChild variant="secondary" className="max-md:hidden"><Link href={`/w/${workspaceId}/contacts/import`}><Upload />Import</Link></Button>}
+            {perms.edit && <Button variant="primary" onClick={() => setNewOpen(true)}><Plus />Add lead</Button>}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild><Button variant="secondary" icon aria-label="More actions" className={perms.schema ? "" : "lg:hidden"}><MoreHorizontal /></Button></DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                {perms.lead && <DropdownMenuItem className="lg:hidden" onSelect={() => setSelectMode(true)}><CheckSquare aria-hidden />Select leads</DropdownMenuItem>}
+                {perms.removeLeads && <DropdownMenuItem className="md:hidden" onSelect={() => setRemovedOpen(true)}><RotateCcw aria-hidden />Recently removed</DropdownMenuItem>}
+                {perms.import && <DropdownMenuItem className="md:hidden" asChild><Link href={`/w/${workspaceId}/contacts/import`}><Upload aria-hidden />Import</Link></DropdownMenuItem>}
+                {perms.export && <DropdownMenuItem className="md:hidden" disabled={exporting} onSelect={() => void doExport()}><Download aria-hidden />Export CSV</DropdownMenuItem>}
+                <DropdownMenuItem className="lg:hidden" onSelect={() => setColsOpen(true)}><Columns3 aria-hidden />Columns</DropdownMenuItem>
+                {perms.schema && <DropdownMenuItem asChild><Link href={`/w/${workspaceId}/settings/contacts`}><SlidersHorizontal aria-hidden />Lead fields</Link></DropdownMenuItem>}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         }
       />
 
-      {chipStages.length > 0 && (
-        <div data-scroll="allowed" className="relative mb-3 flex gap-1.5 overflow-x-auto pb-1" role="group" aria-label="Filter by stage">
-          <button type="button" className={tabClass(!query.stageId)} aria-pressed={!query.stageId} onClick={() => set({ stageId: undefined })}>All{counts && <>{" "}<span className="tabular-nums">{count(counts.total)}</span></>}</button>
-          {chipStages.map((s) => (
-            <button key={s.id} type="button" className={tabClass(query.stageId === s.id)} aria-pressed={query.stageId === s.id} onClick={() => set({ stageId: s.id })}>{s.name}{counts && <>{" "}<span className="tabular-nums">{count(countOf(s.id))}</span></>}</button>
-          ))}
-        </div>
-      )}
+      {chipStages.length > 0 && <StageStrip stages={chipStages} counts={counts} activeId={query.stageId} onSelect={(id) => set({ stageId: id })} />}
 
-      <div className="mb-3 flex flex-wrap items-center gap-1.5">
-        <div className="relative min-w-0 flex-1 basis-56 sm:max-w-64">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-fg-subtle" aria-hidden />
-          <Input aria-label="Search contacts" type="search" placeholder="Search name, email or phone" className="pl-8 shadow-none" value={query.search ?? ""} onChange={(e) => set({ search: e.target.value || undefined })} />
+      <div className="mb-3 flex flex-col gap-2 max-md:sticky max-md:top-0 max-md:z-20 max-md:-mx-4 max-md:bg-canvas max-md:px-4 max-md:pb-2 max-md:pt-1">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <div className="relative min-w-0 flex-1 basis-56 md:max-w-72 md:flex-none">
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-fg-subtle" aria-hidden />
+            <Input aria-label="Search leads" type="search" enterKeyHint="search" placeholder="Search name, company, email or phone" className="pl-8 shadow-none" value={query.search ?? ""} onChange={(e) => set({ search: e.target.value || undefined })} />
+          </div>
+          {phone ? (
+            <FilterSheetButton members={members} myUserId={myUserId} ownerCounts={ownerCounts} tags={tags} value={filterValues} onApply={applyFilters} />
+          ) : (
+            <>
+              <AgentMenu members={members} myUserId={myUserId} ownerCounts={ownerCounts} tags={tags} value={filterValues} onChange={(ownerId) => set({ ownerId })} />
+              <FiltersMenu tags={tags} value={filterValues} onChange={(p) => set(p)} />
+              {filtered && <Button variant="ghost" onClick={clearFilters}><FilterX />Clear</Button>}
+            </>
+          )}
+          <div className="ml-auto flex items-center gap-1.5 max-md:hidden">
+            {sortSelect}
+            {viewsMenu}
+            <Button variant="ghost" className="max-lg:hidden" onClick={() => setColsOpen(true)}><Columns3 />Columns</Button>
+            {perms.export && <Button variant="secondary" onClick={() => void doExport()} loading={exporting}><Download />Export</Button>}
+          </div>
         </div>
-        <Button variant="secondary" className="md:hidden" aria-expanded={showFilters} onClick={() => setShowFilters((s) => !s)}><SlidersHorizontal />Filters{filtered ? " (on)" : ""}</Button>
-        <div className={`${showFilters ? "flex" : "hidden"} w-full flex-wrap items-center gap-1 md:flex md:w-auto`}>
-          <Select aria-label="Owner" quiet active={!!query.ownerId} className="w-auto" value={query.ownerId ?? ""} onChange={(e) => set({ ownerId: e.target.value || undefined })}>
-            <option value="">All owners</option>
-            <option value="me">Me</option>
-            <option value="unassigned">Unassigned</option>
-            {members.filter((m) => m.userId !== myUserId).map((m) => <option key={m.userId} value={m.userId}>{m.name}</option>)}
-          </Select>
-          <Select aria-label="Tag" quiet active={!!query.tagIds} className="w-auto" value={query.tagIds ?? ""} onChange={(e) => set({ tagIds: e.target.value || undefined })}>
-            <option value="">Any tag</option>
-            {tags.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-          </Select>
-          <Select aria-label="Source" quiet active={!!query.source} className="w-auto" value={query.source ?? ""} onChange={(e) => set({ source: (e.target.value || undefined) as Q["source"] })}>
-            <option value="">All sources</option>
-            {["manual", "import", "messenger", "instagram", "whatsapp", "telegram", "email", "web_chat", "facebook_lead_ad", "web_form", "referral", "other"].map((s) => <option key={s} value={s}>{sourceLabel(s)}</option>)}
-          </Select>
-          {filtered && <Button variant="ghost" onClick={clearFilters}><FilterX />Clear</Button>}
-        </div>
-        <div className="ml-auto flex items-center gap-2">
-          <Select aria-label="Sort by" wrapperClassName="t-cards" className="w-auto" value={sortOptionFor(query.sort, query.dir)} onChange={(e) => { if (e.target.value === "custom") return; const [s, d] = e.target.value.split(":"); set({ sort: s as Q["sort"], dir: d as Q["dir"] }); }}>
-            {sortOptionFor(query.sort, query.dir) === "custom" && <option value="custom">Custom order</option>}
-            {SORT_OPTIONS.filter((o) => perms.viewValue || !o.value.startsWith("value")).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-          </Select>
-          <ViewsMenu views={views} active={activeView} base={baseView} canManageShared={perms.shareViews} onApply={applyView} onSave={() => setSaveOpen(true)} onRename={(v) => { setBaseView(v.id); setRenameOpen(true); }} onUpdate={async (v) => { const r = await browserApi.call(endpoints.updateView, { params: { workspaceId, viewId: v.id }, body: { config: currentConfig() } }); if (!r.ok) return setActionError(errorMessage(r.error)); setViews((x) => x.map((y) => (y.id === v.id ? r.data : y))); }} onDelete={setDeleteView} />
-          <Button variant="ghost" className="t-table-inline" onClick={() => setColsOpen(true)}><Columns3 />Columns</Button>
+        <div className="flex items-center gap-1.5 md:hidden">
+          {viewsMenu}
+          {sortSelect}
+          {filtered && <Button variant="ghost" className="ml-auto" onClick={clearFilters}><FilterX />Clear</Button>}
         </div>
       </div>
 
-      {selected.size > 0 && perms.lead && (
-        <div role="region" aria-label="Bulk actions" className="sticky top-0 z-10 mb-3 flex flex-wrap items-center gap-2 rounded-card border border-line bg-surface px-3 py-2 shadow-sheet">
-          <span className="text-sm font-medium text-fg" aria-live="polite">{selected.size} selected</span>
-          <Button variant="primary" size="sm" onClick={() => setMoving([...selected])}>Change stage</Button>
-          <Button variant="ghost" size="sm" onClick={() => setSelected(new Set())}>Clear selection</Button>
-        </div>
-      )}
+      {selected.size > 0 && perms.lead && bulk("sticky top-0 z-10 mb-3 hidden lg:flex", "top")}
       {actionError && <Alert tone="error" className="mb-3">{actionError}</Alert>}
       {errorText && page.items.length > 0 && (
         <Alert tone="error" className="mb-3">
@@ -283,35 +305,36 @@ function Inner({ workspaceId, timeZone, myUserId, initial, initialQuery, pipelin
 
       <Panel className={`overflow-hidden ${status === "loading" || stale ? "opacity-70 transition-opacity" : "transition-opacity"}`} aria-busy={status === "loading"}>
         {status === "error" && page.items.length === 0 ? (
-          <ErrorState title="Contacts could not be loaded" description={errorText ?? "Check your connection and try again."} onRetry={() => void load(query)} />
+          <ErrorState title="Leads could not be loaded" description={errorText ?? "Check your connection and try again."} onRetry={() => void load(query)} />
         ) : page.items.length === 0 && status !== "loading" ? (
           filtered ? (
-            <EmptyState icon={FilterX} title="No contacts match these filters" description="Try a different search or clear the filters." action={<Button onClick={clearFilters}>Clear filters</Button>} />
+            <EmptyState icon={FilterX} title="No leads match these filters" description="Try a different search or clear the filters." action={<Button onClick={clearFilters}>Clear filters</Button>} />
           ) : (
             <EmptyState
               icon={Users}
-              title="No contacts yet"
+              title="No leads yet"
               description="Add people, or import a spreadsheet."
-              action={<div className="flex flex-wrap justify-center gap-2">{perms.edit && <Button variant="primary" onClick={() => setNewOpen(true)}><Plus />Add contact</Button>}{perms.import && <Button asChild variant="secondary"><Link href={`/w/${workspaceId}/contacts/import`}><Upload />Import a CSV</Link></Button>}</div>}
+              action={<div className="flex flex-wrap justify-center gap-2">{perms.edit && <Button variant="primary" onClick={() => setNewOpen(true)}><Plus />Add lead</Button>}{perms.import && <Button asChild variant="secondary"><Link href={`/w/${workspaceId}/contacts/import`}><Upload />Import a CSV</Link></Button>}</div>}
             />
           )
         ) : (
           <>
-            <div className="t-table">
+            <div className="hidden lg:block">
               <ContactsTable items={page.items} columns={columns} query={query} onSort={toggleSort} workspaceId={workspaceId} timeZone={timeZone} lead={lead} />
             </div>
-            <ul className="t-cards">
-              {page.items.map((c) => <ContactCard key={c.id} c={c} workspaceId={workspaceId} timeZone={timeZone} pipelines={pipelines} />)}
+            <ul className="lg:hidden" aria-label="Leads">
+              {page.items.map((c) => <LeadCard key={c.id} c={c} workspaceId={workspaceId} lead={lead} selectMode={selectMode} />)}
             </ul>
             <div className="flex items-center justify-between gap-3 border-t border-line-card px-4 py-2.5 text-sm text-fg-subtle">
-              <span role="status">{status === "loading" ? "Updating…" : `${stale ? "Showing previous results; the last search failed. " : sortLabel ? `Sorted by ${sortLabel}. ` : ""}Showing ${page.items.length.toLocaleString("en-US")} of ${page.total.toLocaleString("en-US")}`}</span>
+              <span role="status" aria-live="polite">{status === "loading" ? "Updating…" : `${stale ? "Showing previous results; the last search failed. " : sortLabel ? `Sorted by ${sortLabel}. ` : ""}Showing ${page.items.length.toLocaleString("en-US")} of ${page.total.toLocaleString("en-US")}`}</span>
               {page.nextCursor && <Button onClick={loadMore} loading={moreBusy} disabled={status === "loading"}>Load more</Button>}
             </div>
           </>
         )}
       </Panel>
+      {selectMode && perms.lead && bulk("sticky bottom-0 z-20 mt-3 flex pb-[max(0.5rem,calc(env(safe-area-inset-bottom)-var(--bottomnav-h)))] lg:hidden", "bottom")}
 
-      {moving && <StageDialog key={moving.join()} ids={moving} pipelines={pipelines} lostReasons={lostReasons} workspaceId={workspaceId} onClose={() => setMoving(null)} onDone={(moved) => afterMove(moved)} />}
+      {moving && <StageDialog key={moving.join()} ids={moving} pipelines={pipelines} lostReasons={lostReasons} workspaceId={workspaceId} onClose={() => setMoving(null)} onDone={(moved) => { afterMove(moved); if (selectMode) exitSelect(); }} />}
       {perms.removeLeads && removedOpen && <RemovedLeadsDialog open={removedOpen} onOpenChange={setRemovedOpen} workspaceId={workspaceId} timeZone={timeZone} pipelines={pipelines} onRestored={() => { void load(query); void loadCounts(); }} />}
       <NewContactDialog open={newOpen} onOpenChange={setNewOpen} workspaceId={workspaceId} stages={stages} members={members} fields={fields} myUserId={myUserId} />
       <ColumnsDialog open={colsOpen} onOpenChange={setColsOpen} columns={columns} onChange={(c) => { setActiveView(null); saveColumns(c); }} />
@@ -330,7 +353,7 @@ function ContactsTable({ items, columns, query, onSort, workspaceId, timeZone, l
   React.useEffect(() => { if (headRef.current) headRef.current.indeterminate = lead.selected.size > 0 && !lead.allOnPage; }, [lead.selected, lead.allOnPage]);
   const sortKey = (c: ContactColumn) => (c === "value" && !lead.viewValue ? undefined : SORT_FOR_COLUMN[c]);
   return (
-    <Table scrollLabel="Contacts table, scrolls sideways when columns do not fit">
+    <Table scrollLabel="Leads table, scrolls sideways when columns do not fit">
       <THead>
         <tr>
           {lead.enabled && <TH className="sticky left-0 z-10 w-10 pr-0"><input ref={headRef} type="checkbox" className="size-4 accent-[var(--accent)]" aria-label="Select all on this page" checked={lead.allOnPage} onChange={lead.selectAll} /></TH>}
@@ -385,7 +408,7 @@ function cell(col: ContactColumn, c: ContactSummary, workspaceId: string, timeZo
       return (
         <span className="inline-flex items-center gap-1.5">
           {lead.enabled ? <StageMenu c={c} pipelines={lead.pipelines} lostReasons={lead.lostReasons} workspaceId={workspaceId} onChanged={() => lead.onChanged([])} /> : <StageBadge pipelines={lead.pipelines} c={c} />}
-          {!!c.lead?.moreCount && <span className="text-xs text-fg-subtle" title={`This contact also has ${c.lead.moreCount} older or closed ${c.lead.moreCount === 1 ? "lead" : "leads"}.`}>+{c.lead.moreCount} more</span>}
+          {!!c.lead?.moreCount && <span className="text-xs text-fg-subtle" title={`This lead also has ${c.lead.moreCount} older or closed ${c.lead.moreCount === 1 ? "lead" : "leads"}.`}>+{c.lead.moreCount} more</span>}
         </span>
       );
     case "value": return <ValueCell c={c} />;
@@ -395,12 +418,12 @@ function cell(col: ContactColumn, c: ContactSummary, workspaceId: string, timeZo
           <Avatar name={c.name} size="lg" />
           <div className="min-w-0 leading-tight">
             <Link href={`/w/${workspaceId}/contacts/${c.id}`} className="block truncate font-medium text-fg hover:text-accent-fg pointer-coarse:-my-3 pointer-coarse:py-3">{c.name}</Link>
-            <p className="truncate text-sm text-fg-subtle">{c.email ?? c.phone ?? "No email or phone"}</p>
+            <p className="truncate text-sm text-fg-subtle">{c.company ?? c.email ?? c.phone ?? "No company, email or phone"}</p>
           </div>
         </div>
       );
     case "lifecycle": return <Stage name={c.lifecycleStage.name} />;
-    case "owner": return c.owner ? <span className="inline-flex items-center gap-1.5"><Avatar name={c.owner.name} size="xs" /><span>{c.owner.name}</span></span> : <Empty>Unassigned</Empty>;
+    case "owner": return c.owner ? <span className="inline-flex items-center gap-2"><Avatar name={c.owner.name} size="sm" /><span>{c.owner.name}</span></span> : <span className="text-fg-subtle">Unassigned</span>;
     case "tags": return c.tags.length ? <span className="inline-flex items-center gap-1">{c.tags.slice(0, 2).map((t) => <Badge key={t.id} shape="square" tone={t.color === "neutral" ? "neutral" : TAG_TONE[t.color]}>{t.name}</Badge>)}{c.tags.length > 2 && <span className="text-xs text-fg-subtle" title={c.tags.slice(2).map((t) => t.name).join(", ")}>+{c.tags.length - 2}</span>}</span> : <Empty>No tags</Empty>;
     // The default source is low-signal, so it recedes; any other source reads at normal strength.
     case "source": return <span className={c.source === "manual" ? "text-fg-subtle" : "text-fg"}>{sourceLabel(c.source)}</span>;
@@ -409,24 +432,27 @@ function cell(col: ContactColumn, c: ContactSummary, workspaceId: string, timeZo
   }
 }
 
-function ContactCard({ c, workspaceId, timeZone, pipelines }: { c: ContactSummary; workspaceId: string; timeZone: string; pipelines: PipelineDto[] }) {
+/** Phone and tablet row: two lines (name and company; stage, value, agent), the whole card opens the lead, the stage pill opens the stage sheet. */
+function LeadCard({ c, workspaceId, lead, selectMode }: { c: ContactSummary; workspaceId: string; lead: LeadCtx; selectMode: boolean }) {
+  const on = lead.selected.has(c.id);
   return (
-    <li className="border-b border-line last:border-b-0">
-      <Link href={`/w/${workspaceId}/contacts/${c.id}`} className="flex items-start gap-3 px-4 py-3 active:bg-hover">
-        <Avatar name={c.name} />
+    <li className={`relative border-b border-line-card last:border-b-0 ${on ? "bg-selected" : "active:bg-hover"}`}>
+      <div className="flex min-h-[4.5rem] items-center gap-3 px-4 py-2">
+        {selectMode && lead.enabled ? (
+          <label className="-ml-2 flex size-11 shrink-0 cursor-pointer items-center justify-center after:absolute after:inset-0 after:content-['']">
+            <input type="checkbox" className="size-5 accent-[var(--accent)]" aria-label={`Select ${c.name}`} checked={on} onChange={() => lead.toggle(c.id)} />
+          </label>
+        ) : null}
+        <Avatar name={c.name} size="xl" />
         <div className="min-w-0 flex-1">
-          <div className="flex items-baseline justify-between gap-2">
-            <p className="truncate font-medium text-fg">{c.name}</p>
-            <time dateTime={c.lastActivityAt ?? undefined} suppressHydrationWarning className="shrink-0 text-xs text-fg-subtle">{c.lastActivityAt ? relativeTime(c.lastActivityAt, timeZone) : ""}</time>
-          </div>
-          <p className="truncate text-sm text-fg-muted">{c.email ?? c.phone ?? "No email or phone"}</p>
-          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-            <StageBadge pipelines={pipelines} c={c} />
-            {c.tags.slice(0, 2).map((t) => <Badge key={t.id} shape="square" tone={TAG_TONE[t.color]}>{t.name}</Badge>)}
-            {c.owner && <span className="text-xs text-fg-subtle">· {c.owner.name}</span>}
-          </div>
+          {selectMode && lead.enabled ? <p className="truncate font-medium text-fg">{c.name}</p> : <Link href={`/w/${workspaceId}/contacts/${c.id}`} className="block truncate font-medium text-fg after:absolute after:inset-0 after:content-['']">{c.name}</Link>}
+          <p className="truncate text-sm text-fg-subtle">{c.company ?? c.email ?? c.phone ?? "No company, email or phone"}</p>
         </div>
-      </Link>
+        <div className="relative z-10 flex max-w-[46%] shrink-0 flex-col items-end">
+          {lead.enabled ? <StageMenu c={c} pipelines={lead.pipelines} lostReasons={lead.lostReasons} workspaceId={workspaceId} onChanged={() => lead.onChanged([])} /> : <StageBadge pipelines={lead.pipelines} c={c} />}
+          <span className="flex items-center gap-2 text-sm text-fg-muted"><ValueCell c={c} />{c.owner && <span role="img" aria-label={`Agent: ${c.owner.name}`} title={c.owner.name}><Avatar name={c.owner.name} size="xs" /></span>}</span>
+        </div>
+      </div>
     </li>
   );
 }
@@ -573,7 +599,7 @@ function DeleteViewDialog({ view, onClose, onConfirm }: { view: SavedView | null
   const [busy, setBusy] = React.useState(false);
   return (
     <Dialog open={!!view} onOpenChange={(o) => { if (!o) { setError(null); onClose(); } }}>
-      <DialogContent title={view ? `Delete “${view.name}”?` : "Delete view"} description={view?.shared ? "This view is shared. It will be removed for everyone in the workspace." : "The saved filters and columns are removed. Contacts are not affected."}>
+      <DialogContent title={view ? `Delete “${view.name}”?` : "Delete view"} description={view?.shared ? "This view is shared. It will be removed for everyone in the workspace." : "The saved filters and columns are removed. Leads are not affected."}>
         {error && <Alert tone="error" className="mb-3">{error}</Alert>}
         <DialogActions>
           <DialogClose asChild><Button variant="ghost">Cancel</Button></DialogClose>
