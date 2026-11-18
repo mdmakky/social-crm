@@ -51,7 +51,7 @@ export const CapiValueMode = z.enum(["lead_value", "fixed", "none"]);
 /** One rule: when `triggerType` happens (for `lead_stage_entered`, on `stageId`) send `eventName` to the dataset, with the value picked by `valueMode`. */
 export const CapiMappingDto = z.object({
   id: Uuid, datasetId: Uuid, triggerType: CapiTriggerType, stageId: Uuid.nullable(), eventName: z.string(), valueMode: CapiValueMode,
-  fixedValueMinor: z.number().int().nullable(), currency: z.string().nullable(), enabled: z.boolean(), createdAt: z.string(), updatedAt: z.string(),
+  fixedValueMinor: z.number().int().nullable(), currency: z.string().nullable(), enabled: z.boolean(), askForValue: z.boolean(), createdAt: z.string(), updatedAt: z.string(),
 });
 export type CapiMappingDto = z.infer<typeof CapiMappingDto>;
 export const CapiMappingList = z.object({ items: z.array(CapiMappingDto) });
@@ -63,12 +63,15 @@ const MappingFields = z.object({
   fixedValueMinor: z.number().int().min(0).max(9_000_000_000_000).nullable().default(null),
   currency: z.string().regex(/^[A-Z]{3}$/, "Use a three-letter currency code, for example USD.").nullable().default(null),
   enabled: z.boolean().default(true),
+  /** With `valueMode: "lead_value"`: when a stage change fires this rule and the lead has no value, the app asks for it before moving. false = skip and record (no_value), as before. */
+  askForValue: z.boolean().default(false),
 });
 /** Cross-field rules shared by create and update; the database repeats them as CHECK constraints. */
 const mappingRules = (b: z.infer<typeof MappingFields>, ctx: z.RefinementCtx) => {
   if ((b.triggerType === "lead_stage_entered") !== (b.stageId !== null)) ctx.addIssue({ code: "custom", path: ["stageId"], message: b.triggerType === "lead_stage_entered" ? "Choose the stage." : "Only \"enters a stage\" uses a stage." });
   if (b.valueMode === "fixed" && (b.fixedValueMinor === null || b.currency === null)) ctx.addIssue({ code: "custom", path: ["fixedValueMinor"], message: "Enter an amount and a currency." });
   if (b.valueMode !== "fixed" && (b.fixedValueMinor !== null || b.currency !== null)) ctx.addIssue({ code: "custom", path: ["valueMode"], message: "An amount is only used with a fixed value." });
+  if (b.askForValue && b.valueMode !== "lead_value") ctx.addIssue({ code: "custom", path: ["askForValue"], message: "Asking for a value only works when the value comes from the lead." });
   if (b.eventName === "Purchase" && b.valueMode === "none") ctx.addIssue({ code: "custom", path: ["valueMode"], message: "A Purchase needs a value." });
 };
 /** Create and update take the same fields; update replaces the whole rule. */
@@ -80,12 +83,27 @@ export const CapiMappingPreviewBody = z.object({ leadId: Uuid });
 export const CapiPreviewItem = z.object({
   mappingId: Uuid, datasetId: Uuid, datasetName: z.string(), triggerType: CapiTriggerType, stageId: Uuid.nullable(), eventName: z.string(),
   result: z.enum(["send", "skip"]), reason: z.enum(["mapping_disabled", "dataset_inactive", "no_value", "no_consent", "opted_out"]).nullable(),
-  value: z.number().nullable(), currency: z.string().nullable(),
+  value: z.number().nullable(), currency: z.string().nullable(), askForValue: z.boolean(),
 });
 export const CapiMappingPreview = z.object({ items: z.array(CapiPreviewItem), consent: z.enum(["granted", "revoked", "none"]) });
 export type CapiMappingPreview = z.infer<typeof CapiMappingPreview>;
 
+/**
+ * Before a stage change: what would fire, and does the app need to ask for a deal value first. `contactId` because the web works by contact (a contact without a lead gets one on its first move).
+ * `value` is null when the caller may not see the lead's value (never leaked); `needsValue` is true when some enabled rule of an active dataset has `askForValue` and the lead has no value.
+ */
+export const StageCheckQuery = z.object({ stageId: Uuid });
+export const StageCheckFire = z.object({ mappingId: Uuid, datasetName: z.string(), datasetMode: z.enum(["mock", "live"]), eventName: z.string(), trigger: CapiTriggerType, ask: z.boolean() });
+export const StageCheck = z.object({
+  stageId: Uuid, stageName: z.string(), stageKind: z.enum(["open", "won", "lost"]),
+  fires: z.array(StageCheckFire), needsValue: z.boolean(), canSetValue: z.boolean(),
+  value: z.object({ valueMinor: z.number().int(), currency: z.string() }).nullable(), valueHidden: z.boolean(),
+  currency: z.string(), consent: z.enum(["granted", "revoked", "none"]),
+});
+export type StageCheck = z.infer<typeof StageCheck>;
+
 export const capiEndpoints = {
+  checkStageChange: endpoint({ method: "GET", path: `${W}/contacts/:contactId/stage-check`, query: StageCheckQuery, response: StageCheck }),
   listCapiDatasets: endpoint({ method: "GET", path: `${W}/capi/datasets`, response: CapiDatasetList }),
   createCapiDataset: endpoint({ method: "POST", path: `${W}/capi/datasets`, body: CreateCapiDatasetBody, response: CapiDatasetDto }),
   disableCapiDataset: endpoint({ method: "POST", path: `${W}/capi/datasets/:datasetId/disable`, response: CapiDatasetDto }),

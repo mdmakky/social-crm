@@ -96,18 +96,22 @@ export async function upsertContactLead(tx: Tx, c: SC, ops: LeadOps, contactId: 
   if (b.expectedVersion !== undefined && b.expectedVersion !== current.version) return bad(409, "version_conflict", "This lead was changed by someone else.");
   let version = current.version;
   let changed = false;
-  if (b.valueMinor !== undefined || b.currency !== undefined || b.ownerUserId !== undefined) {
+  // A value that comes with a stage change rides on the move (one write, one audit entry, and the CAPI hook sees it); a value alone is a normal update.
+  const moving = b.stageId !== undefined && b.stageId !== current.stageId;
+  const valueWithMove = moving && b.valueMinor != null && b.currency != null && b.valueMinor > 0;
+  const valueEdit = (b.valueMinor !== undefined || b.currency !== undefined) && !valueWithMove;
+  if (valueEdit || b.ownerUserId !== undefined) {
     const upd = await ops.updateLeadIn(tx, c, current.id, {
       expectedVersion: version,
-      ...(b.valueMinor !== undefined || b.currency !== undefined ? { valueMinor: b.valueMinor ?? null, currency: b.valueMinor == null ? null : b.currency ?? null } : {}),
+      ...(valueEdit ? { valueMinor: b.valueMinor ?? null, currency: b.valueMinor == null ? null : b.currency ?? null } : {}),
       ...(b.ownerUserId !== undefined ? { ownerUserId: b.ownerUserId } : {}),
     });
     if (!upd.ok) return upd;
     changed = upd.lead.version !== version;
     version = upd.lead.version;
   }
-  if (b.stageId !== undefined && b.stageId !== current.stageId) {
-    const moved = await ops.moveLead(tx, c, current.id, { expectedVersion: version, stageId: b.stageId, lostReasonId: b.lostReasonId }, true);
+  if (moving) {
+    const moved = await ops.moveLead(tx, c, current.id, { expectedVersion: version, stageId: b.stageId!, lostReasonId: b.lostReasonId, ...(valueWithMove ? { valueMinor: b.valueMinor!, currency: b.currency! } : {}) }, true);
     if (!moved.ok) {
       if (changed) throw new Rollback(moved.status, moved.code, moved.message ?? ""); // undo the value/owner write: the request is all or nothing
       return moved;

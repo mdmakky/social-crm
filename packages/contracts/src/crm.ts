@@ -146,7 +146,7 @@ export type PutContactLeadResult = z.infer<typeof PutContactLeadResult>;
 export const BulkContactStageBody = z.object({ contactIds: z.array(uuid).min(1).max(100), stageId: uuid, lostReasonId: uuid.optional() });
 export type BulkContactStageBody = z.input<typeof BulkContactStageBody>;
 /** One entry per requested contact; code is "ok", "created" (a lead was created), "unchanged" or the error code of the single move. */
-export const BulkContactStageResult = z.object({ results: z.array(z.object({ id: uuid, ok: z.boolean(), code: z.string() })) });
+export const BulkContactStageResult = z.object({ results: z.array(z.object({ id: uuid, ok: z.boolean(), code: z.string(), /** Moved, but an ad rule wanted a deal value the lead does not have: that event was recorded as skipped (no_value). */ noValue: z.literal(true).optional() })) });
 export type BulkContactStageResult = z.infer<typeof BulkContactStageResult>;
 export const ContactPage = z.object({ items: z.array(ContactSummary), nextCursor: z.string().nullable(), total: z.number().int() });
 export type ContactPage = z.infer<typeof ContactPage>;

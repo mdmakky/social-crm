@@ -101,7 +101,10 @@ export const UpdateLeadBody = z.object({
   priority: LeadPriority.optional(), ownerUserId: z.string().nullable().optional(),
 }).refine((b) => Object.keys(b).some((k) => k !== "expectedVersion"), "Nothing to update");
 export type UpdateLeadBody = z.input<typeof UpdateLeadBody>;
-export const MoveLeadBody = z.object({ expectedVersion: z.number().int(), stageId: Uuid, lostReasonId: Uuid.optional(), beforeLeadId: Uuid.optional(), afterLeadId: Uuid.optional() });
+/** `valueMinor` + `currency`: set the lead's deal value in the same request and transaction as the move, so the CAPI event carries it (needs the value-edit permission). */
+export const MoveValue = { valueMinor: z.number().int().min(1).max(9_000_000_000_000).optional(), currency: Currency.optional() };
+export const MoveLeadBody = z.object({ expectedVersion: z.number().int(), stageId: Uuid, lostReasonId: Uuid.optional(), beforeLeadId: Uuid.optional(), afterLeadId: Uuid.optional(), ...MoveValue })
+  .refine((b) => (b.valueMinor === undefined) === (b.currency === undefined), "Value and currency go together");
 export type MoveLeadBody = z.input<typeof MoveLeadBody>;
 export const BulkStageBody = z.object({ leadIds: z.array(Uuid).min(1).max(100), stageId: Uuid, lostReasonId: Uuid.optional() });
 export type BulkStageBody = z.input<typeof BulkStageBody>;

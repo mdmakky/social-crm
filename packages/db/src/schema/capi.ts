@@ -79,6 +79,7 @@ export const capiEventMappings = pgTable("capi_event_mappings", {
   fixedValueMinor: bigint("fixed_value_minor", { mode: "number" }),
   currency: text("currency"),
   enabled: boolean("enabled").notNull().default(true),
+  askForValue: boolean("ask_for_value").notNull().default(false),
   createdBy: text("created_by"),
   createdAt: ts("created_at").notNull().defaultNow(),
   updatedAt: ts("updated_at").notNull().defaultNow(),

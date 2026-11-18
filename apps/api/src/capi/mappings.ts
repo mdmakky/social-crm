@@ -7,13 +7,13 @@ type Row = Record<string, unknown>;
 const rowsOf = (r: unknown) => (r as { rows: Row[] }).rows;
 
 export type Trigger = "lead_created" | "lead_stage_entered" | "lead_won" | "lead_lost";
-export type Mapping = { id: string; datasetId: string; triggerType: Trigger; stageId: string | null; eventName: string; valueMode: "lead_value" | "fixed" | "none"; fixedValueMinor: number | null; currency: string | null };
+export type Mapping = { id: string; datasetId: string; triggerType: Trigger; stageId: string | null; eventName: string; valueMode: "lead_value" | "fixed" | "none"; fixedValueMinor: number | null; currency: string | null; askForValue: boolean };
 export type LeadFacts = { valueMinor: number | null; currency: string | null };
 export type Skip = "no_value" | null;
 
 const toMapping = (r: Row): Mapping => ({
   id: r.id as string, datasetId: r.dataset_id as string, triggerType: r.trigger_type as Trigger, stageId: (r.stage_id as string | null) ?? null, eventName: r.event_name as string,
-  valueMode: r.value_mode as Mapping["valueMode"], fixedValueMinor: r.fixed_value_minor === null || r.fixed_value_minor === undefined ? null : Number(r.fixed_value_minor), currency: (r.currency as string | null) ?? null,
+  valueMode: r.value_mode as Mapping["valueMode"], fixedValueMinor: r.fixed_value_minor === null || r.fixed_value_minor === undefined ? null : Number(r.fixed_value_minor), currency: (r.currency as string | null) ?? null, askForValue: r.ask_for_value === true,
 });
 
 /**
