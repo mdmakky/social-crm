@@ -14,6 +14,8 @@ export type CapiWorkerDeps = {
   batch?: number;
   /** How long a claimed row stays invisible; if the process dies mid-send the row is picked up again after this. */
   leaseMs?: number;
+  /** Claim only this workspace's events. Unset in production (one queue for everyone); tests set it because API test files share one database and could otherwise send each other's events. */
+  onlyWorkspaceId?: string;
 };
 export type CapiRunResult = { claimed: number; sent: number; retried: number; failed: number; skipped: number };
 
@@ -31,7 +33,7 @@ export async function processCapiQueue(db: Db, deps: CapiWorkerDeps): Promise<Ca
   const t0 = new Date(now()).toISOString();
   const claimed = await db.transaction(async (tx) =>
     rowsOf(await tx.execute(sql`
-      WITH due AS (SELECT id FROM capi_events WHERE status = 'pending' AND next_attempt_at <= ${t0}::timestamptz ORDER BY next_attempt_at, id LIMIT ${deps.batch ?? 50} FOR UPDATE SKIP LOCKED)
+      WITH due AS (SELECT id FROM capi_events WHERE status = 'pending' AND next_attempt_at <= ${t0}::timestamptz AND (${deps.onlyWorkspaceId ?? null}::uuid IS NULL OR workspace_id = ${deps.onlyWorkspaceId ?? null}::uuid) ORDER BY next_attempt_at, id LIMIT ${deps.batch ?? 50} FOR UPDATE SKIP LOCKED)
       UPDATE capi_events e SET attempts = e.attempts + 1, next_attempt_at = ${new Date(now() + lease).toISOString()}::timestamptz, updated_at = now()
       FROM due WHERE e.id = due.id RETURNING e.id, e.workspace_id, e.attempts`)),
   );

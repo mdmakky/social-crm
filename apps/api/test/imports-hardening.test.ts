@@ -15,7 +15,7 @@ const upload = async (csv: string) => ok(await o().call(endpoints.uploadImport, 
 const tryUpload = async (csv: string) => failure(await o().call(endpoints.uploadImport, { params: p(), body: { filename: "h.csv", csv } }));
 const commit = async (id: string, over: Partial<ImportPlanBody> = {}) => o().call(endpoints.commitImport, { params: { ...p(), importId: id }, body: plan(over) });
 const preview = async (id: string, over: Partial<ImportPlanBody> = {}) => ok(await o().call(endpoints.previewImport, { params: { ...p(), importId: id }, body: plan(over) }));
-const find = async (s: string) => ok(await o().call(endpoints.listContacts, { params: p(), query: { search: s } })).items;
+const find = async (s: string) => ok(await o().call(endpoints.listContacts, { params: p(), query: { search: s, kind: "all" } })).items; // a lookup helper: finds enquiries (no phone) as well as leads
 const q = async <T extends Record<string, unknown>>(sql: string, args: unknown[] = []) => (await h.admin.query(sql, args)).rows as T[];
 
 beforeAll(async () => {
@@ -73,7 +73,7 @@ describe("formula injection", () => {
     expect(a).toMatchObject({ name: '=HYPERLINK("http://evil")', company: "+cmd|calc" });
     const [b] = await find("f2@h.example");
     expect(b!.name).toBe("=already guarded");
-    const csv = ok(await o().call(endpoints.exportContacts, { params: p(), query: { search: "f1@h.example" } }));
+    const csv = ok(await o().call(endpoints.exportContacts, { params: p(), query: { search: "f1@h.example", kind: "all" } })); // the imported person has no phone, so it is an enquiry
     expect(csv).toContain("'=HYPERLINK");
   });
 });

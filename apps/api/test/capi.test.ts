@@ -35,7 +35,7 @@ const eventsOf = (ws: string, ds?: string) => q("SELECT * FROM capi_events WHERE
 const run = (script?: (r: SendRequest, n: number) => SendResult | undefined, now?: () => number, extra = {}) => {
   const adapter = createMockAdapter(script);
   // Drains: every win fans out to all active datasets of the workspace, so more than one batch can be due.
-  const go = async () => { for (let i = 0; i < 50; i++) if ((await processCapiQueue(workerDb, { adapter, box, now, ...extra })).claimed === 0) return; };
+  const go = async () => { for (let i = 0; i < 50; i++) if ((await processCapiQueue(workerDb, { adapter, box, now, onlyWorkspaceId: A, ...extra })).claimed === 0) return; };
   return { adapter, go };
 };
 const grant = (c: ContactDetail, status: "granted" | "revoked" = "granted", u = owner, ws = A) => as(u).call(endpoints.setAdConsent, { params: { workspaceId: ws, contactId: c.id }, body: { status, source: "manual" } });
@@ -148,7 +148,7 @@ describe("tenant isolation", () => {
     const pipeB = ok(await as(ownerB).call(endpoints.listPipelines, { params: p(B) })).pipelines[0]!;
     const lb = ok(await as(ownerB).call(endpoints.createLead, { params: p(B), body: { title: "B", primaryContactId: cB.id, valueMinor: 100, currency: "EUR" } as never })) as LeadDto;
     ok(await as(ownerB).call(endpoints.moveLead, { params: { workspaceId: B, leadId: lb.id }, body: { expectedVersion: lb.version, stageId: pipeB.stages.find((s) => s.kind === "won")!.id } }));
-    const w = run();
+    const w = run(undefined, undefined, { onlyWorkspaceId: undefined }); // needs both workspaces; it looks calls up by dataset id, so other files' events do not matter
     await w.go();
     const bydataset = new Map(w.adapter.calls.map((r) => [r.datasetId, r]));
     expect(bydataset.get(dA.datasetId)?.accessToken).toBe(TOKEN);
@@ -305,7 +305,7 @@ describe("worker", () => {
   it("a mock dataset is never handed to a live adapter", async () => {
     const { d } = await pendingFor();
     const live = { mode: "live" as const, calls: [] as SendRequest[], async send(r: SendRequest): Promise<SendResult> { this.calls.push(r); return { ok: true, eventsReceived: 1 }; } };
-    await processCapiQueue(workerDb, { adapter: live, box });
+    await processCapiQueue(workerDb, { adapter: live, box, onlyWorkspaceId: A });
     expect(live.calls.filter((r) => r.datasetId === d.datasetId)).toHaveLength(0);
     expect((await eventsOf(A, d.id))[0]).toMatchObject({ status: "failed", last_error: "mode_mismatch" });
   });
