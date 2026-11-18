@@ -281,3 +281,10 @@ Private DB `inv_f` (fresh via `scripts/db-create.sh inv_f`), migration 0035.
 - Screenshots of Contacts and Contact detail at 1440 and 375 were looked at; two layout defects found that way (stage chips overflowing the page at 375, Stage section too low on phones) are fixed.
 - Not run: `capi-mappings`, `ux-audit`, `mobile-audit`, `screens.opt-in`, `states-and-errors` and the rest of the browser suite; the full API suite; anything against Meta.
 - Removed with the screens they tested: `leads-tasks.spec.ts` (tasks linked to a lead, on the removed lead page).
+
+## One contact, one lead: fixes (2026-11-18, branch `feat/one-lead-fixes`; private DB `ol2_f`, Playwright on ports 5521/9921, mock Meta)
+- API (serially): contact-lead (now 21 with 2 new: value grant and revoke seen from an agent, remove and restore), leads, contacts, contract: 4 files, 66 passed. Web vitest: 8 files, 69 passed.
+- Browser: new `one-lead-fixes.spec.ts` (agent without grant sees no value and no grant controls, owner grants then agent sees it in page and list, revoke hides it, remove with confirm, Recently removed, restore, no Lifecycle stage, axe at 1280 and 375): passed. Also passed: one-lead-per-contact, contacts, contacts-detail, contacts-responsive, leads (18 passed in one run, plus a rerun of contacts-detail, leads, the new spec).
+- Changed assertions (the control they used is gone, per owner decision D292): `contacts.spec.ts` filter step used the Lifecycle filter, now the Source filter "Referral" with the same expected empty result; `contacts-detail.spec.ts` no longer edits Lifecycle stage (and no longer expects its activity row), and now asserts the label is absent; `contacts-responsive.spec.ts` hidden/visible-filters check now uses the Owner filter instead of Lifecycle stage.
+- `turbo run lint typecheck`: 24 of 24 successful. Screenshots of the contact page and the Recently removed dialog at 1440 and 375 were looked at.
+- Not run: full suites, anything against Meta, mobile app.
