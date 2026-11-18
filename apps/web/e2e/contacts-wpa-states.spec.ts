@@ -63,7 +63,7 @@ test.describe("contacts list: failure states (WP-A)", () => {
     await page.route("**/contacts?*cursor=*", async (r) => { await new Promise((res) => setTimeout(res, 800)); await r.continue(); });
     await page.getByRole("button", { name: "Load more" }).click();
     await page.getByLabel("Search leads").fill("okafor");
-    await expect(page.getByText("3 leads match your filters")).toBeVisible();
+    await expect(page.getByText(/^3 leads? · \d+ enquir(y|ies) match your filters/)).toBeVisible();
     await page.waitForTimeout(1200); // let the delayed page arrive
     await expect(page.getByRole("row")).toHaveCount(4); // header + 3 Okafor rows, nothing appended from the old query
     await expect(page.getByText("Showing 3 of 3")).toBeVisible();

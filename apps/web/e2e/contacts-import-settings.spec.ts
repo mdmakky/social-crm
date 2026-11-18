@@ -50,7 +50,8 @@ test.describe("csv import wizard", () => {
     await expect(page.getByRole("heading", { name: "Import complete" })).toBeFocused();
     await expect(page.getByText("2 added · 1 updated · 0 skipped.")).toBeVisible();
     await page.getByRole("link", { name: "View leads" }).click();
-    await expect(page.getByText("3 leads")).toBeVisible();
+    // Noah Import has no phone: an enquiry (D310). Existing Erin (seeded with a phone, updated) and Mia are leads.
+    await expect(page.getByText("2 leads · 1 enquiry")).toBeVisible();
     await page.getByLabel("Search leads").fill("erin@exist");
     await expect(page.getByRole("link", { name: "Erin Again" })).toBeVisible(); // name and company were updated
     await page.getByLabel("Search leads").fill("mia@");
@@ -129,6 +130,7 @@ test.describe("contact settings", () => {
     await page.getByRole("button", { name: "Add lead" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add lead" });
     await dialog.getByLabel("Name").fill("Field Person");
+    await dialog.getByLabel("Phone").fill("01711000222"); // a phone makes it a lead (D310)
     await dialog.getByRole("button", { name: "Add lead" }).click();
     await expect(dialog.getByText("Tier is required")).toBeVisible();
     await dialog.getByLabel("Tier (required)").selectOption("gold");
