@@ -9,7 +9,7 @@ const CHANNEL_ICON = { messenger: MessageCircle, instagram: Camera, whatsapp: Ph
 /** Icon + text, never colour alone: speech bubble (Messenger) vs camera outline (Instagram) differ in shape. */
 export function ChannelBadge({ platform, account }: { platform: ConversationItem["platform"]; account?: string | null }) {
   const Icon = CHANNEL_ICON[platform];
-  return <Badge tone="neutral" shape="square"><Icon className="size-3" aria-hidden />{PLATFORM_LABEL[platform]}{account ? <span className="text-fg-subtle"> · {account}</span> : null}</Badge>;
+  return <Badge tone="neutral" shape="square" className="max-w-full"><Icon className="size-3 shrink-0" aria-hidden /><span className="shrink-0">{PLATFORM_LABEL[platform]}</span>{account ? <span className="min-w-0 truncate text-fg-subtle"> · {account}</span> : null}</Badge>;
 }
 
 /** Small channel mark on an avatar corner. The row's accessible text names the channel (sr-only). */
