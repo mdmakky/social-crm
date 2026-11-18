@@ -1,7 +1,7 @@
 "use client";
 import * as React from "react";
 import { Bot, Play, Plus } from "lucide-react";
-import { endpoints, type AgentActionDto, type AgentDto, type AgentRunResult, type AgentRunRow, type AgentToolDto, type AiProviderDto, type ContactSummary } from "@crm/contracts";
+import { endpoints, type AgentDto, type AgentRunResult, type AgentRunRow, type AgentToolDto, type AiProviderDto, type ContactSummary } from "@crm/contracts";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
@@ -12,6 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, EmptyState, ErrorState } from "@/components/ui/states";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import { ToastProvider, useToast } from "@/components/ui/toast";
+import { notifyAiChanged } from "@/components/ai/hub-status";
 import { browserApi, errorMessage } from "@/lib/client-api";
 import { formatMicro } from "@/lib/ai-money";
 
@@ -41,7 +42,6 @@ function Inner({ workspaceId }: { workspaceId: string }) {
   const [data, setData] = React.useState<Data | null>(null);
   const [loadError, setLoadError] = React.useState<string | null>(null);
   const [selected, setSelected] = React.useState<string | "new" | null>(null);
-  const [actionsTick, setActionsTick] = React.useState(0);
 
   const load = React.useCallback(async () => {
     const [l, t, p, c] = await Promise.all([
@@ -82,9 +82,8 @@ function Inner({ workspaceId }: { workspaceId: string }) {
           </Table>
         )}
       </Panel>
-      <PendingPanel params={params} tick={actionsTick} onChanged={() => setActionsTick((x) => x + 1)} />
       {selected && (selected === "new" || current) && (
-        <Editor key={selected} params={params} data={data} agent={current} onSaved={async (id) => { await load(); setSelected(id); }} onClose={() => setSelected(null)} onActions={() => setActionsTick((x) => x + 1)} />
+        <Editor key={selected} params={params} data={data} agent={current} onSaved={async (id) => { await load(); setSelected(id); }} onClose={() => setSelected(null)} onActions={notifyAiChanged} />
       )}
     </div>
   );
@@ -340,51 +339,6 @@ function RunsPanel({ params, agent }: P & { agent: AgentDto }) {
             ))}
           </TBody>
         </Table>
-      )}
-    </Panel>
-  );
-}
-
-function PendingPanel({ params, tick, onChanged }: P & { tick: number; onChanged: () => void }) {
-  const toast = useToast();
-  const [items, setItems] = React.useState<AgentActionDto[] | null>(null);
-  const [error, setError] = React.useState<string | null>(null);
-  const [busy, setBusy] = React.useState<string | null>(null);
-  const load = React.useCallback(async () => {
-    const r = await browserApi.call(endpoints.listAiAgentActions, { params, query: { status: "pending" } });
-    if (!r.ok) { setError(errorMessage(r.error)); return; }
-    setError(null); setItems(r.data.items);
-  }, [params]);
-  React.useEffect(() => { void load(); }, [load, tick]); // eslint-disable-line react-hooks/set-state-in-effect
-
-  async function decide(a: AgentActionDto, approve: boolean) {
-    setBusy(a.id);
-    const r = await browserApi.call(approve ? endpoints.approveAiAgentAction : endpoints.rejectAiAgentAction, { params: { ...params, actionId: a.id } });
-    setBusy(null);
-    if (!r.ok) { setError(errorMessage(r.error)); await load(); return; }
-    toast(!approve ? "Action rejected" : r.data.status === "executed" ? "Action approved and done" : `Action ${r.data.status}${r.data.error ? `: ${r.data.error}` : ""}`, r.data.status === "failed" ? "error" : "success");
-    await load(); onChanged();
-  }
-  return (
-    <Panel>
-      <PanelHeader title="Pending approvals" description="Proposed actions waiting for you. Approving runs them as you." />
-      {error && <div className="p-4 pb-0"><Alert tone="error">{error}</Alert></div>}
-      {!items ? <div role="status" aria-label="Loading approvals" className="p-4"><Skeleton className="h-12" /></div> : items.length === 0 ? <EmptyState title="Nothing waiting" description="Proposed actions that need approval appear here." /> : (
-        <ul className="divide-y divide-line-card">
-          {items.map((a) => (
-            <li key={a.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
-              <div className="min-w-0">
-                <p className="text-sm font-medium text-fg">{a.tool} <span className="font-normal text-fg-muted">by {a.agentName} v{a.agentVersion}</span></p>
-                <code className="block break-all text-xs text-fg-muted">{JSON.stringify(a.args)}</code>
-                <p className="text-xs text-fg-subtle">{a.reason === "sensitive" ? "Sensitive tool" : "Needs approval by its grant"} · {a.source}</p>
-              </div>
-              <div className="flex gap-2">
-                <Button size="sm" variant="primary" loading={busy === a.id} onClick={() => void decide(a, true)} aria-label={`Approve ${a.tool}`}>Approve</Button>
-                <Button size="sm" disabled={busy === a.id} onClick={() => void decide(a, false)} aria-label={`Reject ${a.tool}`}>Reject</Button>
-              </div>
-            </li>
-          ))}
-        </ul>
       )}
     </Panel>
   );

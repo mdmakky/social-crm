@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { addMemberByEmail, api, register, signUpAndCreate } from "./helpers";
+import { addMemberByEmail, api, register, signUpAndCreate, openFold } from "./helpers";
 import { axe, seed } from "./channel-helpers";
 
 /**
@@ -9,7 +9,7 @@ import { axe, seed } from "./channel-helpers";
 test.describe.configure({ mode: "serial" });
 
 let owner: Page, workspaceId = "";
-const SETTINGS = () => `/w/${workspaceId}/settings/ai`;
+const SETTINGS = () => `/w/${workspaceId}/settings/ai/setup`;
 const noOverflow = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
 
 test.beforeAll(async ({ browser }) => {
@@ -45,10 +45,12 @@ test("configure the mock provider and a budget", async () => {
   await expect(owner.getByLabel("API key")).toHaveValue("");
 
   // The mock stays the default; budget saves and survives a reload.
+  await openFold(owner, "Monthly budget");
   await owner.getByLabel("Monthly limit (USD)").fill("5");
   await owner.getByRole("button", { name: "Save budget" }).click();
   await expect(owner.getByText("Budget saved")).toBeVisible();
   await owner.reload();
+  await openFold(owner, "Monthly budget");
   await expect(owner.getByLabel("Monthly limit (USD)")).toHaveValue("5.00");
   await owner.getByLabel("Monthly limit (USD)").fill("abc");
   await owner.getByRole("button", { name: "Save budget" }).click();
@@ -66,6 +68,7 @@ test("configure the mock provider and a budget", async () => {
 test("prompt versions", async () => {
   await owner.setViewportSize({ width: 1440, height: 900 });
   await owner.goto(SETTINGS());
+  await openFold(owner, "Prompt");
   const box = owner.getByLabel("Prompt template");
   await box.fill("Reply to {{contact_name}} politely. Use {{secret}}.");
   await owner.getByRole("button", { name: "Publish as new version" }).click();
@@ -125,6 +128,7 @@ test("suggest reply fills the composer as an editable draft and sends nothing", 
 
   // The usage table shows the calls (counts only), and the draft text is nowhere in it.
   await owner.goto(SETTINGS());
+  await openFold(owner, "Usage");
   const usage = owner.getByRole("region", { name: "AI usage by day" });
   await expect(usage).toContainText("Reply suggestion");
   await expect(owner.locator("body")).not.toContainText("MOCK DRAFT");
@@ -132,6 +136,7 @@ test("suggest reply fills the composer as an editable draft and sends nothing", 
 
 test("a spent budget blocks suggestions with a clear message", async () => {
   await owner.goto(SETTINGS());
+  await openFold(owner, "Monthly budget");
   await owner.getByLabel("Monthly limit (USD)").fill("0");
   await owner.getByRole("button", { name: "Save budget" }).click();
   await expect(owner.getByText("Budget saved")).toBeVisible();
@@ -142,6 +147,7 @@ test("a spent budget blocks suggestions with a clear message", async () => {
   await expect(owner.getByText(/monthly AI budget is used up/)).toBeVisible();
   await expect(owner.getByLabel("Reply", { exact: true })).toHaveValue("");
   await owner.goto(SETTINGS());
+  await openFold(owner, "Usage");
   await expect(owner.getByRole("region", { name: "AI usage by day" })).toContainText("Reply suggestion");
 });
 

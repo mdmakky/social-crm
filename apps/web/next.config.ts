@@ -12,6 +12,14 @@ const config: NextConfig = {
     ];
   },
   poweredByHeader: false,
+  // The AI pages became tabs of one hub (settings/ai). Old links, bookmarks and notifications keep working.
+  async redirects() {
+    return [
+      { source: "/w/:workspaceId/settings/ai-agents", destination: "/w/:workspaceId/settings/ai/agents", permanent: false },
+      { source: "/w/:workspaceId/settings/knowledge", destination: "/w/:workspaceId/settings/ai/knowledge", permanent: false },
+      { source: "/w/:workspaceId/settings/automations", destination: "/w/:workspaceId/settings/ai/automations", permanent: false },
+    ];
+  },
   async headers() {
     return [
       // Everything except the widget page keeps the frame ban. The widget page is MEANT to be framed by customer sites: its frame-ancestors is set per widget in proxy.ts (the widget's allowed origins, or 'none').

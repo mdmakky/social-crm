@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { BarChart3, Sparkles } from "lucide-react";
+import { BarChart3, FileText, Sparkles, Wallet } from "lucide-react";
 import { endpoints, type AiBudgetDto, type AiPromptDto, type AiProviderDto, type AiUsageDto } from "@crm/contracts";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip } from "@/components/ui/overlays";
@@ -8,11 +8,10 @@ import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { Checkbox, Textarea } from "@/components/ui/form-controls";
 import { Input, Select } from "@/components/ui/input";
-import { Panel, PanelHeader } from "@/components/ui/panel";
+import { FoldPanel } from "@/components/ai/fold-panel";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, EmptyState, ErrorState } from "@/components/ui/states";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
-import { tabClass } from "@/components/ui/tabs";
 import { ToastProvider, useToast } from "@/components/ui/toast";
 import { browserApi, errorMessage } from "@/lib/client-api";
 import { formatMicro, parseMicro } from "@/lib/ai-money";
@@ -25,7 +24,6 @@ type Data = { providers: AiProviderDto[]; prompts: AiPromptDto[]; budget: AiBudg
  * Settings, AI (Phase 6 slice 1). The provider key goes into a password field, is sent once over the same-origin proxy and cleared; the server never returns it (only the last four characters).
  * Real providers are UNVERIFIED (no recorded request to a live service); the mock provider is offline and says so wherever it is used.
  */
-const SECTIONS = [{ id: "ai-provider", label: "Provider" }, { id: "ai-prompts", label: "Prompts" }, { id: "ai-budget", label: "Budget and usage" }, { id: "ai-capabilities", label: "Capabilities" }, { id: "ai-playground", label: "Media playground" }];
 
 export function AiSettings({ workspaceId }: { workspaceId: string }) {
   return <ToastProvider><Inner workspaceId={workspaceId} /></ToastProvider>;
@@ -51,15 +49,12 @@ function Inner({ workspaceId }: { workspaceId: string }) {
   if (!data) return <div className="flex flex-col gap-4" role="status" aria-label="Loading AI settings"><Skeleton className="h-48" /><Skeleton className="h-40" /><Skeleton className="h-32" /></div>;
   return (
     <div className="flex flex-col gap-[var(--page-gap)]">
-      {/* In-page index: the AI page is long, so each part has an anchor and the index stays in view while scrolling. */}
-      <nav aria-label="On this page" data-scroll="allowed" className="sticky top-0 z-10 -mx-1 flex gap-1.5 overflow-x-auto bg-canvas/95 px-1 py-2 backdrop-blur">
-        {SECTIONS.map((s) => <a key={s.id} href={`#${s.id}`} className={tabClass(false)}>{s.label}</a>)}
-      </nav>
-      <section id="ai-provider" aria-label="Provider settings" className="scroll-mt-14"><ProviderPanel params={params} providers={data.providers} onSaved={load} /></section>
-      <section id="ai-prompts" aria-label="Prompts" className="scroll-mt-14"><PromptPanel params={params} prompts={data.prompts} onSaved={load} /></section>
-      <section id="ai-budget" aria-label="Budget" className="scroll-mt-14 flex flex-col gap-[var(--page-gap)]"><BudgetPanel params={params} budget={data.budget} usage={data.usage} onSaved={load} /><UsagePanel usage={data.usage} /></section>
-      <section id="ai-capabilities" aria-label="Capabilities" className="scroll-mt-14"><CapabilitiesPanel workspaceId={workspaceId} providers={data.providers} /></section>
-      <section id="ai-playground" aria-label="Media playground" className="scroll-mt-14"><MediaPlayground workspaceId={workspaceId} /></section>
+      <ProviderPanel params={params} providers={data.providers} onSaved={load} />
+      <PromptPanel params={params} prompts={data.prompts} onSaved={load} />
+      <BudgetPanel params={params} budget={data.budget} usage={data.usage} onSaved={load} />
+      <UsagePanel usage={data.usage} />
+      <CapabilitiesPanel workspaceId={workspaceId} providers={data.providers} />
+      <MediaPlayground workspaceId={workspaceId} />
     </div>
   );
 }
@@ -102,8 +97,7 @@ function ProviderPanel({ params, providers, onSaved }: P & { providers: AiProvid
 
   const model = current.models.find((m) => m.id === form.model);
   return (
-    <Panel>
-      <PanelHeader title="Provider" description="The service and model your drafts come from." actions={current.mock ? <Tooltip label="Canned text. No AI service is called." side="bottom"><span><Badge tone="warning">MOCK</Badge></span></Tooltip> : <Tooltip label="No recorded request to the live service yet. Try one suggestion and check the usage table." side="bottom"><span><Badge tone="warning">Not tested live</Badge></span></Tooltip>} />
+    <FoldPanel id="ai-provider" icon={Sparkles} title="Provider" defaultOpen summary={<span className="inline-flex flex-wrap items-center gap-1.5">{current.label} {current.mock ? <Tooltip label="Canned text. No AI service is called." side="bottom"><span><Badge tone="warning">MOCK</Badge></span></Tooltip> : <Tooltip label="No recorded request to the live service yet. Try one suggestion and check the usage table." side="bottom"><span><Badge tone="warning">Not tested live</Badge></span></Tooltip>}</span>}>
       <form onSubmit={(e) => { e.preventDefault(); void save(); }} className="flex flex-col gap-4 p-4" noValidate>
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Provider">{(p) => (
@@ -139,7 +133,7 @@ function ProviderPanel({ params, providers, onSaved }: P & { providers: AiProvid
         {error && <Alert tone="error">{error}</Alert>}
         <div><Button type="submit" variant="primary" loading={busy}><Sparkles className="size-4" aria-hidden />{current.configured ? "Save provider" : "Connect provider"}</Button></div>
       </form>
-    </Panel>
+    </FoldPanel>
   );
 }
 
@@ -171,8 +165,7 @@ function PromptPanel({ params, prompts, onSaved }: P & { prompts: AiPromptDto[];
   }
 
   return (
-    <Panel>
-      <PanelHeader title={`Prompt: ${pr.label}`} description="Sent with every suggestion. Each save is a new version." />
+    <FoldPanel id="ai-prompts" icon={FileText} title={`Prompt: ${pr.label}`} summary="Sent with every suggestion. Each save is a new version.">
       <div className="flex flex-col gap-4 p-4">
         <form onSubmit={(e) => { e.preventDefault(); void publish(); }} className="flex flex-col gap-3" noValidate>
           <Field label="Prompt template" hint={`Placeholders: ${pr.variables.map((v) => `{{${v}}}`).join(", ")}. Nothing else is allowed.`}>{(p) => (
@@ -200,7 +193,7 @@ function PromptPanel({ params, prompts, onSaved }: P & { prompts: AiPromptDto[];
           </ul>
         </section>
       </div>
-    </Panel>
+    </FoldPanel>
   );
 }
 
@@ -224,8 +217,7 @@ function BudgetPanel({ params, budget, usage, onSaved }: P & { budget: AiBudgetD
   }
   const m = usage.month;
   return (
-    <Panel>
-      <PanelHeader title="Monthly budget" description="Monthly limit (UTC). The hard stop blocks calls once it is reached." />
+    <FoldPanel id="ai-budget" icon={Wallet} title="Monthly budget" summary="Monthly limit (UTC). The hard stop blocks calls once it is reached.">
       <form onSubmit={(e) => { e.preventDefault(); void save(); }} className="flex flex-col gap-3 p-4" noValidate>
         <Field label="Monthly limit (USD)" error={err} hint="Leave empty for no limit.">{(p) => <Input {...p} inputMode="decimal" autoComplete="off" className="max-w-48" value={cap} disabled={busy} onChange={(e) => setCap(e.target.value)} />}</Field>
         <Checkbox label="Hard stop: block AI calls when the limit is reached" checked={hard} disabled={busy} onChange={(e) => setHard(e.target.checked)} />
@@ -235,15 +227,14 @@ function BudgetPanel({ params, budget, usage, onSaved }: P & { budget: AiBudgetD
         </p>
         <div><Button type="submit" variant="primary" loading={busy}>Save budget</Button></div>
       </form>
-    </Panel>
+    </FoldPanel>
   );
 }
 
 function UsagePanel({ usage }: { usage: AiUsageDto }) {
   const m = usage.month;
   return (
-    <Panel>
-      <PanelHeader title="Usage" description="Last 30 days. Counts and costs only." />
+    <FoldPanel id="ai-usage" icon={BarChart3} title="Usage" summary="Last 30 days. Counts and costs only.">
       <div className="flex flex-col gap-3 p-4">
         <p className="text-sm text-fg-muted">This month: {m.runs} calls, {m.inputTokens.toLocaleString()} tokens in, {m.outputTokens.toLocaleString()} out{m.blockedRuns > 0 ? `, ${m.blockedRuns} blocked by the budget` : ""}.</p>
         {usage.byDay.length === 0 ? <EmptyState icon={BarChart3} title="No AI calls yet" description="Calls appear here when someone uses Suggest reply in the inbox." /> : (
@@ -260,6 +251,6 @@ function UsagePanel({ usage }: { usage: AiUsageDto }) {
           </Table>
         )}
       </div>
-    </Panel>
+    </FoldPanel>
   );
 }

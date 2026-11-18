@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { Cpu, FlaskConical } from "lucide-react";
+import { Cpu, Eye, FlaskConical } from "lucide-react";
 import { endpoints, MEDIA_LIMITS, type AiCapabilities, type AiProviderDto, type MediaResult } from "@crm/contracts";
 import type { ApiError } from "@crm/api-client";
 import { Badge } from "@/components/ui/badge";
@@ -9,7 +9,7 @@ import { Field } from "@/components/ui/field";
 import { Textarea } from "@/components/ui/form-controls";
 import { Input, Select } from "@/components/ui/input";
 import { Tooltip } from "@/components/ui/overlays";
-import { Panel, PanelHeader } from "@/components/ui/panel";
+import { FoldPanel } from "@/components/ai/fold-panel";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, EmptyState, ErrorState } from "@/components/ui/states";
 import { browserApi, errorMessage } from "@/lib/client-api";
@@ -31,8 +31,7 @@ export function CapabilitiesPanel({ workspaceId, providers }: { workspaceId: str
   React.useEffect(() => { void load(); }, [load, sig]); // eslint-disable-line react-hooks/set-state-in-effect
 
   return (
-    <Panel>
-      <PanelHeader title="Capabilities" description="What each model can do with images, documents and audio." />
+    <FoldPanel id="ai-capabilities" icon={Eye} title="Capabilities" summary="What each model can do with images, documents and audio.">
       <div className="p-4">
         {state.kind === "loading" && <div role="status" aria-label="Loading capabilities"><Skeleton className="h-24" /></div>}
         {state.kind === "error" && <ErrorState title="Could not load capabilities" description={state.message} onRetry={() => { setState({ kind: "loading" }); void load(); }} />}
@@ -63,7 +62,7 @@ export function CapabilitiesPanel({ workspaceId, providers }: { workspaceId: str
           </div>
         )}
       </div>
-    </Panel>
+    </FoldPanel>
   );
 }
 
@@ -132,8 +131,7 @@ export function MediaPlayground({ workspaceId }: { workspaceId: string }) {
   }
 
   return (
-    <Panel>
-      <PanelHeader title="Media playground" description="Send one file to your provider. It is not stored here." />
+    <FoldPanel id="ai-playground" icon={FlaskConical} title="Media playground" summary="Send one file to your provider. It is not stored here. Advanced.">
       <form onSubmit={run} className="flex flex-col gap-4 p-4" noValidate aria-label="Media playground">
         <Field label="Action">{(p) => (
           <Select {...p} value={op} disabled={busy} onChange={(e) => chooseOp(e.target.value as Op)}>
@@ -160,6 +158,6 @@ export function MediaPlayground({ workspaceId }: { workspaceId: string }) {
           </section>
         )}
       </div>
-    </Panel>
+    </FoldPanel>
   );
 }

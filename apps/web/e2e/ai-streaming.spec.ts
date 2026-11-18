@@ -153,10 +153,14 @@ test("an agent on a tool-capable model shows native tool calls and a pending act
   await owner.getByLabel("Dry run (change nothing)").uncheck();
   await owner.getByRole("button", { name: "Run test" }).click();
   await expect(owner.getByText("Pending approval", { exact: true }).first()).toBeVisible();
-  await expect(owner.getByRole("button", { name: "Approve crm.add_note" })).toBeVisible();
   await expect(owner.getByText(/Version 1 · mock-1 · native tool calls/)).toBeVisible();
+  await owner.getByRole("link", { name: /^Overview/ }).click(); // approvals live in one queue on the hub Overview
+  await expect(owner.getByRole("button", { name: "Approve crm.add_note" })).toBeVisible();
   const notes = (await (await api(owner).get(`${W()}/contacts/${contactId}/notes`)).json()) as { body: string }[];
   expect(notes).toHaveLength(0); // proposed, not done
+  await owner.getByRole("link", { name: /^Agents/ }).click();
+  await owner.getByRole("button", { name: "Edit Native helper" }).click();
+  await expect(caps).toBeVisible();
   // Turning the tool off changes how the model is asked: no tools granted means the reply is requested as structured JSON (mock supports it).
   await owner.getByLabel("Mode for crm.add_note").selectOption("off");
   await expect(caps).toContainText("Structured output");

@@ -1,4 +1,4 @@
-import { Bell, BookOpen, Bot, Contact, Kanban, LineChart, MessageSquareText, Plug, ScrollText, SlidersHorizontal, Sparkles, Users, Workflow } from "lucide-react";
+import { Bell, Contact, Kanban, LineChart, MessageSquareText, Plug, ScrollText, SlidersHorizontal, Sparkles, Users } from "lucide-react";
 import type { ComponentType } from "react";
 import { can, type Action, type Role } from "@crm/core/permissions";
 
@@ -23,10 +23,7 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
     { label: "Lead stages", description: "Pipelines, stages and lost reasons.", path: "settings/pipelines", icon: Kanban },
   ] },
   { label: "AI and automation", items: [
-    { label: "AI", description: "Provider, model, prompts and monthly budget.", path: "settings/ai", icon: Sparkles, requires: "ai.configure" },
-    { label: "AI Agents", description: "Agents with their own instructions.", path: "settings/ai-agents", icon: Bot, requires: "ai.configure" },
-    { label: "Knowledge", description: "Sources the assistant can use.", path: "settings/knowledge", icon: BookOpen },
-    { label: "Automations", description: "Rules that react to CRM changes.", path: "settings/automations", icon: Workflow, requires: "workflow.manage" },
+    { label: "AI and automation", description: "Assistant, agents, knowledge and rules.", path: "settings/ai", icon: Sparkles },
   ] },
   { label: "Channels", items: [
     { label: "Integrations", description: "Messenger, Instagram and WhatsApp.", path: "integrations", icon: Plug, requires: "integration.view" },
