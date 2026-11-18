@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import { cn } from "@/lib/cn";
 import { ChevronDown, Plus } from "lucide-react";
 import { endpoints, type LeadDto, type LostReasonDto, type PipelineDto, type StageDto } from "@crm/contracts";
 import { Button } from "@/components/ui/button";
@@ -89,14 +90,23 @@ export type ContactLead = ReturnType<typeof useContactLead>;
 const dot = (s: StageDto, i: number) => s.kind === "won" ? "var(--success-fg)" : s.kind === "lost" ? "var(--danger)" : `var(--hue-${(i % 6) + 1}-dot)`;
 
 /** Lead stage control. Read-only chip without edit permission; menu to move; a reason is required to mark lost. */
-export function StageControl({ ctl, canEdit, className, block }: { ctl: ContactLead; canEdit: boolean; className?: string; block?: boolean }) {
+export function StageControl({ ctl, canEdit, className, block, tile }: { ctl: ContactLead; canEdit: boolean; className?: string; block?: boolean; tile?: boolean }) {
   const [lost, setLost] = React.useState<StageDto | null>(null);
   const [reason, setReason] = React.useState("");
   if (ctl.phase === "loading") return <Skeleton className={block ? "h-8 w-full" : "h-8 w-28"} />;
   if (ctl.phase === "error") return null;
   const stages = ctl.pipeline ? orderedStages(ctl.pipeline) : [];
   const idx = ctl.stage ? stages.findIndex((s) => s.id === ctl.stage!.id) : 0;
-  const trigger = (
+  const trigger = tile ? (
+    <Button variant="secondary" disabled={ctl.busy} className={cn("h-14 min-w-0 flex-col items-start justify-center gap-0 rounded-xl px-3 pointer-coarse:h-14 md:h-11 md:w-56 md:pointer-coarse:h-14", className)}>
+      <span className="text-xs font-normal text-fg-subtle">Stage</span>
+      <span className="flex w-full min-w-0 items-center gap-1.5 text-base font-semibold">
+        {ctl.stage ? <span aria-hidden className="size-2 shrink-0 rounded-full transition-colors" style={{ background: dot(ctl.stage, idx) }} /> : null}
+        <span className="truncate">{ctl.stage ? ctl.stage.name : "No lead"}</span>
+        {canEdit && <ChevronDown className="ml-auto shrink-0 text-fg-subtle" aria-hidden />}
+      </span>
+    </Button>
+  ) : (
     <Button variant="secondary" size="sm" disabled={ctl.busy} className={className}>
       {ctl.stage ? <span aria-hidden className="size-2 rounded-full transition-colors" style={{ background: dot(ctl.stage, idx) }} /> : null}
       <span className="font-normal text-fg-subtle max-md:sr-only">Stage</span>{ctl.stage ? ctl.stage.name : "No lead"}

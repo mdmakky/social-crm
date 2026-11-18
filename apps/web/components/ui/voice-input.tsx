@@ -32,7 +32,7 @@ const ERRORS: Record<string, string> = {
   "language-not-supported": "This browser can't do that language.",
 };
 
-export function VoiceInputButton({ target, disabled, className }: { target: React.RefObject<HTMLTextAreaElement | HTMLInputElement | null>; disabled?: boolean; className?: string }) {
+export function VoiceInputButton({ target, disabled, className, variant = "inline" }: { target: React.RefObject<HTMLTextAreaElement | HTMLInputElement | null>; disabled?: boolean; className?: string; variant?: "inline" | "toolbar" }) {
   const supported = React.useSyncExternalStore(() => () => {}, () => ctor() !== null, () => false);
   const [lang, setLang] = React.useState<string>(() => { const s = typeof window === "undefined" ? null : window.localStorage.getItem(KEY); return s && VOICE_LANGS.some((l) => l.code === s) ? s : "en-US"; });
   const [on, setOn] = React.useState(false);
@@ -60,6 +60,21 @@ export function VoiceInputButton({ target, disabled, className }: { target: Reac
   function pick(code: string) { setLang(code); window.localStorage.setItem(KEY, code); if (on) { rec.current?.stop(); } }
 
   if (!supported) return null;
+  if (variant === "toolbar") {
+    const bn = lang === "bn-BD";
+    return (
+      <span className={cn("inline-flex items-center", className)}>
+        <button type="button" disabled={disabled} aria-pressed={on} aria-label={on ? "Stop voice typing" : "Start voice typing"} title="Voice typing uses your browser's speech service" onClick={on ? stop : start} className={cn("press inline-flex size-9 items-center justify-center rounded-control pointer-coarse:size-11 disabled:opacity-45", on ? "bg-danger text-on-accent" : "text-fg-muted hover:bg-hover hover:text-fg")}>
+          {on ? <Square className="size-4 fill-current" aria-hidden /> : <Mic className="size-5" aria-hidden />}
+        </button>
+        <button type="button" disabled={disabled} aria-label={`${bn ? "বাংলা" : "EN"}, voice typing language. Tap to change`} onClick={() => pick(bn ? "en-US" : "bn-BD")} className="press inline-flex h-9 min-w-9 items-center justify-center rounded-control px-0.5 pointer-coarse:h-11 pointer-coarse:min-w-11 disabled:opacity-45">
+          <span className="inline-flex h-7 items-center rounded-full bg-hover px-2.5 text-xs font-bold text-fg-muted">{bn ? "বাংলা" : "EN"}</span>
+        </button>
+        {on && <span role="status" className="ml-1 inline-flex items-center gap-1.5 text-xs text-danger-fg"><span className="size-2 animate-pulse rounded-full bg-danger" aria-hidden />Listening in {bn ? "বাংলা" : "English"}…</span>}
+        {msg && <span role="status" className="ml-1 text-xs text-danger-fg">{msg}</span>}
+      </span>
+    );
+  }
   return (
     <span className={cn("inline-flex items-center gap-1", className)}>
       <span role="group" aria-label="Voice typing language" className="inline-flex overflow-hidden rounded-full bg-subtle text-xs">

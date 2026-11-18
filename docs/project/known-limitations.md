@@ -304,3 +304,8 @@ Updated: 2026-11-13 (Phase 0).
 - On release, every existing person without a phone moves from Leads to Enquiries in the UI (no data touched). WhatsApp people created before D311 count as leads through their WhatsApp identity but show no number.
 - Settings per-stage and per-tag counts still count everyone and say "leads". The Inbox does not show an Enquiry badge. Bulk actions on enquiries: only export (no bulk stage change, no bulk delete). Saved views do not remember the Enquiries tab.
 - The WhatsApp id to phone rule is checked on mock data only; a BSUID-only (username) sender stays an enquiry.
+
+## Inbox conversation redesign (2026-11-18, branch `feat/inbox-thread-c`)
+- The "Reply window open" badge line is gone: a green chip with the time left and a thin line replace it. Only the first 24 hours of a window are drawn as full length; the line is hidden once the window is closed.
+- Phone keyboard behaviour is not verified on a real iOS or Android device, only with Playwright touch emulation.
+- Voice typing in the composer is a microphone and a language chip; the full "EN | বাংলা" switch stays on other note fields.

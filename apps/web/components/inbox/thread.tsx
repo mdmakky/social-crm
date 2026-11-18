@@ -2,12 +2,11 @@
 import { VoiceInputButton } from "@/components/ui/voice-input";
 import * as React from "react";
 import Link from "next/link";
-import { ArrowDown, Check, ChevronLeft, Copy, MoreHorizontal, PanelRight, Send, Sparkles, Square, X } from "lucide-react";
+import { ArrowDown, Check, ChevronDown, ChevronLeft, Clock, Copy, Lock, MoreHorizontal, PanelRight, Send, Sparkles, Square, X } from "lucide-react";
 import { endpoints, MAX_REPLY_LENGTH, type AttachmentDto, type ConversationDetail, type MessageDto, type UpdateConversationBody } from "@crm/contracts";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/form-controls";
-import { Select } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/overlays";
 import { Sheet } from "@/components/ui/sheet";
@@ -29,6 +28,9 @@ const byId = (a: MessageDto, b: MessageDto) => a.seq - b.seq;
 /** AI failures the person can fix (settings, credits, content): shown as a warning, not an error. */
 const AI_WARNING = new Set(["budget_exceeded", "ai_not_configured", "payment_required", "blocked"]);
 const hhmm = (iso: string) => new Date(iso).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+
+/** "21 h", "1 h 40 min", "35 min": how long the reply window stays open. */
+const fmtLeft = (m: number) => (m >= 120 ? `${Math.floor(m / 60)} h` : `${m >= 60 ? `${Math.floor(m / 60)} h ` : ""}${m % 60} min`);
 
 const subscribeLg = (cb: () => void) => { const m = window.matchMedia("(min-width: 1024px)"); m.addEventListener("change", cb); return () => m.removeEventListener("change", cb); };
 const useIsLg = () => React.useSyncExternalStore(subscribeLg, () => window.matchMedia("(min-width: 1024px)").matches, () => false);
@@ -303,6 +305,9 @@ export function Thread({ conversationId }: { conversationId: string }) {
   const canType = detail.replyWindow === "open" && !emailBlock;
   const usage = replyUsage(detail.platform, draft, MAX_REPLY_LENGTH);
   const name = detail.contact.name;
+  // Reply window: a chip in the header, a thin line under it, and an explanation inside the conversation.
+  const win: { tone: "ok" | "warn" | "closed" | "none"; text: string } | null = detail.platform === "email" ? null : detail.replyWindow === "closed" ? { tone: "closed", text: "Closed" } : detail.replyWindow === "none" ? { tone: "none", text: "Waiting for them" } : left !== null ? { tone: left < 120 ? "warn" : "ok", text: `${fmtLeft(left)} left` } : null;
+  const channelName = detail.platform === "instagram" ? "Instagram" : detail.platform === "whatsapp" ? "WhatsApp" : detail.platform === "email" ? "email here" : "Messenger";
   const assigneeOptions = [{ id: myUserId, name: "Me" }, ...(canAssignAny ? members.filter((m) => m.userId !== myUserId && m.status === "active").map((m) => ({ id: m.userId, name: m.name })) : [])];
   const current = detail.assignee;
   if (current && !assigneeOptions.some((o) => o.id === current.userId)) assigneeOptions.push({ id: current.userId, name: current.name });
@@ -312,32 +317,44 @@ export function Thread({ conversationId }: { conversationId: string }) {
   return (
     <div className="fade-in flex min-w-0 flex-1">
       <section aria-label={`Conversation with ${name}`} className="flex min-w-0 flex-1 flex-col bg-canvas">
-        <header className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-line bg-surface px-4 py-3">
-          <Link href={`/w/${workspaceId}/inbox`} aria-label="Back to inbox" className="press -ml-2 inline-flex size-11 items-center justify-center rounded-control text-fg-muted hover:bg-hover md:hidden"><ChevronLeft className="size-5" aria-hidden /></Link>
-          <Avatar name={name} src={detail.contact.avatarUrl} size="xl" />
-          <div className="min-w-[9rem] flex-1 basis-40">
-            <h2 ref={headingRef} tabIndex={-1} className="truncate text-md font-semibold text-fg outline-none"><Link href={`/w/${workspaceId}/contacts/${detail.contact.id}`} className="inline-block hover:underline pointer-coarse:-my-3 pointer-coarse:py-3">{name}</Link></h2>
-            <div className="flex items-center gap-1.5"><ChannelBadge platform={detail.platform} account={detail.accountName} />{detail.status !== "open" && <Badge tone={detail.status === "resolved" ? "success" : "warning"}>{detail.status === "resolved" ? "Resolved" : "Pending"}</Badge>}</div>
-            {detail.fromPage && <FromPage url={detail.fromPage} />}
-          </div>
-          <div className="flex w-full items-center gap-1.5 md:w-auto md:flex-wrap">
-            <StageControl ctl={lead} canEdit={canEditLead} className="max-md:min-w-0 max-md:flex-1 max-md:justify-start" />
-            {canReply ? (
-              <Select aria-label="Assignee" wrapperClassName="max-md:min-w-0 max-md:flex-1" value={detail.assignee?.userId ?? ""} onChange={(e) => void change({ assigneeUserId: e.target.value || null })}>
-                <option value="">Unassigned</option>
-                {assigneeOptions.map((o) => <option key={o.id} value={o.id} disabled={!canAssignAny && o.id !== myUserId && o.id !== current?.userId}>{o.name}</option>)}
-              </Select>
-            ) : <span className="text-sm text-fg-muted">{detail.assignee ? `Assigned to ${detail.assignee.name}` : "Unassigned"}</span>}
-            <Button variant={panelOpen ? "secondary" : "ghost"} size="sm" aria-expanded={panelOpen} aria-controls="contact-panel" onClick={toggleCtx} title="Lead (C)" className={cn("max-sm:px-0 max-sm:w-7 pointer-coarse:max-sm:w-11", panelOpen && "border-accent/30 bg-accent-subtle text-accent-fg")}><PanelRight aria-hidden /><span className="max-sm:sr-only">Lead</span></Button>
+        <header className="border-b border-line bg-surface">
+          <div className="flex items-center gap-1 py-1.5 pl-1 pr-1.5 md:gap-3 md:px-4 md:py-3">
+            <Link href={`/w/${workspaceId}/inbox`} aria-label="Back to inbox" className="press inline-flex size-11 shrink-0 items-center justify-center rounded-control text-fg-muted hover:bg-hover md:hidden"><ChevronLeft className="size-5" aria-hidden /></Link>
+            <span className="hidden md:inline-flex"><Avatar name={name} src={detail.contact.avatarUrl} size="xl" /></span>
+            <div className="min-w-0 flex-1">
+              <h2 ref={headingRef} tabIndex={-1} className="truncate text-md font-semibold text-fg outline-none"><Link href={`/w/${workspaceId}/contacts/${detail.contact.id}`} className="inline-block hover:underline pointer-coarse:-my-3 pointer-coarse:py-3">{name}</Link></h2>
+              <div className="flex min-w-0 items-center gap-1.5"><ChannelBadge platform={detail.platform} account={detail.accountName} />{detail.status !== "open" && <Badge tone={detail.status === "resolved" ? "success" : "warning"}>{detail.status === "resolved" ? "Resolved" : "Pending"}</Badge>}</div>
+              {detail.fromPage && <FromPage url={detail.fromPage} />}
+            </div>
+            {win && (
+              <Badge tone={win.tone === "ok" ? "success" : win.tone === "warn" ? "warning" : "neutral"} className="shrink-0" title={win.tone === "closed" ? "The 24-hour reply window is closed" : "The 24-hour reply window"}>
+                {win.tone === "closed" ? <Lock className="size-3" aria-hidden /> : <Clock className="size-3" aria-hidden />}<span className="sr-only">Reply window: </span>{win.text}
+              </Badge>
+            )}
+            <Button variant={panelOpen ? "secondary" : "ghost"} icon aria-expanded={panelOpen} aria-controls="contact-panel" aria-label="Lead" onClick={toggleCtx} title="Lead (C)" className={cn("shrink-0 pointer-coarse:size-11", panelOpen && "border-accent/30 bg-accent-subtle text-accent-fg")}><PanelRight aria-hidden /></Button>
             {canReply && (
               <DropdownMenu>
-                <DropdownMenuTrigger asChild><Button variant="ghost" icon size="sm" aria-label="More actions"><MoreHorizontal aria-hidden /></Button></DropdownMenuTrigger>
+                <DropdownMenuTrigger asChild><Button variant="ghost" icon aria-label="More actions" className="shrink-0 pointer-coarse:size-11"><MoreHorizontal aria-hidden /></Button></DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuLabel>Conversation status</DropdownMenuLabel>
                   {STATUS.map((o) => <DropdownMenuItem key={o.id} onSelect={() => void change({ status: o.id })}>{o.label}{detail.status === o.id && <Check className="ml-auto !text-accent" aria-label="Current status" />}</DropdownMenuItem>)}
                 </DropdownMenuContent>
               </DropdownMenu>
             )}
+          </div>
+          {(win?.tone === "ok" || win?.tone === "warn") && left !== null && <div aria-hidden className="h-[3px] bg-line"><div className={cn("h-full rounded-r-full transition-[width] duration-[var(--dur-slow)]", win.tone === "warn" ? "bg-warning" : "bg-success")} style={{ width: `${Math.max(2, Math.min(100, (left / 1440) * 100))}%` }} /></div>}
+          <div className="grid grid-cols-2 gap-2 border-t border-line px-3 py-2.5 md:flex md:px-4">
+            <StageControl ctl={lead} canEdit={canEditLead} tile />
+            {canReply ? (
+              <label className="press relative flex h-14 min-w-0 cursor-pointer flex-col justify-center rounded-xl border border-line bg-surface px-3 shadow-control hover:border-line-strong md:h-11 md:w-56 md:pointer-coarse:h-14">
+                <span className="text-xs text-fg-subtle">Assignee</span>
+                <span className="flex min-w-0 items-center gap-1.5 text-base font-semibold"><span className="truncate">{detail.assignee ? (assigneeOptions.find((o) => o.id === detail.assignee!.userId)?.name ?? detail.assignee.name) : "Unassigned"}</span><ChevronDown className="ml-auto size-4 shrink-0 text-fg-subtle" aria-hidden /></span>
+                <select aria-label="Assignee" className="absolute inset-0 size-full cursor-pointer opacity-0" value={detail.assignee?.userId ?? ""} onChange={(e) => void change({ assigneeUserId: e.target.value || null })}>
+                  <option value="">Unassigned</option>
+                  {assigneeOptions.map((o) => <option key={o.id} value={o.id} disabled={!canAssignAny && o.id !== myUserId && o.id !== current?.userId}>{o.name}</option>)}
+                </select>
+              </label>
+            ) : <span className="flex h-14 flex-col justify-center rounded-xl border border-line px-3 md:h-11"><span className="text-xs text-fg-subtle">Assignee</span><span className="truncate text-base font-semibold">{detail.assignee ? detail.assignee.name : "Unassigned"}</span></span>}
           </div>
         </header>
 
@@ -358,6 +375,12 @@ export function Thread({ conversationId }: { conversationId: string }) {
                 </React.Fragment>
               );
             })}
+            {detail.platform !== "email" && (detail.replyWindow === "closed" || detail.replyWindow === "none") && (
+              <div role="note" className="mb-1 mt-4 self-stretch">
+                <p className="flex items-center gap-3 text-xs font-semibold text-fg-muted"><span className="h-px flex-1 bg-line" /><span className="inline-flex items-center gap-1.5"><Lock className="size-3.5" aria-hidden />{detail.replyWindow === "closed" ? "Reply window closed" : "No reply window yet"}</span><span className="h-px flex-1 bg-line" /></p>
+                <p className="mx-auto mt-1.5 max-w-prose text-center text-sm text-fg-muted">{detail.replyWindow === "closed" ? `More than 24 hours have passed since ${name}'s last message. ${detail.platform === "whatsapp" ? "WhatsApp allows replies only within 24 hours of the customer's last message." : "Meta only allows replies within 24 hours."} You can reply as soon as ${name} writes again.` : `You can reply after ${name} writes first.`}</p>
+              </div>
+            )}
           </div>
           <Button size="sm" variant={pendingNew > 0 ? "primary" : "secondary"} tabIndex={atBottom ? -1 : 0} aria-hidden={atBottom} onClick={toBottom}
             className={cn("absolute bottom-3 left-1/2 -translate-x-1/2 shadow-popover transition-[opacity,transform] duration-[var(--dur-base)] ease-[var(--ease-out)]", atBottom ? "pointer-events-none translate-y-2 opacity-0" : "opacity-100")}>
@@ -366,21 +389,18 @@ export function Thread({ conversationId }: { conversationId: string }) {
         </div>
         <p role="status" aria-live="polite" className="sr-only">{announce}</p>
 
-        <footer className="px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-1">
+        <footer className="px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-1 md:px-4 md:pb-4">
           {!canReply ? <p className="py-3 text-sm text-fg-muted">You have read-only access.</p> : (
             <>
               {emailBlock === "unverified" && <Alert tone="warning" className="mb-2">Unverified sender: this email failed the sender checks (SPF/DKIM), so it may not be from {detail.email?.address}. Replying is turned off. Reach them another way.</Alert>}
               {emailBlock === "bounced" && <Alert tone="warning" className="mb-2">Email to {detail.email?.address} bounced, so it is not sent again. Update the lead&apos;s email or reach them another way.</Alert>}
-              {detail.replyWindow === "closed" && <Alert tone="warning" className="mb-2">You can&apos;t reply: more than 24 hours have passed since {name}&apos;s last message. {detail.platform === "whatsapp" ? "WhatsApp allows replies only within 24 hours of the customer's last message." : "Meta only allows replies within 24 hours."} You can reply as soon as {name} writes again.</Alert>}
-              {detail.replyWindow === "none" && <Alert tone="info" className="mb-2">There is no reply window yet. You can reply after {name} writes first.</Alert>}
-              {left !== null && left < 120 && <Alert tone="warning" className="mb-2">The 24-hour reply window closes in {Math.floor(left / 60)} h {left % 60} min. After that you can&apos;t reply until {name} writes again.</Alert>}
-              {left !== null && left >= 120 && <p className="mb-1.5 flex items-center gap-2 px-1 text-xs text-fg-subtle"><Badge tone="success">Reply window open</Badge>You can reply for {Math.floor(left / 60)} more hours.</p>}
-              <form onSubmit={(e) => { e.preventDefault(); void submit(); }} className={cn("rounded-xl border border-line-strong bg-surface transition-[border-color,box-shadow] duration-[var(--dur-fast)] focus-within:border-accent focus-within:ring-[3px] focus-within:ring-accent/20", !canType && "bg-hover")}>
+              {left !== null && left < 120 && detail.replyWindow === "open" && <p role="status" className="mb-1.5 flex items-center gap-1.5 px-1 text-sm font-medium text-warning-fg"><Clock className="size-4 shrink-0" aria-hidden />The reply window closes in {Math.floor(left / 60)} h {left % 60} min. After that you can&apos;t reply until {name} writes again.</p>}
+              <form onSubmit={(e) => { e.preventDefault(); void submit(); }} className={cn("rounded-2xl border border-line-strong bg-surface transition-[border-color,box-shadow] duration-[var(--dur-fast)] focus-within:border-accent focus-within:ring-[3px] focus-within:ring-accent/20", !canType && "bg-hover")}>
                 {(aiDraft || suggesting) && (
-                  <div className="flex items-center gap-2 px-3 pt-2.5 text-xs text-fg-muted">
+                  <div className="flex items-center gap-2 px-3 pt-2 text-sm text-fg-muted">
                     <Badge tone="accent"><Sparkles className="size-3" aria-hidden />AI draft{aiDraft?.mock ? " (mock)" : ""}</Badge>
                     <span className="min-w-0 flex-1" data-testid="ai-draft-status">{suggestPhase === "connecting" ? "Connecting to the AI provider…" : suggestPhase === "streaming" ? "Writing a draft… You can stop at any time." : "Review and edit before sending. Nothing is sent automatically."}</span>
-                    {!suggesting && <button type="button" onClick={() => { setAiDraft(null); setDraft(""); }} className="rounded px-1.5 py-0.5 text-fg-muted underline-offset-2 hover:text-fg hover:underline focus-visible:outline-2" aria-label="Discard AI draft">Discard</button>}
+                    {!suggesting && <button type="button" onClick={() => { setAiDraft(null); setDraft(""); }} className="rounded px-2 py-1 text-fg-muted underline underline-offset-2 hover:text-fg focus-visible:outline-2 pointer-coarse:min-h-11" aria-label="Discard AI draft">Discard</button>}
                   </div>
                 )}
                 <UploadList uploads={uploads} notice={pickNotice} />
@@ -394,19 +414,29 @@ export function Thread({ conversationId }: { conversationId: string }) {
                   disabled={!canType}
                   readOnly={suggesting}
                   placeholder={canType ? "Write a reply" : "Replies are unavailable for this conversation"}
-                  className="min-h-14 resize-none rounded-xl border-0 bg-transparent px-4 pt-3 shadow-none hover:border-0 focus-visible:ring-0"
-                  rows={2}
+                  className="min-h-12 resize-none rounded-2xl border-0 bg-transparent px-4 pt-3 shadow-none hover:border-0 focus-visible:ring-0"
+                  rows={1}
                 />
-                <div className="flex items-center gap-2 px-3 pb-2.5">
-                  <VoiceInputButton target={composerRef} disabled={!canType || submitting || suggesting} />
-                  <AttachControls uploads={uploads} platform={detail.platform} storageConfigured={att?.storageConfigured ?? false} disabled={!canType || submitting} />
-                  {suggesting
-                    ? <Button type="button" size="sm" onClick={() => suggestAbort.current?.abort()} aria-label="Stop AI suggestion"><Square aria-hidden />Stop</Button>
-                    : <Button type="button" size="sm" disabled={!canType || submitting} onClick={() => void suggest()} aria-label="Suggest reply with AI"><Sparkles aria-hidden />Suggest reply</Button>}
-                  <p id="composer-hint" className="min-w-0 flex-1 text-xs text-fg-subtle max-sm:sr-only">Enter to send, Shift+Enter for a new line.{usage.used > usage.max * 0.8 ? ` ${usage.used}/${usage.max} ${usage.unit}` : ""}{usage.over ? <span className="text-danger-fg"> Too long for {detail.platform === "instagram" ? "Instagram" : detail.platform === "whatsapp" ? "WhatsApp" : detail.platform === "email" ? "email here" : "Messenger"}: shorten it to send.</span> : null}</p>
-                  <Button type="submit" variant="primary" loading={submitting} disabled={!canType || suggesting || (draft.trim() === "" && uploads.ready.length === 0) || uploads.busy || usage.over}><Send aria-hidden />Send</Button>
-                </div>
+                {canType && (usage.used > usage.max * 0.8 || usage.over) && (
+                  <p role="status" className={cn("px-4 pb-1 text-xs", usage.over ? "font-semibold text-danger-fg" : "text-right text-fg-subtle")}>
+                    {usage.over ? `Too long for ${channelName}: shorten it to send. ` : ""}{usage.used}/{usage.max} {usage.unit}
+                  </p>
+                )}
+                {canType ? (
+                  <div className="flex items-center gap-0.5 px-1.5 pb-1.5">
+                    <AttachControls uploads={uploads} platform={detail.platform} storageConfigured={att?.storageConfigured ?? false} disabled={submitting} />
+                    <VoiceInputButton variant="toolbar" target={composerRef} disabled={submitting || suggesting} />
+                    {suggesting
+                      ? <Button type="button" variant="ghost" onClick={() => suggestAbort.current?.abort()} aria-label="Stop AI suggestion" className="pointer-coarse:h-11"><Square aria-hidden /><span className="max-sm:sr-only">Stop</span></Button>
+                      : <Button type="button" variant="ghost" disabled={submitting} onClick={() => void suggest()} aria-label="Suggest reply with AI" className="pointer-coarse:h-11 pointer-coarse:min-w-11"><Sparkles aria-hidden /><span className="max-sm:sr-only">Suggest reply</span></Button>}
+                    <span className="flex-1" />
+                    <Button type="submit" variant="primary" size="lg" loading={submitting} disabled={suggesting || (draft.trim() === "" && uploads.ready.length === 0) || uploads.busy || usage.over} className="px-4 pointer-coarse:h-11"><Send aria-hidden />Send</Button>
+                  </div>
+                ) : (
+                  <p className="flex items-center gap-2 px-4 pb-3 text-sm text-fg-muted"><Lock className="size-4 shrink-0" aria-hidden />{emailBlock ? "This email can't be answered here." : `Replies are off. You can reply when ${name} writes again.`}</p>
+                )}
               </form>
+              <p id="composer-hint" className="mt-1.5 px-1 text-xs text-fg-subtle max-sm:sr-only">Enter to send, Shift+Enter for a new line.</p>
               {aiProblem && <Alert tone={aiProblem.tone} className="mt-2">{aiProblem.text}</Alert>}
             </>
           )}
