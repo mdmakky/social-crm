@@ -309,3 +309,9 @@ Updated: 2026-11-13 (Phase 0).
 - The "Reply window open" badge line is gone: a green chip with the time left and a thin line replace it. Only the first 24 hours of a window are drawn as full length; the line is hidden once the window is closed.
 - Phone keyboard behaviour is not verified on a real iOS or Android device, only with Playwright touch emulation.
 - Voice typing in the composer is a microphone and a language chip; the full "EN | বাংলা" switch stays on other note fields.
+
+## Agent page (2026-11-19, branch `feat/agent-page`)
+- Templates (Customer support, Sales assistant, Order status) are text in the page, not stored; they only fill the form.
+- Testing always runs a saved version: edits are saved as a new version before the run, so a test adds a version.
+- The page sits outside the hub tabs, so Overview and the status strip are one click away (Back to Agents, then the tab), not on the page.
+- Tool names and descriptions are written for people in the page; a new server tool without an entry shows its technical name.
