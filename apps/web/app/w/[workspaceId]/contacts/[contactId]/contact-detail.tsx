@@ -148,7 +148,7 @@ function DeleteMenu({ workspaceId, contact, onDeleted }: { workspaceId: string; 
   );
 }
 
-function DetailsPanel({ showOwner, c, carry, onCarry, onCarryUsed, saved, onSaved, stages, members, fields, canEdit, workspaceId, myUserId }: { c: ContactDetail; carry: Form | null; onCarry: (f: Form) => void; onCarryUsed: () => void; saved: boolean; onSaved: (d: ContactDetail, viaSave?: boolean) => void; stages: LifecycleStage[]; members: Member[]; fields: CustomField[]; showOwner: boolean; canEdit: boolean; workspaceId: string; myUserId: string }) {
+function DetailsPanel({ showOwner, c, carry, onCarry, onCarryUsed, saved, onSaved, members, fields, canEdit, workspaceId, myUserId }: { c: ContactDetail; carry: Form | null; onCarry: (f: Form) => void; onCarryUsed: () => void; saved: boolean; onSaved: (d: ContactDetail, viaSave?: boolean) => void; stages: LifecycleStage[]; members: Member[]; fields: CustomField[]; showOwner: boolean; canEdit: boolean; workspaceId: string; myUserId: string }) {
   const initial = React.useMemo(() => toForm(c), [c]);
   const [form, setForm] = React.useState<Form>(carry ?? initial);
   React.useEffect(() => { if (carry) onCarryUsed(); }, []); // eslint-disable-line react-hooks/exhaustive-deps -- consume the carried edits once, on mount

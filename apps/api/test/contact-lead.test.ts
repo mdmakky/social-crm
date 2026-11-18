@@ -173,6 +173,34 @@ describe("PUT /contacts/:id/lead", () => {
     ok(await as(viewer).call(endpoints.contactStageCounts, { params: { workspaceId: A }, query: {} as never })); // viewers may read counts
   });
 
+  it("value access grant: only owner/admin manage it; a granted agent sees the value in list and detail, revoking hides it again; a lead removed and restored keeps its grant", async () => {
+    const c = await mk("Grant Eight");
+    const lead = ok(await put(c, { stageId: open()[1]!.id, valueMinor: 800, currency: "USD" })).lead;
+    const gp = { workspaceId: A, leadId: lead.id };
+    expect(failure(await as(agent).call(endpoints.listLeadValueGrants, { params: gp })).status).toBe(403);
+    expect(failure(await as(agent).call(endpoints.setLeadValueGrant, { params: { ...gp, userId: agent.id }, body: { canEdit: false } })).status).toBe(403);
+    expect((await leadOf(c, agent))).toMatchObject({ valueMinor: null, valueHidden: true });
+    ok(await as(owner).call(endpoints.setLeadValueGrant, { params: { ...gp, userId: agent.id }, body: { canEdit: false } }));
+    expect((await leadOf(c, agent))).toMatchObject({ valueMinor: 800, valueHidden: false });
+    expect((await list({ search: "Grant Eight" }, agent)).items[0]!.lead).toMatchObject({ valueMinor: 800, valueHidden: false });
+    ok(await as(owner).call(endpoints.removeLeadValueGrant, { params: { ...gp, userId: agent.id } }));
+    expect((await leadOf(c, agent))).toMatchObject({ valueMinor: null, valueHidden: true });
+    expect((await list({ search: "Grant Eight" }, agent)).items[0]!.lead).toMatchObject({ valueMinor: null, valueHidden: true });
+  });
+
+  it("remove from pipeline and restore: owner only, the contact stays, the stage comes back", async () => {
+    const c = await mk("Remove Nine");
+    const lead = ok(await put(c, { stageId: open()[1]!.id, valueMinor: 900, currency: "USD" })).lead;
+    expect(failure(await as(agent).call(endpoints.deleteLead, { params: { workspaceId: A, leadId: lead.id }, query: { expectedVersion: lead.version } })).status).toBe(403);
+    const del = ok(await as(owner).call(endpoints.deleteLead, { params: { workspaceId: A, leadId: lead.id }, query: { expectedVersion: lead.version } }));
+    expect(await leadOf(c)).toBeNull();
+    expect(failure(await as(agent).call(endpoints.listLeads, { params: { workspaceId: A }, query: { deleted: "true" } as never })).status).toBe(403);
+    const gone = ok(await as(owner).call(endpoints.listLeads, { params: { workspaceId: A }, query: { deleted: "true" } as never }));
+    expect(gone.items.map((x) => x.id)).toContain(lead.id);
+    ok(await as(owner).call(endpoints.restoreLead, { params: { workspaceId: A, leadId: lead.id }, body: { expectedVersion: del.version } }));
+    expect(await leadOf(c)).toMatchObject({ id: lead.id, stageId: open()[1]!.id, valueMinor: 900 });
+  });
+
   it("two parallel first writes create one lead", async () => {
     const c = await mk("Race");
     const rs = await Promise.all([put(c, { stageId: open()[1]!.id }), put(c, { stageId: open()[1]!.id })]);

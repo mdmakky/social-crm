@@ -184,13 +184,13 @@ function ValueAccess({ workspaceId, leadId, members }: { workspaceId: string; le
   const [busy, setBusy] = React.useState<string | null>(null);
   const agents = members.filter((m) => m.role === "agent" && m.status === "active");
   const params = { workspaceId, leadId };
-  const load = React.useCallback(async () => {
-    const r = await browserApi.call(endpoints.listLeadValueGrants, { params: { workspaceId, leadId } });
+  const apply = React.useCallback((r: Awaited<ReturnType<typeof browserApi.call<typeof endpoints.listLeadValueGrants>>>) => {
     if (!r.ok) return setError(errorMessage(r.error));
     setError(null);
     setGrants(new Map(r.data.items.map((g) => [g.userId, g.canEdit])));
-  }, [workspaceId, leadId]);
-  React.useEffect(() => { void load(); }, [load]);
+  }, []);
+  const load = React.useCallback(() => browserApi.call(endpoints.listLeadValueGrants, { params: { workspaceId, leadId } }).then(apply), [workspaceId, leadId, apply]);
+  React.useEffect(() => { let live = true; void browserApi.call(endpoints.listLeadValueGrants, { params: { workspaceId, leadId } }).then((r) => { if (live) apply(r); }); return () => { live = false; }; }, [workspaceId, leadId, apply]);
 
   async function change(userId: string, v: string) {
     setBusy(userId); setError(null);

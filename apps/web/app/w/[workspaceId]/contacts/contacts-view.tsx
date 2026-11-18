@@ -312,7 +312,7 @@ function Inner({ workspaceId, timeZone, myUserId, initial, initialQuery, pipelin
       </Panel>
 
       {moving && <StageDialog key={moving.join()} ids={moving} pipelines={pipelines} lostReasons={lostReasons} workspaceId={workspaceId} onClose={() => setMoving(null)} onDone={(moved) => afterMove(moved)} />}
-      {perms.removeLeads && <RemovedLeadsDialog open={removedOpen} onOpenChange={setRemovedOpen} workspaceId={workspaceId} timeZone={timeZone} pipelines={pipelines} onRestored={() => { void load(query); void loadCounts(); }} />}
+      {perms.removeLeads && removedOpen && <RemovedLeadsDialog open={removedOpen} onOpenChange={setRemovedOpen} workspaceId={workspaceId} timeZone={timeZone} pipelines={pipelines} onRestored={() => { void load(query); void loadCounts(); }} />}
       <NewContactDialog open={newOpen} onOpenChange={setNewOpen} workspaceId={workspaceId} stages={stages} members={members} fields={fields} myUserId={myUserId} />
       <ColumnsDialog open={colsOpen} onOpenChange={setColsOpen} columns={columns} onChange={(c) => { setActiveView(null); saveColumns(c); }} />
       <ViewNameDialog open={renameOpen} onOpenChange={setRenameOpen} view={views.find((v) => v.id === baseView) ?? null} onSave={async (name) => { const v = views.find((x) => x.id === baseView); if (!v) return null; const r = await browserApi.call(endpoints.updateView, { params: { workspaceId, viewId: v.id }, body: { name } }); if (!r.ok) return errorMessage(r.error); setViews((x) => x.map((y) => (y.id === v.id ? r.data : y)).sort((a, b) => a.name.localeCompare(b.name))); return null; }} />
