@@ -10,7 +10,7 @@ test.describe("contacts list: failure states (WP-A)", () => {
     await page.goto(`/w/${workspaceId}/contacts`);
     await expect(page.getByText("Showing 3 of 3")).toBeVisible();
     await page.context().clearCookies();
-    await page.getByLabel("Search contacts").fill("ana");
+    await page.getByLabel("Search leads").fill("ana");
     await expect(page).toHaveURL(/\/login\?next=%2Fw%2F.+%2Fcontacts/);
   });
 
@@ -21,7 +21,7 @@ test.describe("contacts list: failure states (WP-A)", () => {
     await expect(page.getByText("Showing 3 of 3")).toBeVisible();
     let fail = true;
     await page.route("**/contacts?*search=*", (r) => (fail ? r.fulfill({ status: 500, json: { error: { code: "internal", message: "boom" } } }) : r.continue()));
-    await page.getByLabel("Search contacts").fill("ana");
+    await page.getByLabel("Search leads").fill("ana");
     await expect(page.getByText("Showing previous results", { exact: true })).toBeVisible();
     await expect(page.getByText(/Showing previous results; the last search failed/)).toBeVisible();
     await expect(page.getByText(/match your filters/)).toHaveCount(0);
@@ -31,12 +31,12 @@ test.describe("contacts list: failure states (WP-A)", () => {
     await expect(page.getByText(/last search failed/)).toHaveCount(0);
   });
 
-  test("F2: export downloads contacts.csv with a header row", async ({ page }) => {
+  test("F2: export downloads leads.csv with a header row", async ({ page }) => {
     const { workspaceId } = await signUpAndCreate(page, "Export Owner", "Export Co");
     await seedContacts(page, workspaceId, people(2));
     await page.goto(`/w/${workspaceId}/contacts`);
     const [download] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: "Export", exact: true }).click()]);
-    expect(download.suggestedFilename()).toBe("contacts.csv");
+    expect(download.suggestedFilename()).toBe("leads.csv");
     const text = await (await import("node:fs/promises")).readFile((await download.path())!, "utf8");
     expect(text.startsWith("Name,")).toBe(true);
     expect(text).toContain("Ana Costa 0");
@@ -62,8 +62,8 @@ test.describe("contacts list: failure states (WP-A)", () => {
     await expect(page.getByText("Showing 25 of 30")).toBeVisible();
     await page.route("**/contacts?*cursor=*", async (r) => { await new Promise((res) => setTimeout(res, 800)); await r.continue(); });
     await page.getByRole("button", { name: "Load more" }).click();
-    await page.getByLabel("Search contacts").fill("okafor");
-    await expect(page.getByText("3 contacts match your filters")).toBeVisible();
+    await page.getByLabel("Search leads").fill("okafor");
+    await expect(page.getByText("3 leads match your filters")).toBeVisible();
     await page.waitForTimeout(1200); // let the delayed page arrive
     await expect(page.getByRole("row")).toHaveCount(4); // header + 3 Okafor rows, nothing appended from the old query
     await expect(page.getByText("Showing 3 of 3")).toBeVisible();
@@ -86,7 +86,7 @@ test.describe("contacts list: failure states (WP-A)", () => {
     await seedContacts(page, workspaceId, people(3));
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto(`/w/${workspaceId}/contacts`);
-    await page.getByRole("columnheader", { name: /Contact/ }).getByRole("button").click();
+    await page.getByRole("columnheader", { name: /^Lead/ }).getByRole("button").click();
     await expect(page.getByRole("status").filter({ hasText: "Sorted by Name A to Z. Showing 3 of 3" })).toBeVisible();
   });
 
@@ -98,7 +98,7 @@ test.describe("contacts list: failure states (WP-A)", () => {
     await page.getByRole("button", { name: "Columns", exact: true }).click();
     const dialog = page.getByRole("dialog", { name: "Columns" });
     await dialog.getByRole("button", { name: "Move Stage up" }).click();
-    await expect(dialog.getByRole("status")).toHaveText("Stage, position 1 of 8");
+    await expect(dialog.getByRole("status")).toHaveText("Stage, position 1 of 6");
     await expect(dialog.getByRole("button", { name: "Move Stage down" })).toBeFocused();
   });
 });

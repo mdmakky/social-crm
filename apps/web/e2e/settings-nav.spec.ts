@@ -3,7 +3,7 @@ import { addMemberByEmail, register, signUpAndCreate } from "./helpers";
 
 const GROUPS = ["Workspace", "CRM data", "AI and automation", "Channels", "Team and security"];
 const OLD_URLS: [string, string][] = [
-  ["settings", "General"], ["settings/contacts", "Contact fields"], ["settings/pipelines", "Lead stages"], ["settings/ad-measurement", "Ad measurement"], ["settings/notifications", "Notification preferences"],
+  ["settings", "General"], ["settings/contacts", "Lead fields"], ["settings/pipelines", "Lead stages"], ["settings/ad-measurement", "Ad measurement"], ["settings/notifications", "Notification preferences"],
   ["settings/automations", "Automations"], ["settings/ai", "AI"], ["settings/ai-agents", "AI Agents"], ["settings/knowledge", "Knowledge"],
   ["integrations", "Integrations"], ["members", "Members"], ["audit-log", "Audit log"],
 ];
@@ -72,7 +72,7 @@ test.describe("settings information architecture", () => {
     const viewer = await user("Vic Viewer", "viewer");
     for (const [p, canIntegrations] of [[agent, true], [viewer, false]] as const) {
       const nav = p.getByRole("navigation", { name: "Settings sections" });
-      for (const l of ["General", "Notifications", "Contact fields", "Lead stages", "Knowledge", "Members"]) await expect(nav.getByRole("link", { name: l })).toBeVisible();
+      for (const l of ["General", "Notifications", "Lead fields", "Lead stages", "Knowledge", "Members"]) await expect(nav.getByRole("link", { name: l })).toBeVisible();
       for (const l of ["AI", "AI Agents", "Automations", "Audit log", "Ad measurement"]) await expect(nav.getByRole("link", { name: l, exact: true })).toHaveCount(0);
       await expect(nav.getByRole("link", { name: "Integrations" })).toHaveCount(canIntegrations ? 1 : 0);
       await expect(nav.getByText("More sections are available to owners and admins.")).toBeVisible();

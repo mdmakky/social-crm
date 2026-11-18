@@ -18,7 +18,7 @@ export default async function ImportPage({ params }: { params: Promise<{ workspa
     return (
       <>
         <PageHeader title="Import leads" />
-        <Panel><EmptyState icon={Lock} title="Only owners and admins can import contacts" description="Ask an owner or admin, or add contacts one by one." action={<Button asChild><Link href={`/w/${workspaceId}/contacts`}>Back to contacts</Link></Button>} /></Panel>
+        <Panel><EmptyState icon={Lock} title="Only owners and admins can import leads" description="Ask an owner or admin, or add leads one by one." action={<Button asChild><Link href={`/w/${workspaceId}/contacts`}>Back to contacts</Link></Button>} /></Panel>
       </>
     );
   }

@@ -24,8 +24,8 @@ describe("one contact, one lead", () => {
     expect(leadsQueryToContacts({ stage: "abc", q: "ann", status: "won", min: "5" })).toBe("stageId=abc&search=ann");
     expect(leadsQueryToContacts({})).toBe("");
   });
-  it("the sidebar has no Leads entry and the phone bar no Leads tab", () => {
-    expect(visibleNav("owner").flatMap((g) => g.items.map((i) => i.label))).toEqual(["Home", "Inbox", "Contacts", "Tasks", "Reports", "Settings"]);
+  it("the sidebar entry is Leads (D300), with no separate Pipeline entry", () => {
+    expect(visibleNav("owner").flatMap((g) => g.items.map((i) => i.label))).toEqual(["Home", "Inbox", "Leads", "Tasks", "Reports", "Settings"]);
     expect([...MOBILE_TABS]).not.toContain("leads");
   });
 });

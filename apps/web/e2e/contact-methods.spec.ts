@@ -1,7 +1,7 @@
 import { createHmac } from "node:crypto";
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 import pg from "pg";
-import { addMemberByEmail, createWorkspace } from "./helpers";
+import { addMemberByEmail, createWorkspace, openDetails } from "./helpers";
 import { axe, DB, person } from "./channel-helpers";
 
 /**
@@ -39,7 +39,7 @@ test.describe.serial("Detected phone/email (mock Meta)", () => {
   /** The contact panel is closed by default and remembers the last choice per browser: open it only when it is closed. */
   const openThread = async (page: Page, url: string) => {
     await page.goto(url);
-    const toggle = page.getByRole("button", { name: "Contact", exact: true });
+    const toggle = page.getByRole("button", { name: "Lead", exact: true });
     await expect(toggle).toBeVisible();
     if ((await toggle.getAttribute("aria-expanded")) !== "true") await toggle.click();
   };
@@ -133,6 +133,7 @@ test.describe.serial("Detected phone/email (mock Meta)", () => {
     const c = await settle(u, 2);
     const page = owner.page;
     await page.goto(`/w/${ws}/contacts/${c.id}`);
+    await openDetails(page);
     const section = page.getByRole("heading", { name: "Detected from conversations", level: 2 }).locator("xpath=ancestor::*[@data-panel][1]");
     await expect(section).toContainText("Not verified");
     await expect(section.getByText("Auto-detected, unverified")).toHaveCount(2);
@@ -158,6 +159,7 @@ test.describe.serial("Detected phone/email (mock Meta)", () => {
 
     // a viewer sees the values but no way to change them
     await viewer.page.goto(`/w/${ws}/contacts/${c.id}`);
+    await openDetails(viewer.page);
     const vs = viewer.page.getByRole("heading", { name: "Detected from conversations", level: 2 }).locator("xpath=ancestor::*[@data-panel][1]");
     await expect(vs.getByRole("link", { name: "+8801712999888" })).toBeVisible();
     await expect(vs.getByRole("button")).toHaveCount(0);

@@ -108,8 +108,7 @@ function Inner({ workspaceId, timeZone, myUserId, initial, initialQuery, pipelin
     const r = await browserApi.call(endpoints.contactStageCounts, { params: { workspaceId }, query: JSON.parse(countsKey) });
     setCounts(r.ok ? r.data : null);
   }, [workspaceId, countsKey]);
-  const { ownerId: _oid, ...sharedNoOwner } = shared;
-  const ownerKey = JSON.stringify(sharedNoOwner);
+  const ownerKey = JSON.stringify({ ...query, ownerId: undefined, stageId: undefined, sort: undefined, dir: undefined }); // per-agent counts ignore the agent filter itself
   const loadOwnerCounts = React.useCallback(async () => {
     const r = await browserApi.call(endpoints.contactOwnerCounts, { params: { workspaceId }, query: JSON.parse(ownerKey) });
     setOwnerCounts(r.ok ? r.data : null);
@@ -225,7 +224,7 @@ function Inner({ workspaceId, timeZone, myUserId, initial, initialQuery, pipelin
   const filterValues: LeadFilterValues = { ownerId: query.ownerId, tagIds: query.tagIds, source: query.source, createdFrom: query.createdFrom };
   const applyFilters = (v: LeadFilterValues) => set({ ownerId: v.ownerId, tagIds: v.tagIds, source: v.source, createdFrom: v.createdFrom });
   const sortSelect = (
-    <Select aria-label="Sort by" wrapperClassName="lg:hidden" className="w-auto" value={sortOptionFor(query.sort, query.dir)} onChange={(e) => { if (e.target.value === "custom") return; const [s, d] = e.target.value.split(":"); set({ sort: s as Q["sort"], dir: d as Q["dir"] }); }}>
+    <Select aria-label="Sort by" wrapperClassName="t-cards" className="w-auto" value={sortOptionFor(query.sort, query.dir)} onChange={(e) => { if (e.target.value === "custom") return; const [s, d] = e.target.value.split(":"); set({ sort: s as Q["sort"], dir: d as Q["dir"] }); }}>
       {sortOptionFor(query.sort, query.dir) === "custom" && <option value="custom">Custom order</option>}
       {SORT_OPTIONS.filter((o) => perms.viewValue || !o.value.startsWith("value")).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
     </Select>
@@ -252,9 +251,9 @@ function Inner({ workspaceId, timeZone, myUserId, initial, initialQuery, pipelin
             {perms.import && <Button asChild variant="secondary" className="max-md:hidden"><Link href={`/w/${workspaceId}/contacts/import`}><Upload />Import</Link></Button>}
             {perms.edit && <Button variant="primary" onClick={() => setNewOpen(true)}><Plus />Add lead</Button>}
             <DropdownMenu>
-              <DropdownMenuTrigger asChild><Button variant="secondary" icon aria-label="More actions" className={perms.schema ? "" : "md:hidden"}><MoreHorizontal /></Button></DropdownMenuTrigger>
+              <DropdownMenuTrigger asChild><Button variant="secondary" icon aria-label="More actions" className={perms.schema ? "" : "t-cards-flex"}><MoreHorizontal /></Button></DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
-                {perms.lead && <DropdownMenuItem className="md:hidden" onSelect={() => setSelectMode(true)}><CheckSquare aria-hidden />Select leads</DropdownMenuItem>}
+                {perms.lead && <DropdownMenuItem className="t-cards-flex" onSelect={() => setSelectMode(true)}><CheckSquare aria-hidden />Select leads</DropdownMenuItem>}
                 {perms.removeLeads && <DropdownMenuItem className="md:hidden" onSelect={() => setRemovedOpen(true)}><RotateCcw aria-hidden />Recently removed</DropdownMenuItem>}
                 {perms.import && <DropdownMenuItem className="md:hidden" asChild><Link href={`/w/${workspaceId}/contacts/import`}><Upload aria-hidden />Import</Link></DropdownMenuItem>}
                 {perms.export && <DropdownMenuItem className="md:hidden" disabled={exporting} onSelect={() => void doExport()}><Download aria-hidden />Export CSV</DropdownMenuItem>}
@@ -267,36 +266,29 @@ function Inner({ workspaceId, timeZone, myUserId, initial, initialQuery, pipelin
 
       {chipStages.length > 0 && <StageStrip stages={chipStages} counts={counts} activeId={query.stageId} onSelect={(id) => set({ stageId: id })} />}
 
-      <div className="mb-3 flex flex-col gap-2 max-md:sticky max-md:top-0 max-md:z-20 max-md:-mx-4 max-md:bg-canvas max-md:px-4 max-md:pb-2 max-md:pt-1">
-        <div className="flex flex-wrap items-center gap-1.5">
-          <div className="relative min-w-0 flex-1 basis-40 md:w-80 md:flex-none">
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-fg-subtle" aria-hidden />
-            <Input aria-label="Search leads" type="search" enterKeyHint="search" placeholder="Search leads" className="pl-8 shadow-none" value={query.search ?? ""} onChange={(e) => set({ search: e.target.value || undefined })} />
-          </div>
-          {phone ? (
-            <FilterSheetButton members={members} myUserId={myUserId} ownerCounts={ownerCounts} tags={tags} value={filterValues} onApply={applyFilters} />
-          ) : (
-            <>
-              <AgentMenu members={members} myUserId={myUserId} ownerCounts={ownerCounts} tags={tags} value={filterValues} onChange={(ownerId) => set({ ownerId })} />
-              <FiltersMenu tags={tags} value={filterValues} onChange={(p) => set(p)} />
-              {filtered && <Button variant="ghost" onClick={clearFilters}><FilterX />Clear</Button>}
-            </>
-          )}
-          <div className="ml-auto flex items-center gap-1.5 max-md:hidden">
-            {sortSelect}
-            {viewsMenu}
-            <Button variant="ghost" onClick={() => setColsOpen(true)}><Columns3 />Columns</Button>
-            {perms.export && <Button variant="secondary" onClick={() => void doExport()} loading={exporting}><Download />Export</Button>}
-          </div>
+      <div className="mb-3 flex flex-wrap items-center gap-1.5 max-md:sticky max-md:top-0 max-md:z-20 max-md:-mx-4 max-md:bg-canvas max-md:px-4 max-md:pb-2 max-md:pt-1">
+        <div className="relative min-w-0 flex-1 basis-40 md:w-80 md:flex-none">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-fg-subtle" aria-hidden />
+          <Input aria-label="Search leads" type="search" enterKeyHint="search" placeholder="Search leads" className="pl-8 shadow-none" value={query.search ?? ""} onChange={(e) => set({ search: e.target.value || undefined })} />
         </div>
-        <div className="flex items-center gap-1.5 md:hidden">
-          {viewsMenu}
+        {phone ? (
+          <FilterSheetButton members={members} myUserId={myUserId} ownerCounts={ownerCounts} tags={tags} value={filterValues} onApply={applyFilters} />
+        ) : (
+          <>
+            <AgentMenu members={members} myUserId={myUserId} ownerCounts={ownerCounts} tags={tags} value={filterValues} onChange={(ownerId) => set({ ownerId })} />
+            <FiltersMenu tags={tags} value={filterValues} onChange={(p) => set(p)} />
+          </>
+        )}
+        {filtered && <Button variant="ghost" onClick={clearFilters}><FilterX />Clear</Button>}
+        <div className="flex items-center gap-1.5 md:ml-auto">
           {sortSelect}
-          {filtered && <Button variant="ghost" className="ml-auto" onClick={clearFilters}><FilterX />Clear</Button>}
+          {viewsMenu}
+          <Button variant="ghost" className="t-table-inline" onClick={() => setColsOpen(true)}><Columns3 />Columns</Button>
+          {perms.export && <Button variant="secondary" className="max-md:hidden" onClick={() => void doExport()} loading={exporting}><Download />Export</Button>}
         </div>
       </div>
 
-      {selected.size > 0 && perms.lead && bulk("sticky top-0 z-10 mb-3 hidden md:flex", "top")}
+      {selected.size > 0 && perms.lead && bulk("sticky top-0 z-10 mb-3 flex t-table-inline", "top")}
       {actionError && <Alert tone="error" className="mb-3">{actionError}</Alert>}
       {errorText && page.items.length > 0 && (
         <Alert tone="error" className="mb-3">
@@ -320,10 +312,10 @@ function Inner({ workspaceId, timeZone, myUserId, initial, initialQuery, pipelin
           )
         ) : (
           <>
-            <div className="hidden md:block">
+            <div className="t-table">
               <ContactsTable items={page.items} columns={columns} query={query} onSort={toggleSort} workspaceId={workspaceId} timeZone={timeZone} lead={lead} />
             </div>
-            <ul className="md:hidden" aria-label="Leads">
+            <ul className="t-cards" aria-label="Leads">
               {page.items.map((c) => <LeadCard key={c.id} c={c} workspaceId={workspaceId} lead={lead} selectMode={selectMode} />)}
             </ul>
             <div className="flex items-center justify-between gap-3 border-t border-line-card px-4 py-2.5 text-sm text-fg-subtle">
@@ -333,7 +325,7 @@ function Inner({ workspaceId, timeZone, myUserId, initial, initialQuery, pipelin
           </>
         )}
       </Panel>
-      {selectMode && perms.lead && bulk("sticky bottom-0 z-20 mt-3 flex pb-[max(0.5rem,calc(env(safe-area-inset-bottom)-var(--bottomnav-h)))] md:hidden", "bottom")}
+      {selectMode && perms.lead && bulk("t-cards-flex sticky bottom-0 z-20 mt-3 pb-[max(0.5rem,calc(env(safe-area-inset-bottom)-var(--bottomnav-h)))]", "bottom")}
 
       {moving && <StageDialog key={moving.join()} ids={moving} pipelines={pipelines} lostReasons={lostReasons} workspaceId={workspaceId} onClose={() => setMoving(null)} onDone={(moved) => { afterMove(moved); if (selectMode) exitSelect(); }} />}
       {perms.removeLeads && removedOpen && <RemovedLeadsDialog open={removedOpen} onOpenChange={setRemovedOpen} workspaceId={workspaceId} timeZone={timeZone} pipelines={pipelines} onRestored={() => { void load(query); void loadCounts(); }} />}
@@ -433,26 +425,32 @@ function cell(col: ContactColumn, c: ContactSummary, workspaceId: string, timeZo
   }
 }
 
-/** Phone and tablet row: two lines (name and company; stage, value, agent), the whole card opens the lead, the stage pill opens the stage sheet. */
+/** Phone row: two lines (name and company; stage, value, agent). The left part is one big link to the lead; the stage pill opens the stage sheet. */
 function LeadCard({ c, workspaceId, lead, selectMode }: { c: ContactSummary; workspaceId: string; lead: LeadCtx; selectMode: boolean }) {
   const on = lead.selected.has(c.id);
+  const picking = selectMode && lead.enabled;
+  const body = (
+    <>
+      <Avatar name={c.name} size="xl" />
+      <span className="min-w-0 flex-1">
+        <span className="block truncate font-medium text-fg">{c.name}</span>
+        <span className="block truncate text-sm text-fg-subtle">{c.company ?? c.email ?? c.phone ?? "No company, email or phone"}</span>
+      </span>
+    </>
+  );
   return (
-    <li className={`relative border-b border-line-card last:border-b-0 ${on ? "bg-selected" : "active:bg-hover"}`}>
-      <div className="flex min-h-[4.5rem] items-center gap-3 px-4 py-2">
-        {selectMode && lead.enabled ? (
-          <label className="-ml-2 flex size-11 shrink-0 cursor-pointer items-center justify-center after:absolute after:inset-0 after:content-['']">
-            <input type="checkbox" className="relative z-10 size-5 accent-[var(--accent)]" aria-label={`Select ${c.name}`} checked={on} onChange={() => lead.toggle(c.id)} />
-          </label>
-        ) : null}
-        <Avatar name={c.name} size="xl" />
-        <div className="min-w-0 flex-1">
-          {selectMode && lead.enabled ? <p className="truncate font-medium text-fg">{c.name}</p> : <Link href={`/w/${workspaceId}/contacts/${c.id}`} className="block truncate font-medium text-fg after:absolute after:inset-0 after:content-['']">{c.name}</Link>}
-          <p className="truncate text-sm text-fg-subtle">{c.company ?? c.email ?? c.phone ?? "No company, email or phone"}</p>
-        </div>
-        <div className="relative z-10 flex shrink-0 flex-col items-end">
-          {lead.enabled ? <StageMenu c={c} pipelines={lead.pipelines} lostReasons={lead.lostReasons} workspaceId={workspaceId} onChanged={() => lead.onChanged([])} /> : <StageBadge pipelines={lead.pipelines} c={c} />}
-          <span className="flex items-center gap-2 text-sm text-fg-muted"><ValueCell c={c} />{c.owner && <span role="img" aria-label={`Agent: ${c.owner.name}`} title={c.owner.name}><Avatar name={c.owner.name} size="xs" /></span>}</span>
-        </div>
+    <li className={`relative flex min-h-[4.5rem] items-stretch border-b border-line-card last:border-b-0 ${on ? "bg-selected" : ""}`}>
+      {picking ? (
+        <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 py-2 pl-2 pr-1">
+          <span className="flex size-11 shrink-0 items-center justify-center"><input type="checkbox" className="size-5 accent-[var(--accent)]" aria-label={`Select ${c.name}`} checked={on} onChange={() => lead.toggle(c.id)} /></span>
+          {body}
+        </label>
+      ) : (
+        <Link href={`/w/${workspaceId}/contacts/${c.id}`} className="flex min-w-0 flex-1 items-center gap-3 py-2 pl-4 pr-2 active:bg-hover">{body}</Link>
+      )}
+      <div className="flex shrink-0 flex-col items-end justify-center py-2 pl-1 pr-4">
+        {lead.enabled ? <StageMenu c={c} pipelines={lead.pipelines} lostReasons={lead.lostReasons} workspaceId={workspaceId} onChanged={() => lead.onChanged([])} /> : <StageBadge pipelines={lead.pipelines} c={c} />}
+        <span className="flex items-center gap-2 text-sm text-fg-muted"><ValueCell c={c} />{c.owner && <span role="img" aria-label={`Agent: ${c.owner.name}`} title={c.owner.name}><Avatar name={c.owner.name} size="xs" /></span>}</span>
       </div>
     </li>
   );

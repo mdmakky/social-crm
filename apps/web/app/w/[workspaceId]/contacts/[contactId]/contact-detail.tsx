@@ -17,6 +17,7 @@ import { Input, Select } from "@/components/ui/input";
 import { Dialog, DialogClose, DialogContent, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DialogActions } from "@/components/ui/overlays";
 import { Panel, PanelHeader } from "@/components/ui/panel";
 import { Alert, EmptyState } from "@/components/ui/states";
+import { ToastProvider } from "@/components/ui/toast";
 import { browserApi, errorMessage } from "@/lib/client-api";
 import { activityText, relativeTime, sourceLabel, SOURCE_LABEL, TAG_TONE } from "@/lib/contacts";
 import { formatDateTime } from "@/lib/format";
@@ -78,7 +79,7 @@ export function ContactDetailView(props: Props) {
   const loaded = !!props.leadInfo?.loaded;
 
   return (
-    <>
+    <ToastProvider>
       <Link href={`/w/${workspaceId}/contacts`} className="mb-3 inline-flex items-center gap-1 text-sm text-fg-muted hover:text-fg pointer-coarse:min-h-11"><ArrowLeft className="size-4" aria-hidden />Leads</Link>
       <div className="mb-4 flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
@@ -119,7 +120,7 @@ export function ContactDetailView(props: Props) {
         </div>
         <TasksPanel tasks={tasks} setTasks={setTasks} p={p} canEdit={perms.edit} role={role} myUserId={myUserId} members={members} timeZone={timeZone} onChanged={async () => { void refreshActivity(); const d = await browserApi.call(endpoints.getContact, { params: p }); if (d.ok) setC(d.data); }} />
       </div>
-    </>
+    </ToastProvider>
   );
 }
 

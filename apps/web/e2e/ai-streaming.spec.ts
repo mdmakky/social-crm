@@ -149,7 +149,7 @@ test("an agent on a tool-capable model shows native tool calls and a pending act
   await expect(caps).toContainText("Native tool calls");
   await expect(caps).toContainText("This model will use");
   await owner.getByLabel("Customer message").fill('Please note it [[MOCK_TOOL:crm__add_note:{"body":"native e2e note"}]]');
-  await owner.getByLabel(/^Contact \(needed/).selectOption({ label: "Pat Pending" });
+  await owner.getByLabel(/^Lead \(needed/).selectOption({ label: "Pat Pending" });
   await owner.getByLabel("Dry run (change nothing)").uncheck();
   await owner.getByRole("button", { name: "Run test" }).click();
   await expect(owner.getByText("Pending approval", { exact: true }).first()).toBeVisible();

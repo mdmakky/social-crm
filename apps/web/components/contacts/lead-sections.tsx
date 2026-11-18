@@ -35,6 +35,7 @@ export function ConversationSummary({ workspaceId, contactId, contactName, canVi
     setConv(r.data.items.filter((c) => c.contact.id === contactId).sort((a, b) => (b.lastMessageAt ?? "").localeCompare(a.lastMessageAt ?? ""))[0] ?? null);
     setState("ready");
   }, [workspaceId, contactId, contactName]);
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch on mount; load() sets the loading state first
   React.useEffect(() => { if (canView) void load(); }, [canView, load]);
   if (!canView) return null;
   return (

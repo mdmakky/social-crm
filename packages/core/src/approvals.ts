@@ -14,9 +14,9 @@ export const summarizeApprovalActions = (actions: ApprovalAction[], memberName?:
 
 // Mirrors AUTOMATION_TRIGGERS in @crm/contracts (keep in sync; unknown triggers fall back to the raw key).
 export const TRIGGER_LABELS: Record<string, string> = {
-  "contact.created": "A contact is created",
+  "contact.created": "A lead is created",
   "lead.stage_changed": "A lead moves to another stage",
-  "contact.owner_assigned": "A contact gets an owner",
-  "lead.owner_assigned": "A lead gets an owner",
+  "contact.owner_assigned": "A lead gets an owner",
+  "lead.owner_assigned": "A lead record gets an owner",
 };
 export const triggerLabel = (t: string): string => TRIGGER_LABELS[t] ?? t;

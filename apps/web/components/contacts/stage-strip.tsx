@@ -46,14 +46,14 @@ export function StageStrip({ stages, counts, activeId, onSelect }: { stages: Sta
     <div className="mb-3">
       <div className="rounded-card border border-line bg-surface">
         <div ref={box} onScroll={measure} data-scroll="allowed" role="group" aria-label="Filter by stage" style={{ scrollSnapType: "x proximity", scrollbarWidth: "none", maskImage: mask, WebkitMaskImage: mask }} className="flex overflow-x-auto overscroll-x-contain rounded-card [&::-webkit-scrollbar]:hidden">
-          <button type="button" className={cn(item(!activeId), "min-w-24 flex-1")} aria-pressed={!activeId} onClick={() => onSelect(undefined)}>All{counts && <span className="tnum font-semibold text-fg">{n(total)}</span>}</button>
+          <button type="button" className={cn(item(!activeId), "min-w-24 flex-1")} aria-pressed={!activeId} onClick={() => onSelect(undefined)}>All{counts && <>{" "}<span className="tnum font-semibold text-fg">{n(total)}</span></>}</button>
           {stages.map((s) => {
             const on = activeId === s.id;
             return (
               <button key={s.id} type="button" title={s.name} className={cn(item(on), "flex-1")} aria-pressed={on} onClick={() => onSelect(on ? undefined : s.id)}>
                 <span aria-hidden className="size-1.5 shrink-0 rounded-full" style={{ background: dot(s) }} />
                 <span className="max-w-[10rem] truncate">{s.name}</span>
-                {counts && <span className="tnum font-semibold text-fg">{n(countOf(s.id))}</span>}
+                {counts && <>{" "}<span className="tnum font-semibold text-fg">{n(countOf(s.id))}</span></>}
               </button>
             );
           })}

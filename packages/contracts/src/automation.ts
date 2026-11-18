@@ -2,10 +2,10 @@ import { z } from "zod";
 import { endpoint } from "./endpoint.ts";
 
 export const AUTOMATION_TRIGGERS = {
-  "contact.created": { label: "A contact is created" },
+  "contact.created": { label: "A lead is created" },
   "lead.stage_changed": { label: "A lead moves to another stage" },
-  "contact.owner_assigned": { label: "A contact gets an owner" },
-  "lead.owner_assigned": { label: "A lead gets an owner" },
+  "contact.owner_assigned": { label: "A lead gets an owner" },
+  "lead.owner_assigned": { label: "A lead record gets an owner" },
 } as const;
 export type AutomationTrigger = keyof typeof AUTOMATION_TRIGGERS;
 export const AutomationTriggerSchema = z.enum(Object.keys(AUTOMATION_TRIGGERS) as [AutomationTrigger, ...AutomationTrigger[]]);

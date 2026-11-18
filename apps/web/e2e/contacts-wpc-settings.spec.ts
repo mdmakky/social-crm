@@ -48,7 +48,7 @@ test.describe("contact settings confirmations", () => {
     await page.goto(`/w/${workspaceId}/contacts/${id}`);
     await page.getByLabel("Add a tag").fill("keepme");
     await page.getByRole("button", { name: "Add", exact: true }).click();
-    await expect(page.getByRole("list", { name: "Tags on this contact" }).getByText("keepme")).toBeVisible();
+    await expect(page.getByRole("list", { name: "Tags on this lead" }).getByText("keepme")).toBeVisible();
     await page.goto(`/w/${workspaceId}/settings/contacts`);
     page.on("dialog", () => { throw new Error("native dialog used"); });
     await page.getByRole("button", { name: "Delete tag keepme" }).click();

@@ -1,5 +1,4 @@
 import type { ContactColumn, TagColor } from "@crm/contracts";
-import { CONTACT_COLUMNS } from "@crm/contracts";
 
 export const COLUMN_LABEL: Record<ContactColumn, string> = { contact: "Lead", stage: "Stage", value: "Value", lifecycle: "Lifecycle stage", owner: "Agent", tags: "Tags", source: "Source", lastActivity: "Last activity", created: "Created" };
 /** Lifecycle is the older, separate label; it is available under Columns but no longer shown by default, so a lead reads as one thing: stage, value, owner. */

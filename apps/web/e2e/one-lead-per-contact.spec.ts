@@ -45,8 +45,8 @@ test("stage change on a contact without a lead creates it, and the list and coun
   await page.getByRole("button", { name: "Change stage", exact: true }).click();
   const dlg = page.getByRole("dialog");
   await dlg.getByLabel("New stage").selectOption({ label: "Won" });
-  await dlg.getByRole("button", { name: "Move 2 contacts" }).click();
-  await expect(page.getByRole("status").filter({ hasText: "2 contacts moved to Won." }).first()).toBeVisible();
+  await dlg.getByRole("button", { name: "Move 2 leads" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "2 leads moved to Won." }).first()).toBeVisible();
   await expect(chips.getByRole("button", { name: /^Won 2/ })).toBeVisible();
   expect(await leads()).toHaveLength(2); // Ben's lead was created by the bulk move
   expect(ben).toBeTruthy();

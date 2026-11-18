@@ -8,10 +8,10 @@ import { Select } from "@/components/ui/input";
 import { Dialog, DialogActions, DialogClose, DialogContent } from "@/components/ui/overlays";
 import { Panel } from "@/components/ui/panel";
 import { Alert, EmptyState } from "@/components/ui/states";
-import { ToastProvider, useToast } from "@/components/ui/toast";
+import { useToast } from "@/components/ui/toast";
 import { browserApi, errorMessage } from "@/lib/client-api";
 import { cn } from "@/lib/cn";
-import { defaultPipeline, shownStage, stageHue, stagesForContact } from "@/lib/contact-lead";
+import { defaultPipeline, shownStage, stagesForContact } from "@/lib/contact-lead";
 import { CURRENCIES, fromMinor, toMinor } from "@/lib/leads";
 
 type Props = {
@@ -20,7 +20,6 @@ type Props = {
   onLead: (l: ContactLead | null) => void; onContact: (c: ContactDetail) => void;
 };
 
-const dotOf = (s: Pick<StageDto, "kind" | "position">) => { const h = stageHue(s); return h === "muted" ? "var(--fg-disabled)" : `var(--hue-${h}-dot)`; };
 const CONFLICT = "Someone else changed this just now. The latest values are shown; review them and save again.";
 
 /**
@@ -33,7 +32,7 @@ export function LeadPanel(props: Props) {
   const [saved, setSaved] = React.useState(0);
   const [error, setError] = React.useState<string | null>(null);
   React.useEffect(() => { if (!saved) return; const t = setTimeout(() => setSaved(0), 2500); return () => clearTimeout(t); }, [saved]);
-  return <ToastProvider><Form key={`${props.lead?.id ?? "none"}:${props.lead?.version ?? 0}:${props.contact.version}`} {...props} error={error} setError={setError} saved={saved > 0} onSaved={() => setSaved(Date.now())} /></ToastProvider>;
+  return <Form key={`${props.lead?.id ?? "none"}:${props.lead?.version ?? 0}:${props.contact.version}`} {...props} error={error} setError={setError} saved={saved > 0} onSaved={() => setSaved(Date.now())} />;
 }
 
 function Form({ workspaceId, contact, lead, pipelines, lostReasons, members, canEdit, canEditOwner, canSetValue, onLead, onContact, error, setError, saved, onSaved }: Props & { error: string | null; setError: (e: string | null) => void; saved: boolean; onSaved: () => void }) {

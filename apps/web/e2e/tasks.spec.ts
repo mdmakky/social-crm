@@ -35,7 +35,7 @@ test("create, edit, complete, reopen and see the history; the task shows on its 
   await dlg.getByLabel("Description").fill("Include onboarding and training for twelve people.");
   await dlg.getByLabel("Priority").selectOption("high");
   await dlg.getByLabel("Due").fill(localInput(5));
-  await dlg.getByPlaceholder("Search contacts by name, email or phone").fill("Ana");
+  await dlg.getByPlaceholder("Search leads by name, email or phone").fill("Ana");
   await dlg.getByRole("option", { name: /Ana Costa/ }).click();
   await dlg.getByRole("button", { name: "Create task" }).click();
   await expect(dlg).toBeHidden();
@@ -174,11 +174,11 @@ test("views, counts, filters, sorting, paging and a shareable URL", async ({ pag
   await page.getByLabel("Status", { exact: true }).selectOption("any");
   await expect(page.getByRole("row")).toHaveCount(5);
   await page.getByLabel("Status", { exact: true }).selectOption("");
-  await page.getByLabel("Filter by contact").fill("Ben");
+  await page.getByLabel("Filter by lead").fill("Ben");
   await page.getByRole("option", { name: /Ben Okafor/ }).click();
   await expect(page.getByRole("row")).toHaveCount(2);
   await expect(rowOf(page, "Prepare the renewal deck")).toBeVisible();
-  await page.getByRole("button", { name: "Remove contact Ben Okafor" }).click();
+  await page.getByRole("button", { name: "Remove lead Ben Okafor" }).click();
   await page.getByLabel("Search tasks").fill("nothing matches this");
   await expect(page.getByText("No tasks match these filters")).toBeVisible();
   await page.getByRole("button", { name: "Clear filters" }).click();

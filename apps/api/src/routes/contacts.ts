@@ -223,7 +223,7 @@ export function contactRoutes(db: Db, hooks: { blobs?: BlobStore } = {}) {
       if (!d.allowDuplicate) {
         await lockContactWrites(tx, workspaceId, [email && `email:${email}`, phone && `phone:${phone}`]);
         const dupes = await findDuplicates(tx, workspaceId, { email, phone });
-        if (dupes.length) return fail(c, 409, "duplicate_contact", "A contact with the same email or phone already exists.", { candidates: dupes });
+        if (dupes.length) return fail(c, 409, "duplicate_contact", "A lead with the same email or phone already exists.", { candidates: dupes });
       }
       const tagIds = Array.from(new Set(d.tagIds ?? []));
       if (tagIds.length) {

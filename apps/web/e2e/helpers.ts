@@ -71,4 +71,10 @@ export async function seedContacts(page: Page, workspaceId: string, people: { na
   return ids;
 }
 
+/** The lead page keeps Details collapsed (D308); open it before touching the form. Safe to call when it is already open. */
+export async function openDetails(page: Page) {
+  const d = page.locator("details", { has: page.locator("summary", { hasText: /^Details/ }) });
+  if (!(await d.evaluate((e) => (e as HTMLDetailsElement).open))) await d.locator("summary").click();
+}
+
 export const CONTACT_NAMES = ["Ana Costa", "Ben Okafor", "Chloe Park", "Dev Patel", "Eli Moreau", "Fatima Noor", "Gus Hall", "Hana Sato", "Ivan Petrov", "Jia Li"];
