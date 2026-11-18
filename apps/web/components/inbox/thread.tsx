@@ -317,6 +317,7 @@ export function Thread({ conversationId }: { conversationId: string }) {
           <div className="min-w-[9rem] flex-1 basis-40">
             <h2 ref={headingRef} tabIndex={-1} className="truncate text-md font-semibold text-fg outline-none"><Link href={`/w/${workspaceId}/contacts/${detail.contact.id}`} className="inline-block hover:underline pointer-coarse:-my-3 pointer-coarse:py-3">{name}</Link></h2>
             <div className="flex items-center gap-1.5"><ChannelBadge platform={detail.platform} account={detail.accountName} />{detail.status !== "open" && <Badge tone={detail.status === "resolved" ? "success" : "warning"}>{detail.status === "resolved" ? "Resolved" : "Pending"}</Badge>}</div>
+            {detail.fromPage && <FromPage url={detail.fromPage} />}
           </div>
           <div className="flex w-full items-center gap-1.5 md:w-auto md:flex-wrap">
             <StageControl ctl={lead} canEdit={canEditLead} className="max-md:min-w-0 max-md:flex-1 max-md:justify-start" />
@@ -538,4 +539,13 @@ function ThreadSkeleton() {
       <div className="flex-1 space-y-3 p-4"><Skeleton className="h-10 w-56" /><Skeleton className="ml-auto h-10 w-48" /><Skeleton className="h-10 w-64" /></div>
     </div>
   );
+}
+
+/** Web chat: the page the visitor wrote from. Text only; it becomes a link only when it parses as http(s). The API already stripped the query string and fragment. */
+function FromPage({ url }: { url: string }) {
+  let u: URL | null = null;
+  try { u = new URL(url); } catch { /* shown as plain text below */ }
+  const label = u ? `${u.host}${u.pathname === "/" ? "" : u.pathname}` : url;
+  const href = u && (u.protocol === "https:" || u.protocol === "http:") ? u.href : null;
+  return <p className="mt-0.5 truncate text-xs text-fg-muted" data-testid="from-page">From page: {href ? <a href={href} target="_blank" rel="noopener noreferrer" className="underline hover:text-fg">{label}</a> : label}</p>;
 }
