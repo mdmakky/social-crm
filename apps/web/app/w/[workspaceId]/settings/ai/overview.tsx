@@ -13,7 +13,7 @@ import { AI_CHANGED, notifyAiChanged } from "@/components/ai/hub-status";
 import { browserApi, errorMessage } from "@/lib/client-api";
 import { relTime, useNow } from "@/lib/inbox";
 
-const TOOL: Record<string, string> = { "crm.add_note": "Add a note to the contact", "crm.assign_owner": "Assign an owner", "crm.add_tag": "Add a tag", "crm.create_task": "Create a task", "knowledge.search": "Look something up in Knowledge" };
+const TOOL: Record<string, string> = { "crm.add_note": "Add a note to the lead", "crm.assign_owner": "Assign an owner", "crm.add_tag": "Add a tag", "crm.create_task": "Create a task", "knowledge.search": "Look something up in Knowledge" };
 const toolLabel = (t: string) => TOOL[t] ?? t.replace(/^[a-z]+\./, "").replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
 /** A short, readable summary of the arguments (never raw JSON): scalar values only, trimmed. */
 const argsText = (args: Record<string, unknown>) => Object.entries(args).filter(([, v]) => typeof v === "string" || typeof v === "number").slice(0, 2).map(([k, v]) => `${k.replace(/_/g, " ")}: ${String(v).slice(0, 48)}`).join(" · ");
