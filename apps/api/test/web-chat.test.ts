@@ -330,3 +330,83 @@ describe("disabled widget", () => {
     expect((await poll(w, token)).status).toBe(200);
   });
 });
+
+describe("owner preview grant (D270)", () => {
+  const mint = async (u: TestUser, w: W, wsId = ws) => adminCall(u, wsId, "POST", `/${w.id}/preview`);
+  const grantOf = async (w: W) => (await json(await mint(owner, w))).grant as string;
+  const prev = (w: W, grant: string | null, path: string, o: Opts & { method?: string } = {}) =>
+    h.app.request(`/public/widget/${w.publicKey}${path}`, {
+      method: o.method ?? "GET",
+      headers: { "x-forwarded-for": "10.0.0.9", ...(o.origin === null ? {} : { origin: o.origin ?? ORIGIN }), ...(grant ? { "x-widget-preview": grant } : {}), ...(o.host ? { "x-widget-host": o.host } : {}), ...(o.token ? { authorization: `Bearer ${o.token}` } : {}), ...(o.body !== undefined ? { "content-type": "application/json" } : {}) },
+      body: o.body !== undefined ? JSON.stringify(o.body) : undefined,
+    });
+
+  it("only owners and admins can mint; the grant is short-lived and signed", async () => {
+    expect((await mint(agent, wA1)).status).toBe(403);
+    const r = await json(await mint(owner, wA1));
+    expect(r.grant).toMatch(/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]{43}$/);
+    expect(new Date(r.expiresAt).getTime() - Date.now()).toBeLessThanOrEqual(10 * 60_000);
+    expect(new Date(r.expiresAt).getTime() - Date.now()).toBeGreaterThan(9 * 60_000);
+  });
+
+  it("works from our own origin although that origin is not on the allowlist, and marks the session", async () => {
+    const g = await grantOf(wA1);
+    for (const o of [{ origin: ORIGIN, host: ORIGIN }, { origin: null, host: ORIGIN }, { origin: ORIGIN }]) expect((await prev(wA1, g, "/config", o)).status).toBe(200);
+    const s = await prev(wA1, g, "/sessions", { method: "POST", origin: ORIGIN, host: ORIGIN, body: {} });
+    expect(s.status).toBe(201);
+    const token = (await json(s)).token as string;
+    expect((await prev(wA1, g, "/messages", { method: "POST", origin: ORIGIN, host: ORIGIN, token, body: { body: "hello from preview" } })).status).toBe(201);
+    expect((await q("SELECT user_agent FROM chat_visitor_sessions WHERE token_hash=$1", [sha(token)]))[0]!.user_agent).toBe("CRM preview");
+    expect((await q("SELECT allowed_origins FROM chat_widgets WHERE id=$1", [wA1.id]))[0]!.allowed_origins).toEqual([SITE]); // the allowlist is untouched
+  });
+
+  it("is refused without a grant, with a garbled or tampered grant, and from another origin", async () => {
+    const g = await grantOf(wA1);
+    expect((await prev(wA1, null, "/config", { origin: ORIGIN, host: ORIGIN })).status).toBe(403);
+    expect((await prev(wA1, "garbage", "/config", { origin: ORIGIN })).status).toBe(403);
+    expect((await prev(wA1, g.slice(0, -2) + "xx", "/config", { origin: ORIGIN })).status).toBe(403);
+    const other = await prev(wA1, g, "/config", { origin: "https://evil.example" });
+    expect(other.status).toBe(403);
+    expect(other.headers.get("access-control-allow-origin")).toBeNull();
+    expect((await json(other)).error.code).toBe("preview_invalid");
+    expect((await prev(wA1, g, "/config", { origin: ORIGIN, host: "https://evil.example" })).status).toBe(403);
+    expect((await prev(wA1, g, "/config", { origin: null, host: "https://evil.example" })).status).toBe(403);
+    expect((await prev(wA1, g, "/sessions", { method: "POST", origin: "https://evil.example", body: {} })).status).toBe(403);
+  });
+
+  it("is refused after expiry", async () => {
+    const hOld = await bootstrap(undefined, undefined, undefined, undefined, { workerDb, minFirstMessageMs: 0, now: () => Date.now() + 11 * 60_000 });
+    try {
+      const u = await hOld.newUser("wcexp");
+      const wsx = await hOld.workspace(u, "Expiry Co");
+      const headers = { cookie: u.cookie, origin: ORIGIN, "content-type": "application/json" };
+      const w = await (await hOld.app.request(`/v1/workspaces/${wsx}/web-chat/widgets`, { method: "POST", headers, body: JSON.stringify({ name: "Exp", allowedOrigins: [SITE] }) })).json();
+      const g = (await (await hOld.app.request(`/v1/workspaces/${wsx}/web-chat/widgets/${w.id}/preview`, { method: "POST", headers })).json()).grant as string;
+      const r = await hOld.app.request(`/public/widget/${w.publicKey}/config`, { headers: { origin: ORIGIN, "x-widget-preview": g } });
+      expect(r.status).toBe(403);
+      expect((await r.json()).error.code).toBe("preview_invalid");
+    } finally {
+      await hOld.close();
+    }
+  });
+
+  it("is bound to its widget and workspace", async () => {
+    const g = await grantOf(wA1);
+    expect((await prev(wA1, g, "/config")).status).toBe(200);
+    expect((await prev(wA2, g, "/config")).status).toBe(403); // same workspace, other widget
+    expect((await prev(wB, g, "/config")).status).toBe(403); // other workspace
+    expect((await mint(owner, wB)).status).toBe(404); // a workspace-A owner cannot mint for B's widget through A's URL
+    expect((await mint(owner, wB, ws2)).status).toBe(404); // nor through B's URL (not a member: the workspace is hidden)
+  });
+
+  it("is refused for a switched-off widget, and a grant minted before switching off cannot open sessions", async () => {
+    const w = await mk(owner, ws, "Preview off", [SITE]);
+    const g = await grantOf(w);
+    await adminCall(owner, ws, "PATCH", `/${w.id}`, { enabled: false });
+    const r = await mint(owner, w);
+    expect(r.status).toBe(409);
+    expect((await json(r)).error.code).toBe("widget_disabled");
+    expect((await prev(w, g, "/sessions", { method: "POST", origin: ORIGIN, host: ORIGIN, body: {} })).status).toBe(403);
+    expect((await json(await prev(w, g, "/config", { origin: ORIGIN, host: ORIGIN }))).enabled).toBe(false);
+  });
+});

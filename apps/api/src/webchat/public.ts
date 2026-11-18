@@ -8,6 +8,7 @@ import { hasNul } from "../routes/scope.ts";
 import { saveExtracted } from "../inbox/extract.ts";
 import { WindowCounter } from "../throttle.ts";
 import { randomDigits } from "./admin.ts";
+import { verifyPreview } from "./preview.ts";
 
 type Row = Record<string, unknown>;
 const rowsOf = (r: unknown) => (r as { rows: Row[] }).rows;
@@ -19,6 +20,8 @@ export type WidgetDeps = {
   workerDb: Db;
   /** Origins of our own web app. A request from one of these is the widget iframe: the embedding site is then named by X-Widget-Host. */
   webOrigins: string[];
+  /** Key that signs and checks owner preview grants (see preview.ts). */
+  previewKey: Buffer;
   limits?: Partial<WidgetLimits>;
   /** A visitor cannot send before this long after the session was created (spam check). */
   minFirstMessageMs?: number;
@@ -26,7 +29,7 @@ export type WidgetDeps = {
 };
 type Widget = { id: string; workspaceId: string; accountId: string; enabled: boolean; origins: string[]; config: WidgetPublicConfig };
 type Session = { id: string; visitorRef: string; contactId: string | null; conversationId: string | null; createdAt: Date; hasMessage: boolean };
-type E = { Variables: { widget: Widget } };
+type E = { Variables: { widget: Widget; preview: boolean } };
 
 const DEFAULT_LIMITS: WidgetLimits = { sessionsPerIp: 10, sessionsPerWidget: 120, sessionWindowMs: 10 * 60_000, messagesPerSession: 20, pollsPerSession: 60, configPerIp: 60, contactPerSession: 5 };
 const KEY_SHAPE = /^[A-Za-z0-9_-]{22,64}$/;
@@ -76,8 +79,18 @@ export function publicWidgetRoutes(deps: WidgetDeps) {
     const origin = normOrigin(c.req.header("origin"));
     const ours = origin !== "" && deps.webOrigins.map(normOrigin).includes(origin);
     const claimed = origin !== "" && !ours ? origin : normOrigin(c.req.header("x-widget-host"));
-    if (claimed === "") return err(c, 403, "origin_required", "This request does not say which site it comes from.");
-    if (widget.origins.length === 0 || !widget.origins.includes(claimed)) return err(c, 403, "origin_not_allowed", "This site is not allowed to use this chat.");
+    // Owner preview (D270): a signed grant for THIS widget and workspace, sent from our own web app only, stands in for the allowlist. A grant header that does not check out is refused, never ignored.
+    const grant = c.req.header("x-widget-preview");
+    let preview = false;
+    if (grant !== undefined) {
+      const claims = verifyPreview(deps.previewKey, grant, now());
+      const host = normOrigin(c.req.header("x-widget-host"));
+      const fromUs = (origin === "" || ours) && (host === "" || deps.webOrigins.map(normOrigin).includes(host));
+      if (!claims || claims.w !== widget.id || claims.ws !== widget.workspaceId || !fromUs) return err(c, 403, "preview_invalid", "This preview link is not valid or has expired.");
+      preview = true;
+    }
+    if (!preview && claimed === "") return err(c, 403, "origin_required", "This request does not say which site it comes from.");
+    if (!preview && (widget.origins.length === 0 || !widget.origins.includes(claimed))) return err(c, 403, "origin_not_allowed", "This site is not allowed to use this chat.");
     if (origin !== "" && !ours) {
       c.header("Access-Control-Allow-Origin", origin);
       c.header("Vary", "Origin");
@@ -91,6 +104,7 @@ export function publicWidgetRoutes(deps: WidgetDeps) {
     }
     c.header("Cache-Control", "no-store");
     c.set("widget", widget);
+    c.set("preview", preview);
     await next();
   });
 
@@ -122,7 +136,7 @@ export function publicWidgetRoutes(deps: WidgetDeps) {
     if (!sessionsIp.allow(`ip:${clientIp(c)}`) || !sessionsWidget.allow(`w:${w.id}`)) return tooMany(c);
     const token = randomBytes(32).toString("base64url"); // 256 bits, 43 characters; only its hash is stored and it is shown once
     const ipHash = sha256(`${w.workspaceId}:${clientIp(c)}`).slice(0, 16);
-    const ua = (c.req.header("user-agent") ?? "").replace(/\p{Cc}/gu, "").slice(0, 200) || null;
+    const ua = c.get("preview") ? "CRM preview" : (c.req.header("user-agent") ?? "").replace(/\p{Cc}/gu, "").slice(0, 200) || null; // preview sessions are marked here (D272)
     const exp = await run(c, async (tx) => {
       for (let i = 0; i < 5; i++) {
         const ref = randomDigits(); // numeric because platform_identities.external_user_id is digits-only for every channel

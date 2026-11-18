@@ -39,6 +39,8 @@ export const webChatEndpoints = {
   listChatWidgets: endpoint({ method: "GET", path: `${W}/web-chat/widgets`, response: z.object({ items: z.array(ChatWidgetDto) }) }),
   createChatWidget: endpoint({ method: "POST", path: `${W}/web-chat/widgets`, body: CreateChatWidgetBody, response: ChatWidgetDto }),
   updateChatWidget: endpoint({ method: "PATCH", path: `${W}/web-chat/widgets/:widgetId`, body: UpdateChatWidgetBody, response: ChatWidgetDto }),
+  /** Owner-only: a 10 minute grant that lets our own web app show this widget on a sample page (decision D270). Refused for a switched-off widget. */
+  createChatWidgetPreview: endpoint({ method: "POST", path: `${W}/web-chat/widgets/:widgetId/preview`, response: z.object({ grant: z.string(), expiresAt: z.string() }) }),
   rotateChatWidgetKey: endpoint({ method: "POST", path: `${W}/web-chat/widgets/:widgetId/rotate-key`, response: ChatWidgetDto }),
 };
 

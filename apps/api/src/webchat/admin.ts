@@ -5,6 +5,7 @@ import { CreateChatWidgetBody, UpdateChatWidgetBody, type ChatWidgetDto } from "
 import { can } from "@crm/core/permissions";
 import { schema, withContext, type Db } from "@crm/db";
 import { writeAudit } from "../audit.ts";
+import { signPreview } from "./preview.ts";
 import { actor, body, fail, forbidden, isUuid, wctx, type SC, type ScopedEnv } from "../routes/scope.ts";
 
 type Row = typeof schema.chatWidgets.$inferSelect;
@@ -22,7 +23,7 @@ const pgCode = (e: unknown) => (e as { cause?: { code?: string } })?.cause?.code
  * Widget management for owners and admins (integration.manage). A widget owns one integration account (platform "web_chat") so the Inbox, AI, tasks and leads treat its
  * conversations like any other channel's. The account is written by the worker role (the application role cannot insert accounts), the widget row by the user.
  */
-export function webChatAdminRoutes(db: Db, workerDb?: Db) {
+export function webChatAdminRoutes(db: Db, workerDb?: Db, previewKey?: Buffer) {
   const r = new Hono<ScopedEnv>();
   const allowed = (c: SC) => can(c.get("role"), "integration.manage", {});
 
@@ -91,6 +92,19 @@ export function webChatAdminRoutes(db: Db, workerDb?: Db) {
       return w;
     });
     return row ? c.json(dto(row)) : fail(c, 404, "not_found");
+  });
+
+  /** Mints a preview grant (D270): signed, bound to this widget, workspace and user, valid 10 minutes. It only works from our own web origin; it never changes the widget's allowed sites. */
+  r.post("/web-chat/widgets/:widgetId/preview", async (c) => {
+    if (!allowed(c)) return forbidden(c);
+    const id = c.req.param("widgetId");
+    if (!isUuid(id)) return fail(c, 404, "not_found");
+    if (!previewKey) return fail(c, 503, "not_configured", "Web chat is not set up on this server.");
+    const ws = c.get("workspaceId");
+    const w = await withContext(db, wctx(c), async (tx) => (await tx.select().from(schema.chatWidgets).where(and(eq(schema.chatWidgets.workspaceId, ws), eq(schema.chatWidgets.id, id))))[0]);
+    if (!w) return fail(c, 404, "not_found");
+    if (!w.enabled) return fail(c, 409, "widget_disabled", "Turn the chat on to preview it.");
+    return c.json(signPreview(previewKey, { w: w.id, ws, u: c.get("userId") }));
   });
 
   return r;
