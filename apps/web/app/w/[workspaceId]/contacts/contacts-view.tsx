@@ -33,6 +33,8 @@ type Props = { workspaceId: string; timeZone: string; myUserId: string; initial:
 
 const FILTERS: (keyof Q)[] = ["search", "lifecycleStageId", "stageId", "ownerId", "tagIds", "source", "createdFrom"];
 const MAX_BULK = 100;
+/** On a tablet the table keeps Lead, Stage, Value and Agent; the rest show from 1024 px (sort by them from the Sort menu). */
+const NARROW_HIDE = new Set<ContactColumn>(["source", "lastActivity", "created", "tags", "lifecycle"]);
 const hasFilters = (q: Q) => FILTERS.some((k) => !!q[k]);
 
 export function ContactsView(props: Props) {
@@ -250,13 +252,12 @@ function Inner({ workspaceId, timeZone, myUserId, initial, initialQuery, pipelin
             {perms.import && <Button asChild variant="secondary" className="max-md:hidden"><Link href={`/w/${workspaceId}/contacts/import`}><Upload />Import</Link></Button>}
             {perms.edit && <Button variant="primary" onClick={() => setNewOpen(true)}><Plus />Add lead</Button>}
             <DropdownMenu>
-              <DropdownMenuTrigger asChild><Button variant="secondary" icon aria-label="More actions" className={perms.schema ? "" : "lg:hidden"}><MoreHorizontal /></Button></DropdownMenuTrigger>
+              <DropdownMenuTrigger asChild><Button variant="secondary" icon aria-label="More actions" className={perms.schema ? "" : "md:hidden"}><MoreHorizontal /></Button></DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
-                {perms.lead && <DropdownMenuItem className="lg:hidden" onSelect={() => setSelectMode(true)}><CheckSquare aria-hidden />Select leads</DropdownMenuItem>}
+                {perms.lead && <DropdownMenuItem className="md:hidden" onSelect={() => setSelectMode(true)}><CheckSquare aria-hidden />Select leads</DropdownMenuItem>}
                 {perms.removeLeads && <DropdownMenuItem className="md:hidden" onSelect={() => setRemovedOpen(true)}><RotateCcw aria-hidden />Recently removed</DropdownMenuItem>}
                 {perms.import && <DropdownMenuItem className="md:hidden" asChild><Link href={`/w/${workspaceId}/contacts/import`}><Upload aria-hidden />Import</Link></DropdownMenuItem>}
                 {perms.export && <DropdownMenuItem className="md:hidden" disabled={exporting} onSelect={() => void doExport()}><Download aria-hidden />Export CSV</DropdownMenuItem>}
-                <DropdownMenuItem className="lg:hidden" onSelect={() => setColsOpen(true)}><Columns3 aria-hidden />Columns</DropdownMenuItem>
                 {perms.schema && <DropdownMenuItem asChild><Link href={`/w/${workspaceId}/settings/contacts`}><SlidersHorizontal aria-hidden />Lead fields</Link></DropdownMenuItem>}
               </DropdownMenuContent>
             </DropdownMenu>
@@ -268,9 +269,9 @@ function Inner({ workspaceId, timeZone, myUserId, initial, initialQuery, pipelin
 
       <div className="mb-3 flex flex-col gap-2 max-md:sticky max-md:top-0 max-md:z-20 max-md:-mx-4 max-md:bg-canvas max-md:px-4 max-md:pb-2 max-md:pt-1">
         <div className="flex flex-wrap items-center gap-1.5">
-          <div className="relative min-w-0 flex-1 basis-56 md:max-w-72 md:flex-none">
+          <div className="relative min-w-0 flex-1 basis-40 md:w-80 md:flex-none">
             <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-fg-subtle" aria-hidden />
-            <Input aria-label="Search leads" type="search" enterKeyHint="search" placeholder="Search name, company, email or phone" className="pl-8 shadow-none" value={query.search ?? ""} onChange={(e) => set({ search: e.target.value || undefined })} />
+            <Input aria-label="Search leads" type="search" enterKeyHint="search" placeholder="Search leads" className="pl-8 shadow-none" value={query.search ?? ""} onChange={(e) => set({ search: e.target.value || undefined })} />
           </div>
           {phone ? (
             <FilterSheetButton members={members} myUserId={myUserId} ownerCounts={ownerCounts} tags={tags} value={filterValues} onApply={applyFilters} />
@@ -284,7 +285,7 @@ function Inner({ workspaceId, timeZone, myUserId, initial, initialQuery, pipelin
           <div className="ml-auto flex items-center gap-1.5 max-md:hidden">
             {sortSelect}
             {viewsMenu}
-            <Button variant="ghost" className="max-lg:hidden" onClick={() => setColsOpen(true)}><Columns3 />Columns</Button>
+            <Button variant="ghost" onClick={() => setColsOpen(true)}><Columns3 />Columns</Button>
             {perms.export && <Button variant="secondary" onClick={() => void doExport()} loading={exporting}><Download />Export</Button>}
           </div>
         </div>
@@ -295,7 +296,7 @@ function Inner({ workspaceId, timeZone, myUserId, initial, initialQuery, pipelin
         </div>
       </div>
 
-      {selected.size > 0 && perms.lead && bulk("sticky top-0 z-10 mb-3 hidden lg:flex", "top")}
+      {selected.size > 0 && perms.lead && bulk("sticky top-0 z-10 mb-3 hidden md:flex", "top")}
       {actionError && <Alert tone="error" className="mb-3">{actionError}</Alert>}
       {errorText && page.items.length > 0 && (
         <Alert tone="error" className="mb-3">
@@ -319,10 +320,10 @@ function Inner({ workspaceId, timeZone, myUserId, initial, initialQuery, pipelin
           )
         ) : (
           <>
-            <div className="hidden lg:block">
+            <div className="hidden md:block">
               <ContactsTable items={page.items} columns={columns} query={query} onSort={toggleSort} workspaceId={workspaceId} timeZone={timeZone} lead={lead} />
             </div>
-            <ul className="lg:hidden" aria-label="Leads">
+            <ul className="md:hidden" aria-label="Leads">
               {page.items.map((c) => <LeadCard key={c.id} c={c} workspaceId={workspaceId} lead={lead} selectMode={selectMode} />)}
             </ul>
             <div className="flex items-center justify-between gap-3 border-t border-line-card px-4 py-2.5 text-sm text-fg-subtle">
@@ -332,7 +333,7 @@ function Inner({ workspaceId, timeZone, myUserId, initial, initialQuery, pipelin
           </>
         )}
       </Panel>
-      {selectMode && perms.lead && bulk("sticky bottom-0 z-20 mt-3 flex pb-[max(0.5rem,calc(env(safe-area-inset-bottom)-var(--bottomnav-h)))] lg:hidden", "bottom")}
+      {selectMode && perms.lead && bulk("sticky bottom-0 z-20 mt-3 flex pb-[max(0.5rem,calc(env(safe-area-inset-bottom)-var(--bottomnav-h)))] md:hidden", "bottom")}
 
       {moving && <StageDialog key={moving.join()} ids={moving} pipelines={pipelines} lostReasons={lostReasons} workspaceId={workspaceId} onClose={() => setMoving(null)} onDone={(moved) => { afterMove(moved); if (selectMode) exitSelect(); }} />}
       {perms.removeLeads && removedOpen && <RemovedLeadsDialog open={removedOpen} onOpenChange={setRemovedOpen} workspaceId={workspaceId} timeZone={timeZone} pipelines={pipelines} onRestored={() => { void load(query); void loadCounts(); }} />}
@@ -361,7 +362,7 @@ function ContactsTable({ items, columns, query, onSort, workspaceId, timeZone, l
             const s = sortKey(col);
             const active = s && query.sort === s;
             return (
-              <TH key={col} className={col === "contact" ? `sticky z-10 ${lead.enabled ? "left-10" : "left-0"}` : undefined} aria-sort={active ? (query.dir === "asc" ? "ascending" : "descending") : s ? "none" : undefined}>
+              <TH key={col} className={col === "contact" ? `sticky z-10 ${lead.enabled ? "left-10" : "left-0"}` : NARROW_HIDE.has(col) ? "max-lg:hidden" : undefined} aria-sort={active ? (query.dir === "asc" ? "ascending" : "descending") : s ? "none" : undefined}>
                 {s ? (
                   <button type="button" onClick={() => onSort(col)} className="press group/sort inline-flex min-h-6 min-w-6 items-center gap-1 rounded py-1 text-xs font-medium text-fg-subtle hover:text-fg pointer-coarse:min-h-11 pointer-coarse:min-w-11">
                     {COLUMN_LABEL[col]}
@@ -377,7 +378,7 @@ function ContactsTable({ items, columns, query, onSort, workspaceId, timeZone, l
         {items.map((c) => (
           <TR key={c.id} className={`group cursor-pointer hover:bg-row-hover ${lead.selected.has(c.id) ? "bg-selected" : "bg-surface"}`} onClick={(e) => { if (e.currentTarget.contains(e.target as Node) && !(e.target as HTMLElement).closest("a,button,input,label")) router.push(`/w/${workspaceId}/contacts/${c.id}`); }}>
             {lead.enabled && <TD className="sticky left-0 z-10 w-10 bg-inherit pr-0"><input type="checkbox" className="size-4 accent-[var(--accent)]" aria-label={`Select ${c.name}`} checked={lead.selected.has(c.id)} onChange={() => lead.toggle(c.id)} /></TD>}
-            {columns.map((col) => <TD key={col} className={col === "contact" ? `sticky z-10 w-[22rem] min-w-60 max-w-[22rem] bg-inherit ${lead.enabled ? "left-10" : "left-0"}` : "whitespace-nowrap"}>{cell(col, c, workspaceId, timeZone, lead)}</TD>)}
+            {columns.map((col) => <TD key={col} className={col === "contact" ? `sticky z-10 min-w-52 max-w-[22rem] bg-inherit lg:w-[22rem] lg:min-w-60 ${lead.enabled ? "left-10" : "left-0"}` : `whitespace-nowrap ${NARROW_HIDE.has(col) ? "max-lg:hidden" : ""}`}>{cell(col, c, workspaceId, timeZone, lead)}</TD>)}
           </TR>
         ))}
       </TBody>
@@ -440,7 +441,7 @@ function LeadCard({ c, workspaceId, lead, selectMode }: { c: ContactSummary; wor
       <div className="flex min-h-[4.5rem] items-center gap-3 px-4 py-2">
         {selectMode && lead.enabled ? (
           <label className="-ml-2 flex size-11 shrink-0 cursor-pointer items-center justify-center after:absolute after:inset-0 after:content-['']">
-            <input type="checkbox" className="size-5 accent-[var(--accent)]" aria-label={`Select ${c.name}`} checked={on} onChange={() => lead.toggle(c.id)} />
+            <input type="checkbox" className="relative z-10 size-5 accent-[var(--accent)]" aria-label={`Select ${c.name}`} checked={on} onChange={() => lead.toggle(c.id)} />
           </label>
         ) : null}
         <Avatar name={c.name} size="xl" />
@@ -448,7 +449,7 @@ function LeadCard({ c, workspaceId, lead, selectMode }: { c: ContactSummary; wor
           {selectMode && lead.enabled ? <p className="truncate font-medium text-fg">{c.name}</p> : <Link href={`/w/${workspaceId}/contacts/${c.id}`} className="block truncate font-medium text-fg after:absolute after:inset-0 after:content-['']">{c.name}</Link>}
           <p className="truncate text-sm text-fg-subtle">{c.company ?? c.email ?? c.phone ?? "No company, email or phone"}</p>
         </div>
-        <div className="relative z-10 flex max-w-[46%] shrink-0 flex-col items-end">
+        <div className="relative z-10 flex shrink-0 flex-col items-end">
           {lead.enabled ? <StageMenu c={c} pipelines={lead.pipelines} lostReasons={lead.lostReasons} workspaceId={workspaceId} onChanged={() => lead.onChanged([])} /> : <StageBadge pipelines={lead.pipelines} c={c} />}
           <span className="flex items-center gap-2 text-sm text-fg-muted"><ValueCell c={c} />{c.owner && <span role="img" aria-label={`Agent: ${c.owner.name}`} title={c.owner.name}><Avatar name={c.owner.name} size="xs" /></span>}</span>
         </div>

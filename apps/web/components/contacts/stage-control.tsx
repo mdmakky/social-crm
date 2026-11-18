@@ -44,8 +44,8 @@ export function StageMenu({ c, pipelines, lostReasons, workspaceId, onChanged }:
   }
 
   const trigger = (extra: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
-    <button type="button" disabled={busy} aria-label={`Stage of ${c.name}: ${cur.name}. Change stage`} className="press -mx-1.5 inline-flex min-h-6 max-w-full items-center gap-1 rounded px-1.5 py-0.5 hover:bg-hover disabled:opacity-60 pointer-coarse:min-h-11" {...extra}>
-      <Status hue={stageHue(cur)} className="min-w-0"><span className="truncate">{cur.name}</span></Status>
+    <button type="button" disabled={busy} aria-label={`Stage of ${c.name}: ${cur.name}. Change stage`} className="press -mx-1.5 inline-flex min-h-6 items-center gap-1 rounded px-1.5 py-0.5 hover:bg-hover disabled:opacity-60 pointer-coarse:min-h-11" {...extra}>
+      <Status hue={stageHue(cur)} className="min-w-0"><span className="max-w-[9rem] truncate">{cur.name}</span></Status>
       <ChevronDown className="size-3 shrink-0 text-fg-subtle" aria-hidden />
     </button>
   );
