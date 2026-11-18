@@ -7,7 +7,7 @@ const API_URL = process.env.API_URL ?? "http://localhost:8787";
  * Unlike the rewrite used for /v1, this is a route handler so it can choose what crosses: only the headers below are forwarded (never cookies, so a signed-in agent's session cookie never reaches
  * the public API), and only the content type of the answer comes back (never Set-Cookie). The path is limited to the visitor routes.
  */
-const FORWARD = ["content-type", "authorization", "origin", "x-widget-host", "user-agent"];
+const FORWARD = ["content-type", "authorization", "origin", "x-widget-host", "x-widget-preview", "user-agent"];
 const PATH = /^[A-Za-z0-9_-]{22,64}\/(config|sessions|messages|contact)$/;
 
 async function handle(req: NextRequest, ctx: { params: Promise<{ path: string[] }> }) {
@@ -25,7 +25,11 @@ async function handle(req: NextRequest, ctx: { params: Promise<{ path: string[] 
     const res = await fetch(`${API_URL}/public/widget/${path}${req.nextUrl.search}`, {
       method: req.method, headers, body: req.method === "POST" ? await req.text() : undefined, cache: "no-store", signal: AbortSignal.timeout(15_000), redirect: "manual",
     });
-    return new Response(await res.text(), { status: res.status, headers: { "content-type": res.headers.get("content-type") ?? "application/json", "cache-control": "no-store" } });
+    // The API sets Access-Control-Allow-Origin only for an allowed site; the loader on that site reads /config cross-origin to decide whether to show the launcher, so it must reach the browser.
+    const out: Record<string, string> = { "content-type": res.headers.get("content-type") ?? "application/json", "cache-control": "no-store" };
+    const acao = res.headers.get("access-control-allow-origin");
+    if (acao) { out["access-control-allow-origin"] = acao; out.vary = "Origin"; }
+    return new Response(await res.text(), { status: res.status, headers: out });
   } catch {
     return Response.json({ error: { code: "unavailable", message: "Chat is not reachable right now." } }, { status: 502 });
   }

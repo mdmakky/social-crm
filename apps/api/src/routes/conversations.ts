@@ -84,6 +84,7 @@ const loadDetail = async (tx: Tx, workspaceId: string, id: string) => {
     const address = key.slice(key.indexOf(":") + 1);
     d.email = { address, unverifiedSender: key.startsWith("email-unverified:"), undeliverable: d.contactSummary.methods.some((m) => m.kind === "email" && m.value === address && m.undeliverable === true) };
   }
+  if (r.platform === "web_chat") d.fromPage = (rowsOf(await tx.execute(sql`SELECT chat_conversation_page(${id}::uuid) AS p`))[0]?.p as string | null) ?? null;
   return d;
 };
 

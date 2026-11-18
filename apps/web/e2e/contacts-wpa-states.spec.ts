@@ -97,8 +97,8 @@ test.describe("contacts list: failure states (WP-A)", () => {
     await page.goto(`/w/${workspaceId}/contacts`);
     await page.getByRole("button", { name: "Columns", exact: true }).click();
     const dialog = page.getByRole("dialog", { name: "Columns" });
-    await dialog.getByRole("button", { name: "Move Lifecycle stage up" }).click();
-    await expect(dialog.getByRole("status")).toHaveText("Lifecycle stage, position 1 of 7");
-    await expect(dialog.getByRole("button", { name: "Move Lifecycle stage down" })).toBeFocused();
+    await dialog.getByRole("button", { name: "Move Stage up" }).click();
+    await expect(dialog.getByRole("status")).toHaveText("Stage, position 1 of 8");
+    await expect(dialog.getByRole("button", { name: "Move Stage down" })).toBeFocused();
   });
 });

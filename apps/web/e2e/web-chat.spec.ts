@@ -44,7 +44,9 @@ test.describe("website chat", () => {
     const launcher = visitor.getByRole("button", { name: "Chat with us" });
     await expect(launcher).toHaveAttribute("aria-expanded", "false");
     await launcher.click();
-    await expect(visitor.getByRole("button", { name: "Close chat" }).first()).toHaveAttribute("aria-expanded", "true");
+    // (changed: the pill launcher now hides while the panel is open, the panel has its own close button inside the frame; so this checks the launcher state and that the dialog is shown, instead of a visible host "Close chat" button)
+    await expect(visitor.locator('button[aria-haspopup="dialog"]')).toHaveAttribute("aria-expanded", "true"); // hidden while open, so it is not found by role
+    await expect(visitor.locator('div[role="dialog"]')).toBeVisible();
     const chat = visitor.frameLocator('iframe[title="Chat"]');
     await expect(chat.getByRole("heading", { name: "Shop chat" })).toBeVisible();
     const input = chat.getByLabel("Your message");
@@ -77,14 +79,19 @@ test.describe("website chat", () => {
     await visitor.getByRole("button", { name: "Chat with us" }).click();
     await expect(chat.getByRole("log", { name: "Conversation" })).toContainText("Hello <b>from the site</b>");
     await visitor.setViewportSize({ width: 375, height: 700 });
-    await expect(visitor.getByRole("button", { name: "Close chat" }).first()).toBeAttached();
+    // (changed: this used to check that a "Close chat" button is attached, which raced with the loader hiding its launcher behind the full-screen sheet at 375 px; now it checks the sheet itself)
+    await expect.poll(async () => Math.round((await visitor.locator('div[role="dialog"]').boundingBox())?.width ?? 0)).toBe(375);
     await visitor.screenshot({ path: "test-results/web-chat-widget-375.png" });
 
     // a site that is not on the list cannot show the chat: the browser refuses the frame (frame-ancestors) and the API refuses its origin
+    // (changed with the preview work: the loader now asks the server first, so a site that is not listed gets no launcher at all and one console warning, instead of a launcher with an empty frame)
     const other = await (await browser.newContext()).newPage();
+    const warned: string[] = [];
+    other.on("console", (m) => { if (m.type() === "warning") warned.push(m.text()); });
     await other.goto(`http://localhost:${PORT_B}`);
-    await other.getByRole("button", { name: "Chat with us" }).click();
     await other.waitForTimeout(1500);
+    await expect(other.getByRole("button", { name: "Chat with us" })).toHaveCount(0);
+    expect(warned.join("\n")).toContain("Chat widget not shown: this site's origin is not allowed for this widget key");
     await expect(other.frameLocator('iframe[title="Chat"]').getByLabel("Your message")).toHaveCount(0);
     const denied = await other.evaluate(async (k) => (await fetch(`http://localhost:${new URL((document.querySelector("script[data-widget-key]") as HTMLScriptElement).src).port}/public/widget/${k}/config`, { mode: "cors" }).then((r) => r.status).catch(() => "blocked")), key);
     expect(["blocked", 403]).toContain(denied);

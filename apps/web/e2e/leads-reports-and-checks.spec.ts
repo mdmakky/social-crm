@@ -20,7 +20,7 @@ async function seedPipeline(page: Page, workspaceId: string) {
   const c = await post(page, ws(workspaceId, "/leads"), { title: "Lost deal", primaryContactId: contacts[2], valueMinor: 50000, currency: "USD" });
   await post(page, ws(workspaceId, `/leads/${b.id}/move`), { expectedVersion: b.version, stageId: won });
   await post(page, ws(workspaceId, `/leads/${c.id}/move`), { expectedVersion: c.version, stageId: lost, lostReasonId: cfg.lostReasons[0].id });
-  return { open: a.id as string, won: b.id as string };
+  return { open: a.id as string, won: b.id as string, contact: contacts[0]! };
 }
 const axe = async (page: Page) => expect((await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"]).analyze()).violations.map((v) => `${v.id}: ${v.nodes[0]?.target}`)).toEqual([]);
 
@@ -39,7 +39,7 @@ test("reports: owner sees counts and amounts; an agent sees counts only and no a
   const email = await register(agent, "Sam Agent");
   await addMemberByEmail(workspaceId, email, "agent");
   await agent.goto(`/w/${workspaceId}/reports`);
-  await expect(agent.getByText("Lead values are only shown to owners and admins")).toBeVisible();
+  await expect(agent.getByText("Values are only shown to owners and admins")).toBeVisible();
   const html = await agent.content();
   for (const n of ["3,456", "1,200", "345600", "120000"]) expect(html).not.toContain(n);
   await expect(agent.getByText("50%").first()).toBeVisible();
@@ -59,33 +59,38 @@ test("reports: loading state, error state with retry, period change", async ({ p
   await expect(page.getByText("$3,456.00").first()).toBeVisible();
 });
 
-test("Won and Lost chips list the closed leads, links open them, and the status filter still works", async ({ page }) => {
+test("Won and Lost chips list the contacts at that stage and links open them; contacts without a lead are in the first stage", async ({ page }) => {
   test.setTimeout(120_000);
   const { workspaceId } = await signUpAndCreate(page, "Olive Owner", "Closed Leads Co");
   const ids = await seedPipeline(page, workspaceId);
-  await page.goto(`/w/${workspaceId}/leads`);
-  await expect(page.getByRole("link", { name: "Open deal" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Won deal" })).toHaveCount(0); // the default list is open leads
-  await page.getByRole("button", { name: "Won 1 lead" }).click();
-  await expect(page).toHaveURL(/leads\?stage=/);
-  await expect(page.getByRole("button", { name: "Won 1 lead" })).toHaveAttribute("aria-pressed", "true");
-  await expect(page.getByRole("link", { name: "Won deal" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Open deal" })).toHaveCount(0);
-  await page.getByRole("link", { name: "Won deal" }).click();
-  await expect(page).toHaveURL(new RegExp(`/leads/${ids.won}$`));
+  await page.goto(`/w/${workspaceId}/contacts`);
+  const chips = page.getByRole("group", { name: "Filter by stage" });
+  await expect(page.getByRole("link", { name: "Ana", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Ben", exact: true })).toBeVisible(); // the default list is everyone
+  await expect(chips.getByRole("button", { name: "New 2" })).toBeVisible(); // Ana (open lead) and Di (no lead yet)
+  await chips.getByRole("button", { name: "Won 1" }).click();
+  await expect(page).toHaveURL(/contacts\?stageId=/);
+  await expect(chips.getByRole("button", { name: "Won 1" })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("link", { name: "Ben", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Ana", exact: true })).toHaveCount(0);
+  await page.getByRole("link", { name: "Ben", exact: true }).click();
+  await expect(page).toHaveURL(/\/contacts\/[0-9a-f-]{36}$/);
   await page.goBack();
-  await expect(page.getByRole("button", { name: "Won 1 lead" })).toHaveAttribute("aria-pressed", "true"); // the chip filter survives Back
-  await page.getByRole("button", { name: "Lost 1 lead" }).click();
-  await expect(page.getByRole("link", { name: "Lost deal" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Won deal" })).toHaveCount(0);
+  await expect(chips.getByRole("button", { name: "Won 1" })).toHaveAttribute("aria-pressed", "true"); // the chip filter survives Back
+  await chips.getByRole("button", { name: "Lost 1" }).click();
+  await expect(page.getByRole("link", { name: "Cy", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Ben", exact: true })).toHaveCount(0);
+  await chips.getByRole("button", { name: "New 2" }).click();
+  await expect(page.getByRole("link", { name: "Di", exact: true })).toBeVisible();
+  expect(ids.won).toBeTruthy();
 });
 
-test("reduced motion: transitions and animations are effectively off on leads screens", async ({ page }) => {
+test("reduced motion: transitions and animations are effectively off on contact and report screens", async ({ page }) => {
   test.setTimeout(120_000);
   const { workspaceId } = await signUpAndCreate(page, "Olive Owner", "Motion Co");
   const ids = await seedPipeline(page, workspaceId);
   await page.emulateMedia({ reducedMotion: "reduce" });
-  for (const path of ["/leads", `/leads/${ids.open}`, "/reports"]) {
+  for (const path of ["/contacts", `/contacts/${ids.contact}`, "/reports"]) {
     await page.goto(`/w/${workspaceId}${path}`);
     await expect(page.getByRole("heading", { level: 1 }).first()).toBeVisible();
     const slow = await page.evaluate(() => [...document.querySelectorAll("*")].filter((el) => { const s = getComputedStyle(el); return parseFloat(s.transitionDuration) > 0.05 || (s.animationName !== "none" && parseFloat(s.animationDuration) > 0.05); }).length);
@@ -99,7 +104,7 @@ test("375 and 768 layouts of reports, list and settings have no overflow and pas
   const ids = await seedPipeline(page, workspaceId);
   for (const width of [375, 768]) {
     await page.setViewportSize({ width, height: 900 });
-    for (const path of ["/reports", "/leads", "/settings/pipelines", `/leads/${ids.open}`]) {
+    for (const path of ["/reports", "/contacts", "/settings/pipelines", `/contacts/${ids.contact}`]) {
       await page.goto(`/w/${workspaceId}${path}`);
       await expect(page.getByRole("heading", { level: 1 }).first()).toBeVisible();
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);

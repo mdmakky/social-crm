@@ -41,7 +41,7 @@ export function ReportsView({ workspaceId, pipelines, initial }: { workspaceId: 
 
   return (
     <>
-      <PageHeader title="Reports" description="How leads are moving through your pipeline." actions={
+      <PageHeader title="Reports" description="How contacts are moving through your stages." actions={
         <div className="flex gap-2">
           {pipelines.length > 1 && <Select aria-label="Pipeline" wrapperClassName="w-auto" value={pipelineId} onChange={(e) => setPipelineId(e.target.value)}>{pipelines.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</Select>}
           <Select aria-label="Period" wrapperClassName="w-auto" value={period} onChange={(e) => setPeriod(e.target.value)}>{PERIODS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</Select>
@@ -50,7 +50,7 @@ export function ReportsView({ workspaceId, pipelines, initial }: { workspaceId: 
       {!report && status !== "error" && <Skeleton className="h-64 w-full" />}
       {report && status !== "error" && (
         <div className={status === "loading" ? "opacity-60 transition-opacity" : "transition-opacity"} aria-busy={status === "loading"}>
-          {!report.valuesVisible && <Alert tone="info" className="mb-4">Lead values are only shown to owners and admins. You can see counts and rates.</Alert>}
+          {!report.valuesVisible && <Alert tone="info" className="mb-4">Values are only shown to owners and admins. You can see counts and rates.</Alert>}
           <dl className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
             {[
               ["Open", String(report.openTotal.count), <Amount key="v" v={report.openTotal.values} />],
@@ -65,7 +65,7 @@ export function ReportsView({ workspaceId, pipelines, initial }: { workspaceId: 
 
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <Panel>
-              <PanelHeader title="Stage distribution" description="Open leads now, and how many entered each stage in the period." />
+              <PanelHeader title="Stage distribution" description="Open now, and how many entered each stage in the period." />
               <ul className="divide-y divide-line" aria-label="Stage distribution">
                 {report.stages.map((s) => (
                   <li key={s.stageId} className="px-4 py-2.5">
@@ -77,7 +77,7 @@ export function ReportsView({ workspaceId, pipelines, initial }: { workspaceId: 
               </ul>
             </Panel>
             <Panel>
-              <PanelHeader title="Expected closing" description="Open leads by expected close date." />
+              <PanelHeader title="Expected closing" description="Open contacts by expected close date." />
               <ul className="divide-y divide-line" aria-label="Expected closing">
                 {report.closing.map((b) => (
                   <li key={b.bucket} className="px-4 py-2.5">
@@ -88,7 +88,7 @@ export function ReportsView({ workspaceId, pipelines, initial }: { workspaceId: 
               </ul>
             </Panel>
             <Panel className="lg:col-span-2">
-              <PanelHeader title="Why leads were lost" description="Reasons recorded in the period." />
+              <PanelHeader title="Why they were lost" description="Reasons recorded in the period." />
               {report.lost.reasons.length === 0 ? <p className="p-4 text-sm text-fg-muted">Nothing lost in this period.</p> : (
                 <ul className="divide-y divide-line">{report.lost.reasons.map((x) => <li key={x.reasonId} className="flex justify-between gap-2 px-4 py-2.5 text-sm"><span>{x.name}</span><span className="tabular-nums text-fg-muted">{x.count}</span></li>)}</ul>
               )}

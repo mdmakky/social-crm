@@ -330,3 +330,142 @@ describe("disabled widget", () => {
     expect((await poll(w, token)).status).toBe(200);
   });
 });
+
+describe("owner preview grant (D270)", () => {
+  const mint = async (u: TestUser, w: W, wsId = ws) => adminCall(u, wsId, "POST", `/${w.id}/preview`);
+  const grantOf = async (w: W) => (await json(await mint(owner, w))).grant as string;
+  const prev = (w: W, grant: string | null, path: string, o: Opts & { method?: string } = {}) =>
+    h.app.request(`/public/widget/${w.publicKey}${path}`, {
+      method: o.method ?? "GET",
+      headers: { "x-forwarded-for": "10.0.0.9", ...(o.origin === null ? {} : { origin: o.origin ?? ORIGIN }), ...(grant ? { "x-widget-preview": grant } : {}), ...(o.host ? { "x-widget-host": o.host } : {}), ...(o.token ? { authorization: `Bearer ${o.token}` } : {}), ...(o.body !== undefined ? { "content-type": "application/json" } : {}) },
+      body: o.body !== undefined ? JSON.stringify(o.body) : undefined,
+    });
+
+  it("only owners and admins can mint; the grant is short-lived and signed", async () => {
+    expect((await mint(agent, wA1)).status).toBe(403);
+    const r = await json(await mint(owner, wA1));
+    expect(r.grant).toMatch(/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]{43}$/);
+    expect(new Date(r.expiresAt).getTime() - Date.now()).toBeLessThanOrEqual(10 * 60_000);
+    expect(new Date(r.expiresAt).getTime() - Date.now()).toBeGreaterThan(9 * 60_000);
+  });
+
+  it("works from our own origin although that origin is not on the allowlist, and marks the session", async () => {
+    const g = await grantOf(wA1);
+    for (const o of [{ origin: ORIGIN, host: ORIGIN }, { origin: null, host: ORIGIN }, { origin: ORIGIN }]) expect((await prev(wA1, g, "/config", o)).status).toBe(200);
+    const s = await prev(wA1, g, "/sessions", { method: "POST", origin: ORIGIN, host: ORIGIN, body: {} });
+    expect(s.status).toBe(201);
+    const token = (await json(s)).token as string;
+    expect((await prev(wA1, g, "/messages", { method: "POST", origin: ORIGIN, host: ORIGIN, token, body: { body: "hello from preview" } })).status).toBe(201);
+    expect((await q("SELECT user_agent FROM chat_visitor_sessions WHERE token_hash=$1", [sha(token)]))[0]!.user_agent).toBe("CRM preview");
+    expect((await q("SELECT allowed_origins FROM chat_widgets WHERE id=$1", [wA1.id]))[0]!.allowed_origins).toEqual([SITE]); // the allowlist is untouched
+  });
+
+  it("is refused without a grant, with a garbled or tampered grant, and from another origin", async () => {
+    const g = await grantOf(wA1);
+    expect((await prev(wA1, null, "/config", { origin: ORIGIN, host: ORIGIN })).status).toBe(403);
+    expect((await prev(wA1, "garbage", "/config", { origin: ORIGIN })).status).toBe(403);
+    expect((await prev(wA1, g.slice(0, -2) + "xx", "/config", { origin: ORIGIN })).status).toBe(403);
+    const other = await prev(wA1, g, "/config", { origin: "https://evil.example" });
+    expect(other.status).toBe(403);
+    expect(other.headers.get("access-control-allow-origin")).toBeNull();
+    expect((await json(other)).error.code).toBe("preview_invalid");
+    expect((await prev(wA1, g, "/config", { origin: ORIGIN, host: "https://evil.example" })).status).toBe(403);
+    expect((await prev(wA1, g, "/config", { origin: null, host: "https://evil.example" })).status).toBe(403);
+    expect((await prev(wA1, g, "/sessions", { method: "POST", origin: "https://evil.example", body: {} })).status).toBe(403);
+  });
+
+  it("is refused after expiry", async () => {
+    const hOld = await bootstrap(undefined, undefined, undefined, undefined, { workerDb, minFirstMessageMs: 0, now: () => Date.now() + 11 * 60_000 });
+    try {
+      const u = await hOld.newUser("wcexp");
+      const wsx = await hOld.workspace(u, "Expiry Co");
+      const headers = { cookie: u.cookie, origin: ORIGIN, "content-type": "application/json" };
+      const w = await (await hOld.app.request(`/v1/workspaces/${wsx}/web-chat/widgets`, { method: "POST", headers, body: JSON.stringify({ name: "Exp", allowedOrigins: [SITE] }) })).json();
+      const g = (await (await hOld.app.request(`/v1/workspaces/${wsx}/web-chat/widgets/${w.id}/preview`, { method: "POST", headers })).json()).grant as string;
+      const r = await hOld.app.request(`/public/widget/${w.publicKey}/config`, { headers: { origin: ORIGIN, "x-widget-preview": g } });
+      expect(r.status).toBe(403);
+      expect((await r.json()).error.code).toBe("preview_invalid");
+    } finally {
+      await hOld.close();
+    }
+  });
+
+  it("is bound to its widget and workspace", async () => {
+    const g = await grantOf(wA1);
+    expect((await prev(wA1, g, "/config")).status).toBe(200);
+    expect((await prev(wA2, g, "/config")).status).toBe(403); // same workspace, other widget
+    expect((await prev(wB, g, "/config")).status).toBe(403); // other workspace
+    expect((await mint(owner, wB)).status).toBe(404); // a workspace-A owner cannot mint for B's widget through A's URL
+    expect((await mint(owner, wB, ws2)).status).toBe(404); // nor through B's URL (not a member: the workspace is hidden)
+  });
+
+  it("is refused for a switched-off widget, and a grant minted before switching off cannot open sessions", async () => {
+    const w = await mk(owner, ws, "Preview off", [SITE]);
+    const g = await grantOf(w);
+    await adminCall(owner, ws, "PATCH", `/${w.id}`, { enabled: false });
+    const r = await mint(owner, w);
+    expect(r.status).toBe(409);
+    expect((await json(r)).error.code).toBe("widget_disabled");
+    expect((await prev(w, g, "/sessions", { method: "POST", origin: ORIGIN, host: ORIGIN, body: {} })).status).toBe(403);
+    expect((await json(await prev(w, g, "/config", { origin: ORIGIN, host: ORIGIN }))).enabled).toBe(false);
+  });
+});
+
+describe("widget appearance and page url (migration 0041)", () => {
+  const patch = (w: W, body: unknown) => adminCall(owner, ws, "PATCH", `/${w.id}`, body);
+  it("defaults, and /config returns exactly the public fields (no workspace internals)", async () => {
+    const w = await mk(owner, ws, "Defaults", [SITE]);
+    const cfg = await json(await pub(w.publicKey, "GET", "/config"));
+    expect(Object.keys(cfg).sort()).toEqual(["avatarUrl", "awayMode", "awayText", "color", "defaultLanguage", "enabled", "greeting", "name", "offlineMessage", "position", "prechatForm", "quickReplies", "subtitle"]);
+    expect(cfg).toMatchObject({ subtitle: "We reply here", position: "right", quickReplies: [], awayMode: false, defaultLanguage: "en", avatarUrl: null });
+  });
+  it("saves the new fields and /config shows them", async () => {
+    const r = await patch(wA1, { avatarUrl: " https://cdn.example/a.png ", subtitle: "Ask us", greeting: "Hi!", position: "left", quickReplies: ["Prices", "Dates"], awayMode: true, awayText: "Back soon", defaultLanguage: "bn" });
+    expect(r.status).toBe(200);
+    const cfg = await json(await pub(wA1.publicKey, "GET", "/config"));
+    expect(cfg).toMatchObject({ avatarUrl: "https://cdn.example/a.png", subtitle: "Ask us", greeting: "Hi!", position: "left", quickReplies: ["Prices", "Dates"], awayMode: true, awayText: "Back soon", defaultLanguage: "bn" });
+    expect((await patch(wA1, { avatarUrl: "", awayText: "", quickReplies: [], awayMode: false, defaultLanguage: "en", position: "right" })).status).toBe(200);
+    expect(await json(await pub(wA1.publicKey, "GET", "/config"))).toMatchObject({ avatarUrl: null, awayText: null, quickReplies: [] });
+  });
+  it("validates avatar url, quick replies, lengths, enums", async () => {
+    for (const bad of [
+      { avatarUrl: "http://cdn.example/a.png" }, { avatarUrl: "javascript:alert(1)" }, { avatarUrl: "data:image/png;base64,AAAA" }, { avatarUrl: "https://u:p@cdn.example/a.png" }, { avatarUrl: `https://cdn.example/${"a".repeat(500)}` },
+      { quickReplies: ["a", "b", "c", "d"] }, { quickReplies: [""] }, { quickReplies: ["x".repeat(31)] },
+      { subtitle: "x".repeat(61) }, { subtitle: "" }, { greeting: "x".repeat(91) }, { awayText: "x".repeat(161) }, { position: "top" }, { defaultLanguage: "fr" },
+    ]) expect([JSON.stringify(bad), (await patch(wA1, bad)).status]).toEqual([JSON.stringify(bad), 400]);
+    expect((await patch(wA1, { quickReplies: ["x".repeat(30)], subtitle: "x".repeat(60), greeting: "x".repeat(90), awayText: "x".repeat(160) })).status).toBe(200);
+    // the database refuses the same things even if the API were bypassed
+    await expect(h.admin.query("UPDATE chat_widgets SET quick_replies = ARRAY['a','b','c','d'] WHERE id = $1", [wA1.id])).rejects.toThrow();
+    await expect(h.admin.query("UPDATE chat_widgets SET avatar_url = 'http://x.example/a.png' WHERE id = $1", [wA1.id])).rejects.toThrow();
+  });
+  it("creates with the new fields", async () => {
+    const r = await adminCall(owner, ws, "POST", "", { name: "Styled", allowedOrigins: [SITE], quickReplies: ["One"], position: "left", defaultLanguage: "bn" });
+    expect(r.status).toBe(201);
+    expect(await json(r)).toMatchObject({ quickReplies: ["One"], position: "left", defaultLanguage: "bn", subtitle: "We reply here", awayMode: false });
+    expect((await adminCall(owner, ws, "POST", "", { name: "Bad", quickReplies: ["a", "b", "c", "d"] })).status).toBe(400);
+  });
+  it("agents cannot change appearance (owner/admin only)", async () => {
+    expect((await adminCall(agent, ws, "PATCH", `/${wA1.id}`, { subtitle: "x" })).status).toBe(403);
+  });
+  it("stores the page without query string or fragment, ignores junk, and the Inbox detail shows it", async () => {
+    const t = await newSession(wA1);
+    expect((await send(wA1, t, { body: "hi", pageUrl: "https://site-a.example/pricing/plans?token=SECRET&email=a@b.c#frag" })).status).toBe(201);
+    const page = async () => (await q("SELECT last_page_url FROM chat_visitor_sessions WHERE token_hash=$1", [sha(t)]))[0]!.last_page_url;
+    expect(await page()).toBe("https://site-a.example/pricing/plans");
+    for (const junk of ["javascript:alert(1)", "ftp://x.example/a", "not a url", `https://site-a.example/${"a".repeat(300)}`]) {
+      expect((await send(wA1, t, { body: "again", pageUrl: junk })).status).toBe(201); // a bad page never blocks a message
+      expect(await page()).toBe("https://site-a.example/pricing/plans"); // and never replaces the stored one
+    }
+    const conv = await convOf(t);
+    const d = await json(await h.app.request(`/v1/workspaces/${ws}/conversations/${conv}`, { headers: { cookie: agent.cookie } }));
+    expect(d.fromPage).toBe("https://site-a.example/pricing/plans");
+    expect(JSON.stringify(d)).not.toContain("SECRET");
+  });
+  it("the Inbox page lookup does not leak across workspaces", async () => {
+    const t = await newSession(wA1);
+    await send(wA1, t, { body: "x", pageUrl: "https://site-a.example/private" });
+    const conv = await convOf(t);
+    const r = await h.app.request(`/v1/workspaces/${ws2}/conversations/${conv}`, { headers: { cookie: owner2.cookie } });
+    expect(r.status).toBe(404);
+  });
+});

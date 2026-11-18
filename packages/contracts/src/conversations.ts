@@ -66,6 +66,8 @@ export const ConversationDetail = ConversationItem.extend({
   contactSummary: z.object({ id: Uuid, name: z.string(), avatarUrl: z.string().url().nullable(), email: z.string().nullable(), phone: z.string().nullable(), methods: z.array(ContactMethodDto) }),
   /** Email conversations only: where replies go and whether they can be sent. MOCK mode is labeled by the integration state, not here. */
   email: z.object({ address: z.string(), undeliverable: z.boolean(), unverifiedSender: z.boolean() }).nullable().optional(),
+  /** Web chat only: the page the visitor last wrote from, origin + path (never a query string or fragment). */
+  fromPage: z.string().nullable().optional(),
 });
 export type ConversationDetail = z.infer<typeof ConversationDetail>;
 

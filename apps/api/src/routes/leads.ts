@@ -31,8 +31,9 @@ const dec = (s: string): { k: string; id: string; sort: string; dir: string } | 
 };
 const SORT_EXPR = { updated: "leads.updated_at", created: "leads.created_at", close: "coalesce(leads.expected_close_date, DATE '9999-12-31')" } as const;
 
-export function leadRoutes(db: Db) {
-  const r = new Hono<ScopedEnv>();
+/** Stateless lead operations shared by the lead routes and the contact routes (contact-lead upsert), so there is one create, one update and one move implementation. */
+export type LeadOut = { ok: true; lead: LeadDto } | { ok: false; status: ErrStatus; code: string; message?: string; details?: unknown };
+export function leadOps() {
   const audit = (c: SC, tx: Tx, action: string, id: string, summary: Record<string, unknown>) => writeAudit(tx, { ...actor(c), workspaceId: c.get("workspaceId"), action, entityType: "lead", entityId: id, summary });
 
   /** Grants of this caller for the given leads: leadId -> canEdit. Owner/admin need none. */
@@ -104,6 +105,151 @@ export function leadRoutes(db: Db) {
   };
   const writer = (c: SC) => can(c.get("role"), "lead.edit", {});
 
+  // ---------------------------------------------------------------- create
+  /** The one lead-create implementation (POST /leads and the contact "stage, value, owner" upsert). Runs inside the caller's transaction. */
+  async function createLeadIn(tx: Tx, c: SC, data: CreateLeadBody): Promise<LeadOut> {
+    const { workspaceId, userId } = wctx(c);
+    const hasValue = data.valueMinor != null;
+    const bad = (status: ErrStatus, code: string, message?: string, details?: unknown): LeadOut => ({ ok: false, status, code, message, details });
+    if (hasValue && !can(c.get("role"), "lead.value.edit", {})) return bad(403, "forbidden", "You don't have permission to set lead value.");
+    const contact = await loadContact(tx, workspaceId, data.primaryContactId);
+    if (!contact) return bad(400, "invalid_body", "The primary contact does not exist.");
+    const pipelines = await tx.select().from(schema.pipelines).where(and(eq(schema.pipelines.workspaceId, workspaceId), isNull(schema.pipelines.archivedAt)));
+    const pipeline = data.pipelineId ? pipelines.find((p) => p.id === data.pipelineId) : pipelines.find((p) => p.isDefault);
+    if (!pipeline) return bad(400, "invalid_body", "Choose an active pipeline.");
+    if (!(await lockPipeline(tx, workspaceId, pipeline.id, "share"))) return bad(400, "invalid_body", "Choose an active pipeline.");
+    const [still] = await tx.select({ a: schema.pipelines.archivedAt }).from(schema.pipelines).where(and(eq(schema.pipelines.workspaceId, workspaceId), eq(schema.pipelines.id, pipeline.id)));
+    if (still!.a) return bad(409, "pipeline_archived", "This pipeline was archived.");
+    const stage = data.stageId ? await stageOf(tx, workspaceId, data.stageId) : (await tx.select().from(schema.pipelineStages).where(and(eq(schema.pipelineStages.workspaceId, workspaceId), eq(schema.pipelineStages.pipelineId, pipeline.id), eq(schema.pipelineStages.kind, "open"), isNull(schema.pipelineStages.archivedAt))).orderBy(asc(schema.pipelineStages.position)).limit(1))[0];
+    if (!stage || stage.pipelineId !== pipeline.id || stage.kind !== "open" || stage.archivedAt) return bad(400, "invalid_body", "New leads start in an active open stage of the pipeline.");
+    const ownerErr = await validOwner(tx, c, data.ownerUserId);
+    if (ownerErr) return bad(400, "invalid_body", ownerErr);
+    if (!data.allowDuplicate) {
+      const dups = await tx.select({ id: schema.leads.id, title: schema.leads.title }).from(schema.leads).where(and(eq(schema.leads.workspaceId, workspaceId), eq(schema.leads.primaryContactId, contact.id), eq(schema.leads.pipelineId, pipeline.id), eq(schema.leads.outcome, "open"), isNull(schema.leads.deletedAt))).limit(5);
+      if (dups.length) return bad(409, "duplicate_lead", "This contact already has an open lead in this pipeline.", { duplicates: dups });
+    }
+    const manual = data.probability !== undefined;
+    const [l] = await tx.insert(schema.leads).values({
+      workspaceId, title: data.title, description: data.description ?? null, primaryContactId: contact.id, pipelineId: pipeline.id, stageId: stage.id, outcome: "open",
+      rank: await nextRank(tx, workspaceId, stage.id), valueMinor: data.valueMinor ?? null, currency: hasValue ? (data.currency ?? null) : null, expectedCloseDate: data.expectedCloseDate ?? null,
+      probability: data.probability ?? stage.defaultProbability, probabilityManual: manual, priority: data.priority ?? "normal", source: data.source ?? "manual", ownerUserId: data.ownerUserId ?? null, createdBy: userId,
+    }).returning();
+    await transition(tx, c, l!, null, { stageId: stage.id, outcome: "open" });
+    await recordActivity(tx, { workspaceId, contactId: contact.id, leadId: l!.id, kind: "lead.created", actorUserId: userId, data: { title: l!.title, pipelineId: pipeline.id, stageId: stage.id } });
+    await audit(c, tx, "lead.created", l!.id, { pipelineId: pipeline.id });
+    await captureLeadTransition(tx, { workspaceId, leadId: l!.id, contactId: contact.id, fromStageId: null, toStageId: stage.id, fromOutcome: null, outcome: "open", valueMinor: l!.valueMinor, currency: l!.currency, created: true }); // track:capi
+    if (l!.ownerUserId) await emitEvent(tx, { workspaceId, type: "lead.owner_assigned", entityType: "lead", entityId: l!.id, actorUserId: userId, payload: { ownerUserId: l!.ownerUserId, previousOwnerUserId: null, leadTitle: l!.title } });
+    return { ok: true, lead: (await loadDto(tx, c, l!.id))! };
+  }
+
+  // ---------------------------------------------------------------- update
+  /** The one lead-update implementation (PATCH /leads/:id and the contact upsert). Runs inside the caller's transaction. */
+  async function updateLeadIn(tx: Tx, c: SC, id: string, d: UpdateLeadBody): Promise<LeadOut> {
+    const { workspaceId, userId } = wctx(c);
+    const bad = (status: ErrStatus, code: string, message?: string): LeadOut => ({ ok: false, status, code, message });
+    const [cur] = (await tx.execute(sql`SELECT * FROM leads WHERE workspace_id = ${workspaceId} AND id = ${id} AND deleted_at IS NULL FOR UPDATE`)).rows as { id: string }[];
+    if (!cur) return bad(404, "not_found");
+    const [l] = await tx.select().from(schema.leads).where(and(eq(schema.leads.workspaceId, workspaceId), eq(schema.leads.id, id)));
+    if (l!.version !== d.expectedVersion) return bad(409, "version_conflict", "This lead was changed by someone else.");
+    const g = await grantsFor(tx, c, [id]);
+    const touchesValue = d.valueMinor !== undefined || d.currency !== undefined;
+    if (touchesValue && !mayEditValue(c, g, id)) return bad(403, "forbidden", "You don't have permission to change lead value.");
+    const set: Partial<typeof schema.leads.$inferInsert> = {};
+    const changed: string[] = [];
+    const put = <K extends keyof typeof set>(k: K, v: (typeof set)[K], label: string, differs: boolean) => { if (differs) { set[k] = v; changed.push(label); } };
+    if (d.title !== undefined) put("title", d.title, "title", d.title !== l!.title);
+    if (d.description !== undefined) put("description", d.description, "description", d.description !== l!.description);
+    if (d.priority !== undefined) put("priority", d.priority, "priority", d.priority !== l!.priority);
+    if (d.expectedCloseDate !== undefined) put("expectedCloseDate", d.expectedCloseDate, "expectedCloseDate", d.expectedCloseDate !== l!.expectedCloseDate);
+    if (touchesValue) {
+      const v = d.valueMinor !== undefined ? d.valueMinor : l!.valueMinor;
+      const cu = d.currency !== undefined ? d.currency : l!.currency;
+      if ((v == null) !== (cu == null)) return bad(400, "invalid_body", "Value and currency go together.");
+      if (v !== l!.valueMinor || cu !== l!.currency) { set.valueMinor = v; set.currency = cu; changed.push("value"); }
+    }
+    if (d.primaryContactId !== undefined && d.primaryContactId !== l!.primaryContactId) {
+      if (!(await loadContact(tx, workspaceId, d.primaryContactId))) return bad(400, "invalid_body", "The primary contact does not exist.");
+      set.primaryContactId = d.primaryContactId; changed.push("primaryContact");
+    }
+    if (d.ownerUserId !== undefined && d.ownerUserId !== l!.ownerUserId) {
+      const e = await validOwner(tx, c, d.ownerUserId);
+      if (e) return bad(400, "invalid_body", e);
+      set.ownerUserId = d.ownerUserId; changed.push("owner");
+    }
+    if (d.probability !== undefined && l!.outcome !== "open") return bad(400, "invalid_body", "Closed leads have a fixed probability.");
+    if (d.resetProbability && l!.outcome === "open") {
+      const st = await stageOf(tx, workspaceId, l!.stageId);
+      set.probability = st!.defaultProbability; set.probabilityManual = false; changed.push("probability");
+    } else if (d.probability !== undefined) { set.probability = d.probability; set.probabilityManual = true; changed.push("probability"); }
+    if (!changed.length) return { ok: true, lead: (await loadDto(tx, c, id))! };
+    await tx.update(schema.leads).set({ ...set, version: l!.version + 1, updatedAt: new Date() }).where(and(eq(schema.leads.workspaceId, workspaceId), eq(schema.leads.id, id)));
+    const contactId = set.primaryContactId ?? l!.primaryContactId;
+    await recordActivity(tx, { workspaceId, contactId, leadId: id, kind: "lead.updated", actorUserId: userId, data: { fields: changed } });
+    await audit(c, tx, "lead.updated", id, { fields: changed });
+    if (changed.includes("owner") && set.ownerUserId) await emitEvent(tx, { workspaceId, type: "lead.owner_assigned", entityType: "lead", entityId: id, actorUserId: userId, payload: { ownerUserId: set.ownerUserId, previousOwnerUserId: l!.ownerUserId, leadTitle: set.title ?? l!.title } });
+    return { ok: true, lead: (await loadDto(tx, c, id))! };
+  }
+
+  // ---------------------------------------------------------------- move
+  type MoveOut = { ok: true; lead: LeadDto | null; changed: boolean } | { ok: false; status: ErrStatus; code: string; message?: string };
+  const no = (status: ErrStatus, code: string, message?: string): MoveOut => ({ ok: false, status, code, message });
+  /**
+   * The one stage-move implementation: the single move and the bulk move both call it, so history, activity, audit, the lead.stage_changed event,
+   * the CAPI Won hook and the permission rules are identical. expectedVersion undefined (bulk) means "whatever is current"; noReorder makes a move to the current stage a no-op.
+   */
+  async function moveLead(tx: Tx, c: SC, id: string, b: { expectedVersion?: number; stageId: string; lostReasonId?: string; beforeLeadId?: string; afterLeadId?: string }, noReorder = false): Promise<MoveOut> {
+    const { workspaceId, userId } = wctx(c);
+    const [cur] = (await tx.execute(sql`SELECT pipeline_id FROM leads WHERE workspace_id = ${workspaceId} AND id = ${id} AND deleted_at IS NULL FOR UPDATE`)).rows as { pipeline_id: string }[];
+    if (!cur) return no(404, "not_found");
+    if (!(await lockPipeline(tx, workspaceId, cur.pipeline_id, "share"))) return no(404, "not_found");
+    const [l] = await tx.select().from(schema.leads).where(and(eq(schema.leads.workspaceId, workspaceId), eq(schema.leads.id, id)));
+    if (b.expectedVersion !== undefined && l!.version !== b.expectedVersion) return no(409, "version_conflict", "This lead was changed by someone else.");
+    const to = await stageOf(tx, workspaceId, b.stageId);
+    if (!to || to.pipelineId !== l!.pipelineId || to.archivedAt) return no(400, "invalid_body", "Choose an active stage of this lead's pipeline.");
+    const [pl] = await tx.select({ a: schema.pipelines.archivedAt }).from(schema.pipelines).where(and(eq(schema.pipelines.workspaceId, workspaceId), eq(schema.pipelines.id, l!.pipelineId)));
+    if (pl!.a) return no(409, "pipeline_archived", "This pipeline is archived.");
+    const [contact] = await tx.select({ d: schema.contacts.deletedAt }).from(schema.contacts).where(and(eq(schema.contacts.workspaceId, workspaceId), eq(schema.contacts.id, l!.primaryContactId)));
+    if (contact?.d) return no(409, "contact_deleted", "The primary contact was deleted; this lead is read-only history.");
+    const wasClosed = l!.outcome !== "open";
+    if (wasClosed && !can(c.get("role"), "lead.reopen", {})) return no(403, "forbidden", "You don't have permission to do that.");
+    if (to.id === l!.stageId && noReorder) return { ok: true, lead: null, changed: false };
+    if (to.kind === "lost" && !b.lostReasonId) return no(400, "lost_reason_required", "Choose a reason for losing this lead.");
+    if (to.kind === "lost") {
+      const [lr] = await tx.select({ a: schema.lostReasons.archivedAt }).from(schema.lostReasons).where(and(eq(schema.lostReasons.workspaceId, workspaceId), eq(schema.lostReasons.id, b.lostReasonId!)));
+      if (!lr || lr.a) return no(400, "invalid_body", "Choose an active lost reason.");
+    }
+    if (to.id === l!.stageId) {
+      // same column: only a re-order
+      const rank = await rankBetween(tx, workspaceId, to.id, b.beforeLeadId, b.afterLeadId);
+      await tx.update(schema.leads).set({ rank, version: l!.version + 1, updatedAt: new Date() }).where(and(eq(schema.leads.workspaceId, workspaceId), eq(schema.leads.id, id)));
+      return { ok: true, lead: await loadDto(tx, c, id), changed: false };
+    }
+    const closing = to.kind !== "open";
+    // Probability: closing forces 100/0; an open stage keeps a manual override, otherwise takes the stage default; reopening resets (the closed value was forced).
+    const keepManual = !closing && !wasClosed && l!.probabilityManual;
+    const probability = closing ? to.defaultProbability : keepManual ? l!.probability : to.defaultProbability;
+    const rank = await rankBetween(tx, workspaceId, to.id, b.beforeLeadId, b.afterLeadId);
+    await tx.update(schema.leads).set({
+      stageId: to.id, outcome: to.kind, rank, probability, probabilityManual: keepManual, closedAt: closing ? new Date() : null, lostReasonId: to.kind === "lost" ? b.lostReasonId! : null,
+      version: l!.version + 1, updatedAt: new Date(),
+    }).where(and(eq(schema.leads.workspaceId, workspaceId), eq(schema.leads.id, id)));
+    await transition(tx, c, l!, { stageId: l!.stageId, outcome: l!.outcome }, { stageId: to.id, outcome: to.kind }, to.kind === "lost" ? b.lostReasonId : null);
+    const kind = wasClosed ? "lead.reopened" : to.kind === "won" ? "lead.won" : to.kind === "lost" ? "lead.lost" : "lead.stage_changed";
+    await recordActivity(tx, { workspaceId, contactId: l!.primaryContactId, leadId: id, kind, actorUserId: userId, data: { fromStageId: l!.stageId, toStageId: to.id } });
+    await audit(c, tx, kind, id, { fromStageId: l!.stageId, toStageId: to.id });
+    await emitEvent(tx, { workspaceId, type: "lead.stage_changed", entityType: "lead", entityId: id, actorUserId: userId, payload: { fromStageId: l!.stageId, toStageId: to.id, outcome: to.kind, pipelineId: l!.pipelineId, contactId: l!.primaryContactId, leadTitle: l!.title } });
+    await captureLeadTransition(tx, { workspaceId, leadId: id, contactId: l!.primaryContactId, fromStageId: l!.stageId, toStageId: to.id, fromOutcome: l!.outcome, outcome: to.kind as "open" | "won" | "lost", valueMinor: l!.valueMinor, currency: l!.currency }); // track:capi, the one CAPI hook (savepoints, never fails the move)
+    return { ok: true, lead: await loadDto(tx, c, id), changed: true };
+  }
+
+  return { grantsFor, mayView, mayEditValue, dto, joined, loadDto, stageOf, nextRank, writer, createLeadIn, updateLeadIn, moveLead, audit };
+}
+export type LeadOps = ReturnType<typeof leadOps>;
+
+export function leadRoutes(db: Db, ops: LeadOps = leadOps()) {
+  const r = new Hono<ScopedEnv>();
+  const { grantsFor, dto, joined, loadDto, stageOf, nextRank, writer, createLeadIn, updateLeadIn, moveLead, audit } = ops;
+
   // ---------------------------------------------------------------- list
   /** Filters shared by the list and the stage counts (the counts never get a stage filter). A ready response means the query was refused. */
   const baseFilters = (c: SC, q: Omit<LeadListQuery, "cursor" | "limit" | "sort" | "dir">, forCounts: boolean): SQL[] | Response => {
@@ -171,151 +317,27 @@ export function leadRoutes(db: Db) {
     });
   });
 
-  // ---------------------------------------------------------------- create
   r.post("/leads", async (c) => {
     if (!writer(c)) return forbidden(c);
     const b = await body(c, CreateLeadBody);
     if (!b.ok) return b.res;
-    const { workspaceId, userId } = wctx(c);
-    const hasValue = b.data.valueMinor != null;
     return withContext(db, wctx(c), async (tx) => {
-      if (hasValue && !can(c.get("role"), "lead.value.edit", {})) return fail(c, 403, "forbidden", "You don't have permission to set lead value.");
-      const contact = await loadContact(tx, workspaceId, b.data.primaryContactId);
-      if (!contact) return fail(c, 400, "invalid_body", "The primary contact does not exist.");
-      const pipelines = await tx.select().from(schema.pipelines).where(and(eq(schema.pipelines.workspaceId, workspaceId), isNull(schema.pipelines.archivedAt)));
-      const pipeline = b.data.pipelineId ? pipelines.find((p) => p.id === b.data.pipelineId) : pipelines.find((p) => p.isDefault);
-      if (!pipeline) return fail(c, 400, "invalid_body", "Choose an active pipeline.");
-      if (!(await lockPipeline(tx, workspaceId, pipeline.id, "share"))) return fail(c, 400, "invalid_body", "Choose an active pipeline.");
-      const [still] = await tx.select({ a: schema.pipelines.archivedAt }).from(schema.pipelines).where(and(eq(schema.pipelines.workspaceId, workspaceId), eq(schema.pipelines.id, pipeline.id)));
-      if (still!.a) return fail(c, 409, "pipeline_archived", "This pipeline was archived.");
-      const stage = b.data.stageId ? await stageOf(tx, workspaceId, b.data.stageId) : (await tx.select().from(schema.pipelineStages).where(and(eq(schema.pipelineStages.workspaceId, workspaceId), eq(schema.pipelineStages.pipelineId, pipeline.id), eq(schema.pipelineStages.kind, "open"), isNull(schema.pipelineStages.archivedAt))).orderBy(asc(schema.pipelineStages.position)).limit(1))[0];
-      if (!stage || stage.pipelineId !== pipeline.id || stage.kind !== "open" || stage.archivedAt) return fail(c, 400, "invalid_body", "New leads start in an active open stage of the pipeline.");
-      const ownerErr = await validOwner(tx, c, b.data.ownerUserId);
-      if (ownerErr) return fail(c, 400, "invalid_body", ownerErr);
-      if (!b.data.allowDuplicate) {
-        const dups = await tx.select({ id: schema.leads.id, title: schema.leads.title }).from(schema.leads).where(and(eq(schema.leads.workspaceId, workspaceId), eq(schema.leads.primaryContactId, contact.id), eq(schema.leads.pipelineId, pipeline.id), eq(schema.leads.outcome, "open"), isNull(schema.leads.deletedAt))).limit(5);
-        if (dups.length) return fail(c, 409, "duplicate_lead", "This contact already has an open lead in this pipeline.", { duplicates: dups });
-      }
-      const manual = b.data.probability !== undefined;
-      const [l] = await tx.insert(schema.leads).values({
-        workspaceId, title: b.data.title, description: b.data.description ?? null, primaryContactId: contact.id, pipelineId: pipeline.id, stageId: stage.id, outcome: "open",
-        rank: await nextRank(tx, workspaceId, stage.id), valueMinor: b.data.valueMinor ?? null, currency: hasValue ? (b.data.currency ?? null) : null, expectedCloseDate: b.data.expectedCloseDate ?? null,
-        probability: b.data.probability ?? stage.defaultProbability, probabilityManual: manual, priority: b.data.priority ?? "normal", source: b.data.source ?? "manual", ownerUserId: b.data.ownerUserId ?? null, createdBy: userId,
-      }).returning();
-      await transition(tx, c, l!, null, { stageId: stage.id, outcome: "open" });
-      await recordActivity(tx, { workspaceId, contactId: contact.id, leadId: l!.id, kind: "lead.created", actorUserId: userId, data: { title: l!.title, pipelineId: pipeline.id, stageId: stage.id } });
-      await audit(c, tx, "lead.created", l!.id, { pipelineId: pipeline.id });
-      await captureLeadTransition(tx, { workspaceId, leadId: l!.id, contactId: contact.id, fromStageId: null, toStageId: stage.id, fromOutcome: null, outcome: "open", valueMinor: l!.valueMinor, currency: l!.currency, created: true }); // track:capi
-      if (l!.ownerUserId) await emitEvent(tx, { workspaceId, type: "lead.owner_assigned", entityType: "lead", entityId: l!.id, actorUserId: userId, payload: { ownerUserId: l!.ownerUserId, previousOwnerUserId: null, leadTitle: l!.title } });
-      return c.json(await loadDto(tx, c, l!.id), 201);
+      const out = await createLeadIn(tx, c, b.data);
+      return out.ok ? c.json(out.lead, 201) : fail(c, out.status, out.code, out.message, out.details);
     });
   });
 
-  // ---------------------------------------------------------------- update
   r.patch("/leads/:leadId", async (c) => {
     if (!writer(c)) return forbidden(c);
     const id = c.req.param("leadId");
     if (!isUuid(id)) return fail(c, 404, "not_found");
     const b = await body(c, UpdateLeadBody);
     if (!b.ok) return b.res;
-    const d = b.data;
-    const { workspaceId, userId } = wctx(c);
     return withContext(db, wctx(c), async (tx) => {
-      const [cur] = (await tx.execute(sql`SELECT * FROM leads WHERE workspace_id = ${workspaceId} AND id = ${id} AND deleted_at IS NULL FOR UPDATE`)).rows as { id: string }[];
-      if (!cur) return fail(c, 404, "not_found");
-      const [l] = await tx.select().from(schema.leads).where(and(eq(schema.leads.workspaceId, workspaceId), eq(schema.leads.id, id)));
-      if (l!.version !== d.expectedVersion) return fail(c, 409, "version_conflict", "This lead was changed by someone else.");
-      const g = await grantsFor(tx, c, [id]);
-      const touchesValue = d.valueMinor !== undefined || d.currency !== undefined;
-      if (touchesValue && !mayEditValue(c, g, id)) return fail(c, 403, "forbidden", "You don't have permission to change lead value.");
-      const set: Partial<typeof schema.leads.$inferInsert> = {};
-      const changed: string[] = [];
-      const put = <K extends keyof typeof set>(k: K, v: (typeof set)[K], label: string, differs: boolean) => { if (differs) { set[k] = v; changed.push(label); } };
-      if (d.title !== undefined) put("title", d.title, "title", d.title !== l!.title);
-      if (d.description !== undefined) put("description", d.description, "description", d.description !== l!.description);
-      if (d.priority !== undefined) put("priority", d.priority, "priority", d.priority !== l!.priority);
-      if (d.expectedCloseDate !== undefined) put("expectedCloseDate", d.expectedCloseDate, "expectedCloseDate", d.expectedCloseDate !== l!.expectedCloseDate);
-      if (touchesValue) {
-        const v = d.valueMinor !== undefined ? d.valueMinor : l!.valueMinor;
-        const cu = d.currency !== undefined ? d.currency : l!.currency;
-        if ((v == null) !== (cu == null)) return fail(c, 400, "invalid_body", "Value and currency go together.");
-        if (v !== l!.valueMinor || cu !== l!.currency) { set.valueMinor = v; set.currency = cu; changed.push("value"); }
-      }
-      if (d.primaryContactId !== undefined && d.primaryContactId !== l!.primaryContactId) {
-        if (!(await loadContact(tx, workspaceId, d.primaryContactId))) return fail(c, 400, "invalid_body", "The primary contact does not exist.");
-        set.primaryContactId = d.primaryContactId; changed.push("primaryContact");
-      }
-      if (d.ownerUserId !== undefined && d.ownerUserId !== l!.ownerUserId) {
-        const e = await validOwner(tx, c, d.ownerUserId);
-        if (e) return fail(c, 400, "invalid_body", e);
-        set.ownerUserId = d.ownerUserId; changed.push("owner");
-      }
-      if (d.probability !== undefined && l!.outcome !== "open") return fail(c, 400, "invalid_body", "Closed leads have a fixed probability.");
-      if (d.resetProbability && l!.outcome === "open") {
-        const st = await stageOf(tx, workspaceId, l!.stageId);
-        set.probability = st!.defaultProbability; set.probabilityManual = false; changed.push("probability");
-      } else if (d.probability !== undefined) { set.probability = d.probability; set.probabilityManual = true; changed.push("probability"); }
-      if (!changed.length) return c.json(await loadDto(tx, c, id));
-      await tx.update(schema.leads).set({ ...set, version: l!.version + 1, updatedAt: new Date() }).where(and(eq(schema.leads.workspaceId, workspaceId), eq(schema.leads.id, id)));
-      const contactId = set.primaryContactId ?? l!.primaryContactId;
-      await recordActivity(tx, { workspaceId, contactId, leadId: id, kind: "lead.updated", actorUserId: userId, data: { fields: changed } });
-      await audit(c, tx, "lead.updated", id, { fields: changed });
-      if (changed.includes("owner") && set.ownerUserId) await emitEvent(tx, { workspaceId, type: "lead.owner_assigned", entityType: "lead", entityId: id, actorUserId: userId, payload: { ownerUserId: set.ownerUserId, previousOwnerUserId: l!.ownerUserId, leadTitle: set.title ?? l!.title } });
-      return c.json(await loadDto(tx, c, id));
+      const out = await updateLeadIn(tx, c, id, b.data);
+      return out.ok ? c.json(out.lead) : fail(c, out.status, out.code, out.message);
     });
   });
-
-  // ---------------------------------------------------------------- move
-  type MoveOut = { ok: true; lead: LeadDto | null; changed: boolean } | { ok: false; status: ErrStatus; code: string; message?: string };
-  const no = (status: ErrStatus, code: string, message?: string): MoveOut => ({ ok: false, status, code, message });
-  /**
-   * The one stage-move implementation: the single move and the bulk move both call it, so history, activity, audit, the lead.stage_changed event,
-   * the CAPI Won hook and the permission rules are identical. expectedVersion undefined (bulk) means "whatever is current"; noReorder makes a move to the current stage a no-op.
-   */
-  async function moveLead(tx: Tx, c: SC, id: string, b: { expectedVersion?: number; stageId: string; lostReasonId?: string; beforeLeadId?: string; afterLeadId?: string }, noReorder = false): Promise<MoveOut> {
-    const { workspaceId, userId } = wctx(c);
-    const [cur] = (await tx.execute(sql`SELECT pipeline_id FROM leads WHERE workspace_id = ${workspaceId} AND id = ${id} AND deleted_at IS NULL FOR UPDATE`)).rows as { pipeline_id: string }[];
-    if (!cur) return no(404, "not_found");
-    if (!(await lockPipeline(tx, workspaceId, cur.pipeline_id, "share"))) return no(404, "not_found");
-    const [l] = await tx.select().from(schema.leads).where(and(eq(schema.leads.workspaceId, workspaceId), eq(schema.leads.id, id)));
-    if (b.expectedVersion !== undefined && l!.version !== b.expectedVersion) return no(409, "version_conflict", "This lead was changed by someone else.");
-    const to = await stageOf(tx, workspaceId, b.stageId);
-    if (!to || to.pipelineId !== l!.pipelineId || to.archivedAt) return no(400, "invalid_body", "Choose an active stage of this lead's pipeline.");
-    const [pl] = await tx.select({ a: schema.pipelines.archivedAt }).from(schema.pipelines).where(and(eq(schema.pipelines.workspaceId, workspaceId), eq(schema.pipelines.id, l!.pipelineId)));
-    if (pl!.a) return no(409, "pipeline_archived", "This pipeline is archived.");
-    const [contact] = await tx.select({ d: schema.contacts.deletedAt }).from(schema.contacts).where(and(eq(schema.contacts.workspaceId, workspaceId), eq(schema.contacts.id, l!.primaryContactId)));
-    if (contact?.d) return no(409, "contact_deleted", "The primary contact was deleted; this lead is read-only history.");
-    const wasClosed = l!.outcome !== "open";
-    if (wasClosed && !can(c.get("role"), "lead.reopen", {})) return no(403, "forbidden", "You don't have permission to do that.");
-    if (to.id === l!.stageId && noReorder) return { ok: true, lead: null, changed: false };
-    if (to.kind === "lost" && !b.lostReasonId) return no(400, "lost_reason_required", "Choose a reason for losing this lead.");
-    if (to.kind === "lost") {
-      const [lr] = await tx.select({ a: schema.lostReasons.archivedAt }).from(schema.lostReasons).where(and(eq(schema.lostReasons.workspaceId, workspaceId), eq(schema.lostReasons.id, b.lostReasonId!)));
-      if (!lr || lr.a) return no(400, "invalid_body", "Choose an active lost reason.");
-    }
-    if (to.id === l!.stageId) {
-      // same column: only a re-order
-      const rank = await rankBetween(tx, workspaceId, to.id, b.beforeLeadId, b.afterLeadId);
-      await tx.update(schema.leads).set({ rank, version: l!.version + 1, updatedAt: new Date() }).where(and(eq(schema.leads.workspaceId, workspaceId), eq(schema.leads.id, id)));
-      return { ok: true, lead: await loadDto(tx, c, id), changed: false };
-    }
-    const closing = to.kind !== "open";
-    // Probability: closing forces 100/0; an open stage keeps a manual override, otherwise takes the stage default; reopening resets (the closed value was forced).
-    const keepManual = !closing && !wasClosed && l!.probabilityManual;
-    const probability = closing ? to.defaultProbability : keepManual ? l!.probability : to.defaultProbability;
-    const rank = await rankBetween(tx, workspaceId, to.id, b.beforeLeadId, b.afterLeadId);
-    await tx.update(schema.leads).set({
-      stageId: to.id, outcome: to.kind, rank, probability, probabilityManual: keepManual, closedAt: closing ? new Date() : null, lostReasonId: to.kind === "lost" ? b.lostReasonId! : null,
-      version: l!.version + 1, updatedAt: new Date(),
-    }).where(and(eq(schema.leads.workspaceId, workspaceId), eq(schema.leads.id, id)));
-    await transition(tx, c, l!, { stageId: l!.stageId, outcome: l!.outcome }, { stageId: to.id, outcome: to.kind }, to.kind === "lost" ? b.lostReasonId : null);
-    const kind = wasClosed ? "lead.reopened" : to.kind === "won" ? "lead.won" : to.kind === "lost" ? "lead.lost" : "lead.stage_changed";
-    await recordActivity(tx, { workspaceId, contactId: l!.primaryContactId, leadId: id, kind, actorUserId: userId, data: { fromStageId: l!.stageId, toStageId: to.id } });
-    await audit(c, tx, kind, id, { fromStageId: l!.stageId, toStageId: to.id });
-    await emitEvent(tx, { workspaceId, type: "lead.stage_changed", entityType: "lead", entityId: id, actorUserId: userId, payload: { fromStageId: l!.stageId, toStageId: to.id, outcome: to.kind, pipelineId: l!.pipelineId, contactId: l!.primaryContactId, leadTitle: l!.title } });
-    await captureLeadTransition(tx, { workspaceId, leadId: id, contactId: l!.primaryContactId, fromStageId: l!.stageId, toStageId: to.id, fromOutcome: l!.outcome, outcome: to.kind as "open" | "won" | "lost", valueMinor: l!.valueMinor, currency: l!.currency }); // track:capi, the one CAPI hook (savepoints, never fails the move)
-    return { ok: true, lead: await loadDto(tx, c, id), changed: true };
-  }
 
   r.post("/leads/:leadId/move", async (c) => {
     if (!writer(c)) return forbidden(c);
