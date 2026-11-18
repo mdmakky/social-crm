@@ -138,7 +138,7 @@ async function reconcileAll(w: NonNullable<typeof workerDb>, st: NonNullable<typ
 }
 const email: EmailDeps | undefined = workerDb && emailCfg ? { provider: emailCfg.provider, workerDb, inboundDomain: emailCfg.inboundDomain, sendingDomain: emailCfg.sendingDomain, mock: emailCfg.mock } : undefined;
 if (email) console.log(`email channel enabled (${email.mock ? "MOCK provider, nothing is really sent" : "Mailgun, UNVERIFIED"})`);
-const app = createApp(auth, { allowedOrigins: origins, db, email, widget: workerDb ? { workerDb } : undefined, invitations: env.INVITATION_EMAIL === "1" ? { mailer } : undefined, meta, ai, attachments, openrouterBrowser: orMock ? createModelBrowser({ fetch: mockModelsFetch, mock: true }) : undefined });
+const app = createApp(auth, { allowedOrigins: origins, db, email, widget: workerDb ? { workerDb, previewKey: createHmac("sha256", env.BETTER_AUTH_SECRET).update("crm-widget-preview-v1").digest() } : undefined, invitations: env.INVITATION_EMAIL === "1" ? { mailer } : undefined, meta, ai, attachments, openrouterBrowser: orMock ? createModelBrowser({ fetch: mockModelsFetch, mock: true }) : undefined });
 if (meta && workerDb && env.META_APP_SECRET) {
   app.route("/meta/callbacks", metaUserCallbackRoutes({ appSecrets: [env.META_APP_SECRET, ...(env.META_APP_SECRET_PREVIOUS ? [env.META_APP_SECRET_PREVIOUS] : [])], workerDb, userHashKey: meta.userHashKey, statusKey: createHmac("sha256", env.META_APP_SECRET).update("crm-deletion-status-v1").digest(), publicBaseUrl: env.META_PUBLIC_BASE_URL }));
 }

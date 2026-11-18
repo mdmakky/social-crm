@@ -18,8 +18,11 @@ export async function proxy(request: NextRequest) {
       origins = [];
     }
   }
+  // img-src: the owner's optional avatar is any https picture (shown with no referrer); nothing else on this page loads images, and plain http pictures are refused (D281).
   const res = NextResponse.next();
-  res.headers.set("Content-Security-Policy", `frame-ancestors ${origins.length ? origins.join(" ") : "'none'"}; base-uri 'self'; form-action 'self'; object-src 'none'`);
+  // Owner preview (D270): the sample page on our own origin may frame the widget. Anyone can add ?preview=, but 'self' is only our own pages, and the API still demands a valid grant for every call.
+  if (request.nextUrl.searchParams.has("preview")) origins = [...origins, "'self'"];
+  res.headers.set("Content-Security-Policy", `frame-ancestors ${origins.length ? origins.join(" ") : "'none'"}; base-uri 'self'; form-action 'self'; object-src 'none'; img-src 'self' https:`);
   return res;
 }
 

@@ -67,8 +67,8 @@ test.describe("contacts list", () => {
     await page.getByRole("button", { name: "Clear filters" }).click();
     await expect(page.getByText("Showing 25 of 40")).toBeVisible();
 
-    await page.getByLabel("Lifecycle stage").selectOption({ label: "Qualified" });
-    await expect(page.getByRole("heading", { name: "No contacts match these filters" })).toBeVisible(); // nobody is in Qualified
+    await page.getByLabel("Source").selectOption({ label: "Referral" });
+    await expect(page.getByRole("heading", { name: "No contacts match these filters" })).toBeVisible(); // nobody came by referral
     await page.getByRole("button", { name: "Clear", exact: true }).click();
 
     const nameHeader = page.getByRole("columnheader", { name: /Contact/ });
@@ -84,7 +84,7 @@ test.describe("contacts list", () => {
     const { workspaceId } = await signUpAndCreate(page, "Cols Owner", "Columns Co");
     await seedContacts(page, workspaceId, [{ name: "Col Person", email: "col@x.example" }]);
     await page.goto(`/w/${workspaceId}/contacts`);
-    await expect(page.getByRole("columnheader")).toHaveText(["Contact", "Lifecycle stage", "Owner", "Tags", "Source", "Last activity", "Created"]);
+    await expect(page.getByRole("columnheader")).toHaveText(["", "Contact", "Stage", "Value", "Owner", "Tags", "Source", "Last activity", "Created"]);
     await page.getByRole("button", { name: "Columns", exact: true }).click();
     const dialog = page.getByRole("dialog", { name: "Columns" });
     await dialog.getByRole("listitem").filter({ hasText: "Source" }).getByRole("button", { name: "Hide" }).click();
@@ -93,15 +93,15 @@ test.describe("contacts list", () => {
     await expect(dialog.getByRole("status")).toHaveText("Source hidden");
     await dialog.getByRole("button", { name: "Move Created up" }).click();
     await expect(dialog.getByRole("button", { name: "Move Created up" })).toBeFocused();
-    await expect(dialog.getByRole("status")).toHaveText("Created, position 5 of 6");
+    await expect(dialog.getByRole("status")).toHaveText("Created, position 6 of 7");
     await dialog.getByRole("button", { name: "Done" }).click();
-    await expect(page.getByRole("columnheader")).toHaveText(["Contact", "Lifecycle stage", "Owner", "Tags", "Created", "Last activity"]);
+    await expect(page.getByRole("columnheader")).toHaveText(["", "Contact", "Stage", "Value", "Owner", "Tags", "Created", "Last activity"]);
     await page.reload();
-    await expect(page.getByRole("columnheader")).toHaveText(["Contact", "Lifecycle stage", "Owner", "Tags", "Created", "Last activity"]);
+    await expect(page.getByRole("columnheader")).toHaveText(["", "Contact", "Stage", "Value", "Owner", "Tags", "Created", "Last activity"]);
     await page.getByRole("button", { name: "Columns", exact: true }).click();
     await page.getByRole("dialog", { name: "Columns" }).getByRole("button", { name: "Reset to default" }).click();
     await page.getByRole("dialog", { name: "Columns" }).getByRole("button", { name: "Done" }).click();
-    await expect(page.getByRole("columnheader")).toHaveCount(7);
+    await expect(page.getByRole("columnheader")).toHaveCount(9);
   });
 
   test("saved views store filters and columns, can be applied and deleted", async ({ page }) => {
@@ -175,12 +175,12 @@ test.describe("contacts list", () => {
     await cols.click();
     await page.getByRole("dialog", { name: "Columns" }).getByRole("button", { name: "Reset to default" }).click();
     await page.getByRole("dialog", { name: "Columns" }).getByRole("button", { name: "Done" }).click();
-    await expect(page.getByRole("columnheader")).toHaveCount(7); // personal layout: all seven
+    await expect(page.getByRole("columnheader")).toHaveCount(9); // personal layout: the eight default columns plus the select column
     await page.getByRole("button", { name: "Views", exact: true }).click();
     await page.getByRole("menuitem", { name: /No source/ }).first().click();
-    await expect(page.getByRole("columnheader")).toHaveCount(6); // the view overlays it
+    await expect(page.getByRole("columnheader")).toHaveCount(8); // the view overlays it (one column fewer)
     await page.reload();
-    await expect(page.getByRole("columnheader")).toHaveCount(7); // the personal layout is untouched
+    await expect(page.getByRole("columnheader")).toHaveCount(9); // the personal layout is untouched
   });
 });
 

@@ -4,7 +4,7 @@ import { axe, seed, WEB } from "./channel-helpers";
 
 /** Phone and tablet experience: touch emulation is on so `pointer: coarse` styles apply. Inbox data is MOCK fixtures (apps/api/dev/seed-inbox.mts). */
 const PHONES = [{ w: 360, h: 740 }, { w: 375, h: 812 }, { w: 390, h: 844 }, { w: 430, h: 932 }] as const;
-const ROUTES = ["", "/inbox", "/contacts", "/leads", "/tasks", "/reports", "/settings", "/settings/automations", "/integrations", "/members", "/audit-log", "/notifications"];
+const ROUTES = ["", "/inbox", "/contacts", "/tasks", "/reports", "/settings", "/settings/automations", "/integrations", "/members", "/audit-log", "/notifications"];
 
 test.describe.serial("mobile experience", () => {
   let state: Awaited<ReturnType<BrowserContext["storageState"]>>;
@@ -118,25 +118,28 @@ test.describe.serial("mobile experience", () => {
     await ctx.close();
   });
 
-  test("touch tablet 820 shows card lists for Contacts and Tasks; a mouse at 820 and desktop keep the tables", async ({ browser }) => {
+  test("touch tablet 820 shows a card list for Contacts and the task list for Tasks; a mouse at 820 and desktop keep the Contacts table", async ({ browser }) => {
     const t = await touch(browser, 820, 1180);
-    for (const r of ["/contacts", "/tasks", "/leads"]) {
-      await t.page.goto(`/w/${ws}${r}`);
-      await expect(t.page.locator("ul.t-cards, ul.t-cards-flex")).toBeVisible();
-      await expect(t.page.locator(".t-table")).toBeHidden();
-      expect(await overflow(t.page), r).toBeLessThanOrEqual(0);
-      const link = (await t.page.locator("ul.t-cards a, ul.t-cards [role=button], ul.t-cards [role=checkbox], ul.t-cards-flex a").first().boundingBox())!;
-      expect(link.height, `${r} first row target`).toBeGreaterThanOrEqual(44);
-    }
+    await t.page.goto(`/w/${ws}/contacts`);
+    await expect(t.page.locator("ul.t-cards, ul.t-cards-flex")).toBeVisible();
+    await expect(t.page.locator(".t-table")).toBeHidden();
+    expect(await overflow(t.page), "/contacts").toBeLessThanOrEqual(0);
+    const link = (await t.page.locator("ul.t-cards a, ul.t-cards [role=button], ul.t-cards [role=checkbox], ul.t-cards-flex a").first().boundingBox())!;
+    expect(link.height, "/contacts first row target").toBeGreaterThanOrEqual(44);
+    await t.page.goto(`/w/${ws}/tasks`);
+    await expect(t.page.getByRole("list", { name: "Tasks", exact: true })).toBeVisible();
+    expect(await overflow(t.page), "/tasks").toBeLessThanOrEqual(0);
+    const row = await t.page.getByRole("list", { name: "Tasks", exact: true }).getByRole("button").first().boundingBox();
+    if (row) expect(row.height, "/tasks first row target").toBeGreaterThanOrEqual(44);
     await t.ctx.close();
     for (const [w, h] of [[820, 1180], [1440, 900]] as const) {
       const ctx = await browser.newContext({ baseURL: WEB, storageState: state, viewport: { width: w, height: h } }); // no touch: fine pointer
       const page = await ctx.newPage();
-      for (const r of ["/contacts", "/tasks", "/leads"]) {
-        await page.goto(`/w/${ws}${r}`);
-        await expect(page.locator(".t-table")).toBeVisible();
-        await expect(page.locator("ul.t-cards, ul.t-cards-flex")).toBeHidden();
-      }
+      await page.goto(`/w/${ws}/contacts`);
+      await expect(page.locator(".t-table")).toBeVisible();
+      await expect(page.locator("ul.t-cards, ul.t-cards-flex")).toBeHidden();
+      await page.goto(`/w/${ws}/tasks`);
+      await expect(page.getByRole("list", { name: "Tasks", exact: true })).toBeVisible();
       await ctx.close();
     }
   });
@@ -178,7 +181,7 @@ test.describe.serial("mobile experience", () => {
     const t = await touch(browser, 820, 1180);
     await t.page.goto(`/w/${ws}`);
     await expect(t.page.getByRole("navigation", { name: "Primary" })).toBeHidden();
-    for (const name of ["Inbox", "Contacts", "Leads"]) {
+    for (const name of ["Inbox", "Contacts", "Tasks"]) {
       const b = (await t.page.getByRole("navigation", { name: "Main" }).filter({ visible: true }).getByRole("link", { name }).boundingBox())!;
       expect(b.width, name).toBeGreaterThanOrEqual(44);
       expect(b.height, name).toBeGreaterThanOrEqual(44);
@@ -189,7 +192,7 @@ test.describe.serial("mobile experience", () => {
     const page = await d.newPage();
     await page.goto(`/w/${ws}`);
     await expect(page.getByRole("navigation", { name: "Primary" })).toBeHidden();
-    await expect(page.getByRole("navigation", { name: "Main" }).getByText("Leads")).toBeVisible();
+    await expect(page.getByRole("navigation", { name: "Main" }).getByText("Tasks")).toBeVisible();
     await expect(page.getByRole("button", { name: "Search or jump to" })).toBeVisible();
     await d.close();
   });

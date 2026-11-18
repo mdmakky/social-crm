@@ -72,7 +72,7 @@ SSE and WebSocket are out of scope on purpose: they need a long-lived connection
 
 ## Embed
 
-`apps/web/public/widget.js` (about 3 KB, no dependencies): reads `data-widget-key` (and optional `data-color`) from its own script tag, injects a launcher `<button aria-expanded aria-label aria-haspopup="dialog">` and, on first open, an iframe titled "Chat". Open/close shows or hides the panel (380 x 600 max, bottom right); under 480 px it becomes a full-screen sheet and the launcher hides. Escape (in the page or inside the iframe, which posts `crm-chat:close`) closes; focus moves into the iframe on open and back to the launcher on close; transitions are skipped under `prefers-reduced-motion`. Styles are applied through the DOM, not an inline `<style>`, so a strict `style-src` on the host page should not block them (**UNVERIFIED**).
+`apps/web/public/widget.js` (no dependencies; the launcher and panel size described here are superseded by "Widget v2" below): reads `data-widget-key` (and optional `data-color`) from its own script tag, injects a launcher `<button aria-expanded aria-label aria-haspopup="dialog">` and, on first open, an iframe titled "Chat". Open/close shows or hides the panel (380 x 600 max, bottom right); under 480 px it becomes a full-screen sheet and the launcher hides. Escape (in the page or inside the iframe, which posts `crm-chat:close`) closes; focus moves into the iframe on open and back to the launcher on close; transitions are skipped under `prefers-reduced-motion`. Styles are applied through the DOM, not an inline `<style>`, so a strict `style-src` on the host page should not block them (**UNVERIFIED**).
 
 Widget page `apps/web/app/widget/[key]`: outside the signed-in app (no shell). States: Connecting, ready (greeting when empty), offline/disabled (the widget's offline message), "not available here" (opened outside an allowed site), error with Try again. Message list `role="log" aria-live="polite"`; input 16 px; Enter sends, Shift+Enter newline; unsent messages keep a "Not sent. Try again" button; everything is rendered as React text, there is no `dangerouslySetInnerHTML`. Token in `localStorage` of the web origin (inside the iframe).
 
@@ -84,7 +84,7 @@ Headers (`apps/web/next.config.ts`, `apps/web/proxy.ts`): every route except `/w
 
 ## Admin (Settings > Channels > Web chat)
 
-Owner/admin only (`integration.manage`; API and page). List, create (name, sites one per line, color, greeting, offline message, optional pre-chat), edit, turn on/off, copy the install code, preview (opens the widget page with `?host=<first allowed site>`), "Make a new install code" (old code stops working at once). Technical details are in a collapsed section. Audit: `widget.created`, `widget.updated` (field names only), `widget.key_rotated` (never the key). Limit 10 widgets per workspace.
+Owner/admin only (`integration.manage`; API and page). List, create (name, sites one per line, color, greeting, offline message, optional pre-chat), edit, turn on/off, copy the install code, "Preview on a sample page" (see below), "Make a new install code" (old code stops working at once). Technical details are in a collapsed section. Audit: `widget.created`, `widget.updated` (field names only), `widget.key_rotated` (never the key). Limit 10 widgets per workspace.
 
 ## Not in v1 (D249)
 
@@ -100,6 +100,43 @@ Attachments (either direction), typing indicators, read receipts, visitor identi
 6. Accessibility with a real screen reader (only axe was run).
 7. Browsers other than Chromium; phones.
 
+## Owner preview on a sample page (D270 to D277)
+
+Settings > Web chat > "Preview on a sample page" opens `/w/<ws>/settings/web-chat/preview` (owner/admin). It shows our made-up landing page `/widget-preview` (header, hero, three cards, footer, labelled "Sample page, not your site") in a frame at Desktop, Tablet 768 or Mobile 375 width, with the REAL `/widget.js`: launcher, open, close, Esc, polling and the phone sheet are the production code. Buttons: widget picker (when there are several), screen size, "Open widget", "Reset visitor" (clears the preview visitor's stored session). Messages are real and reach the Inbox as "Web chat user NNNN".
+
+How it passes the allowlist without weakening it: the page asks `POST .../web-chat/widgets/:id/preview` for a grant (signed, 10 minutes, bound to widget, workspace and user; refused for a switched-off widget). The sample page adds `data-preview-grant` to the loader tag; the loader sends it as `X-Widget-Preview` on `/config` and as `?preview=` on the widget iframe, and the widget page sends it on every call. The API accepts it only for the matching widget and workspace and only from our own web origin (D271); the widget's allowed sites are never changed. The sample route and a preview widget frame are framable only by our own origin (D274, D275).
+
+Loader check (D276): `widget.js` first reads `/public/widget/:key/config`. On a site that is not allowed it shows nothing and logs `Chat widget not shown: this site's origin is not allowed for this widget key`. Allowed-sites input (D277): one address per line like `https://www.example.com`, no path, no trailing slash; lines are normalised and shown as "Will be saved as".
+
+Limits: preview conversations carry no visible "Preview" label (only `user_agent = 'CRM preview'`, D272); tested on local origins only.
+
 ## How it was tested
 
 See `docs/project/testing-report.md` (Web chat). API tests `apps/api/test/web-chat.test.ts`, database tests `packages/db/test/web-chat-schema.test.ts` (tenancy), Playwright `apps/web/e2e/web-chat.spec.ts` with a second local origin.
+
+## Widget v2: appearance, language, unread badge, page url (D280 to D289, migration 0041)
+
+Design: the owner-approved "stylish pill". `widget.js` draws the pill launcher (avatar or initial, label, unread badge) and the rounded animated container; the iframe page draws the panel: tinted top block (avatar, title, subtitle, EN/Bangla toggle, close, greeting, quick-reply chips) that collapses to the slim header after the visitor's first message, agent avatar and time, "Sent" under visitor messages, composer pill, away notice. Under 481 px the panel is a full-screen `100dvh` sheet. No emoji glyphs (drawn SVG icons), system font stack only, no presence indicator, ever.
+
+Settings per widget (Settings > Web chat, with a live preview): `name` (title), picture address (https only, optional), subtitle (60, default "We reply here", no time promises), greeting headline (90), color, position left or right, 0 to 3 quick replies (30 characters, text), manual away switch with text (160), default language en or bn. The public `/config` returns only what the widget draws.
+
+Loader and frame talk by `postMessage`; each side checks the sender's origin and window:
+
+| From | Message | Meaning |
+|---|---|---|
+| loader to frame | `crm-chat:state {open, page}` | panel opened or closed, the page address |
+| loader to frame | `crm-chat:page {page}` | answer to the request below |
+| frame to loader | `crm-chat:page?` | asked just before each send |
+| frame to loader | `crm-chat:unread {n}` | unread agent replies (badge) |
+| frame to loader | `crm-chat:height {h}` | wanted height, the loader clamps to 560 to 660 |
+| frame to loader | `crm-chat:close` | close button or Escape |
+
+Unread badge: the iframe is created hidden once `/config` succeeds, so it can poll while the panel is closed: 15 s closed, 3 s open, none while the tab is hidden, none after 10 minutes closed; the badge clears on open. The count is agent replies newer than the last sequence number seen with the panel open.
+
+Page URL: only `location.origin + location.pathname` leaves the host page (the query string and fragment can carry tokens). The API stores it again cleaned (`chat_visitor_sessions.last_page_url`, 300 characters, http(s)) and the Inbox thread header shows "From page: host/path" as text, a link only for http(s). Agents read it through `chat_conversation_page()`, a narrow `SECURITY DEFINER` function, because the application role cannot read that table.
+
+Away notice: a manual switch. The email field posts to the existing public `contact` endpoint; messages can still be sent.
+
+Language: strings for English and Bangla live in the chat page; the visitor's toggle is kept in the frame's localStorage; the launcher label uses the widget's default language only. Owner-written text is shown as written.
+
+Out of scope here: rating, channel links, AI replies, attachments, typing indicator, presence, business hours.

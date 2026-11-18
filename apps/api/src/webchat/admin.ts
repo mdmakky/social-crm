@@ -5,6 +5,7 @@ import { CreateChatWidgetBody, UpdateChatWidgetBody, type ChatWidgetDto } from "
 import { can } from "@crm/core/permissions";
 import { schema, withContext, type Db } from "@crm/db";
 import { writeAudit } from "../audit.ts";
+import { signPreview } from "./preview.ts";
 import { actor, body, fail, forbidden, isUuid, wctx, type SC, type ScopedEnv } from "../routes/scope.ts";
 
 type Row = typeof schema.chatWidgets.$inferSelect;
@@ -12,6 +13,7 @@ const MAX_WIDGETS = 10;
 const dto = (w: Row): ChatWidgetDto => ({
   id: w.id, name: w.name, publicKey: w.publicKey, allowedOrigins: w.allowedOrigins, enabled: w.enabled, greeting: w.greeting, offlineMessage: w.offlineMessage, color: w.color,
   prechatForm: w.prechatForm, createdAt: w.createdAt.toISOString(), updatedAt: w.updatedAt.toISOString(),
+  avatarUrl: w.avatarUrl, subtitle: w.subtitle, position: w.position as "left" | "right", quickReplies: w.quickReplies, awayMode: w.awayMode, awayText: w.awayText, defaultLanguage: w.defaultLanguage as "en" | "bn",
 });
 /** Random 15 digit number (no leading zero): the external ids of every channel are digit strings. 64 random bits reduced modulo 9e14 (bias is negligible). */
 export const randomDigits = () => String(100000000000000n + (BigInt(`0x${randomBytes(8).toString("hex")}`) % 900000000000000n));
@@ -22,7 +24,7 @@ const pgCode = (e: unknown) => (e as { cause?: { code?: string } })?.cause?.code
  * Widget management for owners and admins (integration.manage). A widget owns one integration account (platform "web_chat") so the Inbox, AI, tasks and leads treat its
  * conversations like any other channel's. The account is written by the worker role (the application role cannot insert accounts), the widget row by the user.
  */
-export function webChatAdminRoutes(db: Db, workerDb?: Db) {
+export function webChatAdminRoutes(db: Db, workerDb?: Db, previewKey?: Buffer) {
   const r = new Hono<ScopedEnv>();
   const allowed = (c: SC) => can(c.get("role"), "integration.manage", {});
 
@@ -53,7 +55,7 @@ export function webChatAdminRoutes(db: Db, workerDb?: Db) {
     if (!accountId) return fail(c, 500, "internal_error", "Could not create the widget. Try again.");
     // 2. the widget (user role, RLS: owner/admin only)
     const row = await withContext(db, wctx(c), async (tx) => {
-      const [w] = await tx.insert(schema.chatWidgets).values({ workspaceId: ws, integrationAccountId: accountId!, publicKey: newKey(), name: b.data.name, allowedOrigins: b.data.allowedOrigins, color: b.data.color, greeting: b.data.greeting, offlineMessage: b.data.offlineMessage, prechatForm: b.data.prechatForm, createdBy: c.get("userId") }).returning();
+      const [w] = await tx.insert(schema.chatWidgets).values({ workspaceId: ws, integrationAccountId: accountId!, publicKey: newKey(), name: b.data.name, allowedOrigins: b.data.allowedOrigins, color: b.data.color, greeting: b.data.greeting, offlineMessage: b.data.offlineMessage, prechatForm: b.data.prechatForm, avatarUrl: b.data.avatarUrl, subtitle: b.data.subtitle, position: b.data.position, quickReplies: b.data.quickReplies, awayMode: b.data.awayMode, awayText: b.data.awayText, defaultLanguage: b.data.defaultLanguage, createdBy: c.get("userId") }).returning();
       await writeAudit(tx, { ...actor(c), workspaceId: ws, action: "widget.created", entityType: "chat_widget", entityId: w!.id, summary: { name: w!.name, origins: w!.allowedOrigins.length } });
       return w!;
     });
@@ -91,6 +93,19 @@ export function webChatAdminRoutes(db: Db, workerDb?: Db) {
       return w;
     });
     return row ? c.json(dto(row)) : fail(c, 404, "not_found");
+  });
+
+  /** Mints a preview grant (D270): signed, bound to this widget, workspace and user, valid 10 minutes. It only works from our own web origin; it never changes the widget's allowed sites. */
+  r.post("/web-chat/widgets/:widgetId/preview", async (c) => {
+    if (!allowed(c)) return forbidden(c);
+    const id = c.req.param("widgetId");
+    if (!isUuid(id)) return fail(c, 404, "not_found");
+    if (!previewKey) return fail(c, 503, "not_configured", "Web chat is not set up on this server.");
+    const ws = c.get("workspaceId");
+    const w = await withContext(db, wctx(c), async (tx) => (await tx.select().from(schema.chatWidgets).where(and(eq(schema.chatWidgets.workspaceId, ws), eq(schema.chatWidgets.id, id))))[0]);
+    if (!w) return fail(c, 404, "not_found");
+    if (!w.enabled) return fail(c, 409, "widget_disabled", "Turn the chat on to preview it.");
+    return c.json(signPreview(previewKey, { w: w.id, ws, u: c.get("userId") }));
   });
 
   return r;

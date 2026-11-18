@@ -24,13 +24,24 @@ const config: NextConfig = {
     return [
       // Everything except the widget page keeps the frame ban. The widget page is MEANT to be framed by customer sites: its frame-ancestors is set per widget in proxy.ts (the widget's allowed origins, or 'none').
       {
-        source: "/((?!widget/).*)",
+        source: "/((?!widget/|widget-preview).*)",
         headers: [
           { key: "Content-Security-Policy", value: "frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'" },
           { key: "X-Frame-Options", value: "DENY" },
           { key: "X-Content-Type-Options", value: "nosniff" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+        ],
+      },
+      // The sample page of the owner preview (D270) is framed by our own settings page only.
+      {
+        source: "/widget-preview",
+        headers: [
+          { key: "Content-Security-Policy", value: "frame-ancestors 'self'; base-uri 'self'; form-action 'self'; object-src 'none'" },
+          { key: "X-Frame-Options", value: "SAMEORIGIN" },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "no-referrer" },
+          { key: "Cache-Control", value: "no-store" },
         ],
       },
       {
