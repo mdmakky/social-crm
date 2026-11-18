@@ -44,7 +44,9 @@ test.describe("website chat", () => {
     const launcher = visitor.getByRole("button", { name: "Chat with us" });
     await expect(launcher).toHaveAttribute("aria-expanded", "false");
     await launcher.click();
-    await expect(visitor.getByRole("button", { name: "Close chat" }).first()).toHaveAttribute("aria-expanded", "true");
+    // (changed: the pill launcher now hides while the panel is open, the panel has its own close button inside the frame; so this checks the launcher state and that the dialog is shown, instead of a visible host "Close chat" button)
+    await expect(visitor.locator('button[aria-haspopup="dialog"]')).toHaveAttribute("aria-expanded", "true"); // hidden while open, so it is not found by role
+    await expect(visitor.locator('div[role="dialog"]')).toBeVisible();
     const chat = visitor.frameLocator('iframe[title="Chat"]');
     await expect(chat.getByRole("heading", { name: "Shop chat" })).toBeVisible();
     const input = chat.getByLabel("Your message");

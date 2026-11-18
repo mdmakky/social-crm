@@ -18,9 +18,9 @@ const OptText = optText(WEB_CHAT_LIMITS.textChars);
 export const WIDGET_APPEARANCE_LIMITS = { greeting: 90, subtitle: 60, quickReplies: 3, quickReplyChars: 30, awayText: 160, avatarUrl: 500, pageUrl: 300 } as const;
 export const DEFAULT_SUBTITLE = "We reply here";
 /** Optional picture: an https address only (the widget page loads it with no referrer). Empty means "use the initial letter". */
-export const AvatarUrl = z.string().trim().max(WIDGET_APPEARANCE_LIMITS.avatarUrl).transform((s) => (s === "" ? null : s)).pipe(
+export const AvatarUrl = z.union([z.null(), z.string().trim().max(WIDGET_APPEARANCE_LIMITS.avatarUrl).transform((s) => (s === "" ? null : s)).pipe(
   z.string().refine((s) => { try { const u = new URL(s); return u.protocol === "https:" && !u.username && !u.password && /^https:\/\/[^\s]+$/.test(s); } catch { return false; } }, "Use a picture address that starts with https://").nullable(),
-);
+)]);
 const Subtitle = z.string().trim().min(1, "Write a short line, like: We reply here").max(WIDGET_APPEARANCE_LIMITS.subtitle);
 const Position = z.enum(["left", "right"]);
 const Language = z.enum(["en", "bn"]);

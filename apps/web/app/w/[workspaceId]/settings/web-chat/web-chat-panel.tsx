@@ -7,16 +7,25 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { Checkbox, Textarea } from "@/components/ui/form-controls";
-import { Input } from "@/components/ui/input";
+import { Input, Select } from "@/components/ui/input";
 import { Panel, PanelHeader } from "@/components/ui/panel";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, EmptyState, ErrorState } from "@/components/ui/states";
 import { useToast } from "@/components/ui/toast";
 import { browserApi, errorMessage } from "@/lib/client-api";
+import { WidgetMock } from "./widget-mock";
 
-type Form = { name: string; origins: string; color: string; greeting: string; offline: string; prechat: boolean };
-const BLANK: Form = { name: "", origins: "", color: "#2563eb", greeting: "", offline: "", prechat: false };
-const toForm = (w: ChatWidgetDto): Form => ({ name: w.name, origins: w.allowedOrigins.join("\n"), color: w.color, greeting: w.greeting ?? "", offline: w.offlineMessage ?? "", prechat: w.prechatForm });
+type Form = { name: string; origins: string; color: string; greeting: string; offline: string; prechat: boolean; avatar: string; subtitle: string; position: "left" | "right"; q: [string, string, string]; away: boolean; awayText: string; lang: "en" | "bn" };
+const BLANK: Form = { name: "", origins: "", color: "#2563eb", greeting: "", offline: "", prechat: false, avatar: "", subtitle: "We reply here", position: "right", q: ["", "", ""], away: false, awayText: "", lang: "en" };
+const toForm = (w: ChatWidgetDto): Form => ({
+  name: w.name, origins: w.allowedOrigins.join("\n"), color: w.color, greeting: w.greeting ?? "", offline: w.offlineMessage ?? "", prechat: w.prechatForm,
+  avatar: w.avatarUrl ?? "", subtitle: w.subtitle, position: w.position, q: [w.quickReplies[0] ?? "", w.quickReplies[1] ?? "", w.quickReplies[2] ?? ""], away: w.awayMode, awayText: w.awayText ?? "", lang: w.defaultLanguage,
+});
+/** The part of the form the API stores. Empty quick replies are dropped. */
+const toBody = (f: Form) => ({
+  name: f.name, allowedOrigins: lines(f.origins), color: f.color, greeting: f.greeting, offlineMessage: f.offline, prechatForm: f.prechat,
+  avatarUrl: f.avatar, subtitle: f.subtitle, position: f.position, quickReplies: f.q.map((x) => x.trim()).filter(Boolean), awayMode: f.away, awayText: f.awayText, defaultLanguage: f.lang,
+});
 const lines = (s: string) => s.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
 const FORMAT = "Use the address of the site: https://www.example.com (no page path, no slash at the end).";
 /** One address per line -> the clean origin the server stores (scheme and host, lower case) or a plain reason why not. A site that is not on this list shows no chat at all. */
@@ -33,43 +42,68 @@ function parseOrigins(text: string): { origins: string[]; errors: string[] } {
 }
 const snippet =(key: string) => `<script src="${typeof window === "undefined" ? "" : window.location.origin}/widget.js" data-widget-key="${key}" async></script>`;
 
-/** Widget form: used to create and to edit. Origins are one per line, scheme and host only. */
+/** Widget form: used to create and to edit. Origins are one per line, scheme and host only. The picture on the right is a live preview of what visitors will see. */
 function WidgetForm({ initial, busy, error, submitLabel, onSubmit, onCancel }: { initial: Form; busy: boolean; error: string | null; submitLabel: string; onSubmit: (f: Form) => void; onCancel: () => void }) {
   const [f, setF] = React.useState(initial);
-  const [nameErr, setNameErr] = React.useState<string | null>(null);
+  const [errs, setErrs] = React.useState<Partial<Record<"name" | "avatar" | "subtitle", string>>>({});
   const [touched, setTouched] = React.useState(false);
+  const [shownAvatar, setShownAvatar] = React.useState(initial.avatar);
   const set = <K extends keyof Form>(k: K, v: Form[K]) => setF((x) => ({ ...x, [k]: v }));
+  const setQ = (i: number, v: string) => setF((x) => ({ ...x, q: x.q.map((y, j) => (j === i ? v : y)) as Form["q"] }));
   const parsed = parseOrigins(f.origins);
   const originErr = touched && parsed.errors.length ? parsed.errors.join(" ") : null;
+  const avatarOk = (v: string) => { const x = v.trim(); if (!x) return true; try { const u = new URL(x); return u.protocol === "https:" && !u.username && !u.password && x.length <= 500; } catch { return false; } };
   return (
     <form
-      className="flex flex-col gap-4 px-4 py-4"
+      className="grid gap-6 px-4 py-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,420px)]"
       onSubmit={(e) => {
         e.preventDefault();
         setTouched(true);
-        if (!f.name.trim()) { setNameErr("Give the widget a name."); return; }
-        setNameErr(null);
-        if (parsed.errors.length) return;
+        const next: typeof errs = {};
+        if (!f.name.trim()) next.name = "Give the widget a name.";
+        if (!avatarOk(f.avatar)) next.avatar = "Use a picture address that starts with https:// (up to 500 characters), or leave it empty.";
+        if (!f.subtitle.trim()) next.subtitle = "Write a short line, like: We reply here";
+        setErrs(next);
+        if (Object.keys(next).length || parsed.errors.length) return;
         onSubmit({ ...f, origins: parsed.origins.join("\n") });
       }}
     >
-      <Field label="Name" hint="Only you see this." error={nameErr}>{(p) => <Input {...p} value={f.name} maxLength={80} onChange={(e) => set("name", e.target.value)} />}</Field>
-      <div className="flex flex-col gap-1.5">
-        <Field label="Sites that may show the chat" hint="One address per line, like https://www.example.com (no page path, no slash at the end). A site that is not on this list shows no chat at all. Add both the www and the plain address if you use both." error={originErr}>
-          {(p) => <Textarea {...p} rows={3} value={f.origins} spellCheck={false} placeholder={"https://www.example.com\nhttps://example.com"} onChange={(e) => set("origins", e.target.value)} onBlur={() => setTouched(true)} />}
+      <div className="flex flex-col gap-4">
+        <Field label="Name" hint="Shown at the top of the chat." error={errs.name}>{(p) => <Input {...p} value={f.name} maxLength={80} onChange={(e) => set("name", e.target.value)} />}</Field>
+        <div className="flex flex-col gap-1.5">
+          <Field label="Sites that may show the chat" hint="One address per line, like https://www.example.com (no page path, no slash at the end). A site that is not on this list shows no chat at all. Add both the www and the plain address if you use both." error={originErr}>
+            {(p) => <Textarea {...p} rows={3} value={f.origins} spellCheck={false} placeholder={"https://www.example.com\nhttps://example.com"} onChange={(e) => set("origins", e.target.value)} onBlur={() => setTouched(true)} />}
+          </Field>
+          {parsed.origins.length > 0 && <p aria-live="polite" className="text-xs text-fg-subtle">Will be saved as: {parsed.origins.join(", ")}</p>}
+        </div>
+        <Field label="Picture address" hint="Optional. A square logo or photo at an https:// address. Empty: the first letter of the name." error={errs.avatar}>
+          {(p) => <Input {...p} type="url" inputMode="url" value={f.avatar} maxLength={500} placeholder="https://example.com/logo.png" onChange={(e) => set("avatar", e.target.value)} onBlur={() => setShownAvatar(avatarOk(f.avatar) ? f.avatar : "")} />}
         </Field>
-        {parsed.origins.length > 0 && <p aria-live="polite" className="text-xs text-fg-subtle">Will be saved as: {parsed.origins.join(", ")}</p>}
+        <Field label="Line under the name" hint="A short note, up to 60 characters. Do not promise a reply time." error={errs.subtitle}>{(p) => <Input {...p} value={f.subtitle} maxLength={60} onChange={(e) => set("subtitle", e.target.value)} />}</Field>
+        <Field label="Greeting" hint="The big line when the chat opens, up to 90 characters. Optional.">{(p) => <Input {...p} value={f.greeting} maxLength={90} onChange={(e) => set("greeting", e.target.value)} />}</Field>
+        <fieldset className="flex flex-col gap-2">
+          <legend className="text-sm font-medium text-fg">Quick replies</legend>
+          <p className="text-xs text-fg-subtle">Up to three questions visitors can tap to start. Up to 30 characters each. Text only.</p>
+          {[0, 1, 2].map((i) => <Input key={i} aria-label={`Quick reply ${i + 1}`} value={f.q[i]} maxLength={30} onChange={(e) => setQ(i, e.target.value)} />)}
+        </fieldset>
+        <div className="grid gap-4 sm:grid-cols-3">
+          <Field label="Color">{(p) => <input {...p} type="color" value={f.color} onChange={(e) => set("color", e.target.value)} className="h-[var(--control-h)] w-full cursor-pointer rounded-control border border-line bg-surface p-1 pointer-coarse:h-[var(--control-h-touch)]" />}</Field>
+          <Field label="Position">{(p) => <Select {...p} value={f.position} onChange={(e) => set("position", e.target.value as Form["position"])}><option value="right">Bottom right</option><option value="left">Bottom left</option></Select>}</Field>
+          <Field label="Language" hint="Visitors can switch.">{(p) => <Select {...p} value={f.lang} onChange={(e) => set("lang", e.target.value as Form["lang"])}><option value="en">English</option><option value="bn">Bangla</option></Select>}</Field>
+        </div>
+        <Checkbox label="Show an away notice that asks for an email (you turn it on and off yourself)" checked={f.away} onChange={(e) => set("away", e.target.checked)} />
+        {f.away && <Field label="Away notice" hint="Up to 160 characters. Optional. Visitors can still send messages.">{(p) => <Input {...p} value={f.awayText} maxLength={160} onChange={(e) => set("awayText", e.target.value)} />}</Field>}
+        <Field label="Message when chat is switched off" hint="Optional.">{(p) => <Input {...p} value={f.offline} maxLength={300} onChange={(e) => set("offline", e.target.value)} />}</Field>
+        <Checkbox label="Ask visitors for a name and email first (they can skip)" checked={f.prechat} onChange={(e) => set("prechat", e.target.checked)} />
+        {error && <Alert tone="error">{error}</Alert>}
+        <div className="flex gap-2">
+          <Button type="submit" variant="primary" loading={busy}>{submitLabel}</Button>
+          <Button onClick={onCancel} disabled={busy}>Cancel</Button>
+        </div>
       </div>
-      <div className="grid gap-4 sm:grid-cols-[8rem_1fr]">
-        <Field label="Color">{(p) => <input {...p} type="color" value={f.color} onChange={(e) => set("color", e.target.value)} className="h-[var(--control-h)] w-full cursor-pointer rounded-control border border-line bg-surface p-1 pointer-coarse:h-[var(--control-h-touch)]" />}</Field>
-        <Field label="Greeting" hint="Shown before the visitor writes. Optional.">{(p) => <Input {...p} value={f.greeting} maxLength={300} onChange={(e) => set("greeting", e.target.value)} />}</Field>
-      </div>
-      <Field label="Message when chat is switched off" hint="Optional.">{(p) => <Input {...p} value={f.offline} maxLength={300} onChange={(e) => set("offline", e.target.value)} />}</Field>
-      <Checkbox label="Ask visitors for a name and email first (they can skip)" checked={f.prechat} onChange={(e) => set("prechat", e.target.checked)} />
-      {error && <Alert tone="error">{error}</Alert>}
-      <div className="flex gap-2">
-        <Button type="submit" variant="primary" loading={busy}>{submitLabel}</Button>
-        <Button onClick={onCancel} disabled={busy}>Cancel</Button>
+      <div className="lg:sticky lg:top-4 lg:self-start">
+        <p className="mb-2 text-sm font-medium text-fg">Preview</p>
+        <WidgetMock v={{ name: f.name, color: f.color, avatar: shownAvatar, subtitle: f.subtitle, greeting: f.greeting, position: f.position, quick: f.q, away: f.away, awayText: f.awayText, lang: f.lang }} />
       </div>
     </form>
   );
@@ -85,7 +119,7 @@ function WidgetCard({ w, workspaceId, onChanged }: { w: ChatWidgetDto; workspace
 
   async function save(f: Form) {
     setBusy("save"); setError(null);
-    const r = await browserApi.call(endpoints.updateChatWidget, { params, body: { name: f.name, allowedOrigins: lines(f.origins), color: f.color, greeting: f.greeting, offlineMessage: f.offline, prechatForm: f.prechat } });
+    const r = await browserApi.call(endpoints.updateChatWidget, { params, body: toBody(f) });
     setBusy(null);
     if (!r.ok) { setError(errorMessage(r.error)); return; }
     onChanged(r.data); setEditing(false); toast("Saved.");
@@ -169,7 +203,7 @@ export function WebChatPanel({ workspaceId }: { workspaceId: string }) {
 
   async function create(f: Form) {
     setBusy(true); setError(null);
-    const r = await browserApi.call(endpoints.createChatWidget, { params: { workspaceId }, body: { name: f.name, allowedOrigins: lines(f.origins), color: f.color, greeting: f.greeting, offlineMessage: f.offline, prechatForm: f.prechat } });
+    const r = await browserApi.call(endpoints.createChatWidget, { params: { workspaceId }, body: toBody(f) });
     setBusy(false);
     if (!r.ok) { setError(r.error.code === "too_many_widgets" ? r.error.message ?? errorMessage(r.error) : errorMessage(r.error)); return; }
     setItems((cur) => [r.data, ...(cur ?? [])]); setCreating(false); toast("Widget created. Copy its install code to your website.");

@@ -14,5 +14,7 @@ describe("web chat contracts (widget v2)", () => {
     expect(UpdateChatWidgetBody.safeParse({ avatarUrl: "http://a.example/x.png" }).success).toBe(false);
     expect(UpdateChatWidgetBody.safeParse({ quickReplies: ["a", "b", "c", "d"] }).success).toBe(false);
     expect(UpdateChatWidgetBody.parse({ avatarUrl: "" }).avatarUrl).toBeNull();
+    // the web client parses a body before sending it, so a body that was already parsed (null, trimmed) must parse again
+    expect(UpdateChatWidgetBody.parse(UpdateChatWidgetBody.parse({ avatarUrl: "", greeting: "", awayText: " " }))).toMatchObject({ avatarUrl: null, greeting: null, awayText: null });
   });
 });
