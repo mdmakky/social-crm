@@ -1,7 +1,7 @@
 "use client";
 import * as React from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowDown, ArrowUp, ArrowUpDown, Bookmark, Columns3, Download, FilterX, Lock, Pencil, Plus, RefreshCw, Search, SlidersHorizontal, Trash2, Upload, Users } from "lucide-react";
 import { CONTACT_COLUMNS, endpoints, type ContactColumn, type ContactListQuery, type ContactPage, type ContactStageCounts, type ContactSummary, type CustomField, type LifecycleStage, type LostReasonDto, type Member, type PipelineDto, type SavedView, type Tag, type ViewConfig } from "@crm/contracts";
 import { Avatar } from "@/components/ui/avatar";
@@ -37,8 +37,14 @@ export function ContactsView(props: Props) {
   return <ToastProvider><Inner {...props} /></ToastProvider>;
 }
 
+/** The list state lives in the URL; this reads it (also after Back, when the page props are from an older visit). */
+const fromParams = (sp: { get(k: string): string | null }): Q => ({ search: sp.get("search") ?? undefined, lifecycleStageId: sp.get("lifecycleStageId") ?? undefined, stageId: sp.get("stageId") ?? undefined, ownerId: sp.get("ownerId") ?? undefined, tagIds: sp.get("tagIds") ?? undefined, source: (sp.get("source") ?? undefined) as Q["source"], sort: (sp.get("sort") as Q["sort"]) ?? "lastActivity", dir: sp.get("dir") === "asc" ? "asc" : "desc" });
+const sameQuery = (a: Q, b: Q) => (Object.keys({ ...a, ...b }) as (keyof Q)[]).every((k) => (a[k] || undefined) === (b[k] || undefined));
+
 function Inner({ workspaceId, timeZone, myUserId, initial, initialQuery, pipelines, lostReasons, initialCounts, stages, tags, members, views: initialViews, fields, perms }: Props) {
-  const [query, setQuery] = React.useState<Q>({ search: initialQuery.search, lifecycleStageId: initialQuery.lifecycleStageId, stageId: initialQuery.stageId, ownerId: initialQuery.ownerId, tagIds: initialQuery.tagIds, source: initialQuery.source, sort: initialQuery.sort ?? "lastActivity", dir: initialQuery.dir ?? "desc" });
+  const urlQuery = fromParams(useSearchParams());
+  const stale0 = !sameQuery(urlQuery, { search: initialQuery.search, lifecycleStageId: initialQuery.lifecycleStageId, stageId: initialQuery.stageId, ownerId: initialQuery.ownerId, tagIds: initialQuery.tagIds, source: initialQuery.source, sort: initialQuery.sort ?? "lastActivity", dir: initialQuery.dir ?? "desc" }); // props older than the URL (Back)
+  const [query, setQuery] = React.useState<Q>(urlQuery);
   const [page, setPage] = React.useState<ContactPage>(initial ?? { items: [], nextCursor: null, total: 0 });
   const [status, setStatus] = React.useState<"idle" | "loading" | "error">(initial ? "idle" : "error");
   const [errorText, setErrorText] = React.useState<string | null>(null);
@@ -59,7 +65,8 @@ function Inner({ workspaceId, timeZone, myUserId, initial, initialQuery, pipelin
   const [selected, setSelected] = React.useState<Set<string>>(new Set());
   const [moving, setMoving] = React.useState<string[] | null>(null);
   const seq = React.useRef(0);
-  const first = React.useRef(true);
+  const first = React.useRef(!stale0);
+  const prevStage = React.useRef(urlQuery.stageId);
   const storeKey = `crm.contacts.columns.${workspaceId}`;
 
   // The column layout is a per-device convenience. useSyncExternalStore reads it after hydration without a mismatch.
@@ -94,7 +101,7 @@ function Inner({ workspaceId, timeZone, myUserId, initial, initialQuery, pipelin
     const r = await browserApi.call(endpoints.contactStageCounts, { params: { workspaceId }, query: JSON.parse(countsKey) });
     setCounts(r.ok ? r.data : null);
   }, [workspaceId, countsKey]);
-  const firstCounts = React.useRef(true);
+  const firstCounts = React.useRef(!stale0);
   React.useEffect(() => {
     if (firstCounts.current) { firstCounts.current = false; return; }
     const t = setTimeout(() => void loadCounts(), 250);
@@ -116,11 +123,24 @@ function Inner({ workspaceId, timeZone, myUserId, initial, initialQuery, pipelin
     if (first.current) { first.current = false; return; }
     const t = setTimeout(() => {
       const p = toParams(query).toString();
-      window.history.replaceState(null, "", p ? `?${p}` : window.location.pathname);
+      // A stage chip is a place you can come Back to; typing in the search box is not.
+      const mode = query.stageId !== prevStage.current ? "pushState" : "replaceState";
+      prevStage.current = query.stageId;
+      window.history[mode](null, "", p ? `?${p}` : window.location.pathname);
       void load(query);
     }, 250);
     return () => clearTimeout(t);
   }, [query, load]);
+  React.useEffect(() => {
+    const onPop = () => {
+      const sp = new URLSearchParams(window.location.search);
+      const next = fromParams(sp);
+      prevStage.current = next.stageId;
+      setQuery(next);
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
 
   async function loadMore() {
     if (!page.nextCursor) return;
