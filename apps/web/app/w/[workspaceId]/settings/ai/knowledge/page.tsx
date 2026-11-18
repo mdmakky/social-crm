@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
 import { endpoints } from "@crm/contracts";
 import { can } from "@crm/core/permissions";
-import { SettingsPage } from "@/components/settings/settings-page";
 import { must, serverApi } from "@/lib/api";
-import { KnowledgeSettings } from "./knowledge-settings";
+import { KnowledgeSettings } from "../../knowledge/knowledge-settings";
 
 export const metadata: Metadata = { title: "Knowledge" };
 
@@ -11,9 +10,5 @@ export default async function KnowledgePage({ params }: { params: Promise<{ work
   const { workspaceId } = await params;
   const api = await serverApi();
   const w = must(await api.call(endpoints.getWorkspace, { params: { workspaceId } }));
-  return (
-    <SettingsPage title="Knowledge" description="Sources the assistant can look things up in.">
-      <KnowledgeSettings workspaceId={workspaceId} timeZone={w.timezone} canManage={can(w.role, "ai.configure", {})} />
-    </SettingsPage>
-  );
+  return <KnowledgeSettings workspaceId={workspaceId} timeZone={w.timezone} canManage={can(w.role, "ai.configure", {})} />;
 }

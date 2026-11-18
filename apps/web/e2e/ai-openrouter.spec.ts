@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { addMemberByEmail, api, register, signUpAndCreate } from "./helpers";
+import { addMemberByEmail, api, register, signUpAndCreate, openFold } from "./helpers";
 import { axe, seed } from "./channel-helpers";
 
 /**
@@ -9,7 +9,7 @@ import { axe, seed } from "./channel-helpers";
 test.describe.configure({ mode: "serial" });
 
 let owner: Page, workspaceId = "";
-const SETTINGS = () => `/w/${workspaceId}/settings/ai`;
+const SETTINGS = () => `/w/${workspaceId}/settings/ai/setup`;
 const noOverflow = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
 
 test.beforeAll(async ({ browser }) => {
@@ -78,6 +78,7 @@ test("browse, filter, enable two models, choose the default, save", async () => 
   await expect(owner.locator("body")).not.toContainText("E2E-SECRET");
 
   // Capabilities panel: the vision model shows its stored badge, the text-only one does not.
+  await openFold(owner, "Capabilities");
   const caps = owner.getByLabel("OpenRouter capabilities", { exact: true });
   await expect(caps.getByLabel("mockvendor/alpha-chat capabilities")).toContainText("Vision");
   await expect(caps.getByLabel("mockvendor/beta-mini capabilities")).toContainText("No Vision");
@@ -91,6 +92,7 @@ test("a suggestion works through the openrouter provider id (fake adapter)", asy
   await owner.getByRole("button", { name: "Suggest reply with AI" }).click();
   await expect(reply).toHaveValue(/\[MOCK OPENROUTER DRAFT\]/);
   await owner.goto(SETTINGS());
+  await openFold(owner, "Usage");
   await expect(owner.getByRole("region", { name: "AI usage by day" })).toContainText("Reply suggestion");
 });
 

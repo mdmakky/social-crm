@@ -55,7 +55,8 @@ test("test playground: dry run changes nothing, live run queues the action, appr
   await expect(owner.getByText("Would wait for approval")).toBeVisible();
   await expect(owner.getByText("MOCK", { exact: true }).first()).toBeVisible();
   await expect(owner.getByText(/tokens · cost/)).toBeVisible();
-  await expect(owner.getByText("Nothing waiting")).toBeVisible(); // a dry run queues nothing
+  const pending = async () => ((await (await api(owner).get(`${W()}/ai/agent-actions?status=pending`)).json()) as { items: unknown[] }).items.length;
+  expect(await pending()).toBe(0); // a dry run queues nothing
   const notes = async () => (await (await api(owner).get(`${W()}/contacts/${contactId}/notes`)).json()) as { body: string }[];
   expect(await notes()).toHaveLength(0);
 
@@ -63,13 +64,18 @@ test("test playground: dry run changes nothing, live run queues the action, appr
   await expect(owner.getByText(/Live test: write tools will really run/)).toBeVisible();
   await owner.getByRole("button", { name: "Run test" }).click();
   await expect(owner.getByText("Pending approval", { exact: true }).first()).toBeVisible();
+  expect(await pending()).toBe(1);
+  expect(await notes()).toHaveLength(0); // proposed, not done
+  // Approvals live in one queue on the Overview tab of the AI hub (agents and rules together).
+  await owner.getByRole("link", { name: /^Overview/ }).click();
   const approve = owner.getByRole("button", { name: "Approve crm.add_note" });
   await expect(approve).toBeVisible();
-  expect(await notes()).toHaveLength(0); // proposed, not done
   await approve.click();
-  await expect(owner.getByText("Action approved and done")).toBeVisible();
-  await expect(owner.getByText("Nothing waiting")).toBeVisible();
+  await expect(owner.getByText("Approved and done")).toBeVisible();
+  await expect(owner.getByText("Nothing waiting").first()).toBeVisible();
   expect((await notes()).map((n) => n.body)).toEqual(["e2e agent note"]);
+  await owner.goto(PAGE());
+  await owner.getByRole("button", { name: "Edit Support helper" }).click();
   await expect(owner.getByRole("cell", { name: "ok", exact: true }).first()).toBeVisible(); // runs table
 });
 

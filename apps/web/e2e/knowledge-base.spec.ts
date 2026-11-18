@@ -5,12 +5,13 @@ import { axe } from "./channel-helpers";
 /** AI Studio knowledge base, slice 1. URL ingestion is only exercised with an address that is refused before any connection (no internet). */
 test("add text, find it with its source, delete it; viewer is read-only; another workspace sees nothing", async ({ page, browser }) => {
   const { workspaceId } = await signUpAndCreate(page, "Kay Owner", "Knowledge Co");
-  const url = `/w/${workspaceId}/settings/knowledge`;
+  const url = `/w/${workspaceId}/settings/ai/knowledge`;
   const dlg = page.getByRole("dialog", { name: "Add a source" });
 
   await page.goto(url);
-  await expect(page.getByRole("heading", { name: "Knowledge", level: 1 })).toBeVisible();
-  await expect(page.getByRole("navigation", { name: "Settings sections" }).getByRole("link", { name: "Knowledge" })).toHaveAttribute("aria-current", "page");
+  await expect(page.getByRole("heading", { name: "AI and automation", level: 1 })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Knowledge", exact: true })).toHaveAttribute("aria-current", "page");
+  await expect(page.getByRole("navigation", { name: "Settings sections" }).getByRole("link", { name: "AI and automation" })).toHaveAttribute("aria-current", "page");
   await expect(page.getByText("No knowledge yet")).toBeVisible();
   await expect(page.getByText("Add a source first, then test what can be found.")).toBeVisible();
 
@@ -85,7 +86,7 @@ test("add text, find it with its source, delete it; viewer is read-only; another
   const octx = await browser.newContext();
   const op = await octx.newPage();
   const other = await signUpAndCreate(op, "Olga Other", "Other Co");
-  await op.goto(`/w/${other.workspaceId}/settings/knowledge`);
+  await op.goto(`/w/${other.workspaceId}/settings/ai/knowledge`);
   await expect(op.getByText("No knowledge yet")).toBeVisible();
   await op.getByLabel("Question or keywords").fill("refunds");
   await op.getByRole("button", { name: "Search", exact: true }).click();

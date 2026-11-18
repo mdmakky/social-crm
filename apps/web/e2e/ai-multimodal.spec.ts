@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { addMemberByEmail, api, register, signUpAndCreate } from "./helpers";
+import { addMemberByEmail, api, register, signUpAndCreate, openFold } from "./helpers";
 import { axe } from "./channel-helpers";
 
 /**
@@ -14,10 +14,12 @@ const noOverflow = (page: Page) => page.evaluate(() => document.documentElement.
 
 test("capabilities, media playground, knowledge upload and a blocked viewer", async ({ page, browser }) => {
   const { workspaceId } = await signUpAndCreate(page, "Mia Multimodal", "Media Co");
-  const AI = `/w/${workspaceId}/settings/ai`;
+  const AI = `/w/${workspaceId}/settings/ai/setup`;
 
   // Before any provider: the capability section explains what to do, and the playground answers with a clear error.
   await page.goto(AI);
+  await openFold(page, "Capabilities");
+  await openFold(page, "Media playground");
   await expect(page.getByRole("heading", { name: "Capabilities", level: 2 })).toBeVisible();
   await expect(page.getByText("No provider connected")).toBeVisible();
   await page.getByLabel("File").setInputFiles({ name: "a.png", mimeType: "image/png", buffer: PNG });
@@ -27,6 +29,8 @@ test("capabilities, media playground, knowledge upload and a blocked viewer", as
   // Connect the offline mock provider through the API (the provider form is covered by ai-settings.spec).
   expect((await page.request.put(`/v1/workspaces/${workspaceId}/ai/providers/mock`, { data: { isDefault: true }, headers: { origin: ORIGIN } })).status()).toBe(200);
   await page.reload();
+  await openFold(page, "Capabilities");
+  await openFold(page, "Media playground");
 
   // Capability badges: per model, labelled MOCK, every capability on.
   const caps = page.getByRole("region", { name: "Mock (offline) capabilities" });

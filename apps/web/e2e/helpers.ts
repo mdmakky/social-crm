@@ -72,3 +72,9 @@ export async function seedContacts(page: Page, workspaceId: string, people: { na
 }
 
 export const CONTACT_NAMES = ["Ana Costa", "Ben Okafor", "Chloe Park", "Dev Patel", "Eli Moreau", "Fatima Noor", "Gus Hall", "Hana Sato", "Ivan Petrov", "Jia Li"];
+
+/** Opens a fold panel of the AI Setup tab (Prompt, Monthly budget, Usage, Capabilities, Media playground) unless it is already open. */
+export async function openFold(page: Page, title: string | RegExp) {
+  const b = page.getByRole("button", { name: typeof title === "string" ? new RegExp(`^(Expand|Collapse) ${title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`) : title });
+  if ((await b.first().getAttribute("aria-expanded")) !== "true") await b.first().click();
+}
