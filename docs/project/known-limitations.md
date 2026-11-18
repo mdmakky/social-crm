@@ -257,3 +257,20 @@ Updated: 2026-11-13 (Phase 0).
 - Senders that fail the SPF/DKIM check (or lack DKIM) are shown as Unverified sender and cannot be replied to. The check also needs envelope and From domains to match, so mail sent through third-party senders may be marked unverified.
 - One support address per workspace; one conversation per sender. Orphaned events (disabled account) are not re-queued when email is turned on again. "Check setup" is canned in mock and not built for Mailgun. Replay protection and flood limits are in process (one API instance).
 - Contact methods of source email cannot be corrected or deleted by people yet (same gap as D220: migration 0023 policies list only messenger and instagram).
+
+## One contact, one lead (2026-11-18, branch `feat/one-lead-per-contact`)
+- Existing duplicate leads stay as they are. The UI shows one primary lead per contact (most recent open, else most recent) and "+N more"; a stage, value or owner write moves only the primary lead. Reports and the lead API still count every lead, so a contact with two open leads is one row on Contacts but two in Reports. Nothing merges them; there is no link from "+N more" to the others.
+- The virtual first stage: a contact with no lead is shown (and counted, and filtered) as the first open stage of the DEFAULT pipeline, although no lead exists. Reports and the lead API do not count it. If the default pipeline changes or its first stage is archived, those contacts show under the new first stage.
+- A contact whose only lead is won or lost shows that outcome; moving it re-opens that same lead (needs `lead.reopen`). There is no "start a second lead" action in the UI; use `POST /leads`.
+- Owner: Contacts shows the contact's owner. A lead created before this change can have a different lead owner; saving the owner in the new section sets both, but the list never shows the lead owner. `?owner=` on an old /leads link now filters by the contact owner.
+- Removed from the web UI (API unchanged): the lead detail page (probability override and reset, stage history list, linked lead tasks), the New lead dialog (title, expected close date, description, priority), min/max value, expected-close and last-activity lead filters, lead sort by expected close. (Delete, restore and value-access grants came back on 2026-11-18, see below.)
+- Multi-pipeline: stage chips and the bulk dialog use the default pipeline. A contact whose primary lead sits in another pipeline can be moved only within that pipeline (row menu); bulk to a default-pipeline stage reports it as "cannot go to that stage".
+- Stage sort compares stage positions (a contact in another pipeline sorts by its own position); value sort compares minor units across currencies.
+- Copy: "lead" still appears in the inbox Stage panel, the audit log wording, CAPI settings and mapping labels (Meta's Lead event) and the Reports page numbers; only Home, Contacts, the contact page, navigation, members text and metadata were reworded. Not yet checked with the owner.
+- Unverified: nothing was run against a real Meta account; CAPI behaviour is shown from the outbox rows in tests only.
+
+## One contact, one lead: fixes (2026-11-18, branch `feat/one-lead-fixes`)
+- Remove and restore act on the contact's primary lead only; "Recently removed" is a dialog (owner/admin), 25 per page with Load more, no search. Restore of a lead whose contact was deleted is refused by the API ("Restore the contact first"); the button is disabled with that hint.
+- Value access is per lead, so it is edited on the contact page for the primary lead; a contact with several leads shows grants of the primary one only.
+- Lifecycle stage is hidden, not gone: still in the data, the API, CSV import mapping and Settings, Contacts (lifecycle stage list), and old activity rows still say "moved the lifecycle stage". A saved view or link that carries `lifecycleStageId` still filters (Clear removes it). Automations and segments were not changed; none of the code read here depends on the contact page field.
+- The audit log and activity feed use the old names `lead.deleted` / `lead.restored`.

@@ -9,10 +9,9 @@ test.describe("contact detail", () => {
     const save = page.getByRole("button", { name: "Save changes" });
     await expect(save).toBeDisabled();
     await page.getByLabel("Company").fill("Hall Industries");
-    await page.getByLabel("Lifecycle stage").selectOption({ label: "Engaged" });
     await save.click();
     await expect(page.getByText("Saved.")).toBeVisible();
-    await expect(page.getByText("Edit Owner moved the lifecycle stage from New to Engaged")).toBeVisible();
+    await expect(page.getByLabel("Lifecycle stage")).toHaveCount(0);
     await expect(page.getByText("Edit Owner updated company")).toBeVisible();
 
     // someone else edits in the meantime
@@ -68,9 +67,10 @@ test.describe("contact detail", () => {
     const [id] = await seedContacts(page, workspaceId, [{ name: "Ivan Petrov" }]);
     await page.goto(`/w/${workspaceId}/contacts/${id}`);
     await expect(page.getByRole("heading", { name: "No conversations yet" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "No leads yet" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Stage, value and owner" })).toBeVisible(); // the old Leads panel is one section now
+    await expect(page.getByText("Not tracked yet. Change anything here to start.")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Leads", exact: true })).toHaveCount(0);
     await expect(page.getByText(/will appear here/)).toHaveCount(0);
-    await expect(page.getByText(/separate from lead stages/)).toBeVisible();
   });
 
   test("deleting a contact asks first, removes it, and unknown ids are not-found", async ({ page }) => {

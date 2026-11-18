@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { endpoint } from "./endpoint.ts";
+import { Currency, StageKind } from "./leads.ts";
 
 const uuid = z.string().uuid();
 const iso = z.string();
@@ -40,6 +41,15 @@ export const CreateCustomFieldBody = z
 export const UpdateCustomFieldBody = z.object({ label: trimmed(1, 60, "Label").optional(), options: Options.optional(), required: z.boolean().optional(), archived: z.boolean().optional() }).refine((v) => Object.keys(v).length > 0, "Nothing to update");
 
 // ---------- contacts ----------
+/** The one lead of a contact the UI shows (most recent open lead, else most recent lead). A contact without a lead has `lead: null` and counts as the default pipeline's first stage. */
+export const ContactLead = z.object({
+  id: uuid, stageId: uuid, stageName: z.string(), stageKind: StageKind,
+  valueMinor: z.number().int().nullable(), currency: z.string().nullable(), valueHidden: z.boolean(),
+  ownerId: z.string().nullable(), version: z.number().int(),
+  /** Other (older or closed) leads of the same contact that are not shown. */
+  moreCount: z.number().int(),
+});
+export type ContactLead = z.infer<typeof ContactLead>;
 export const ContactSummary = z.object({
   id: uuid,
   name: z.string(),
@@ -53,6 +63,8 @@ export const ContactSummary = z.object({
   lastActivityAt: iso.nullable(),
   createdAt: iso,
   version: z.number().int(),
+  /** Set by the contact list and GET /contacts/:id/lead; absent elsewhere. null = no lead yet. */
+  lead: ContactLead.nullable().optional(),
 });
 export type ContactSummary = z.infer<typeof ContactSummary>;
 export const ContactDetail = ContactSummary.extend({ custom: z.record(z.string(), z.unknown()), updatedAt: iso, openTaskCount: z.number().int() });
@@ -84,10 +96,12 @@ export const UpdateContactBody = z.object({
 });
 export type UpdateContactBody = z.input<typeof UpdateContactBody>;
 
-export const CONTACT_SORTS = ["name", "created", "lastActivity"] as const;
+export const CONTACT_SORTS = ["name", "created", "lastActivity", "stage", "value"] as const;
 export const ContactListQuery = z.object({
   search: z.string().max(100).optional(),
   lifecycleStageId: uuid.optional(),
+  /** Pipeline stage of the contact's lead. The default pipeline's first stage also matches contacts that have no lead yet. */
+  stageId: uuid.optional(),
   /** "me", "unassigned" or a user id */
   ownerId: z.string().max(100).optional(),
   /** comma-separated tag ids; a contact matches when it has any of them */
@@ -101,6 +115,29 @@ export const ContactListQuery = z.object({
   limit: z.coerce.number().int().min(1).max(100).optional(),
 });
 export type ContactListQuery = z.input<typeof ContactListQuery>;
+/** Same filters as the list, minus stage, paging and sort. Contacts without a lead count under the default pipeline's first stage. */
+export const ContactStageCountsQuery = ContactListQuery.omit({ stageId: true, cursor: true, limit: true, sort: true, dir: true });
+export type ContactStageCountsQuery = z.input<typeof ContactStageCountsQuery>;
+export const ContactStageCounts = z.object({ items: z.array(z.object({ stageId: uuid, count: z.number().int() })), total: z.number().int() });
+export type ContactStageCounts = z.infer<typeof ContactStageCounts>;
+export const ContactLeadState = z.object({ lead: ContactLead.nullable() });
+export type ContactLeadState = z.infer<typeof ContactLeadState>;
+/** Stage, value and owner of a contact. Creates the lead when the contact has none (expectedVersion is then not needed); otherwise expectedVersion is the lead's version. */
+export const PutContactLeadBody = z.object({
+  expectedVersion: z.number().int().optional(),
+  stageId: uuid.optional(), lostReasonId: uuid.optional(),
+  valueMinor: z.number().int().min(0).max(9007199254740991).nullable().optional(), currency: Currency.nullable().optional(),
+  ownerUserId: z.string().nullable().optional(),
+}).refine((b) => b.stageId !== undefined || b.valueMinor !== undefined || b.currency !== undefined || b.ownerUserId !== undefined, "Nothing to update")
+  .refine((b) => (b.valueMinor === undefined && b.currency === undefined) || (b.valueMinor == null) === (b.currency == null), "Value and currency go together");
+export type PutContactLeadBody = z.input<typeof PutContactLeadBody>;
+export const PutContactLeadResult = z.object({ lead: ContactLead, created: z.boolean() });
+export type PutContactLeadResult = z.infer<typeof PutContactLeadResult>;
+export const BulkContactStageBody = z.object({ contactIds: z.array(uuid).min(1).max(100), stageId: uuid, lostReasonId: uuid.optional() });
+export type BulkContactStageBody = z.input<typeof BulkContactStageBody>;
+/** One entry per requested contact; code is "ok", "created" (a lead was created), "unchanged" or the error code of the single move. */
+export const BulkContactStageResult = z.object({ results: z.array(z.object({ id: uuid, ok: z.boolean(), code: z.string() })) });
+export type BulkContactStageResult = z.infer<typeof BulkContactStageResult>;
 export const ContactPage = z.object({ items: z.array(ContactSummary), nextCursor: z.string().nullable(), total: z.number().int() });
 export type ContactPage = z.infer<typeof ContactPage>;
 export const DuplicateCandidate = z.object({ id: uuid, name: z.string(), email: z.string().nullable(), phone: z.string().nullable(), matchedOn: z.array(z.enum(["email", "phone"])) });
@@ -116,11 +153,11 @@ export const ActivityPage = z.object({ items: z.array(ActivityItem), nextCursor:
 export const PageQuery = z.object({ cursor: uuid.optional(), limit: z.coerce.number().int().min(1).max(100).optional() });
 
 // ---------- saved views ----------
-export const CONTACT_COLUMNS = ["contact", "lifecycle", "owner", "tags", "source", "lastActivity", "created"] as const;
+export const CONTACT_COLUMNS = ["contact", "stage", "value", "owner", "lifecycle", "tags", "source", "lastActivity", "created"] as const;
 export const ContactColumn = z.enum(CONTACT_COLUMNS);
 export type ContactColumn = z.infer<typeof ContactColumn>;
 export const ViewConfig = z.object({
-  columns: z.array(ContactColumn).min(1).max(7).refine((c) => new Set(c).size === c.length, "Columns must be unique").refine((c) => c.includes("contact"), "The contact column is always shown"),
+  columns: z.array(ContactColumn).min(1).max(9).refine((c) => new Set(c).size === c.length, "Columns must be unique").refine((c) => c.includes("contact"), "The contact column is always shown"),
   filters: ContactListQuery.omit({ cursor: true, limit: true, sort: true, dir: true }),
   sort: z.enum(CONTACT_SORTS).default("lastActivity"),
   dir: z.enum(["asc", "desc"]).default("desc"),
@@ -181,6 +218,10 @@ export const crmEndpoints = {
 
   listContacts: endpoint({ method: "GET", path: `${W}/contacts`, query: ContactListQuery, response: ContactPage }),
   createContact: endpoint({ method: "POST", path: `${W}/contacts`, body: CreateContactBody, response: ContactDetail }),
+  contactStageCounts: endpoint({ method: "GET", path: `${W}/contacts/stage-counts`, query: ContactStageCountsQuery, response: ContactStageCounts }),
+  bulkContactStage: endpoint({ method: "POST", path: `${W}/contacts/bulk-stage`, body: BulkContactStageBody, response: BulkContactStageResult }),
+  getContactLead: endpoint({ method: "GET", path: `${W}/contacts/:contactId/lead`, response: ContactLeadState }),
+  putContactLead: endpoint({ method: "PUT", path: `${W}/contacts/:contactId/lead`, body: PutContactLeadBody, response: PutContactLeadResult }),
   exportContacts: endpoint({ method: "GET", path: `${W}/contacts/export`, query: ContactListQuery, response: z.string(), responseType: "text" }),
   getContact: endpoint({ method: "GET", path: `${W}/contacts/:contactId`, response: ContactDetail }),
   updateContact: endpoint({ method: "PATCH", path: `${W}/contacts/:contactId`, body: UpdateContactBody, response: ContactDetail }),

@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { and, desc, eq, inArray, isNull, lt, sql } from "drizzle-orm";
-import { AddContactTagBody, ContactListQuery, CreateContactBody, NoteBody, PageQuery, UpdateContactBody } from "@crm/contracts";
+import { AddContactTagBody, BulkContactStageBody, ContactListQuery, ContactStageCountsQuery, CreateContactBody, NoteBody, PageQuery, PutContactLeadBody, UpdateContactBody } from "@crm/contracts";
 import { normalizeEmail, normalizePhone, toCsv, validateCustomValues, type BlobStore } from "@crm/core";
 import { can } from "@crm/core/permissions";
 import { schema, user, withContext, type Db, type Tx } from "@crm/db";
@@ -10,12 +10,19 @@ import { deleteAttachmentBlobs } from "../inbox/attachments.ts";
 import { emitEvent } from "../events.ts";
 import { activeMember, activeStages, customDefs, findDuplicates, loadContact, lockContactWrites, recordActivity, toDetail, toFieldDef, toSummaries } from "../crm-service.ts";
 import { filters, type Q } from "../contact-query.ts";
+import { firstStage, leadsFor, PRIMARY_LEAD_JOIN, Rollback, stageWhere, upsertContactLead, type FirstStage } from "../contact-lead.ts";
+import { WindowCounter } from "../throttle.ts";
+import { leadOps } from "./leads.ts";
 import { actor, body, fail, forbidden, isUuid, query, wctx, type SC, type ScopedEnv } from "./scope.ts";
 
 const EXPORT_LIMIT = 10_000;
 const TS = (col: string) => `to_char(${col} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`;
 const CURSOR_TS_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/;
 const SORT_EXPR = { name: "c.name", created: "c.created_at", lastActivity: "c.last_activity_at" } as const;
+const NUM_CURSOR_RE = /^-?\d{1,16}$/;
+type SortName = keyof typeof SORT_EXPR | "stage" | "value";
+/** stage: position of the lead's stage (a contact without a lead sits in the default pipeline's first stage); value: lead value in minor units, 0 when none. Both need PRIMARY_LEAD_JOIN. */
+const sortExpr = (sort: SortName, first: FirstStage | null) => (sort === "stage" ? `coalesce(ps.position, ${Number(first?.position ?? 0)})` : sort === "value" ? "coalesce(pl.value_minor, 0)" : SORT_EXPR[sort]);
 
 const enc = (o: unknown) => Buffer.from(JSON.stringify(o)).toString("base64url");
 const dec = (s: string): { k: string; id: string; sort: string; dir: string } | null => {
@@ -30,31 +37,54 @@ const dec = (s: string): { k: string; id: string; sort: string; dir: string } | 
 export function contactRoutes(db: Db, hooks: { blobs?: BlobStore } = {}) {
   const r = new Hono<ScopedEnv>();
 
-  async function page(c: SC, tx: Tx, q: Q) {
+  const ops = leadOps();
+  const bulkCalls = new WindowCounter(30, 60_000);
+
+  /** Filters of the list and the stage counts. A lead join is only added when the stage filter or a stage/value sort needs it, so the plain list stays as fast as before. */
+  async function listFilters(c: SC, tx: Tx, q: Q, withStage: boolean) {
     const { workspaceId, userId } = wctx(c);
-    const sort = (q.sort as keyof typeof SORT_EXPR) ?? "lastActivity";
-    const dir = q.dir === "asc" ? "asc" : "desc";
-    const limit = Math.min(Number(q.limit ?? 25) || 25, 100);
     const f = filters(workspaceId, userId, q);
     if (f.error) return { error: f.error } as const;
-    const keyExpr = sql.raw(SORT_EXPR[sort]);
-    const keySel = sql.raw(sort === "name" ? "c.name" : TS(SORT_EXPR[sort]));
+    const sort = (q.sort as SortName) ?? "lastActivity";
+    if ((sort === "value") && !can(c.get("role"), "lead.value.view", {})) return { forbidden: true } as const;
+    const needJoin = withStage && (!!q.stageId || sort === "stage" || sort === "value");
+    const first = needJoin || !withStage ? await firstStage(tx, workspaceId) : null;
     const where = [...f.where];
+    if (withStage && q.stageId) where.push(stageWhere(String(q.stageId), first));
+    return { where, needJoin, first, sort } as const;
+  }
+
+  async function page(c: SC, tx: Tx, q: Q) {
+    const { workspaceId } = wctx(c);
+    const lf = await listFilters(c, tx, q, true);
+    if ("error" in lf) return { error: lf.error } as const;
+    if ("forbidden" in lf) return { forbidden: true } as const;
+    const { sort, first } = lf;
+    const dir = q.dir === "asc" ? "asc" : "desc";
+    const limit = Math.min(Number(q.limit ?? 25) || 25, 100);
+    const expr = sortExpr(sort, first);
+    const numeric = sort === "stage" || sort === "value";
+    const keyExpr = sql.raw(expr);
+    const keySel = sql.raw(sort === "name" ? "c.name" : numeric ? `(${expr})::text` : TS(expr));
+    const from = lf.needJoin ? sql`contacts c ${PRIMARY_LEAD_JOIN}` : sql`contacts c`;
+    const where = [...lf.where];
     if (q.cursor) {
       const cur = dec(String(q.cursor));
       if (!cur || cur.sort !== sort || cur.dir !== dir) return { error: "The cursor does not match this query" } as const;
-      // A tampered key must be a 400, never reach a ::timestamptz cast (22007 -> 500).
-      if (sort === "name" ? cur.k.length > 300 || cur.k.includes("\u0000") : !CURSOR_TS_RE.test(cur.k) || Number.isNaN(Date.parse(cur.k))) return { error: "The cursor does not match this query" } as const;
+      // A tampered key must be a 400, never reach a ::timestamptz or ::bigint cast (22007 -> 500).
+      if (sort === "name" ? cur.k.length > 300 || cur.k.includes("\u0000") : numeric ? !NUM_CURSOR_RE.test(cur.k) : !CURSOR_TS_RE.test(cur.k) || Number.isNaN(Date.parse(cur.k))) return { error: "The cursor does not match this query" } as const;
       const cmp = sql.raw(dir === "desc" ? "<" : ">");
-      where.push(sort === "name" ? sql`(${keyExpr}, c.id) ${cmp} (${cur.k}, ${cur.id}::uuid)` : sql`(${keyExpr}, c.id) ${cmp} (${cur.k}::timestamptz, ${cur.id}::uuid)`);
+      where.push(sort === "name" ? sql`(${keyExpr}, c.id) ${cmp} (${cur.k}, ${cur.id}::uuid)` : numeric ? sql`(${keyExpr}, c.id) ${cmp} (${cur.k}::bigint, ${cur.id}::uuid)` : sql`(${keyExpr}, c.id) ${cmp} (${cur.k}::timestamptz, ${cur.id}::uuid)`);
     }
-    const order = sql.raw(`${SORT_EXPR[sort]} ${dir}, c.id ${dir}`);
-    const rows = (await tx.execute(sql`SELECT c.id, ${keySel} AS k FROM contacts c WHERE ${sql.join(where, sql` AND `)} ORDER BY ${order} LIMIT ${limit + 1}`)).rows as { id: string; k: string }[];
-    const total = ((await tx.execute(sql`SELECT count(*)::int AS n FROM contacts c WHERE ${sql.join(f.where, sql` AND `)}`)).rows[0] as { n: number }).n;
+    const order = sql.raw(`${expr} ${dir}, c.id ${dir}`);
+    const rows = (await tx.execute(sql`SELECT c.id, ${keySel} AS k FROM ${from} WHERE ${sql.join(where, sql` AND `)} ORDER BY ${order} LIMIT ${limit + 1}`)).rows as { id: string; k: string }[];
+    const total = ((await tx.execute(sql`SELECT count(*)::int AS n FROM ${from} WHERE ${sql.join(lf.where, sql` AND `)}`)).rows[0] as { n: number }).n;
     const pageRows = rows.slice(0, limit);
     const full = pageRows.length ? await tx.select().from(schema.contacts).where(and(eq(schema.contacts.workspaceId, workspaceId), inArray(schema.contacts.id, pageRows.map((x) => x.id)))) : [];
     const byId = new Map(full.map((x) => [x.id, x]));
-    const items = await toSummaries(tx, workspaceId, pageRows.map((x) => byId.get(x.id)!).filter(Boolean));
+    const summaries = await toSummaries(tx, workspaceId, pageRows.map((x) => byId.get(x.id)!).filter(Boolean));
+    const leads = await leadsFor(tx, c, ops, summaries.map((x) => x.id));
+    const items = summaries.map((x) => ({ ...x, lead: leads.get(x.id) ?? null }));
     const last = pageRows[pageRows.length - 1];
     return { items, total, nextCursor: rows.length > limit && last ? enc({ k: last.k, id: last.id, sort, dir }) : null } as const;
   }
@@ -64,8 +94,67 @@ export function contactRoutes(db: Db, hooks: { blobs?: BlobStore } = {}) {
     if (!q.ok) return q.res;
     return withContext(db, wctx(c), async (tx) => {
       const res = await page(c, tx, q.data as Q);
-      return "error" in res ? fail(c, 400, "invalid_query", res.error) : c.json(res);
+      return "error" in res ? fail(c, 400, "invalid_query", res.error) : "forbidden" in res ? forbidden(c) : c.json(res);
     });
+  });
+
+  // ----- one contact = one lead in the UI (D260): stage counts, bulk stage, stage/value/owner of one contact. Registered before /contacts/:contactId. -----
+  r.get("/contacts/stage-counts", async (c) => {
+    const q = query(c, ContactStageCountsQuery);
+    if (!q.ok) return q.res;
+    return withContext(db, wctx(c), async (tx) => {
+      const lf = await listFilters(c, tx, q.data as Q, false);
+      if ("error" in lf) return fail(c, 400, "invalid_query", lf.error);
+      if ("forbidden" in lf) return forbidden(c);
+      // Same lateral join and same where as the list, so the numbers add up to the list's totals. No lead counts under the default pipeline's first stage.
+      const rows = (await tx.execute(sql`SELECT ${lf.first ? sql`coalesce(pl.stage_id, ${lf.first.id}::uuid)` : sql`pl.stage_id`} AS stage_id, count(*)::int AS n FROM contacts c ${PRIMARY_LEAD_JOIN} WHERE ${sql.join(lf.where, sql` AND `)} GROUP BY 1`)).rows as { stage_id: string | null; n: number }[];
+      return c.json({ items: rows.filter((x) => x.stage_id).map((x) => ({ stageId: x.stage_id!, count: x.n })), total: rows.reduce((t, x) => t + x.n, 0) });
+    });
+  });
+
+  r.post("/contacts/bulk-stage", async (c) => {
+    if (!ops.writer(c)) return forbidden(c);
+    if (!bulkCalls.allow(`${c.get("workspaceId")}:${c.get("userId")}`)) { c.header("Retry-After", "60"); return fail(c, 429, "rate_limited", "Too many bulk moves. Try again in a minute."); }
+    const b = await body(c, BulkContactStageBody);
+    if (!b.ok) return b.res;
+    const results: { id: string; ok: boolean; code: string }[] = [];
+    // ponytail: one transaction per contact, sequential (max 100), like /leads/bulk-stage; one shared transaction would let one bad contact undo the rest.
+    for (const id of [...new Set(b.data.contactIds)]) {
+      try {
+        const out = await withContext(db, wctx(c), (tx) => upsertContactLead(tx, c, ops, id, { stageId: b.data.stageId, lostReasonId: b.data.lostReasonId }, true));
+        results.push({ id, ok: out.ok, code: out.ok ? (out.created ? "created" : out.changed ? "ok" : "unchanged") : out.code });
+      } catch (e) {
+        results.push({ id, ok: false, code: e instanceof Rollback ? e.code : "internal_error" });
+      }
+    }
+    return c.json({ results });
+  });
+
+  r.get("/contacts/:contactId/lead", async (c) => {
+    const id = c.req.param("contactId");
+    if (!isUuid(id)) return fail(c, 404, "not_found");
+    const { workspaceId } = wctx(c);
+    return withContext(db, wctx(c), async (tx) => {
+      if (!(await loadContact(tx, workspaceId, id))) return fail(c, 404, "not_found");
+      return c.json({ lead: (await leadsFor(tx, c, ops, [id])).get(id) ?? null });
+    });
+  });
+
+  r.put("/contacts/:contactId/lead", async (c) => {
+    if (!ops.writer(c)) return forbidden(c);
+    const id = c.req.param("contactId");
+    if (!isUuid(id)) return fail(c, 404, "not_found");
+    const b = await body(c, PutContactLeadBody);
+    if (!b.ok) return b.res;
+    try {
+      return await withContext(db, wctx(c), async (tx) => {
+        const out = await upsertContactLead(tx, c, ops, id, b.data);
+        return out.ok ? c.json({ lead: out.lead, created: out.created }, out.created ? 201 : 200) : fail(c, out.status, out.code, out.message, out.details);
+      });
+    } catch (e) {
+      if (e instanceof Rollback) return fail(c, e.status, e.code, e.message || undefined, e.details);
+      throw e;
+    }
   });
 
   r.get("/contacts/export", async (c) => {
@@ -76,9 +165,12 @@ export function contactRoutes(db: Db, hooks: { blobs?: BlobStore } = {}) {
     return withContext(db, wctx(c), async (tx) => {
       const f = filters(workspaceId, userId, q.data as Q);
       if (f.error) return fail(c, 400, "invalid_query", f.error);
-      const total = ((await tx.execute(sql`SELECT count(*)::int AS n FROM contacts c WHERE ${sql.join(f.where, sql` AND `)}`)).rows[0] as { n: number }).n;
+      const stageId = q.data.stageId;
+      const from = stageId ? sql`contacts c ${PRIMARY_LEAD_JOIN}` : sql`contacts c`;
+      if (stageId) f.where.push(stageWhere(stageId, await firstStage(tx, workspaceId)));
+      const total = ((await tx.execute(sql`SELECT count(*)::int AS n FROM ${from} WHERE ${sql.join(f.where, sql` AND `)}`)).rows[0] as { n: number }).n;
       if (total > EXPORT_LIMIT) return fail(c, 413, "too_many_rows", `Export up to ${EXPORT_LIMIT} contacts at a time. Narrow the filters.`);
-      const ids = ((await tx.execute(sql`SELECT c.id FROM contacts c WHERE ${sql.join(f.where, sql` AND `)} ORDER BY c.name, c.id`)).rows as { id: string }[]).map((x) => x.id);
+      const ids = ((await tx.execute(sql`SELECT c.id FROM ${from} WHERE ${sql.join(f.where, sql` AND `)} ORDER BY c.name, c.id`)).rows as { id: string }[]).map((x) => x.id);
       const rows = ids.length ? await tx.select().from(schema.contacts).where(and(eq(schema.contacts.workspaceId, workspaceId), inArray(schema.contacts.id, ids))) : [];
       const order = new Map(ids.map((id, i) => [id, i]));
       rows.sort((a, b) => order.get(a.id)! - order.get(b.id)!);

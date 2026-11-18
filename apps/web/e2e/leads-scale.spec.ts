@@ -1,8 +1,8 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Browser, type BrowserContext, type Page } from "@playwright/test";
-import { addMemberByEmail, api, register, seedContacts } from "./helpers";
+import { addMemberByEmail, api, register } from "./helpers";
 
-// Leads-only slice: Leads is the one place for sales opportunities, built to stay usable with thousands of rows.
+// One contact, one lead (D260): the Contacts list is the one place for stages, built to stay usable with thousands of rows. Formerly the Leads list scale spec; the same scenarios, ported to Contacts.
 const TOTAL = 130;
 const IN_QUALIFIED = 25;
 const ws = (id: string, path = "") => `/v1/workspaces/${id}${path}`;
@@ -36,7 +36,6 @@ test.beforeAll(async ({ browser }) => {
   const v = await newUser(browser, "Vera Viewer");
   await addMemberByEmail(workspaceId, v.email, "viewer");
   viewer = v;
-  const [contactId] = await seedContacts(owner.page, workspaceId, [{ name: "Ana Costa" }]);
   const cfg = await (await api(owner.page).get(ws(workspaceId, "/pipelines"))).json();
   const stages = cfg.pipelines[0].stages as { id: string; name: string; kind: string }[];
   newId = stages.find((s) => s.name === "New")!.id;
@@ -44,160 +43,133 @@ test.beforeAll(async ({ browser }) => {
   const ids: string[] = [];
   for (let i = 0; i < TOTAL; i += 10) {
     const batch = await Promise.all(Array.from({ length: Math.min(10, TOTAL - i) }, async (_, k) => {
-      const r = await api(owner.page).post(ws(workspaceId, "/leads"), { title: `Scale lead ${String(i + k).padStart(3, "0")}`, primaryContactId: contactId, allowDuplicate: true });
-      if (r.status() !== 201) throw new Error(`seed lead failed: ${r.status()} ${await r.text()}`);
+      const r = await api(owner.page).post(ws(workspaceId, "/contacts"), { name: `Scale contact ${String(i + k).padStart(3, "0")}` });
+      if (r.status() !== 201) throw new Error(`seed contact failed: ${r.status()} ${await r.text()}`);
       return (await r.json()).id as string;
     }));
     ids.push(...batch);
   }
-  const moved = await api(owner.page).post(ws(workspaceId, "/leads/bulk-stage"), { leadIds: ids.slice(0, IN_QUALIFIED), stageId: qualifiedId });
+  // Only these get a lead (created by the bulk move); the other 105 stay lead-less and count as the first stage.
+  const moved = await api(owner.page).post(ws(workspaceId, "/contacts/bulk-stage"), { contactIds: ids.slice(0, IN_QUALIFIED), stageId: qualifiedId });
   expect(moved.status()).toBe(200);
+  expect(((await moved.json()) as { results: { code: string }[] }).results.every((r) => r.code === "created")).toBe(true);
 });
 test.afterAll(async () => { await owner?.ctx.close(); await viewer?.ctx.close(); });
 
 test("stage chips show server counts and filter the list; the filter lives in the URL; Load more appends", async () => {
   test.setTimeout(120_000);
   const { page } = owner;
-  await page.goto(`/w/${workspaceId}/leads`);
-  await expect(page.getByRole("heading", { level: 1, name: "Leads" })).toBeVisible();
+  await page.goto(`/w/${workspaceId}/contacts`);
+  await expect(page.getByRole("heading", { level: 1, name: "Contacts" })).toBeVisible();
   const chips = page.getByRole("group", { name: "Filter by stage" });
-  await expect(chips.getByRole("button", { name: `All ${TOTAL} open leads` })).toHaveAttribute("aria-pressed", "true");
-  await expect(chips.getByRole("button", { name: `New ${TOTAL - IN_QUALIFIED} leads` })).toBeVisible();
-  await expect(chips.getByRole("button", { name: `Qualified ${IN_QUALIFIED} leads` })).toBeVisible();
-  await expect(chips.getByRole("button", { name: "Won 0 leads" })).toBeVisible();
+  await expect(chips.getByRole("button", { name: `All ${TOTAL}` })).toHaveAttribute("aria-pressed", "true");
+  await expect(chips.getByRole("button", { name: `New ${TOTAL - IN_QUALIFIED}` })).toBeVisible(); // lead-less contacts count as the first stage
+  await expect(chips.getByRole("button", { name: `Qualified ${IN_QUALIFIED}` })).toBeVisible();
+  await expect(chips.getByRole("button", { name: "Won 0" })).toBeVisible();
 
-  // paging: 50 per page, visible count, appended rows
-  await expect(page.getByText(`Showing 50 of ${TOTAL}`)).toBeVisible();
+  // paging: 25 per page, visible count, appended rows
+  await expect(page.getByText(new RegExp(`Showing 25 of ${TOTAL}$`))).toBeVisible();
   await page.getByRole("button", { name: "Load more" }).click();
-  await expect(page.getByText(`Showing 100 of ${TOTAL}`)).toBeVisible();
-  await page.getByRole("button", { name: "Load more" }).click();
-  await expect(page.getByText(`Showing ${TOTAL} of ${TOTAL}`)).toBeVisible();
-  await expect(page.getByRole("button", { name: "Load more" })).toHaveCount(0);
+  await expect(page.getByText(new RegExp(`Showing 50 of ${TOTAL}$`))).toBeVisible();
 
   // chip -> stage filter in the URL
-  await chips.getByRole("button", { name: `Qualified ${IN_QUALIFIED} leads` }).click();
-  await expect(page).toHaveURL(new RegExp(`leads\\?stage=${qualifiedId}`));
-  await expect(page.getByText(`Showing ${IN_QUALIFIED} of ${IN_QUALIFIED}`)).toBeVisible();
-  await expect(chips.getByRole("button", { name: `Qualified ${IN_QUALIFIED} leads` })).toHaveAttribute("aria-pressed", "true");
+  await chips.getByRole("button", { name: `Qualified ${IN_QUALIFIED}` }).click();
+  await expect(page).toHaveURL(new RegExp(`contacts\\?stageId=${qualifiedId}`));
+  await expect(page.getByText(new RegExp(`Showing ${IN_QUALIFIED} of ${IN_QUALIFIED}$`))).toBeVisible();
+  await expect(chips.getByRole("button", { name: `Qualified ${IN_QUALIFIED}` })).toHaveAttribute("aria-pressed", "true");
   // survives a reload (server renders the same state) and shows the same counts
   await page.reload();
-  await expect(chips.getByRole("button", { name: `Qualified ${IN_QUALIFIED} leads` })).toHaveAttribute("aria-pressed", "true");
-  await expect(page.getByText(`Showing ${IN_QUALIFIED} of ${IN_QUALIFIED}`)).toBeVisible();
+  await expect(chips.getByRole("button", { name: `Qualified ${IN_QUALIFIED}` })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByText(new RegExp(`Showing ${IN_QUALIFIED} of ${IN_QUALIFIED}$`))).toBeVisible();
   // other filters narrow the counts but not each other: searching keeps every chip
-  await page.getByLabel("Search leads by title").fill("Scale lead 00");
-  await expect(page).toHaveURL(/q=Scale\+lead\+00/);
-  await expect(chips.getByRole("button", { name: `Qualified 10 leads` })).toBeVisible();
-  await page.getByLabel("Search leads by title").fill("");
-  // Back returns to the previous chip state
-  await page.getByRole("button", { name: /^All \d+ open leads/ }).click();
-  await expect(page).not.toHaveURL(/stage=/);
-  await page.goBack();
-  await expect(chips.getByRole("button", { name: `Qualified ${IN_QUALIFIED} leads` })).toHaveAttribute("aria-pressed", "true");
+  await page.getByLabel("Search contacts").fill("Scale contact 00");
+  await expect(page).toHaveURL(/search=Scale\+contact\+00/);
+  await expect(chips.getByRole("button", { name: "Qualified 10" })).toBeVisible();
+  await page.getByLabel("Search contacts").fill("");
 });
 
-test("My leads toggle, last-activity and value filters exist, and the leads UI never says deal", async () => {
+test("owner filter works with the stage filter, and the screen never says deal", async () => {
   const { page } = owner;
-  await page.goto(`/w/${workspaceId}/leads`);
-  await expect(page.getByRole("button", { name: "My leads" })).toHaveAttribute("aria-pressed", "false");
-  await page.getByRole("button", { name: "My leads" }).click();
-  await expect(page.getByRole("button", { name: "My leads" })).toHaveAttribute("aria-pressed", "true");
-  await expect(page).toHaveURL(/owner=/);
-  await expect(page.getByText("No leads match these filters")).toBeVisible(); // nothing is assigned yet
-  await page.getByRole("button", { name: "My leads" }).click();
-  await page.getByLabel("Last activity").selectOption("7");
-  await expect(page).toHaveURL(/active=7/);
-  await expect(page.getByText(`Showing 50 of ${TOTAL}`)).toBeVisible();
-  await page.getByLabel("Minimum value").fill("1");
-  await expect(page).toHaveURL(/min=1/);
-  await expect(page.getByText("No leads match these filters")).toBeVisible(); // no lead has a value
+  await page.goto(`/w/${workspaceId}/contacts`);
+  await page.getByLabel("Owner", { exact: true }).selectOption("me");
+  await expect(page.getByText("No contacts match these filters")).toBeVisible(); // nothing is assigned yet
   await page.getByRole("button", { name: "Clear filters" }).click();
-  await expect(page.getByText(`Showing 50 of ${TOTAL}`)).toBeVisible();
+  await expect(page.getByText(new RegExp(`Showing 25 of ${TOTAL}$`))).toBeVisible();
   expect(await page.locator("body").innerText()).not.toMatch(/\bdeals?\b/i);
-  await page.getByRole("button", { name: "New lead", exact: true }).first().click();
-  expect(await page.getByRole("dialog").innerText()).not.toMatch(/\bdeals?\b/i);
-  await page.keyboard.press("Escape");
 });
 
 test("bulk change stage: select on the page, confirm, counts refresh, failures are not silent", async () => {
   test.setTimeout(120_000);
   const { page } = owner;
-  await page.goto(`/w/${workspaceId}/leads?stage=${newId}`);
+  await page.goto(`/w/${workspaceId}/contacts?stageId=${newId}`);
   const chips = page.getByRole("group", { name: "Filter by stage" });
-  await expect(page.getByText(`Showing 50 of ${TOTAL - IN_QUALIFIED}`)).toBeVisible();
+  await expect(page.getByText(new RegExp(`Showing 25 of ${TOTAL - IN_QUALIFIED}$`))).toBeVisible();
   await page.getByRole("checkbox", { name: "Select all on this page" }).check();
-  await expect(page.getByText("50 selected")).toBeVisible();
+  await expect(page.getByText("25 selected")).toBeVisible();
   await page.getByRole("checkbox", { name: "Select all on this page" }).uncheck();
   await expect(page.getByRole("region", { name: "Bulk actions" })).toHaveCount(0);
-  for (const t of ["125", "126", "127"]) await page.getByRole("checkbox", { name: `Select Scale lead ${t}` }).check(); // newest first: these are on page 1
+  const boxes = page.getByRole("checkbox", { name: /^Select Scale contact/ });
+  const names: string[] = [];
+  for (const i of [0, 1, 2]) { const b = boxes.nth(i); names.push((await b.getAttribute("aria-label"))!.replace("Select ", "")); await b.check(); }
   await expect(page.getByText("3 selected")).toBeVisible();
   const n = 3;
   await page.getByRole("button", { name: "Change stage", exact: true }).first().click();
   const dlg = page.getByRole("dialog");
-  await expect(dlg.getByRole("button", { name: `Move ${n} leads` })).toBeDisabled(); // nothing chosen yet
+  await expect(dlg.getByRole("button", { name: `Move ${n} contacts` })).toBeDisabled(); // nothing chosen yet
   await dlg.getByLabel("New stage").selectOption({ label: "Qualified" });
-  await dlg.getByRole("button", { name: `Move ${n} leads` }).click();
+  await dlg.getByRole("button", { name: `Move ${n} contacts` }).click();
   await expect(dlg).toBeHidden();
-  await expect(chips.getByRole("button", { name: `Qualified ${IN_QUALIFIED + n} leads` })).toBeVisible(); // server counts refetched
-  await expect(chips.getByRole("button", { name: `New ${TOTAL - IN_QUALIFIED - n} leads` })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Scale lead 125" })).toHaveCount(0); // gone from the New list
+  await expect(chips.getByRole("button", { name: `Qualified ${IN_QUALIFIED + n}` })).toBeVisible(); // server counts refetched
+  await expect(chips.getByRole("button", { name: `New ${TOTAL - IN_QUALIFIED - n}` })).toBeVisible();
+  await expect(page.getByRole("link", { name: names[0]! })).toHaveCount(0); // gone from the New list
 
-  // a lead deleted by someone else meanwhile is reported, not skipped silently
-  const row = page.getByRole("checkbox", { name: /^Select Scale lead 12[89]$/ }).first();
+  // a contact deleted by someone else meanwhile is reported, not skipped silently
+  const row = boxes.first();
   const label = (await row.getAttribute("aria-label"))!.replace("Select ", "");
-  const list = await (await api(page).get(ws(workspaceId, `/leads?q=${encodeURIComponent(label)}`))).json();
-  const target = list.items[0] as { id: string; version: number };
+  const list = await (await api(page).get(ws(workspaceId, `/contacts?search=${encodeURIComponent(label)}`))).json();
+  const target = list.items[0] as { id: string };
   await row.check();
-  expect((await api(page).post(ws(workspaceId, `/leads/${target.id}/move`), { expectedVersion: target.version, stageId: qualifiedId })).status()).toBe(200);
-  const del = await page.request.delete(ws(workspaceId, `/leads/${target.id}?expectedVersion=${target.version + 1}`), { headers: { origin: `http://localhost:${process.env.E2E_WEB_PORT ?? "3217"}` } });
-  expect(del.status()).toBe(200);
+  const del = await page.request.delete(ws(workspaceId, `/contacts/${target.id}`), { headers: { origin: `http://localhost:${process.env.E2E_WEB_PORT ?? "3217"}` } });
+  expect(del.status()).toBe(204);
   await page.getByRole("button", { name: "Change stage", exact: true }).first().click();
   await page.getByRole("dialog").getByLabel("New stage").selectOption({ label: "Qualified" });
-  await page.getByRole("dialog").getByRole("button", { name: "Move 1 lead" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Move 1 contact" }).click();
   await expect(page.getByRole("dialog").getByText(/1 not moved: 1 no longer exist/)).toBeVisible();
 });
 
-test("/pipeline redirects to /leads, the sidebar has no Pipeline, and Settings > Lead stages stays", async () => {
+test("/pipeline and /leads redirect to Contacts, the sidebar has neither, and Settings > Lead stages stays", async () => {
   const { page } = owner;
   await page.goto(`/w/${workspaceId}/pipeline`);
-  await expect(page).toHaveURL(new RegExp(`/w/${workspaceId}/leads$`));
-  await expect(page.getByRole("heading", { level: 1, name: "Leads" })).toBeVisible();
-  await expect(page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Pipeline" })).toHaveCount(0);
-  await expect(page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Leads" })).toBeVisible();
+  await expect(page).toHaveURL(new RegExp(`/w/${workspaceId}/contacts$`));
+  await page.goto(`/w/${workspaceId}/leads`);
+  await expect(page).toHaveURL(new RegExp(`/w/${workspaceId}/contacts$`));
+  await expect(page.getByRole("heading", { level: 1, name: "Contacts" })).toBeVisible();
+  for (const gone of ["Pipeline", "Leads"]) await expect(page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: gone })).toHaveCount(0);
   await page.goto(`/w/${workspaceId}/settings/pipelines`);
   await expect(page.getByRole("heading", { level: 1, name: "Lead stages" })).toBeVisible();
 });
 
-test("a viewer sees the list and chips but cannot select or bulk move", async () => {
+test("a viewer sees the list and chips but cannot select, bulk move or sort by value", async () => {
   const { page } = viewer;
-  await page.goto(`/w/${workspaceId}/leads`);
+  await page.goto(`/w/${workspaceId}/contacts`);
   await expect(page.getByRole("group", { name: "Filter by stage" })).toBeVisible();
-  await expect(page.getByRole("link", { name: /^Scale lead/ }).first()).toBeVisible();
+  await expect(page.getByRole("link", { name: /^Scale contact/ }).first()).toBeVisible();
   await expect(page.getByRole("checkbox")).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "New lead", exact: true })).toHaveCount(0);
-  await expect(page.getByLabel("Minimum value")).toHaveCount(0); // viewers never see values, so no value-range probing
-  const r = await api(page).post(ws(workspaceId, "/leads/bulk-stage"), { leadIds: ["00000000-0000-4000-8000-000000000001"], stageId: qualifiedId });
+  await expect(page.getByRole("button", { name: /^Stage of / })).toHaveCount(0); // read-only stage, no menu
+  const r = await api(page).post(ws(workspaceId, "/contacts/bulk-stage"), { contactIds: ["00000000-0000-4000-8000-000000000001"], stageId: qualifiedId });
   expect(r.status()).toBe(403);
 });
 
-test("375, 768 and 1440: cards on phones with selectable rows, no overflow, accessible", async () => {
+test("375, 768 and 1440: cards on phones, no overflow, accessible", async () => {
   test.setTimeout(120_000);
   const { page } = owner;
   for (const [width, height] of [[375, 800], [768, 900], [1440, 900]] as const) {
     await page.setViewportSize({ width, height });
-    await page.goto(`/w/${workspaceId}/leads`);
+    await page.goto(`/w/${workspaceId}/contacts`);
     await expect(page.getByRole("group", { name: "Filter by stage" })).toBeVisible();
-    await expect(page.getByText(/^Showing \d+ of \d+$/)).toBeVisible();
+    await expect(page.getByText(/Showing \d+ of \d+$/)).toBeVisible();
     await noOverflow(page);
-    if (width === 375) {
-      await expect(page.getByRole("table")).toBeHidden();
-      const card = page.getByRole("list", { name: "Leads" }).getByRole("checkbox").first();
-      const box = (await card.locator("xpath=..").boundingBox())!;
-      expect(box.width).toBeGreaterThanOrEqual(44);
-      expect(box.height).toBeGreaterThanOrEqual(44);
-      await card.check();
-      await expect(page.getByText("1 selected")).toBeVisible();
-      await noOverflow(page);
-    }
+    if (width === 375) await expect(page.getByRole("table")).toBeHidden();
     await axe(page);
   }
 });

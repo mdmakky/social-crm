@@ -36,8 +36,8 @@ describe("navigation permissions", () => {
     expect(labels("admin")).toEqual(labels("owner"));
   });
   it("the sidebar is daily work plus one Settings entry, the same for every role that can use it", () => {
-    expect(labels("owner")).toEqual(["Home", "Inbox", "Contacts", "Tasks", "Leads", "Reports", "Settings"]);
-    expect(labels("viewer")).toEqual(["Home", "Inbox", "Contacts", "Tasks", "Leads", "Reports", "Settings"]);
+    expect(labels("owner")).toEqual(["Home", "Inbox", "Contacts", "Tasks", "Reports", "Settings"]);
+    expect(labels("viewer")).toEqual(["Home", "Inbox", "Contacts", "Tasks", "Reports", "Settings"]);
     for (const gone of ["Integrations", "Members", "Audit log", "Automation", "AI assistant"]) expect(labels("owner")).not.toContain(gone);
   });
   it("derives page titles from the path", () => {

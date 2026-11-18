@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
-import { endpoints, ContactListQuery } from "@crm/contracts";
+import { endpoints, ContactListQuery, type ContactStageCountsQuery } from "@crm/contracts";
 import { can } from "@crm/core/permissions";
 import { dataOf, must, serverApi } from "@/lib/api";
 import { ContactsView } from "./contacts-view";
 
 export const metadata: Metadata = { title: "Contacts" };
 
-const FILTER_KEYS = ["search", "lifecycleStageId", "ownerId", "tagIds", "source", "sort", "dir"] as const;
+const FILTER_KEYS = ["search", "lifecycleStageId", "stageId", "ownerId", "tagIds", "source", "sort", "dir"] as const;
 
 export default async function ContactsPage({ params, searchParams }: { params: Promise<{ workspaceId: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const { workspaceId } = await params;
@@ -18,7 +18,8 @@ export default async function ContactsPage({ params, searchParams }: { params: P
 
   const api = await serverApi();
   const p = { workspaceId };
-  const [ws, me, first, stages, tags, members, views, fields] = await Promise.all([
+  const { stageId: _s, sort: _o, dir: _d, cursor: _c, limit: _l, ...shared } = query;
+  const [ws, me, first, stages, tags, members, views, fields, pipelines, counts] = await Promise.all([
     api.call(endpoints.getWorkspace, { params: p }),
     api.call(endpoints.me),
     api.call(endpoints.listContacts, { params: p, query }),
@@ -27,6 +28,8 @@ export default async function ContactsPage({ params, searchParams }: { params: P
     api.call(endpoints.listMembers, { params: p }),
     api.call(endpoints.listViews, { params: p }),
     api.call(endpoints.listCustomFields, { params: p }),
+    api.call(endpoints.listPipelines, { params: p }),
+    api.call(endpoints.contactStageCounts, { params: p, query: shared as ContactStageCountsQuery }),
   ]);
   const workspace = must(ws);
   const role = workspace.role;
@@ -37,12 +40,15 @@ export default async function ContactsPage({ params, searchParams }: { params: P
       myUserId={must(me).id}
       initial={dataOf(first)}
       initialQuery={query}
+      pipelines={(dataOf(pipelines)?.pipelines ?? []).filter((x) => !x.archived)}
+      lostReasons={(dataOf(pipelines)?.lostReasons ?? []).filter((r) => !r.archived)}
+      initialCounts={dataOf(counts)}
       stages={dataOf(stages) ?? []}
       tags={dataOf(tags) ?? []}
       members={dataOf(members) ?? []}
       views={dataOf(views) ?? []}
       fields={(dataOf(fields) ?? []).filter((f) => !f.archived)}
-      perms={{ edit: can(role, "contact.edit", {}), import: can(role, "data.import", {}), export: can(role, "data.export", {}), shareViews: can(role, "view.share", {}), schema: can(role, "schema.manage", {}) }}
+      perms={{ lead: can(role, "lead.edit", {}), removeLeads: can(role, "lead.delete", {}), viewValue: can(role, "lead.value.view", {}), edit: can(role, "contact.edit", {}), import: can(role, "data.import", {}), export: can(role, "data.export", {}), shareViews: can(role, "view.share", {}), schema: can(role, "schema.manage", {}) }}
     />
   );
 }

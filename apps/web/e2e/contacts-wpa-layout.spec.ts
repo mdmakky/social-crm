@@ -24,7 +24,7 @@ test("list details: no stray sort chevron on desktop (F10), 24px targets (F15), 
   expect(sb.width).toBeGreaterThanOrEqual(24);
   expect(sb.height).toBeGreaterThanOrEqual(24);
   // F18: the stage is dot plus text, with no pill background or border
-  const stage = page.getByRole("row").nth(1).getByRole("cell").nth(1).locator("span").first();
+  const stage = page.getByRole("row").nth(1).getByRole("cell").nth(2).getByRole("button").locator("span").first(); // cell 0 is the row checkbox, 1 the contact, 2 the stage
   await expect(stage).toHaveText(/\w/);
   const style = await stage.evaluate((e) => { const s = getComputedStyle(e); return { bg: s.backgroundColor, radius: s.borderRadius, border: s.borderTopWidth }; });
   expect(style).toEqual({ bg: "rgba(0, 0, 0, 0)", radius: "0px", border: "0px" });
