@@ -111,9 +111,9 @@ function SheetBody({ value, onDone, tags, ...rest }: Props & { onDone: (v: LeadF
   return (
     <div>
       <p role="status" className="sr-only">{live} {live === 1 ? "filter" : "filters"} selected</p>
-      <fieldset className="relative mb-3">
+      <fieldset className="mb-3">
         <legend className="mb-1 text-sm font-semibold text-fg-muted">Agent</legend>
-        <button type="button" className="absolute right-0 top-[-0.9rem] min-h-11 px-2 text-sm font-medium text-accent-fg" onClick={() => setD({ ...d, ownerId: "me" })}>Only me</button>
+        <button type="button" className="flex min-h-11 items-center rounded-control px-1 text-md font-medium text-accent-fg" onClick={() => setD({ ...d, ownerId: "me" })}>Only me</button>
         {rows.map((r) => <label key={r.token} className={rowCls}><input type="checkbox" className={boxCls} checked={sel.includes(r.token)} onChange={() => setD({ ...d, ownerId: toggleIn(d.ownerId, r.token) })} /><Avatar name={r.plain} size="sm" /><span className="min-w-0 flex-1 truncate">{r.name}</span><Count n={r.count} /></label>)}
         <label className={rowCls}><input type="checkbox" className={boxCls} checked={sel.includes("unassigned")} onChange={() => setD({ ...d, ownerId: toggleIn(d.ownerId, "unassigned") })} /><span className="flex-1">Unassigned</span><Count n={unassigned} /></label>
       </fieldset>

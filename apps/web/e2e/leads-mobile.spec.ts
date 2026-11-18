@@ -34,7 +34,7 @@ test.describe.serial("leads on phones", () => {
     const cfg = await (await page.request.get(`/v1/workspaces/${ws}/pipelines`)).json();
     const pipe = cfg.pipelines[0];
     for (let i = pipe.stages.length; i < 12; i++) {
-      const r = await post(`/v1/workspaces/${ws}/pipelines/${pipe.id}/stages`, { name: i === 6 ? LONG : `Extra stage ${i}`, defaultProbability: 50 });
+      const r = await post(`/v1/workspaces/${ws}/pipelines/${pipe.id}/stages`, { name: i === 8 ? LONG : `Extra stage ${i}`, defaultProbability: 50 });
       expect(r.status()).toBe(201);
     }
     const stages = (await (await page.request.get(`/v1/workspaces/${ws}/pipelines`)).json()).pipelines[0].stages.filter((s: { archived: boolean }) => !s.archived);
@@ -90,6 +90,7 @@ test.describe.serial("leads on phones", () => {
     const long = strip.getByRole("button", { name: new RegExp(LONG.slice(0, 20)) });
     await long.scrollIntoViewIfNeeded();
     await long.click();
+    await expect(page).toHaveURL(/stageId=/); // the URL follows the click after a short debounce
     await page.reload();
     const again = page.getByRole("group", { name: "Filter by stage" }).getByRole("button", { name: new RegExp(LONG.slice(0, 20)) });
     await expect(again).toHaveAttribute("aria-pressed", "true");
@@ -120,11 +121,11 @@ test.describe.serial("leads on phones", () => {
     await page.getByRole("button", { name: "Filters", exact: true }).click();
     const sheet = page.getByRole("dialog", { name: "Filters" });
     await expect(sheet).toBeVisible();
-    expect((await sheet.boundingBox())!.y + (await sheet.boundingBox())!.height).toBeLessThanOrEqual(812 + 1); // inside the screen
+    await expect.poll(async () => { const b = await sheet.boundingBox(); return b ? b.y + b.height : 99999; }).toBeLessThanOrEqual(812 + 1); // inside the screen once it has slid in
     const row = sheet.getByRole("checkbox", { name: /Sam Agent/ });
     expect((await row.locator("xpath=ancestor::label").boundingBox())!.height).toBeGreaterThanOrEqual(44);
     await row.check();
-    await expect(page.getByRole("list", { name: "Leads" }).getByRole("listitem")).toHaveCount(8); // nothing changes until Apply
+    await expect(page.getByRole("list", { name: "Leads", includeHidden: true }).getByRole("listitem", { includeHidden: true })).toHaveCount(8); // the page behind the sheet is inert; nothing changes until Apply
     await sheet.getByRole("button", { name: "Apply" }).click();
     await expect(sheet).toBeHidden();
     await expect(page.getByRole("list", { name: "Leads" }).getByRole("listitem")).toHaveCount(4);

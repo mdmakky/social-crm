@@ -11,7 +11,7 @@ test.describe("contact settings confirmations", () => {
     await seedContacts(page, workspaceId, [{ name: "In Stage" }]);
     await page.goto(`/w/${workspaceId}/settings/contacts`);
     const stages = stagesPanel(page);
-    const row = stages.getByRole("listitem").filter({ hasText: "1 contact" });
+    const row = stages.getByRole("listitem").filter({ hasText: "1 lead" });
     await row.getByRole("button", { name: "Archive" }).click();
     const dialog = page.getByRole("dialog");
     await expect(dialog).toContainText(/cannot be newly assigned/);
@@ -37,7 +37,7 @@ test.describe("contact settings confirmations", () => {
     await seedContacts(page, workspaceId, [{ name: "In Stage" }]);
     await page.goto(`/w/${workspaceId}/settings/contacts`);
     await page.route("**/lifecycle-stages/*", (r) => r.fulfill(err500));
-    await stagesPanel(page).getByRole("listitem").filter({ hasText: "1 contact" }).getByRole("button", { name: "Archive" }).click();
+    await stagesPanel(page).getByRole("listitem").filter({ hasText: "1 lead" }).getByRole("button", { name: "Archive" }).click();
     await page.getByRole("dialog").getByRole("button", { name: "Archive stage" }).click();
     await expect(page.getByRole("dialog").getByRole("alert")).toContainText("Something went wrong");
   });

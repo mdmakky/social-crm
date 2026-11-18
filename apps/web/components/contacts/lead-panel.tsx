@@ -163,7 +163,7 @@ export function StageStepper({ stages, current, disabled, onPick }: { stages: St
           const done = current.kind !== "open" || (curIdx >= 0 && i < curIdx);
           return (
             <li key={s.id} className={cn("min-w-0", cur ? "flex-[2] sm:flex-1" : "flex-1")}>
-              <button type="button" disabled={disabled} title={s.name} aria-label={`Set stage to ${s.name}`} aria-current={cur ? "step" : undefined} onClick={() => onPick(s)} className="press group block w-full text-left pointer-coarse:min-h-11">
+              <button type="button" disabled={disabled} title={s.name} aria-label={`Set stage to ${s.name}`} aria-current={cur ? "step" : undefined} onClick={() => onPick(s)} className="press group block min-h-7 w-full pt-1 text-left pointer-coarse:min-h-11">
                 <span className={cn("block h-1.5 rounded-full transition-colors duration-[var(--dur-base)] motion-reduce:transition-none", cur ? "bg-accent" : done ? "bg-accent/35" : "bg-line group-hover:bg-line-strong")} />
                 <span className={cn("mt-2 block truncate text-sm font-medium", cur ? "text-fg" : "text-fg-subtle group-hover:text-fg", !cur && (many ? "hidden" : "max-sm:hidden"))}>{s.name}</span>
               </button>
@@ -172,7 +172,7 @@ export function StageStepper({ stages, current, disabled, onPick }: { stages: St
         })}
       </ol>
       <div className="flex w-full items-center gap-2 sm:w-auto">
-        <Select aria-label="Stage" wrapperClassName={cn("min-w-0 flex-1", many ? "" : "sm:hidden")} value={current.id} disabled={disabled} onChange={(e) => { const s = stages.find((x) => x.id === e.target.value); if (s) onPick(s); }}>
+        <Select aria-label="Stage" wrapperClassName={cn("min-w-0 flex-1 sm:w-44 sm:flex-none", many ? "" : "sm:hidden")} value={current.id} disabled={disabled} onChange={(e) => { const s = stages.find((x) => x.id === e.target.value); if (s) onPick(s); }}>
           {stages.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
         </Select>
         {outcomes.length > 0 && (

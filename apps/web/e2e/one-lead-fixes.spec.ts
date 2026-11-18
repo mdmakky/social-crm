@@ -95,8 +95,10 @@ test("remove and restore, value access for an agent, and no lifecycle stage", as
   await page.getByRole("dialog").getByRole("button", { name: "Remove", exact: true }).click();
   await expect(page.getByText("Not tracked yet. Change anything here to start.")).toBeVisible();
   await page.goto(`/w/${workspaceId}/contacts`);
-  await page.getByRole("button", { name: "Recently removed" }).click();
+  await page.getByRole("button", { name: "More actions" }).click(); // on a phone the header buttons live in the More menu (D305)
+  await page.getByRole("menuitem", { name: "Recently removed" }).click();
   await expect(page.getByRole("dialog").getByRole("link", { name: "Ana Costa" })).toBeVisible();
+  await expect(page.locator("[role=menu], [role=menuitem]")).toHaveCount(0); // axe must not catch the More menu mid fade-out
   await axe(page, "removed@375");
   await page.screenshot({ path: "/tmp/ol2-removed-375.png" });
   await page.setViewportSize({ width: 1440, height: 900 });

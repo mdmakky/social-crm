@@ -14,7 +14,7 @@ test("command menu finds a lead by title and opens it", async ({ page }) => {
   await dialog.getByRole("combobox").fill("quokka");
   const opt = dialog.getByRole("option", { name: /Quokka Expansion/ });
   await expect(opt).toBeVisible();
-  await expect(dialog.getByText("Leads", { exact: true })).toBeVisible();
+  await expect(dialog.getByText("Lead records", { exact: true })).toBeVisible(); // the Leads group is the people list now; this one is the lead records (D300)
   await expect(dialog).not.toContainText("424242");
   await opt.click();
   await expect(page).toHaveURL(new RegExp(`/w/${workspaceId}/contacts/${contactId}$`)); // a lead link opens its contact (D260)

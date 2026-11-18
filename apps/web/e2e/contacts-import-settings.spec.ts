@@ -36,26 +36,26 @@ test.describe("csv import wizard", () => {
     await expect(problems.getByText(/Row 6:.*Unknown lifecycle stage/)).toBeVisible();
     await expect(page.getByText("1 possible duplicate")).toBeVisible();
     await expect(page.getByRole("link", { name: "Existing Erin" })).toBeVisible();
-    const importBtn = page.getByRole("button", { name: /^Import 2 contacts$/ });
+    const importBtn = page.getByRole("button", { name: /^Import 2 leads$/ });
     await expect(importBtn).toBeDisabled(); // problems must be acknowledged first
     await axe(page, "import-step3");
 
     await page.getByLabel(/Skip the 2 problem rows/).check();
     await expect(importBtn).toBeEnabled();
     // choose to update the existing contact instead of skipping it
-    await page.getByLabel("Update the existing contact").check();
-    await expect(page.getByRole("button", { name: /^Import 3 contacts$/ })).toBeEnabled();
-    await page.getByRole("button", { name: /^Import 3 contacts$/ }).click();
+    await page.getByLabel("Update the existing lead").check();
+    await expect(page.getByRole("button", { name: /^Import 3 leads$/ })).toBeEnabled();
+    await page.getByRole("button", { name: /^Import 3 leads$/ }).click();
 
     await expect(page.getByRole("heading", { name: "Import complete" })).toBeFocused();
     await expect(page.getByText("2 added · 1 updated · 0 skipped.")).toBeVisible();
-    await page.getByRole("link", { name: "View contacts" }).click();
+    await page.getByRole("link", { name: "View leads" }).click();
     await expect(page.getByText("3 leads")).toBeVisible();
     await page.getByLabel("Search leads").fill("erin@exist");
     await expect(page.getByRole("link", { name: "Erin Again" })).toBeVisible(); // name and company were updated
     await page.getByLabel("Search leads").fill("mia@");
     await page.getByRole("link", { name: "Mia Import" }).click();
-    await expect(page.getByText("Import Owner imported this contact from people.csv")).toBeVisible();
+    await expect(page.getByText("Import Owner imported this lead from people.csv")).toBeVisible();
     await expect(page.getByRole("list", { name: "Tags on this lead" }).getByText("vip")).toBeVisible();
   });
 
@@ -122,7 +122,7 @@ test.describe("contact settings", () => {
     await page.getByLabel("Label").fill("Tier");
     await page.getByLabel("Type").selectOption({ label: "Single choice" });
     await page.getByLabel("Options").fill("gold, silver");
-    await page.getByLabel("Required when adding a contact").check();
+    await page.getByLabel("Required when adding a lead").check();
     await page.getByRole("button", { name: "Add field" }).click();
 
     await page.goto(`/w/${workspaceId}/contacts`);
@@ -156,7 +156,7 @@ test.describe("contact settings", () => {
 
     await page.getByRole("button", { name: "Delete tag trial-user" }).click();
     const dialog = page.getByRole("dialog", { name: 'Delete tag "trial-user"?' });
-    await expect(dialog).toContainText("removed from 1 contact");
+    await expect(dialog).toContainText("removed from 1 lead");
     await dialog.getByRole("button", { name: "Delete tag" }).click();
     await expect(page.getByText("No tags yet.")).toBeVisible();
     await page.goto(`/w/${workspaceId}/contacts/${id}`);

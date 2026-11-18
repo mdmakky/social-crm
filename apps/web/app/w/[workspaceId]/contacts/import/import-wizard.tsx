@@ -22,7 +22,7 @@ const IMPORT_MESSAGES: Record<string, string> = {
   too_large: "That file is too large. Split it into files up to 5 MB and 5,000 rows.",
   rate_limited: "You started too many imports. Wait a few minutes and try again.",
   import_expired: "This upload expired. Nothing was imported. Upload it again.",
-  already_committed: "This import has already been completed. Check your contacts, or upload another file.",
+  already_committed: "This import has already been completed. Check your leads, or upload another file.",
   import_busy: "Another import is running in this workspace. Wait a moment, then try again.",
 };
 const STATUS_CODE: Record<number, string> = { 413: "too_large", 429: "rate_limited" };
@@ -126,7 +126,7 @@ export function ImportWizard({ workspaceId }: { workspaceId: string }) {
               {busy ? "Reading file…" : "Choose file"}
               <input type="file" accept=".csv,text/csv,text/plain" className="sr-only" disabled={busy} onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; void onFile(f); }} aria-label="CSV file" />
             </label>
-            <Button asChild variant="ghost"><a download="contacts-template.csv" href={`data:text/csv;charset=utf-8,${encodeURIComponent(TEMPLATE)}`}>Download a template</a></Button>
+            <Button asChild variant="ghost"><a download="leads-template.csv" href={`data:text/csv;charset=utf-8,${encodeURIComponent(TEMPLATE)}`}>Download a template</a></Button>
           </div>
           <p className="mt-4 text-sm text-fg-subtle">Nothing is saved until the last step.</p>
         </Panel>
