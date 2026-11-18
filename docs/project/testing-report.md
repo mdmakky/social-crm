@@ -270,3 +270,10 @@ Private DB `inv_f` (fresh via `scripts/db-create.sh inv_f`), migration 0035.
 - Also re-run, unchanged: contract, conversations, send, whatsapp-send, inbox-ingress, meta-connect, contact-methods (97 passed).
 - Browser: `e2e/email.spec.ts` 3 passed (connect in mock mode, injected signed inbound email appears in the Inbox with subject, plain text, quote stripped, unverified sender badged and not repliable, reply shown as Sent). Screenshots 1440 and 375 px viewed. `e2e/integrations.spec.ts` re-run on a fresh DB with the Email rail entry added: 8 passed, no assertion changed.
 - Not covered: anything against a real Mailgun account, deliverability, the full suites.
+
+## Web chat owner preview (2026-11-18, `feat/widget-preview`)
+
+- `apps/api/test/web-chat.test.ts` 19 -> 25 (private DB `wp_f`, serial): new "owner preview grant" tests: mint is owner/admin only and 10 minutes; works from our origin although it is not on the allowlist (and marks the session, allowlist unchanged); refused without a grant, garbled or tampered, from another origin or host; refused after expiry (clock injected); bound to widget and workspace; refused for a switched-off widget. Normal allowlist tests unchanged and passing. `contract.test.ts` passed.
+- Browser (ports 5481/9981, mock Meta, local storage): `e2e/web-chat-preview.spec.ts` 2 passed: allowed-sites hint, path rejection and normalised address; preview button; launcher appears on the sample page from the real loader; open, send, see it in the Inbox, reply, see the reply; width toggle (375 px frame shows the full-width sheet); reset visitor; axe at 1280 and 375 (preview page including the sample frame); switched-off widget state; sample route framing headers. `e2e/web-chat.spec.ts` 2 passed.
+- Changed assertions in `web-chat.spec.ts`: (1) a site that is not on the list now shows NO launcher plus the console warning (was: launcher and an empty frame); (2) at 375 px the check "a Close chat button is attached" (racy with the loader hiding its launcher) became "the dialog is 375 px wide".
+- Not covered: any real third-party site, the full suites, the mobile app.

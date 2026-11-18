@@ -1,6 +1,7 @@
 "use client";
 import * as React from "react";
-import { Copy, ExternalLink, MessageSquareText, Plus } from "lucide-react";
+import Link from "next/link";
+import { Copy, Eye, MessageSquareText, Plus } from "lucide-react";
 import { endpoints, type ChatWidgetDto } from "@crm/contracts";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,22 +18,48 @@ type Form = { name: string; origins: string; color: string; greeting: string; of
 const BLANK: Form = { name: "", origins: "", color: "#2563eb", greeting: "", offline: "", prechat: false };
 const toForm = (w: ChatWidgetDto): Form => ({ name: w.name, origins: w.allowedOrigins.join("\n"), color: w.color, greeting: w.greeting ?? "", offline: w.offlineMessage ?? "", prechat: w.prechatForm });
 const lines = (s: string) => s.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
-const snippet = (key: string) => `<script src="${typeof window === "undefined" ? "" : window.location.origin}/widget.js" data-widget-key="${key}" async></script>`;
+const FORMAT = "Use the address of the site: https://www.example.com (no page path, no slash at the end).";
+/** One address per line -> the clean origin the server stores (scheme and host, lower case) or a plain reason why not. A site that is not on this list shows no chat at all. */
+function parseOrigins(text: string): { origins: string[]; errors: string[] } {
+  const origins: string[] = [], errors: string[] = [];
+  for (const line of lines(text)) {
+    let u: URL | null = null;
+    try { u = new URL(line); } catch { /* handled below */ }
+    if (!u || !/^https?:$/.test(u.protocol) || !/^https?:\/\/[^/]/i.test(line)) errors.push(`"${line}" is not an address. ${FORMAT}`);
+    else if (u.username || u.password || u.search || u.hash || u.pathname.replace(/\/+$/, "") !== "") errors.push(`"${line}" has more than the site address. Remove the page path: ${u.origin}`);
+    else if (!origins.includes(u.origin)) origins.push(u.origin);
+  }
+  return { origins, errors };
+}
+const snippet =(key: string) => `<script src="${typeof window === "undefined" ? "" : window.location.origin}/widget.js" data-widget-key="${key}" async></script>`;
 
 /** Widget form: used to create and to edit. Origins are one per line, scheme and host only. */
 function WidgetForm({ initial, busy, error, submitLabel, onSubmit, onCancel }: { initial: Form; busy: boolean; error: string | null; submitLabel: string; onSubmit: (f: Form) => void; onCancel: () => void }) {
   const [f, setF] = React.useState(initial);
   const [nameErr, setNameErr] = React.useState<string | null>(null);
+  const [touched, setTouched] = React.useState(false);
   const set = <K extends keyof Form>(k: K, v: Form[K]) => setF((x) => ({ ...x, [k]: v }));
+  const parsed = parseOrigins(f.origins);
+  const originErr = touched && parsed.errors.length ? parsed.errors.join(" ") : null;
   return (
     <form
       className="flex flex-col gap-4 px-4 py-4"
-      onSubmit={(e) => { e.preventDefault(); if (!f.name.trim()) { setNameErr("Give the widget a name."); return; } setNameErr(null); onSubmit(f); }}
+      onSubmit={(e) => {
+        e.preventDefault();
+        setTouched(true);
+        if (!f.name.trim()) { setNameErr("Give the widget a name."); return; }
+        setNameErr(null);
+        if (parsed.errors.length) return;
+        onSubmit({ ...f, origins: parsed.origins.join("\n") });
+      }}
     >
       <Field label="Name" hint="Only you see this." error={nameErr}>{(p) => <Input {...p} value={f.name} maxLength={80} onChange={(e) => set("name", e.target.value)} />}</Field>
-      <Field label="Sites that may show the chat" hint="One address per line, like https://example.com. Chat will not load on any other site.">
-        {(p) => <Textarea {...p} rows={3} value={f.origins} spellCheck={false} placeholder={"https://example.com\nhttps://www.example.com"} onChange={(e) => set("origins", e.target.value)} />}
-      </Field>
+      <div className="flex flex-col gap-1.5">
+        <Field label="Sites that may show the chat" hint="One address per line, like https://www.example.com (no page path, no slash at the end). A site that is not on this list shows no chat at all. Add both the www and the plain address if you use both." error={originErr}>
+          {(p) => <Textarea {...p} rows={3} value={f.origins} spellCheck={false} placeholder={"https://www.example.com\nhttps://example.com"} onChange={(e) => set("origins", e.target.value)} onBlur={() => setTouched(true)} />}
+        </Field>
+        {parsed.origins.length > 0 && <p aria-live="polite" className="text-xs text-fg-subtle">Will be saved as: {parsed.origins.join(", ")}</p>}
+      </div>
       <div className="grid gap-4 sm:grid-cols-[8rem_1fr]">
         <Field label="Color">{(p) => <input {...p} type="color" value={f.color} onChange={(e) => set("color", e.target.value)} className="h-[var(--control-h)] w-full cursor-pointer rounded-control border border-line bg-surface p-1 pointer-coarse:h-[var(--control-h-touch)]" />}</Field>
         <Field label="Greeting" hint="Shown before the visitor writes. Optional.">{(p) => <Input {...p} value={f.greeting} maxLength={300} onChange={(e) => set("greeting", e.target.value)} />}</Field>
@@ -55,7 +82,6 @@ function WidgetCard({ w, workspaceId, onChanged }: { w: ChatWidgetDto; workspace
   const [busy, setBusy] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const code = snippet(w.publicKey);
-  const previewHost = w.allowedOrigins[0];
 
   async function save(f: Form) {
     setBusy("save"); setError(null);
@@ -94,6 +120,10 @@ function WidgetCard({ w, workspaceId, onChanged }: { w: ChatWidgetDto; workspace
         <WidgetForm initial={toForm(w)} busy={busy === "save"} error={error} submitLabel="Save changes" onSubmit={save} onCancel={() => { setEditing(false); setError(null); }} />
       ) : (
         <div className="flex flex-col gap-4 px-4 py-4">
+          <div className="flex flex-wrap items-center gap-3 rounded-control bg-subtle px-3 py-3">
+            <Button asChild variant="primary"><Link href={`/w/${workspaceId}/settings/web-chat/preview?widget=${w.id}`}><Eye aria-hidden /> Preview on a sample page</Link></Button>
+            <p className="text-sm text-fg-muted">Try the chat on a made-up page first. No need to install anything.</p>
+          </div>
           <div>
             <p className="text-sm font-medium text-fg" id={`snip-${w.id}`}>Install code</p>
             <p className="mt-0.5 text-sm text-fg-subtle">Paste this before the closing &lt;/body&gt; tag of your website.</p>
@@ -102,11 +132,6 @@ function WidgetCard({ w, workspaceId, onChanged }: { w: ChatWidgetDto; workspace
           {w.allowedOrigins.length === 0 && <Alert tone="warning">Add the address of your website first. Until then the chat will not appear.</Alert>}
           <div className="flex flex-wrap gap-2">
             <Button onClick={() => void copy()}><Copy aria-hidden /> Copy install code</Button>
-            {previewHost ? (
-              <Button asChild><a href={`/widget/${w.publicKey}?host=${encodeURIComponent(previewHost)}`} target="_blank" rel="noopener noreferrer">Preview <ExternalLink aria-hidden /><span className="sr-only"> (opens in a new tab)</span></a></Button>
-            ) : (
-              <Button disabled title="Add a site first">Preview</Button>
-            )}
             <Button onClick={() => setEditing(true)}>Edit</Button>
             <Button onClick={() => void toggle()} loading={busy === "toggle"}>{w.enabled ? "Turn off" : "Turn on"}</Button>
           </div>

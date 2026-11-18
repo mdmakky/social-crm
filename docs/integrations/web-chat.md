@@ -84,7 +84,7 @@ Headers (`apps/web/next.config.ts`, `apps/web/proxy.ts`): every route except `/w
 
 ## Admin (Settings > Channels > Web chat)
 
-Owner/admin only (`integration.manage`; API and page). List, create (name, sites one per line, color, greeting, offline message, optional pre-chat), edit, turn on/off, copy the install code, preview (opens the widget page with `?host=<first allowed site>`), "Make a new install code" (old code stops working at once). Technical details are in a collapsed section. Audit: `widget.created`, `widget.updated` (field names only), `widget.key_rotated` (never the key). Limit 10 widgets per workspace.
+Owner/admin only (`integration.manage`; API and page). List, create (name, sites one per line, color, greeting, offline message, optional pre-chat), edit, turn on/off, copy the install code, "Preview on a sample page" (see below), "Make a new install code" (old code stops working at once). Technical details are in a collapsed section. Audit: `widget.created`, `widget.updated` (field names only), `widget.key_rotated` (never the key). Limit 10 widgets per workspace.
 
 ## Not in v1 (D249)
 
@@ -99,6 +99,16 @@ Attachments (either direction), typing indicators, read receipts, visitor identi
 5. Strict host-page `style-src` and `frame-src` policies against `widget.js`.
 6. Accessibility with a real screen reader (only axe was run).
 7. Browsers other than Chromium; phones.
+
+## Owner preview on a sample page (D270 to D277)
+
+Settings > Web chat > "Preview on a sample page" opens `/w/<ws>/settings/web-chat/preview` (owner/admin). It shows our made-up landing page `/widget-preview` (header, hero, three cards, footer, labelled "Sample page, not your site") in a frame at Desktop, Tablet 768 or Mobile 375 width, with the REAL `/widget.js`: launcher, open, close, Esc, polling and the phone sheet are the production code. Buttons: widget picker (when there are several), screen size, "Open widget", "Reset visitor" (clears the preview visitor's stored session). Messages are real and reach the Inbox as "Web chat user NNNN".
+
+How it passes the allowlist without weakening it: the page asks `POST .../web-chat/widgets/:id/preview` for a grant (signed, 10 minutes, bound to widget, workspace and user; refused for a switched-off widget). The sample page adds `data-preview-grant` to the loader tag; the loader sends it as `X-Widget-Preview` on `/config` and as `?preview=` on the widget iframe, and the widget page sends it on every call. The API accepts it only for the matching widget and workspace and only from our own web origin (D271); the widget's allowed sites are never changed. The sample route and a preview widget frame are framable only by our own origin (D274, D275).
+
+Loader check (D276): `widget.js` first reads `/public/widget/:key/config`. On a site that is not allowed it shows nothing and logs `Chat widget not shown: this site's origin is not allowed for this widget key`. Allowed-sites input (D277): one address per line like `https://www.example.com`, no path, no trailing slash; lines are normalised and shown as "Will be saved as".
+
+Limits: preview conversations carry no visible "Preview" label (only `user_agent = 'CRM preview'`, D272); tested on local origins only.
 
 ## How it was tested
 

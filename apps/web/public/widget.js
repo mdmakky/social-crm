@@ -11,6 +11,7 @@
   var base = new URL(s.src, location.href).origin;
   var color = /^#[0-9a-fA-F]{6}$/.test(s.getAttribute("data-color") || "") ? s.getAttribute("data-color") : "#2563eb";
   var reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var grant = s.getAttribute("data-preview-grant"); // owner preview only (settings, web chat): a signed 10 minute grant, useless on any other site
   var open = false, frame = null;
 
   function css(el, o) { for (var k in o) el.style[k] = o[k]; }
@@ -42,7 +43,7 @@
     if (open && !frame) {
       frame = document.createElement("iframe");
       frame.title = "Chat";
-      frame.src = base + "/widget/" + key + "?host=" + encodeURIComponent(location.origin);
+      frame.src = base + "/widget/" + key + "?host=" + encodeURIComponent(location.origin) + (grant ? "&preview=" + encodeURIComponent(grant) : "");
       frame.setAttribute("allow", "");
       css(frame, { border: "0", width: "100%", height: "100%", display: "block" });
       box.appendChild(frame);
@@ -60,5 +61,11 @@
     if (e.origin === base && frame && e.source === frame.contentWindow && e.data && e.data.type === "crm-chat:close") toggle(false);
   });
   function mount() { document.body.appendChild(box); document.body.appendChild(btn); layout(); }
-  if (document.body) mount(); else document.addEventListener("DOMContentLoaded", mount);
+  function go() { if (document.body) mount(); else document.addEventListener("DOMContentLoaded", mount); }
+  // Ask the chat server first: a site that is not allowed for this key gets no launcher at all (the browser hides the 403 behind a CORS error, so any failure reads the same).
+  fetch(base + "/public/widget/" + key + "/config", grant ? { headers: { "x-widget-preview": grant } } : {}).then(function (r) { return r.ok ? r.json() : null; }, function () { return null; }).then(function (c) {
+    if (!c) return console.warn("Chat widget not shown: this site's origin is not allowed for this widget key");
+    if (!c.enabled) console.warn("Chat widget is switched off in Social CRM: visitors see the offline message");
+    go();
+  });
 })();

@@ -19,6 +19,8 @@ export async function proxy(request: NextRequest) {
     }
   }
   const res = NextResponse.next();
+  // Owner preview (D270): the sample page on our own origin may frame the widget. Anyone can add ?preview=, but 'self' is only our own pages, and the API still demands a valid grant for every call.
+  if (request.nextUrl.searchParams.has("preview")) origins = [...origins, "'self'"];
   res.headers.set("Content-Security-Policy", `frame-ancestors ${origins.length ? origins.join(" ") : "'none'"}; base-uri 'self'; form-action 'self'; object-src 'none'`);
   return res;
 }

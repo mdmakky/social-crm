@@ -38,13 +38,14 @@ export function Chat({ widgetKey }: { widgetKey: string }) {
   const token = React.useRef<string | null>(null);
   const cursor = React.useRef(0);
   const host = React.useRef("");
+  const preview = React.useRef("");
   const timer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const failures = React.useRef(0);
   const inputRef = React.useRef<HTMLTextAreaElement>(null);
   const logRef = React.useRef<HTMLDivElement>(null);
 
   const call = React.useCallback(async (method: "GET" | "POST", path: string, body?: unknown) => {
-    const headers: Record<string, string> = { "x-widget-host": host.current };
+    const headers: Record<string, string> = { "x-widget-host": host.current, ...(preview.current ? { "x-widget-preview": preview.current } : {}) };
     if (body !== undefined) headers["content-type"] = "application/json";
     if (token.current) headers.authorization = `Bearer ${token.current}`;
     const res = await fetch(`${base}${path}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body), cache: "no-store" });
@@ -137,7 +138,9 @@ export function Chat({ widgetKey }: { widgetKey: string }) {
   }, [call, newSession, poll, schedule, storeKey]);
 
   React.useEffect(() => {
-    const q = new URLSearchParams(window.location.search).get("host") ?? "";
+    const sp = new URLSearchParams(window.location.search);
+    const q = sp.get("host") ?? "";
+    preview.current = sp.get("preview") ?? ""; // owner preview grant, passed on by widget.js from the sample page
     // location.ancestorOrigins (Chromium, Safari) is set by the browser and cannot be forged by the page; the ?host= value from the loader is the fallback.
     host.current = window.location.ancestorOrigins?.[0] ?? q;
     void Promise.resolve().then(start); // after the first render, so the first state change is not made inside the effect body
