@@ -1,9 +1,10 @@
 import type { ContactColumn, TagColor } from "@crm/contracts";
 import { CONTACT_COLUMNS } from "@crm/contracts";
 
-export const COLUMN_LABEL: Record<ContactColumn, string> = { contact: "Contact", lifecycle: "Lifecycle stage", owner: "Owner", tags: "Tags", source: "Source", lastActivity: "Last activity", created: "Created" };
-export const DEFAULT_COLUMNS: ContactColumn[] = [...CONTACT_COLUMNS];
-export const SORT_FOR_COLUMN: Partial<Record<ContactColumn, "name" | "lastActivity" | "created">> = { contact: "name", lastActivity: "lastActivity", created: "created" };
+export const COLUMN_LABEL: Record<ContactColumn, string> = { contact: "Contact", stage: "Stage", value: "Value", lifecycle: "Lifecycle", owner: "Owner", tags: "Tags", source: "Source", lastActivity: "Last activity", created: "Created" };
+/** Lifecycle is the older, separate label; it is available under Columns but no longer shown by default, so a contact reads as one thing: stage, value, owner. */
+export const DEFAULT_COLUMNS: ContactColumn[] = CONTACT_COLUMNS.filter((c) => c !== "lifecycle");
+export const SORT_FOR_COLUMN: Partial<Record<ContactColumn, "name" | "lastActivity" | "created" | "stage" | "value">> = { contact: "name", stage: "stage", value: "value", lastActivity: "lastActivity", created: "created" };
 
 export const SORT_OPTIONS = [
   { value: "lastActivity:desc", label: "Latest activity" },
@@ -12,6 +13,8 @@ export const SORT_OPTIONS = [
   { value: "created:asc", label: "Oldest" },
   { value: "name:asc", label: "Name A to Z" },
   { value: "name:desc", label: "Name Z to A" },
+  { value: "stage:asc", label: "Stage, first to last" },
+  { value: "value:desc", label: "Highest value" },
 ] as const;
 export const sortOptionFor = (sort: string | undefined, dir: string | undefined) => SORT_OPTIONS.find((o) => o.value === `${sort}:${dir}`)?.value ?? "custom";
 

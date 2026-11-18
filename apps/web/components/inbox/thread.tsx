@@ -517,7 +517,7 @@ function ContactPanel({ d, workspaceId, now, lead, canEditLead, onClose }: { d: 
                 })}
               </div>
             )}
-            <Link href={`/w/${workspaceId}/leads`} className="mt-3 inline-block text-sm font-medium text-accent-fg hover:underline">Open leads</Link>
+            <Link href={`/w/${workspaceId}/contacts/${lead.lead.primaryContact.id}`} className="mt-3 inline-block text-sm font-medium text-accent-fg hover:underline">Open contact</Link>
           </div>
         ) : (
           <div><p className="mb-2 text-sm text-fg-muted">No lead for this contact yet.</p><StageControl ctl={lead} canEdit={canEditLead} block className="w-full justify-start" /></div>

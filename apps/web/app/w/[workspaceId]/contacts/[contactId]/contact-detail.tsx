@@ -2,8 +2,8 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Check, ChevronDown, Clock, MessageSquare, MoreHorizontal, Pencil, Plus, Trash2, Workflow, X } from "lucide-react";
-import { endpoints, type ActivityItem, type ContactDetail, type ContactMethodDto, type CustomField, type DuplicateCandidate, type LifecycleStage, type Member, type Note, type Role, type LeadDto, type PipelineDto, type Tag, type Task } from "@crm/contracts";
+import { ArrowLeft, Check, ChevronDown, Clock, MessageSquare, MoreHorizontal, Pencil, Plus, Trash2, X } from "lucide-react";
+import { endpoints, type ActivityItem, type ContactDetail, type ContactMethodDto, type CustomField, type DuplicateCandidate, type LifecycleStage, type Member, type Note, type ContactLead, type LostReasonDto, type Role, type PipelineDto, type Tag, type Task } from "@crm/contracts";
 import { can } from "@crm/core/permissions";
 import { AdConsentPanel } from "./ad-consent-panel";
 import { CustomFieldInput } from "@/components/contacts/custom-field-input";
@@ -20,13 +20,14 @@ import { Alert, EmptyState } from "@/components/ui/states";
 import { browserApi, errorMessage } from "@/lib/client-api";
 import { activityText, relativeTime, sourceLabel, SOURCE_LABEL, TAG_TONE } from "@/lib/contacts";
 import { formatDateTime } from "@/lib/format";
-import { formatMoney, OUTCOME_LABEL, OUTCOME_TONE } from "@/lib/leads";
+import { LeadPanel } from "@/components/contacts/lead-panel";
+import { shownStage, stageHue } from "@/lib/contact-lead";
 
 type Props = {
   workspaceId: string; role: Role; timeZone: string; myUserId: string;
-  contact: ContactDetail; leadList: { items: LeadDto[]; pipelines: PipelineDto[] } | null; notes: Note[]; methods: ContactMethodDto[] | null; activity: { items: ActivityItem[]; nextCursor: string | null }; tasks: Task[];
+  contact: ContactDetail; leadInfo: { lead: ContactLead | null; loaded: boolean; pipelines: PipelineDto[]; lostReasons: LostReasonDto[] } | null; notes: Note[]; methods: ContactMethodDto[] | null; activity: { items: ActivityItem[]; nextCursor: string | null }; tasks: Task[];
   allTags: Tag[]; stages: LifecycleStage[]; members: Member[]; fields: CustomField[];
-  perms: { edit: boolean; delete: boolean; consent: boolean };
+  perms: { lead: boolean; setValue: boolean; edit: boolean; delete: boolean; consent: boolean };
 };
 
 /** Panels inside one group share a single surface and are divided by hairlines (no stack of identical boxes). */
@@ -62,6 +63,7 @@ export function ContactDetailView(props: Props) {
   const [activity, setActivity] = React.useState(props.activity);
   const [tasks, setTasks] = React.useState(props.tasks);
   const [allTags, setAllTags] = React.useState(props.allTags);
+  const [lead, setLead] = React.useState(props.leadInfo?.lead ?? null);
   const [savedVersion, setSavedVersion] = React.useState<number | null>(null); // the form remounts on each version, so the confirmation lives here
   const [carry, setCarry] = React.useState<Form | null>(null); // my unsaved edits, re-applied on top after a conflict reload
   const p = { workspaceId, contactId: c.id };
@@ -71,6 +73,8 @@ export function ContactDetailView(props: Props) {
     // keep older pages the user already loaded: prepend only unseen items, keep the existing cursor
     if (r.ok) setActivity((prev) => (prev.items.length === 0 ? r.data : { items: [...r.data.items.filter((i) => !prev.items.some((x) => x.id === i.id)), ...prev.items], nextCursor: prev.nextCursor }));
   }, [workspaceId, props.contact.id]);
+
+  const headStage = props.leadInfo?.loaded ? shownStage(props.leadInfo.pipelines, lead) : null;
 
   return (
     <>
@@ -91,7 +95,7 @@ export function ContactDetailView(props: Props) {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Status hue={STAGE_HUE[c.lifecycleStage.name.trim().toLowerCase()] ?? hueOf(c.lifecycleStage.name)}>{c.lifecycleStage.name}</Status>
+          {headStage ? <Status hue={stageHue(headStage)}>{headStage.name}</Status> : <Status hue={STAGE_HUE[c.lifecycleStage.name.trim().toLowerCase()] ?? hueOf(c.lifecycleStage.name)}>{c.lifecycleStage.name}</Status>}
           {perms.delete && <DeleteMenu workspaceId={workspaceId} contact={c} onDeleted={() => router.push(`/w/${workspaceId}/contacts`)} />}
         </div>
       </div>
@@ -99,7 +103,7 @@ export function ContactDetailView(props: Props) {
       <div className="grid items-start gap-4 lg:grid-cols-3">
         <div className="grid gap-4 lg:col-span-2">
           <div className={GROUP}>
-          <DetailsPanel key={c.version} c={c} carry={carry} onCarryUsed={() => setCarry(null)} onCarry={setCarry} saved={savedVersion === c.version} onSaved={(d, viaSave) => { setC(d); if (viaSave) setSavedVersion(d.version); void refreshActivity(); }} stages={stages} members={members} fields={fields} canEdit={perms.edit} workspaceId={workspaceId} myUserId={myUserId} />
+          <DetailsPanel key={c.version} c={c} carry={carry} onCarryUsed={() => setCarry(null)} onCarry={setCarry} saved={savedVersion === c.version} onSaved={(d, viaSave) => { setC(d); if (viaSave) setSavedVersion(d.version); void refreshActivity(); }} stages={stages} members={members} fields={fields} canEdit={perms.edit} workspaceId={workspaceId} myUserId={myUserId} showOwner={!props.leadInfo?.loaded} />
           <DetectedMethodsPanel workspaceId={workspaceId} contactId={c.id} initial={props.methods} canEdit={perms.edit} timeZone={timeZone} onPrimaryChanged={() => { void browserApi.call(endpoints.getContact, { params: { workspaceId, contactId: c.id } }).then((r) => { if (r.ok) setC(r.data); }); }} />
           <AdConsentPanel workspaceId={workspaceId} contactId={c.id} canEdit={perms.consent} timeZone={timeZone} members={members} />
           <TagsPanel c={c} allTags={allTags} canEdit={perms.edit} workspaceId={workspaceId} onChanged={(d, t) => { setC(d); if (t) setAllTags(t); void refreshActivity(); }} />
@@ -110,30 +114,11 @@ export function ContactDetailView(props: Props) {
           </div>
         </div>
         <div className={GROUP}>
+          {props.leadInfo?.loaded && <LeadPanel workspaceId={workspaceId} contact={c} lead={lead} pipelines={props.leadInfo.pipelines} lostReasons={props.leadInfo.lostReasons} members={members} canEdit={perms.lead} canEditOwner={perms.edit} canSetValue={perms.setValue} myUserId={myUserId} onLead={setLead} onContact={(d) => { setC(d); void refreshActivity(); }} />}
           <TasksPanel tasks={tasks} setTasks={setTasks} p={p} canEdit={perms.edit} role={role} myUserId={myUserId} members={members} timeZone={timeZone} onChanged={async () => { void refreshActivity(); const d = await browserApi.call(endpoints.getContact, { params: p }); if (d.ok) setC(d.data); }} />
           <Panel>
             <PanelHeader title="Conversations" />
             <EmptyState icon={MessageSquare} title="No conversations yet" description="Messages from this contact show here." className="py-8" />
-          </Panel>
-          <Panel>
-            <PanelHeader title="Leads" description={props.leadList?.items.length ? `${props.leadList.items.length} linked` : undefined} />
-            {!props.leadList ? (
-              <EmptyState icon={Workflow} title="Leads are not shown for your role" description="Ask an owner or admin for access to leads and pipelines." className="py-8" />
-            ) : props.leadList.items.length === 0 ? (
-              <EmptyState icon={Workflow} title="No leads yet" description="Leads for this contact show here. Lifecycle stage is separate from lead stages." className="py-8" action={<Link href={`/w/${workspaceId}/leads`} className="text-sm font-medium text-accent-fg hover:underline">Open leads</Link>} />
-            ) : (
-              <ul>
-                {props.leadList.items.map((l) => (
-                  <li key={l.id} className="flex items-center gap-3 border-b border-line-card px-4 py-2.5 last:border-b-0">
-                    <div className="min-w-0 flex-1">
-                      <Link href={`/w/${workspaceId}/leads/${l.id}`} className="block truncate text-base font-medium text-fg hover:underline pointer-coarse:-my-3 pointer-coarse:py-3">{l.title}</Link>
-                      <p className="truncate text-xs text-fg-subtle">{props.leadList!.pipelines.find((x) => x.id === l.pipelineId)?.stages.find((x) => x.id === l.stageId)?.name ?? "Stage"}{l.valueMinor !== null && l.currency ? ` · ${formatMoney(l.valueMinor, l.currency)}` : ""}</p>
-                    </div>
-                    <Badge tone={l.outcome === "open" ? "neutral" : OUTCOME_TONE[l.outcome]}>{OUTCOME_LABEL[l.outcome]}</Badge>
-                  </li>
-                ))}
-              </ul>
-            )}
           </Panel>
         </div>
       </div>
@@ -164,7 +149,7 @@ function DeleteMenu({ workspaceId, contact, onDeleted }: { workspaceId: string; 
   );
 }
 
-function DetailsPanel({ c, carry, onCarry, onCarryUsed, saved, onSaved, stages, members, fields, canEdit, workspaceId, myUserId }: { c: ContactDetail; carry: Form | null; onCarry: (f: Form) => void; onCarryUsed: () => void; saved: boolean; onSaved: (d: ContactDetail, viaSave?: boolean) => void; stages: LifecycleStage[]; members: Member[]; fields: CustomField[]; canEdit: boolean; workspaceId: string; myUserId: string }) {
+function DetailsPanel({ showOwner, c, carry, onCarry, onCarryUsed, saved, onSaved, stages, members, fields, canEdit, workspaceId, myUserId }: { c: ContactDetail; carry: Form | null; onCarry: (f: Form) => void; onCarryUsed: () => void; saved: boolean; onSaved: (d: ContactDetail, viaSave?: boolean) => void; stages: LifecycleStage[]; members: Member[]; fields: CustomField[]; showOwner: boolean; canEdit: boolean; workspaceId: string; myUserId: string }) {
   const initial = React.useMemo(() => toForm(c), [c]);
   const [form, setForm] = React.useState<Form>(carry ?? initial);
   React.useEffect(() => { if (carry) onCarryUsed(); }, []); // eslint-disable-line react-hooks/exhaustive-deps -- consume the carried edits once, on mount
@@ -237,7 +222,7 @@ function DetailsPanel({ c, carry, onCarry, onCarryUsed, saved, onSaved, stages, 
           <Field label="Email" action={c.email ? <a className="inline-flex text-sm text-fg-muted underline underline-offset-2 hover:text-fg pointer-coarse:min-h-11 pointer-coarse:items-center pointer-coarse:px-2" href={mailtoHref(c.email)}>Send email</a> : undefined}>{(x) => <Input {...x} type="email" inputMode="email" value={form.email} onChange={(e) => set({ email: e.target.value })} disabled={!canEdit} />}</Field>
           <Field label="Phone" action={c.phone ? <a className="inline-flex text-sm text-fg-muted underline underline-offset-2 hover:text-fg pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:items-center pointer-coarse:justify-center pointer-coarse:px-2" href={telHref(c.phone)}>Call</a> : undefined}>{(x) => <Input {...x} type="tel" inputMode="tel" value={form.phone} onChange={(e) => set({ phone: e.target.value })} disabled={!canEdit} />}</Field>
           <Field label="Lifecycle stage">{(x) => <Select {...x} value={form.stage} onChange={(e) => set({ stage: e.target.value })} disabled={!canEdit}>{stageOptions.map((s) => <option key={s.id} value={s.id}>{s.name}{s.archived ? " (archived)" : ""}</option>)}</Select>}</Field>
-          <Field label="Owner">{(x) => <Select {...x} value={form.owner} onChange={(e) => set({ owner: e.target.value })} disabled={!canEdit}><option value="">Unassigned</option>{members.map((m) => <option key={m.userId} value={m.userId}>{m.name}{m.userId === myUserId ? " (you)" : ""}</option>)}</Select>}</Field>
+          {showOwner && <Field label="Owner">{(x) => <Select {...x} value={form.owner} onChange={(e) => set({ owner: e.target.value })} disabled={!canEdit}><option value="">Unassigned</option>{members.map((m) => <option key={m.userId} value={m.userId}>{m.name}{m.userId === myUserId ? " (you)" : ""}</option>)}</Select>}</Field>}
           <Field label="Source">{(x) => <Select {...x} value={form.source} onChange={(e) => set({ source: e.target.value })} disabled={!canEdit}>{Object.keys(SOURCE_LABEL).map((s) => <option key={s} value={s}>{sourceLabel(s)}</option>)}</Select>}</Field>
         </div>
         {fields.length > 0 && (

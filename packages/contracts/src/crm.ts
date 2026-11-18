@@ -153,11 +153,11 @@ export const ActivityPage = z.object({ items: z.array(ActivityItem), nextCursor:
 export const PageQuery = z.object({ cursor: uuid.optional(), limit: z.coerce.number().int().min(1).max(100).optional() });
 
 // ---------- saved views ----------
-export const CONTACT_COLUMNS = ["contact", "lifecycle", "owner", "tags", "source", "lastActivity", "created"] as const;
+export const CONTACT_COLUMNS = ["contact", "stage", "value", "owner", "lifecycle", "tags", "source", "lastActivity", "created"] as const;
 export const ContactColumn = z.enum(CONTACT_COLUMNS);
 export type ContactColumn = z.infer<typeof ContactColumn>;
 export const ViewConfig = z.object({
-  columns: z.array(ContactColumn).min(1).max(7).refine((c) => new Set(c).size === c.length, "Columns must be unique").refine((c) => c.includes("contact"), "The contact column is always shown"),
+  columns: z.array(ContactColumn).min(1).max(9).refine((c) => new Set(c).size === c.length, "Columns must be unique").refine((c) => c.includes("contact"), "The contact column is always shown"),
   filters: ContactListQuery.omit({ cursor: true, limit: true, sort: true, dir: true }),
   sort: z.enum(CONTACT_SORTS).default("lastActivity"),
   dir: z.enum(["asc", "desc"]).default("desc"),

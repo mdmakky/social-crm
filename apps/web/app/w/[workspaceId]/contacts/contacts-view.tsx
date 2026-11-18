@@ -2,8 +2,8 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowDown, ArrowUp, ArrowUpDown, Bookmark, Columns3, Download, FilterX, Pencil, Plus, RefreshCw, Search, SlidersHorizontal, Trash2, Upload, Users } from "lucide-react";
-import { CONTACT_COLUMNS, endpoints, type ContactColumn, type ContactListQuery, type ContactPage, type ContactSummary, type CustomField, type LifecycleStage, type Member, type SavedView, type Tag, type ViewConfig } from "@crm/contracts";
+import { ArrowDown, ArrowUp, ArrowUpDown, Bookmark, Columns3, Download, FilterX, Lock, Pencil, Plus, RefreshCw, Search, SlidersHorizontal, Trash2, Upload, Users } from "lucide-react";
+import { CONTACT_COLUMNS, endpoints, type ContactColumn, type ContactListQuery, type ContactPage, type ContactStageCounts, type ContactSummary, type CustomField, type LifecycleStage, type LostReasonDto, type Member, type PipelineDto, type SavedView, type Tag, type ViewConfig } from "@crm/contracts";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge, hueOf, Status } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,20 +14,31 @@ import { Dialog, DialogClose, DialogContent, DropdownMenu, DropdownMenuContent, 
 import { PageHeader, Panel } from "@/components/ui/panel";
 import { Alert, EmptyState, ErrorState } from "@/components/ui/states";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
+import { tabClass } from "@/components/ui/tabs";
+import { ToastProvider } from "@/components/ui/toast";
+import { StageBadge, StageDialog, StageMenu } from "@/components/contacts/stage-control";
 import { NewContactDialog } from "@/components/contacts/new-contact-dialog";
 import { browserApi, errorMessage } from "@/lib/client-api";
 import { COLUMN_LABEL, DEFAULT_COLUMNS, relativeTime, SORT_FOR_COLUMN, SORT_OPTIONS, sortOptionFor, sourceLabel, TAG_TONE } from "@/lib/contacts";
 import { formatDate } from "@/lib/format";
+import { formatMoney } from "@/lib/leads";
+import { orderedStages, defaultPipeline } from "@/lib/contact-lead";
 
-type Q = Pick<ContactListQuery, "search" | "lifecycleStageId" | "ownerId" | "tagIds" | "source" | "sort" | "dir">;
-type Perms = { edit: boolean; import: boolean; export: boolean; shareViews: boolean; schema: boolean };
-type Props = { workspaceId: string; timeZone: string; myUserId: string; initial: ContactPage | null; initialQuery: ContactListQuery; stages: LifecycleStage[]; tags: Tag[]; members: Member[]; views: SavedView[]; fields: CustomField[]; perms: Perms };
+type Q = Pick<ContactListQuery, "search" | "lifecycleStageId" | "stageId" | "ownerId" | "tagIds" | "source" | "sort" | "dir">;
+type Perms = { lead: boolean; viewValue: boolean; edit: boolean; import: boolean; export: boolean; shareViews: boolean; schema: boolean };
+type Props = { workspaceId: string; timeZone: string; myUserId: string; initial: ContactPage | null; initialQuery: ContactListQuery; pipelines: PipelineDto[]; lostReasons: LostReasonDto[]; initialCounts: ContactStageCounts | null; stages: LifecycleStage[]; tags: Tag[]; members: Member[]; views: SavedView[]; fields: CustomField[]; perms: Perms };
 
-const FILTERS: (keyof Q)[] = ["search", "lifecycleStageId", "ownerId", "tagIds", "source"];
+const FILTERS: (keyof Q)[] = ["search", "lifecycleStageId", "stageId", "ownerId", "tagIds", "source"];
+const MAX_BULK = 100;
+const count = (x: number) => x.toLocaleString("en");
 const hasFilters = (q: Q) => FILTERS.some((k) => !!q[k]);
 
-export function ContactsView({ workspaceId, timeZone, myUserId, initial, initialQuery, stages, tags, members, views: initialViews, fields, perms }: Props) {
-  const [query, setQuery] = React.useState<Q>({ search: initialQuery.search, lifecycleStageId: initialQuery.lifecycleStageId, ownerId: initialQuery.ownerId, tagIds: initialQuery.tagIds, source: initialQuery.source, sort: initialQuery.sort ?? "lastActivity", dir: initialQuery.dir ?? "desc" });
+export function ContactsView(props: Props) {
+  return <ToastProvider><Inner {...props} /></ToastProvider>;
+}
+
+function Inner({ workspaceId, timeZone, myUserId, initial, initialQuery, pipelines, lostReasons, initialCounts, stages, tags, members, views: initialViews, fields, perms }: Props) {
+  const [query, setQuery] = React.useState<Q>({ search: initialQuery.search, lifecycleStageId: initialQuery.lifecycleStageId, stageId: initialQuery.stageId, ownerId: initialQuery.ownerId, tagIds: initialQuery.tagIds, source: initialQuery.source, sort: initialQuery.sort ?? "lastActivity", dir: initialQuery.dir ?? "desc" });
   const [page, setPage] = React.useState<ContactPage>(initial ?? { items: [], nextCursor: null, total: 0 });
   const [status, setStatus] = React.useState<"idle" | "loading" | "error">(initial ? "idle" : "error");
   const [errorText, setErrorText] = React.useState<string | null>(null);
@@ -44,6 +55,9 @@ export function ContactsView({ workspaceId, timeZone, myUserId, initial, initial
   const [exporting, setExporting] = React.useState(false);
   const [actionError, setActionError] = React.useState<string | null>(null);
   const [showFilters, setShowFilters] = React.useState(false);
+  const [counts, setCounts] = React.useState<ContactStageCounts | null>(initialCounts);
+  const [selected, setSelected] = React.useState<Set<string>>(new Set());
+  const [moving, setMoving] = React.useState<string[] | null>(null);
   const seq = React.useRef(0);
   const first = React.useRef(true);
   const storeKey = `crm.contacts.columns.${workspaceId}`;
@@ -73,6 +87,20 @@ export function ContactsView({ workspaceId, timeZone, myUserId, initial, initial
     return p;
   };
 
+  // Counts follow the filters except the stage itself, so the chips always add up to the list.
+  const { stageId: _sid, sort: _srt, dir: _dir, ...shared } = query;
+  const countsKey = JSON.stringify(shared);
+  const loadCounts = React.useCallback(async () => {
+    const r = await browserApi.call(endpoints.contactStageCounts, { params: { workspaceId }, query: JSON.parse(countsKey) });
+    setCounts(r.ok ? r.data : null);
+  }, [workspaceId, countsKey]);
+  const firstCounts = React.useRef(true);
+  React.useEffect(() => {
+    if (firstCounts.current) { firstCounts.current = false; return; }
+    const t = setTimeout(() => void loadCounts(), 250);
+    return () => clearTimeout(t);
+  }, [loadCounts]);
+
   const load = React.useCallback(async (q: Q) => {
     const mine = ++seq.current;
     setStatus("loading");
@@ -80,6 +108,7 @@ export function ContactsView({ workspaceId, timeZone, myUserId, initial, initial
     if (mine !== seq.current) return; // a newer request superseded this one
     if (!res.ok) { setErrorText(errorMessage(res.error)); setStatus("error"); return; }
     setPage(res.data);
+    setSelected((s) => new Set([...s].filter((id) => res.data.items.some((c) => c.id === id)))); // a changed list keeps only the selected contacts still in it
     setStatus("idle");
   }, [workspaceId]);
 
@@ -106,7 +135,7 @@ export function ContactsView({ workspaceId, timeZone, myUserId, initial, initial
   }
 
   const set = (patch: Partial<Q>) => { setActiveView(null); setQuery((q) => ({ ...q, ...patch })); };
-  const clearFilters = () => set({ search: undefined, lifecycleStageId: undefined, ownerId: undefined, tagIds: undefined, source: undefined });
+  const clearFilters = () => set({ search: undefined, lifecycleStageId: undefined, stageId: undefined, ownerId: undefined, tagIds: undefined, source: undefined });
   const toggleSort = (col: ContactColumn) => {
     const s = SORT_FOR_COLUMN[col];
     if (!s) return;
@@ -139,6 +168,24 @@ export function ContactsView({ workspaceId, timeZone, myUserId, initial, initial
     a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
+  const chipStages = orderedStages(defaultPipeline(pipelines));
+  const countOf = (id: string) => counts?.items.find((x) => x.stageId === id)?.count ?? 0;
+  const afterMove = (moved: string[]) => {
+    setSelected((s) => { const x = new Set(s); moved.forEach((id) => x.delete(id)); return x; });
+    void load(query);
+    void loadCounts();
+  };
+  const toggle = (id: string) => setSelected((s) => {
+    const x = new Set(s);
+    if (x.has(id)) x.delete(id);
+    else if (x.size >= MAX_BULK) setActionError(`You can change up to ${MAX_BULK} contacts at a time.`);
+    else x.add(id);
+    return x;
+  });
+  const pageIds = page.items.slice(0, MAX_BULK).map((c) => c.id);
+  const allOnPage = pageIds.length > 0 && pageIds.every((id) => selected.has(id));
+  const selectAll = () => setSelected(allOnPage ? new Set() : new Set(pageIds));
+  const lead = { enabled: perms.lead, pipelines, lostReasons, workspaceId, viewValue: perms.viewValue, selected, toggle, allOnPage, selectAll, onChanged: afterMove };
   const sortLabel = SORT_OPTIONS.find((o) => o.value === `${query.sort}:${query.dir}`)?.label;
 
   return (
@@ -155,6 +202,15 @@ export function ContactsView({ workspaceId, timeZone, myUserId, initial, initial
         }
       />
 
+      {chipStages.length > 0 && (
+        <div className="mb-3 flex gap-1.5 overflow-x-auto pb-1" role="group" aria-label="Filter by stage">
+          <button type="button" className={tabClass(!query.stageId)} aria-pressed={!query.stageId} onClick={() => set({ stageId: undefined })}>All{counts && <>{" "}<span className="tabular-nums">{count(counts.total)}</span></>}<span className="sr-only"> contacts</span></button>
+          {chipStages.map((s) => (
+            <button key={s.id} type="button" className={tabClass(query.stageId === s.id)} aria-pressed={query.stageId === s.id} onClick={() => set({ stageId: s.id })}>{s.name}{counts && <>{" "}<span className="tabular-nums">{count(countOf(s.id))}</span></>}<span className="sr-only"> {countOf(s.id) === 1 ? "contact" : "contacts"}</span></button>
+          ))}
+        </div>
+      )}
+
       <div className="mb-3 flex flex-wrap items-center gap-1.5">
         <div className="relative min-w-0 flex-1 basis-56 sm:max-w-64">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-fg-subtle" aria-hidden />
@@ -162,8 +218,8 @@ export function ContactsView({ workspaceId, timeZone, myUserId, initial, initial
         </div>
         <Button variant="secondary" className="md:hidden" aria-expanded={showFilters} onClick={() => setShowFilters((s) => !s)}><SlidersHorizontal />Filters{filtered ? " (on)" : ""}</Button>
         <div className={`${showFilters ? "flex" : "hidden"} w-full flex-wrap items-center gap-1 md:flex md:w-auto`}>
-          <Select aria-label="Lifecycle stage" quiet active={!!query.lifecycleStageId} className="w-auto" value={query.lifecycleStageId ?? ""} onChange={(e) => set({ lifecycleStageId: e.target.value || undefined })}>
-            <option value="">All stages</option>
+          <Select aria-label="Lifecycle" quiet active={!!query.lifecycleStageId} className="w-auto" value={query.lifecycleStageId ?? ""} onChange={(e) => set({ lifecycleStageId: e.target.value || undefined })}>
+            <option value="">Any lifecycle</option>
             {stages.filter((s) => !s.archived).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
           </Select>
           <Select aria-label="Owner" quiet active={!!query.ownerId} className="w-auto" value={query.ownerId ?? ""} onChange={(e) => set({ ownerId: e.target.value || undefined })}>
@@ -185,13 +241,20 @@ export function ContactsView({ workspaceId, timeZone, myUserId, initial, initial
         <div className="ml-auto flex items-center gap-2">
           <Select aria-label="Sort by" wrapperClassName="t-cards" className="w-auto" value={sortOptionFor(query.sort, query.dir)} onChange={(e) => { if (e.target.value === "custom") return; const [s, d] = e.target.value.split(":"); set({ sort: s as Q["sort"], dir: d as Q["dir"] }); }}>
             {sortOptionFor(query.sort, query.dir) === "custom" && <option value="custom">Custom order</option>}
-            {SORT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+            {SORT_OPTIONS.filter((o) => perms.viewValue || !o.value.startsWith("value")).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
           </Select>
           <ViewsMenu views={views} active={activeView} base={baseView} canManageShared={perms.shareViews} onApply={applyView} onSave={() => setSaveOpen(true)} onRename={(v) => { setBaseView(v.id); setRenameOpen(true); }} onUpdate={async (v) => { const r = await browserApi.call(endpoints.updateView, { params: { workspaceId, viewId: v.id }, body: { config: currentConfig() } }); if (!r.ok) return setActionError(errorMessage(r.error)); setViews((x) => x.map((y) => (y.id === v.id ? r.data : y))); }} onDelete={setDeleteView} />
           <Button variant="ghost" className="t-table-inline" onClick={() => setColsOpen(true)}><Columns3 />Columns</Button>
         </div>
       </div>
 
+      {selected.size > 0 && perms.lead && (
+        <div role="region" aria-label="Bulk actions" className="sticky top-0 z-10 mb-3 flex flex-wrap items-center gap-2 rounded-card border border-line bg-surface px-3 py-2 shadow-sheet">
+          <span className="text-sm font-medium text-fg" aria-live="polite">{selected.size} selected</span>
+          <Button variant="primary" size="sm" onClick={() => setMoving([...selected])}>Change stage</Button>
+          <Button variant="ghost" size="sm" onClick={() => setSelected(new Set())}>Clear selection</Button>
+        </div>
+      )}
       {actionError && <Alert tone="error" className="mb-3">{actionError}</Alert>}
       {errorText && page.items.length > 0 && (
         <Alert tone="error" className="mb-3">
@@ -216,10 +279,10 @@ export function ContactsView({ workspaceId, timeZone, myUserId, initial, initial
         ) : (
           <>
             <div className="t-table">
-              <ContactsTable items={page.items} columns={columns} query={query} onSort={toggleSort} workspaceId={workspaceId} timeZone={timeZone} />
+              <ContactsTable items={page.items} columns={columns} query={query} onSort={toggleSort} workspaceId={workspaceId} timeZone={timeZone} lead={lead} />
             </div>
             <ul className="t-cards">
-              {page.items.map((c) => <ContactCard key={c.id} c={c} workspaceId={workspaceId} timeZone={timeZone} />)}
+              {page.items.map((c) => <ContactCard key={c.id} c={c} workspaceId={workspaceId} timeZone={timeZone} pipelines={pipelines} />)}
             </ul>
             <div className="flex items-center justify-between gap-3 border-t border-line-card px-4 py-2.5 text-sm text-fg-subtle">
               <span role="status">{status === "loading" ? "Updating…" : `${stale ? "Showing previous results; the last search failed. " : sortLabel ? `Sorted by ${sortLabel}. ` : ""}Showing ${page.items.length.toLocaleString("en-US")} of ${page.total.toLocaleString("en-US")}`}</span>
@@ -229,6 +292,7 @@ export function ContactsView({ workspaceId, timeZone, myUserId, initial, initial
         )}
       </Panel>
 
+      {moving && <StageDialog key={moving.join()} ids={moving} pipelines={pipelines} lostReasons={lostReasons} workspaceId={workspaceId} onClose={() => setMoving(null)} onDone={(moved) => afterMove(moved)} />}
       <NewContactDialog open={newOpen} onOpenChange={setNewOpen} workspaceId={workspaceId} stages={stages} members={members} fields={fields} myUserId={myUserId} />
       <ColumnsDialog open={colsOpen} onOpenChange={setColsOpen} columns={columns} onChange={(c) => { setActiveView(null); saveColumns(c); }} />
       <ViewNameDialog open={renameOpen} onOpenChange={setRenameOpen} view={views.find((v) => v.id === baseView) ?? null} onSave={async (name) => { const v = views.find((x) => x.id === baseView); if (!v) return null; const r = await browserApi.call(endpoints.updateView, { params: { workspaceId, viewId: v.id }, body: { name } }); if (!r.ok) return errorMessage(r.error); setViews((x) => x.map((y) => (y.id === v.id ? r.data : y)).sort((a, b) => a.name.localeCompare(b.name))); return null; }} />
@@ -238,18 +302,23 @@ export function ContactsView({ workspaceId, timeZone, myUserId, initial, initial
   );
 }
 
-function ContactsTable({ items, columns, query, onSort, workspaceId, timeZone }: { items: ContactSummary[]; columns: ContactColumn[]; query: Q; onSort: (c: ContactColumn) => void; workspaceId: string; timeZone: string }) {
+type LeadCtx = { enabled: boolean; pipelines: PipelineDto[]; lostReasons: LostReasonDto[]; workspaceId: string; viewValue: boolean; selected: Set<string>; toggle: (id: string) => void; allOnPage: boolean; selectAll: () => void; onChanged: (ids: string[]) => void };
+
+function ContactsTable({ items, columns, query, onSort, workspaceId, timeZone, lead }: { items: ContactSummary[]; columns: ContactColumn[]; query: Q; onSort: (c: ContactColumn) => void; workspaceId: string; timeZone: string; lead: LeadCtx }) {
   const router = useRouter();
-  const sortKey = (c: ContactColumn) => SORT_FOR_COLUMN[c];
+  const headRef = React.useRef<HTMLInputElement>(null);
+  React.useEffect(() => { if (headRef.current) headRef.current.indeterminate = lead.selected.size > 0 && !lead.allOnPage; }, [lead.selected, lead.allOnPage]);
+  const sortKey = (c: ContactColumn) => (c === "value" && !lead.viewValue ? undefined : SORT_FOR_COLUMN[c]);
   return (
     <Table scrollLabel="Contacts table, scrolls sideways when columns do not fit">
       <THead>
         <tr>
+          {lead.enabled && <TH className="sticky left-0 z-10 w-10 pr-0"><input ref={headRef} type="checkbox" className="size-4 accent-[var(--accent)]" aria-label="Select all on this page" checked={lead.allOnPage} onChange={lead.selectAll} /></TH>}
           {columns.map((col) => {
             const s = sortKey(col);
             const active = s && query.sort === s;
             return (
-              <TH key={col} className={col === "contact" ? "sticky left-0 z-10" : undefined} aria-sort={active ? (query.dir === "asc" ? "ascending" : "descending") : s ? "none" : undefined}>
+              <TH key={col} className={col === "contact" ? `sticky z-10 ${lead.enabled ? "left-10" : "left-0"}` : undefined} aria-sort={active ? (query.dir === "asc" ? "ascending" : "descending") : s ? "none" : undefined}>
                 {s ? (
                   <button type="button" onClick={() => onSort(col)} className="press group/sort inline-flex min-h-6 min-w-6 items-center gap-1 rounded py-1 text-xs font-medium text-fg-subtle hover:text-fg pointer-coarse:min-h-11 pointer-coarse:min-w-11">
                     {COLUMN_LABEL[col]}
@@ -263,8 +332,9 @@ function ContactsTable({ items, columns, query, onSort, workspaceId, timeZone }:
       </THead>
       <TBody>
         {items.map((c) => (
-          <TR key={c.id} className="group cursor-pointer bg-surface hover:bg-row-hover" onClick={(e) => { if (!(e.target as HTMLElement).closest("a,button")) router.push(`/w/${workspaceId}/contacts/${c.id}`); }}>
-            {columns.map((col) => <TD key={col} className={col === "contact" ? "sticky left-0 z-10 w-[22rem] min-w-60 max-w-[22rem] bg-inherit" : "whitespace-nowrap"}>{cell(col, c, workspaceId, timeZone)}</TD>)}
+          <TR key={c.id} className={`group cursor-pointer hover:bg-row-hover ${lead.selected.has(c.id) ? "bg-selected" : "bg-surface"}`} onClick={(e) => { if (!(e.target as HTMLElement).closest("a,button,input,label")) router.push(`/w/${workspaceId}/contacts/${c.id}`); }}>
+            {lead.enabled && <TD className="sticky left-0 z-10 w-10 bg-inherit pr-0"><input type="checkbox" className="size-4 accent-[var(--accent)]" aria-label={`Select ${c.name}`} checked={lead.selected.has(c.id)} onChange={() => lead.toggle(c.id)} /></TD>}
+            {columns.map((col) => <TD key={col} className={col === "contact" ? `sticky z-10 w-[22rem] min-w-60 max-w-[22rem] bg-inherit ${lead.enabled ? "left-10" : "left-0"}` : "whitespace-nowrap"}>{cell(col, c, workspaceId, timeZone, lead)}</TD>)}
           </TR>
         ))}
       </TBody>
@@ -283,8 +353,22 @@ function Stage({ name }: { name: string }) {
 /** An empty value: a quiet dash on screen, the full words for assistive tech. */
 const Empty = ({ children }: { children: string }) => <span className="text-fg-disabled"><span aria-hidden>—</span><span className="sr-only">{children}</span></span>;
 
-function cell(col: ContactColumn, c: ContactSummary, workspaceId: string, timeZone: string): React.ReactNode {
+function ValueCell({ c }: { c: ContactSummary }) {
+  const l = c.lead;
+  if (l?.valueHidden) return <span className="inline-flex items-center gap-1 text-fg-subtle" title="You don't have access to values."><Lock className="size-3" aria-hidden />Hidden</span>;
+  return l && l.valueMinor !== null && l.currency ? <span className="tnum">{formatMoney(l.valueMinor, l.currency)}</span> : <Empty>No value</Empty>;
+}
+
+function cell(col: ContactColumn, c: ContactSummary, workspaceId: string, timeZone: string, lead: LeadCtx): React.ReactNode {
   switch (col) {
+    case "stage":
+      return (
+        <span className="inline-flex items-center gap-1.5">
+          {lead.enabled ? <StageMenu c={c} pipelines={lead.pipelines} lostReasons={lead.lostReasons} workspaceId={workspaceId} onChanged={() => lead.onChanged([])} /> : <StageBadge pipelines={lead.pipelines} c={c} />}
+          {!!c.lead?.moreCount && <span className="text-xs text-fg-subtle" title={`This contact also has ${c.lead.moreCount} older or closed ${c.lead.moreCount === 1 ? "lead" : "leads"}.`}>+{c.lead.moreCount} more</span>}
+        </span>
+      );
+    case "value": return <ValueCell c={c} />;
     case "contact":
       return (
         <div className="flex min-w-0 items-center gap-3">
@@ -305,7 +389,7 @@ function cell(col: ContactColumn, c: ContactSummary, workspaceId: string, timeZo
   }
 }
 
-function ContactCard({ c, workspaceId, timeZone }: { c: ContactSummary; workspaceId: string; timeZone: string }) {
+function ContactCard({ c, workspaceId, timeZone, pipelines }: { c: ContactSummary; workspaceId: string; timeZone: string; pipelines: PipelineDto[] }) {
   return (
     <li className="border-b border-line last:border-b-0">
       <Link href={`/w/${workspaceId}/contacts/${c.id}`} className="flex items-start gap-3 px-4 py-3 active:bg-hover">
@@ -317,7 +401,7 @@ function ContactCard({ c, workspaceId, timeZone }: { c: ContactSummary; workspac
           </div>
           <p className="truncate text-sm text-fg-muted">{c.email ?? c.phone ?? "No email or phone"}</p>
           <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-            <Stage name={c.lifecycleStage.name} />
+            <StageBadge pipelines={pipelines} c={c} />
             {c.tags.slice(0, 2).map((t) => <Badge key={t.id} shape="square" tone={TAG_TONE[t.color]}>{t.name}</Badge>)}
             {c.owner && <span className="text-xs text-fg-subtle">· {c.owner.name}</span>}
           </div>

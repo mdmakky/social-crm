@@ -1,4 +1,4 @@
-import { BarChart3, PieChart, CheckSquare, Contact, Home, Inbox, Settings } from "lucide-react";
+import { PieChart, CheckSquare, Contact, Home, Inbox, Settings } from "lucide-react";
 import type { ComponentType } from "react";
 import { can, type Action, type Role } from "@crm/core/permissions";
 
@@ -21,7 +21,6 @@ export const NAV: NavGroup[] = [
       { key: "contacts", label: "Contacts", icon: Contact, path: "contacts" },
       // --- track:tasks ---
       { key: "tasks", label: "Tasks", icon: CheckSquare, path: "tasks" },
-      { key: "leads", label: "Leads", icon: BarChart3, path: "leads", requires: "lead.view" },
       { key: "reports", label: "Reports", icon: PieChart, path: "reports", requires: "lead.view" },
     ],
   },
@@ -45,7 +44,7 @@ export const titleFor = (pathname: string, workspaceId: string): string => {
 };
 
 /** Phone bottom bar: the four places used all day, in thumb order. Everything else lives in the More sheet. Permission-aware like the rest of the nav. */
-export const MOBILE_TABS = ["inbox", "contacts", "leads", "tasks"] as const;
+export const MOBILE_TABS = ["inbox", "contacts", "tasks", "reports"] as const;
 export function mobileTabs(role: Role): NavItem[] {
   const built = builtNav(role).flatMap((g) => g.items);
   return MOBILE_TABS.map((k) => built.find((i) => i.key === k)).filter((i): i is NavItem => !!i);
