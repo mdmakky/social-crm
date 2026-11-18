@@ -109,8 +109,8 @@ function Form({ workspaceId, contact, lead, pipelines, lostReasons, members, can
       />
       <form noValidate onSubmit={save} className="flex flex-col gap-3 p-4">
         {error && <Alert tone="error">{error}</Alert>}
+        <div className="grid gap-3 md:grid-cols-3">
         <Field label="Stage">{(x) => <Select {...x} value={stageId} onChange={(e) => setStageId(e.target.value)} disabled={!canEdit}>{stages.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</Select>}</Field>
-        {target?.kind === "lost" && stageDirty && <Field label="Why was it lost?">{(x) => <Select {...x} value={reasonId} onChange={(e) => setReasonId(e.target.value)}>{lostReasons.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}</Select>}</Field>}
         {lead?.valueHidden ? (
           <p className="inline-flex items-center gap-1.5 text-sm text-fg-subtle"><Lock className="size-3.5" aria-hidden />Value is hidden for your role.</p>
         ) : (
@@ -120,6 +120,8 @@ function Form({ workspaceId, contact, lead, pipelines, lostReasons, members, can
           </div>
         )}
         <Field label="Owner">{(x) => <Select {...x} value={owner} onChange={(e) => setOwner(e.target.value)} disabled={!canEditOwner}><option value="">Unassigned</option>{members.map((m) => <option key={m.userId} value={m.userId}>{m.name}</option>)}</Select>}</Field>
+        </div>
+        {target?.kind === "lost" && stageDirty && <Field label="Why was it lost?">{(x) => <Select {...x} value={reasonId} onChange={(e) => setReasonId(e.target.value)}>{lostReasons.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}</Select>}</Field>}
         {(canEdit || canEditOwner) && (
           <div className="flex items-center gap-3">
             <Button type="submit" variant="primary" size="sm" loading={busy} disabled={!dirty}>Update</Button>

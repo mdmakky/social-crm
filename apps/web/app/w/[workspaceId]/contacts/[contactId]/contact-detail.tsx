@@ -103,6 +103,7 @@ export function ContactDetailView(props: Props) {
       <div className="grid items-start gap-4 lg:grid-cols-3">
         <div className="grid gap-4 lg:col-span-2">
           <div className={GROUP}>
+          {props.leadInfo?.loaded && <LeadPanel workspaceId={workspaceId} contact={c} lead={lead} pipelines={props.leadInfo.pipelines} lostReasons={props.leadInfo.lostReasons} members={members} canEdit={perms.lead} canEditOwner={perms.edit} canSetValue={perms.setValue} myUserId={myUserId} onLead={setLead} onContact={(d) => { setC(d); void refreshActivity(); }} />}
           <DetailsPanel key={c.version} c={c} carry={carry} onCarryUsed={() => setCarry(null)} onCarry={setCarry} saved={savedVersion === c.version} onSaved={(d, viaSave) => { setC(d); if (viaSave) setSavedVersion(d.version); void refreshActivity(); }} stages={stages} members={members} fields={fields} canEdit={perms.edit} workspaceId={workspaceId} myUserId={myUserId} showOwner={!props.leadInfo?.loaded} />
           <DetectedMethodsPanel workspaceId={workspaceId} contactId={c.id} initial={props.methods} canEdit={perms.edit} timeZone={timeZone} onPrimaryChanged={() => { void browserApi.call(endpoints.getContact, { params: { workspaceId, contactId: c.id } }).then((r) => { if (r.ok) setC(r.data); }); }} />
           <AdConsentPanel workspaceId={workspaceId} contactId={c.id} canEdit={perms.consent} timeZone={timeZone} members={members} />
@@ -114,7 +115,6 @@ export function ContactDetailView(props: Props) {
           </div>
         </div>
         <div className={GROUP}>
-          {props.leadInfo?.loaded && <LeadPanel workspaceId={workspaceId} contact={c} lead={lead} pipelines={props.leadInfo.pipelines} lostReasons={props.leadInfo.lostReasons} members={members} canEdit={perms.lead} canEditOwner={perms.edit} canSetValue={perms.setValue} myUserId={myUserId} onLead={setLead} onContact={(d) => { setC(d); void refreshActivity(); }} />}
           <TasksPanel tasks={tasks} setTasks={setTasks} p={p} canEdit={perms.edit} role={role} myUserId={myUserId} members={members} timeZone={timeZone} onChanged={async () => { void refreshActivity(); const d = await browserApi.call(endpoints.getContact, { params: p }); if (d.ok) setC(d.data); }} />
           <Panel>
             <PanelHeader title="Conversations" />
