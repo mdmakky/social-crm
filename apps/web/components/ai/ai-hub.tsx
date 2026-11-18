@@ -52,7 +52,7 @@ export function AiHub({ workspaceId, canAi, canWorkflow, children }: { workspace
           ) : <p className="mt-0.5 text-base text-fg-muted">{canWorkflow ? "Unavailable" : "Owners and admins"}</p>}</div>
         </Panel>
       )}
-      <nav aria-label="AI and automation sections" data-scroll="allowed" className={cn("-mx-1 flex gap-0.5 overflow-x-auto border-b border-line px-1", showStrip ? "mt-5" : "")}>
+      <nav ref={(el) => { el?.querySelector<HTMLElement>("[aria-current=page]")?.scrollIntoView({ inline: "center", block: "nearest" }); }} aria-label="AI and automation sections" data-scroll="allowed" className={cn("-mx-1 flex gap-0.5 overflow-x-auto border-b border-line px-1", showStrip ? "mt-5" : "")}>
         {tabs.filter((t) => t.show).map((t) => {
           const on = active?.key === t.key;
           return (

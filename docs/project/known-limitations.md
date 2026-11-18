@@ -284,3 +284,8 @@ Updated: 2026-11-13 (Phase 0).
 - The completed task panel and list refresh after each action; there is no live update when a teammate changes a task.
 - Voice typing depends on the browser: works in Chrome, Edge and Safari, absent in Firefox. Bangla accuracy is the browser's, not ours. It needs a microphone permission and an internet connection. Verified only with a faked recognizer in Playwright, never with a real microphone or real Bangla speech.
 - The inbox reply composer gained a voice button; no automated test covers it yet.
+
+## AI and automation hub (2026-11-18, branch `design/ai-redesign`)
+- UI restructure only. Knowledge is still workspace-wide: per-agent knowledge scoping from the demo options B and C is not built.
+- The old component files still live in `settings/ai-agents/`, `settings/knowledge/` and `settings/automations/`; only their pages moved. A later cleanup can move them.
+- The status strip and Overview read several endpoints in parallel; each failing one shows a gap, not an error page.

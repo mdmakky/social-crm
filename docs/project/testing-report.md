@@ -308,3 +308,9 @@ Private DB `inv_f` (fresh via `scripts/db-create.sh inv_f`), migration 0035.
 - `pnpm --filter @crm/web exec tsc --noEmit` and `eslint app components e2e`: clean.
 - Playwright: `tasks.spec` 6 of 6 (rewritten for the split layout: Mark done waits for a follow-up choice, undo, follow-up task created, history, edit, delete, filters behind Filters, per role view only), `tasks-responsive.spec` 2 of 2 (375/768/1440 overflow and axe, phone detail is full screen with Back, 44px targets for day, time, No follow-up, Mark done and the voice buttons), `voice-typing.spec` 2 of 2 (fake recognizer writes English and Bangla into a contact note and a task note, saved on blur; no button without speech support), `mobile.spec` 14 of 14 (Tasks assertion changed from table/cards to the list), `contacts*`, `inbox*`, `ux-audit` passed.
 - Screenshots reviewed at 1440 and 390. Not run: a real microphone, real Bangla speech, the full e2e suite, the composer voice button.
+
+## AI and automation hub (2026-11-18, `design/ai-redesign`, merged with main `a46c5c6`, DB `e2e_ai_hub5`)
+- `tsc --noEmit` and `eslint app components e2e`: clean.
+- Playwright 47 of 47: `ai-settings`, `ai-multimodal`, `ai-openrouter`, `ai-streaming`, `ai-agents`, `knowledge-base`, `settings-nav`, `automation-approval`, `mobile.spec`. Specs changed for the new structure (Setup folds opened with `openFold`, approvals via Overview, new URLs); assertions were not weakened.
+- Checked by hand at 1440 and 390: all five tabs, no horizontal overflow; agent and viewer roles redirect to Knowledge and see only that tab. The active tab scrolls into view on a phone.
+- Not run: full e2e suite, real AI providers, axe on the hub routes beyond what `mobile.spec` covers.
