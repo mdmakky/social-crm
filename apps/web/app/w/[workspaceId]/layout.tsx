@@ -10,9 +10,9 @@ export default async function WorkspaceLayout({ children, params }: { children: 
   if (!me.ok && me.error.status === 401) redirect(`/login?next=${encodeURIComponent(`/w/${workspaceId}`)}`);
   const d = must(detail);
   const user = must(me);
-  const current = { id: d.id, name: d.name, slug: d.slug, role: d.role };
+  const current = { id: d.id, name: d.name, slug: d.slug, role: d.role, logo: d.logo };
   return (
-    <AppShell workspace={current} workspaces={ws.ok ? ws.data : [current]} user={{ id: user.id, name: user.name, email: user.email }}>
+    <AppShell workspace={current} workspaces={ws.ok ? ws.data : [current]} user={{ id: user.id, name: user.name, email: user.email }} prefs={{ timeZone: d.timezone, currency: d.currency, timeFormat: d.timeFormat, weekStart: d.weekStart }}>
       {children}
     </AppShell>
   );

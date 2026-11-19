@@ -14,10 +14,11 @@ import { CommandMenu } from "./command-menu";
 import { Logo } from "./logo";
 import { SidebarNav } from "./sidebar-nav";
 import type { ShellUser, ShellWorkspace } from "./types";
+import { WorkspacePrefsProvider, type WorkspacePrefs } from "./workspace-prefs";
 import { UserMenu } from "./user-menu";
 import { WorkspaceSwitcher } from "./workspace-switcher";
 
-export function AppShell({ workspace, workspaces, user, children }: { workspace: ShellWorkspace; workspaces: ShellWorkspace[]; user: ShellUser; children: React.ReactNode }) {
+export function AppShell({ workspace, workspaces, user, prefs, children }: { workspace: ShellWorkspace; workspaces: ShellWorkspace[]; user: ShellUser; prefs: WorkspacePrefs; children: React.ReactNode }) {
   const pathname = usePathname();
   const typing = useTyping();
   // The conversation is a full-screen task on a phone (its own back button and sticky composer): the bar steps aside there and while typing.
@@ -45,6 +46,7 @@ export function AppShell({ workspace, workspaces, user, children }: { workspace:
 
   return (
     <TooltipProvider>
+      <WorkspacePrefsProvider value={prefs}>
       <a href="#main" className="sr-only z-50 rounded-control bg-surface px-3 py-2 text-base font-medium text-fg shadow-popover focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:min-h-6 focus:min-w-6">Skip to content</a>
       <div data-bn={bnOn ? "on" : "off"} className="flex h-dvh bg-canvas">
         {/* White sidebar at lg, icon rail at md, drawer below. */}
@@ -79,6 +81,7 @@ export function AppShell({ workspace, workspaces, user, children }: { workspace:
         </div>
       </div>
       <CommandMenu open={palette} onOpenChange={setPalette} workspace={workspace} workspaces={workspaces} role={workspace.role} />
+      </WorkspacePrefsProvider>
     </TooltipProvider>
   );
 }

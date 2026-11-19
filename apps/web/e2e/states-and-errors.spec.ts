@@ -48,7 +48,7 @@ test.describe("failure and error states in the browser", () => {
     await expect(page.locator("main").getByRole("alert").filter({ hasText: "out of sync" })).toBeVisible();
     await page.unroute(`**/v1/workspaces/${workspaceId}`);
     await page.getByRole("button", { name: "Save changes" }).click();
-    await expect(page.getByText("Workspace settings saved.")).toBeVisible();
+    await expect(page.getByText("Settings saved.")).toBeVisible();
     await expect(page.locator("main").getByRole("alert")).toHaveCount(0); // scoped: Next adds an empty route-announcer alert
   });
 

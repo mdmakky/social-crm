@@ -10,6 +10,7 @@ import { Select } from "@/components/ui/input";
 import { Alert } from "@/components/ui/states";
 import { browserApi, errorMessage } from "@/lib/client-api";
 import { formatDateTime } from "@/lib/format";
+import { useWorkspacePrefs } from "@/components/shell/workspace-prefs";
 import { eventText, fromLocalInput, PRIORITY_LABEL, STATUS_LABEL, toLocalInput } from "@/lib/tasks";
 import { emptyFollowUp, FollowUpPicker, followUpLocal, followUpReady, followUpRemindAt } from "./follow-up";
 
@@ -37,6 +38,7 @@ const Row = ({ label, children }: { label: string; children: React.ReactNode }) 
 );
 
 export function TaskPanel({ task, workspaceId, timeZone, members, myUserId, canEdit, onBack, onEdit, onChanged, onCompleted, onReopened }: Props) {
+  const prefs = useWorkspacePrefs();
   const [events, setEvents] = React.useState<TaskEvent[] | null>(null);
   const [cursor, setCursor] = React.useState<string | null>(null);
   const [histErr, setHistErr] = React.useState(false);
@@ -132,7 +134,7 @@ export function TaskPanel({ task, workspaceId, timeZone, members, myUserId, canE
           <Row label="Due">
             {canEdit ? (
               <input aria-label="Due" type="datetime-local" value={due} disabled={busy} onChange={(e) => setDue(e.target.value)} onBlur={() => { if (due !== toLocalInput(task.dueAt)) void patch({ dueAt: fromLocalInput(due) }); }} className="-ml-2 h-9 rounded-control bg-transparent px-2 text-base text-fg hover:bg-hover focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-accent/20" />
-            ) : task.dueAt ? formatDateTime(task.dueAt, timeZone) : "No due date"}
+            ) : task.dueAt ? formatDateTime(task.dueAt, timeZone, prefs.timeFormat) : "No due date"}
           </Row>
           <Row label="Assignee">
             {canEdit ? (
@@ -156,7 +158,7 @@ export function TaskPanel({ task, workspaceId, timeZone, members, myUserId, canE
           closed ? (
             <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-line-card pt-4">
               <Button variant="secondary" loading={busy} onClick={() => void reopen()}><RotateCcw />Reopen</Button>
-              {task.completedAt && <span className="text-sm text-fg-subtle">Completed {formatDateTime(task.completedAt, timeZone)}</span>}
+              {task.completedAt && <span className="text-sm text-fg-subtle">Completed {formatDateTime(task.completedAt, timeZone, prefs.timeFormat)}</span>}
             </div>
           ) : (
             <div className="mt-5 border-t border-line-card pt-4">
@@ -183,7 +185,7 @@ export function TaskPanel({ task, workspaceId, timeZone, members, myUserId, canE
                   <li key={e.id} className="flex items-start gap-2 text-sm">
                     <Circle className="mt-1.5 size-2 shrink-0 fill-current text-fg-subtle" aria-hidden />
                     <span className="min-w-0 flex-1 break-words text-fg">{eventText(e, timeZone)}</span>
-                    <time dateTime={e.occurredAt} className="tnum shrink-0 text-xs text-fg-subtle">{formatDateTime(e.occurredAt, timeZone)}</time>
+                    <time dateTime={e.occurredAt} className="tnum shrink-0 text-xs text-fg-subtle">{formatDateTime(e.occurredAt, timeZone, prefs.timeFormat)}</time>
                   </li>
                 ))}
               </ol>

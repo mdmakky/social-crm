@@ -14,6 +14,7 @@ import { cn } from "@/lib/cn";
 import { useStageValueGate } from "@/components/contacts/stage-value";
 import { defaultPipeline, shownStage, stagesForContact } from "@/lib/contact-lead";
 import { CURRENCIES, fromMinor, toMinor } from "@/lib/leads";
+import { useWorkspacePrefs } from "@/components/shell/workspace-prefs";
 
 type Props = {
   workspaceId: string; contact: ContactDetail; lead: ContactLead | null; pipelines: PipelineDto[]; lostReasons: LostReasonDto[]; members: Member[];
@@ -37,9 +38,10 @@ export function LeadPanel(props: Props) {
 }
 
 function Form({ workspaceId, contact, lead, pipelines, lostReasons, members, canEdit, canEditOwner, canSetValue, onLead, onContact, error, setError, saved, onSaved }: Props & { error: string | null; setError: (e: string | null) => void; saved: boolean; onSaved: () => void }) {
+  const prefs = useWorkspacePrefs();
   const stages = stagesForContact(pipelines, { lead });
   const cur = shownStage(pipelines, lead);
-  const currency0 = lead?.currency ?? defaultPipeline(pipelines)?.defaultCurrency ?? "USD";
+  const currency0 = lead?.currency ?? defaultPipeline(pipelines)?.defaultCurrency ?? prefs.currency;
   const money0 = lead?.valueMinor != null && lead.currency ? fromMinor(lead.valueMinor, lead.currency) : "";
   const [value, setValue] = React.useState(money0);
   const [currency, setCurrency] = React.useState(currency0);

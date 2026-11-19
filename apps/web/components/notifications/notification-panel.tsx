@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { browserApi, errorMessage } from "@/lib/client-api";
 import { cn } from "@/lib/cn";
+import { useWorkspacePrefs } from "@/components/shell/workspace-prefs";
 import { notificationLink } from "./notification-list";
 import { NOTIFICATIONS_CHANGED } from "./notification-bell";
 
@@ -31,15 +32,15 @@ const ago = (iso: string) => {
   if (m < 1440) return `${Math.round(m / 60)}h ago`;
   return `${Math.round(m / 1440)}d ago`;
 };
-const timeOf = (d: Date) => d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+const timeOf = (d: Date, h12 = true) => d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", hour12: h12 });
 const sameDay = (a: Date, b: Date) => a.toDateString() === b.toDateString();
 /** "Overdue 2 h", "in 48 min", "Tomorrow", "Mon 23 Nov" and a tone for the chip. */
-function dueInfo(iso: string, now: Date): { label: string; tone: "danger" | "warning" | "accent" | "neutral"; at: string } {
+function dueInfo(iso: string, now: Date, h12 = true): { label: string; tone: "danger" | "warning" | "accent" | "neutral"; at: string } {
   const d = new Date(iso);
   const diff = Math.round((d.getTime() - now.getTime()) / 60_000);
   const hm = (n: number) => (n >= 60 ? `${Math.floor(n / 60)} h${n % 60 ? ` ${n % 60} min` : ""}` : `${n} min`);
   const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
-  const at = sameDay(d, now) ? `${timeOf(d)} today` : timeOf(d);
+  const at = sameDay(d, now) ? `${timeOf(d, h12)} today` : timeOf(d, h12);
   if (diff < 0) return { label: `Overdue ${hm(Math.min(-diff, 60 * 24 * 30))}`, tone: "danger", at };
   if (diff <= 60) return { label: `in ${hm(Math.max(diff, 1))}`, tone: "warning", at };
   if (sameDay(d, now)) return { label: `in ${hm(diff)}`, tone: "accent", at };
@@ -52,8 +53,8 @@ const SNOOZE = [
   { label: "Tomorrow", at: (n: Date) => new Date(n.getFullYear(), n.getMonth(), n.getDate() + 1, 9, 0) },
 ];
 
-function TaskRow({ t, now, busy, snoozing, onDone, onSnoozeToggle, onSnooze, onOpen }: { t: Task; now: Date; busy: boolean; snoozing: boolean; onDone: () => void; onSnoozeToggle: () => void; onSnooze: (d: Date) => void; onOpen: () => void }) {
-  const info = t.dueAt ? dueInfo(t.dueAt, now) : null;
+function TaskRow({ h12, t, now, busy, snoozing, onDone, onSnoozeToggle, onSnooze, onOpen }: { h12: boolean; t: Task; now: Date; busy: boolean; snoozing: boolean; onDone: () => void; onSnoozeToggle: () => void; onSnooze: (d: Date) => void; onOpen: () => void }) {
+  const info = t.dueAt ? dueInfo(t.dueAt, now, h12) : null;
   return (
     <li className="rounded-card border border-line p-3" data-testid="panel-task">
       <p className="font-semibold text-fg">{t.title}</p>
@@ -78,6 +79,7 @@ function TaskRow({ t, now, busy, snoozing, onDone, onSnoozeToggle, onSnooze, onO
 
 export function NotificationPanel({ workspaceId, open, onOpenChange, anchor }: { workspaceId: string; open: boolean; onOpenChange: (o: boolean) => void; anchor: React.RefObject<HTMLElement | null> }) {
   const router = useRouter();
+  const h12 = useWorkspacePrefs().timeFormat === "12h";
   const [tab, setTab] = React.useState<"tasks" | "updates">("tasks");
   const [filter, setFilter] = React.useState<FilterId>("all");
   const [tasks, setTasks] = React.useState<Task[] | null>(null);
@@ -134,7 +136,7 @@ export function NotificationPanel({ workspaceId, open, onOpenChange, anchor }: {
     if (!u) return;
     setSnoozeId(null);
     setTasks((cur) => (cur ?? []).map((x) => (x.id === t.id ? u : x)).sort((a, b) => (a.dueAt ?? "").localeCompare(b.dueAt ?? "")));
-    flash(`Snoozed to ${to.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" })}, ${timeOf(to)}`, () => { void patchTask(u, { dueAt: t.dueAt!, remindAt: t.remindAt }).then(() => load()); setUndo(null); });
+    flash(`Snoozed to ${to.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" })}, ${timeOf(to, h12)}`, () => { void patchTask(u, { dueAt: t.dueAt!, remindAt: t.remindAt }).then(() => load()); setUndo(null); });
   }
   async function read(n: NotificationDto) {
     if (n.readAt) return;
@@ -162,7 +164,7 @@ export function NotificationPanel({ workspaceId, open, onOpenChange, anchor }: {
     <section aria-label={label}>
       <h4 className="bg-subtle px-4 py-1.5 text-xs font-semibold uppercase tracking-wide text-fg-subtle">{label} · {list.length}</h4>
       <ul className="flex flex-col gap-2 p-3">
-        {list.map((t) => <TaskRow key={t.id} t={t} now={now} busy={busy === t.id} snoozing={snoozeId === t.id} onDone={() => void done(t)} onSnoozeToggle={() => setSnoozeId(snoozeId === t.id ? null : t.id)} onSnooze={(d) => void snooze(t, d)} onOpen={() => go(taskHref(t))} />)}
+        {list.map((t) => <TaskRow key={t.id} h12={h12} t={t} now={now} busy={busy === t.id} snoozing={snoozeId === t.id} onDone={() => void done(t)} onSnoozeToggle={() => setSnoozeId(snoozeId === t.id ? null : t.id)} onSnooze={(d) => void snooze(t, d)} onOpen={() => go(taskHref(t))} />)}
       </ul>
     </section>
   );
@@ -212,7 +214,7 @@ export function NotificationPanel({ workspaceId, open, onOpenChange, anchor }: {
                   <ul>
                     {shown.map((n) => {
                       const Icon = kindIcon(n.kind);
-                      const body = n.kind === "task.reminder" && typeof n.data.dueAt === "string" ? `Due ${dueInfo(n.data.dueAt, now).at.replace(" today", "")}${sameDay(new Date(n.data.dueAt), now) ? " today" : `, ${new Date(n.data.dueAt).toLocaleDateString(undefined, { day: "numeric", month: "short" })}`}.` : n.body;
+                      const body = n.kind === "task.reminder" && typeof n.data.dueAt === "string" ? `Due ${dueInfo(n.data.dueAt, now, h12).at.replace(" today", "")}${sameDay(new Date(n.data.dueAt), now) ? " today" : `, ${new Date(n.data.dueAt).toLocaleDateString(undefined, { day: "numeric", month: "short" })}`}.` : n.body;
                       return (
                         <li key={n.id} className="border-b border-line last:border-b-0">
                           <button type="button" data-testid="panel-update" data-unread={!n.readAt} onClick={() => { void read(n); const h = itemHref(n); if (h) go(h); }} className={cn("press relative grid w-full grid-cols-[2.25rem_minmax(0,1fr)] gap-3 px-4 py-3 text-left hover:bg-subtle", !n.readAt && "bg-accent-subtle/40 before:absolute before:inset-y-0 before:left-0 before:w-[3px] before:bg-accent")}>
