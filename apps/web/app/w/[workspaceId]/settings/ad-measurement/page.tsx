@@ -13,7 +13,7 @@ export default async function AdMeasurementPage({ params }: { params: Promise<{ 
   const api = await serverApi();
   const w = must(await api.call(endpoints.getWorkspace, { params: { workspaceId } }));
   return (
-    <SettingsPage title="Ad measurement" description="Send won leads back to Meta so your ads can be measured.">
+    <SettingsPage title="Ad measurement" description="Choose which stage sends which event to Meta. Only leads who agreed to ad measurement are sent.">
       {can(w.role, "capi.view", {}) ? <CapiPanel workspaceId={workspaceId} canManage={can(w.role, "capi.manage", {})} /> : <Alert tone="info">Only owners and admins can manage ad measurement.</Alert>}
     </SettingsPage>
   );
