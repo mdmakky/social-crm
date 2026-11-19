@@ -6,6 +6,7 @@ export const NOTIFICATION_KINDS = {
   "contact.owner_assigned": { label: "Lead assigned to you", description: "Someone makes you the owner of a lead." },
   "lead.owner_assigned": { label: "Lead record assigned to you", description: "Someone makes you the owner of a lead record." },
   "task.assigned": { label: "Task assigned to you", description: "Someone assigns a task to you." },
+  "task.reminder": { label: "Task reminders", description: "A task or follow-up you own is about to be due." },
   "import.completed": { label: "Import finished", description: "A lead import you started has completed." },
 } as const;
 export type NotificationKind = keyof typeof NOTIFICATION_KINDS;
@@ -19,6 +20,8 @@ export const EventPayloads = {
   "contact.owner_assigned": z.object({ ownerUserId: z.string(), previousOwnerUserId: z.string().nullable().optional(), contactName: z.string() }),
   "lead.owner_assigned": z.object({ ownerUserId: z.string(), previousOwnerUserId: z.string().nullable().optional(), leadTitle: z.string() }),
   "task.assigned": z.object({ assigneeUserId: z.string(), title: z.string(), contactId: z.string().uuid().nullable().optional() }),
+  /** Created by the reminder sweep (time based), not by a domain event; listed so every kind has a payload shape. */
+  "task.reminder": z.object({ assigneeUserId: z.string(), title: z.string(), dueAt: z.string().nullable() }),
   "import.completed": z.object({ importedByUserId: z.string(), created: z.number().int(), updated: z.number().int(), skipped: z.number().int(), failed: z.number().int().optional() }),
 } as const satisfies Record<NotificationKind, z.ZodType>;
 

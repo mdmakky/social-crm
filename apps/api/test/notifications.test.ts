@@ -123,7 +123,7 @@ describe("notification preferences API", () => {
   it("defaults on for every kind; update persists per user and workspace and suppresses new notifications", async () => {
     const c = h.clientFor(agent);
     const initial = ok(await c.call(endpoints.getNotificationPreferences, P())).preferences;
-    expect(initial.map((p) => p.kind)).toEqual(["contact.owner_assigned", "lead.owner_assigned", "task.assigned", "import.completed"]);
+    expect(initial.map((p) => p.kind)).toEqual(["contact.owner_assigned", "lead.owner_assigned", "task.assigned", "task.reminder", "import.completed"]);
     expect(initial.every((p) => p.inApp)).toBe(true);
     const after = ok(await c.call(endpoints.updateNotificationPreferences, { ...P(), body: { preferences: [{ kind: "task.assigned", inApp: false }] } })).preferences;
     expect(after.find((p) => p.kind === "task.assigned")?.inApp).toBe(false);

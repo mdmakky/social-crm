@@ -29,6 +29,9 @@ export const tasks = pgTable(
     assigneeUserId: text("assignee_user_id").references(() => user.id),
     createdBy: text("created_by").notNull().references(() => user.id),
     completedAt: timestamp("completed_at", { withTimezone: true }),
+    /** When to notify the assignee (a reminder before due_at). reminded_at is set once the notification was created; changing remind_at clears it. */
+    remindAt: timestamp("remind_at", { withTimezone: true }),
+    remindedAt: timestamp("reminded_at", { withTimezone: true }),
     version: integer("version").notNull().default(1),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
@@ -45,6 +48,7 @@ export const tasks = pgTable(
     index("tasks_ws_due_desc_idx").on(t.workspaceId, sql`coalesce(${t.dueAt}, '-infinity'::timestamptz) DESC`, sql`${t.id} DESC`),
     index("tasks_ws_created_idx").on(t.workspaceId, t.createdAt.desc(), t.id),
     index("tasks_ws_updated_idx").on(t.workspaceId, t.updatedAt.desc(), t.id),
+    index("tasks_remind_idx").on(t.remindAt).where(sql`remind_at IS NOT NULL AND reminded_at IS NULL AND deleted_at IS NULL`),
     index("tasks_ws_priority_idx").on(t.workspaceId, t.priority, t.id),
   ],
 );

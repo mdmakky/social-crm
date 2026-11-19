@@ -330,3 +330,13 @@ Updated: 2026-11-13 (Phase 0).
 - `/leads/bulk-stage` does not report skipped-for-no-value leads; only `/contacts/bulk-stage` (the web) does.
 - Only 2-decimal and zero-decimal currencies are exact (as in the CAPI value conversion); three-decimal currencies would be sent 10x off.
 - A failed preflight lets the move go ahead without the dialog (the event is then recorded skipped).
+
+## Notification panel and task reminders (2026-11-19, branch `feat/notification-panel`)
+- Reminders are in-app only (the bell and the Updates list). No email, push or phone notification yet; the reminder is created by the dispatcher loop, so it can be late by the idle poll interval (10 minutes by default) when nobody has the app open.
+- Only follow-up tasks created from the task panel set a reminder. The New task dialog and the lead and contact task forms do not offer "Remind me" yet (the API accepts `remindAt` on create and update).
+- Changing a task's due date without sending `remindAt` keeps the old reminder time. The panel's Snooze and the follow-up picker always send both.
+- The panel's filters follow the notification kinds that exist. There is no Inbox (new message) notification kind, so no Inbox filter.
+- Reminders for tasks without an assignee are not created. Overdue tasks do not re-notify. Meetings are not a task type, so there are no meeting reminders.
+- The panel loads when it opens and refreshes on read-state changes; it does not live-update while open (the bell badge polls every 30 s).
+- Open links to the contact page, or to the Tasks page for a task without a contact; there is no deep link to one task.
+- Verified in Chromium and a Pixel 7 profile only; no real phone, and no real clock wait for a reminder (the test creates a reminder that is already due).

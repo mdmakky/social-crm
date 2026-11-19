@@ -74,3 +74,6 @@ A new kind is added by (1) adding it to `NOTIFICATION_KINDS` and `EventPayloads`
 ### UI
 
 Bell link with unread badge in the topbar (links to the inbox page; no popover, so no new dependency), `/w/:id/notifications` inbox (All / Unread, Load more, Mark all as read, per-row mark read/unread, row click marks read and navigates to the contact when the notification has one), `/w/:id/settings/notifications` personal preferences (one checkbox per kind, saved on change). The unread count polls every 30 s (`NEXT_PUBLIC_NOTIFICATION_POLL_MS` overrides it), on tab focus and on visibility change; only the newest request may write state. A polite live region announces count changes after the first load. Unread rows show a dot, a "New" label, bold title and screen-reader text "Unread:", so state never relies on colour alone.
+
+### Time based notifications (task reminders)
+Not every notification starts from a domain event. `task.reminder` is created by `sweepTaskReminders` (`apps/api/src/notifications/reminders.ts`), called from the dispatcher loop after each event pass. It reads open tasks whose `remind_at` has passed under the dispatcher's system context (two narrow RLS policies, migration 0044), writes through the same `deliver()` rules as event notifications (active members, muted preferences, dedupe key) and marks `reminded_at`. See D340.

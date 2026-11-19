@@ -33,6 +33,8 @@ export const Task = z.object({
   title: z.string(),
   description: z.string().nullable(),
   dueAt: iso.nullable(),
+  /** When the assignee is notified, or null for no reminder. */
+  remindAt: iso.nullable(),
   status: TaskStatus,
   priority: TaskPriority,
   assignee: z.object({ id: z.string(), name: z.string() }).nullable(),
@@ -45,12 +47,12 @@ export const Task = z.object({
 });
 export type Task = z.infer<typeof Task>;
 
-export const CreateTaskBody = z.object({ title, description: description.optional(), dueAt, assigneeUserId: z.string().nullish(), priority: TaskPriority.optional() });
+export const CreateTaskBody = z.object({ title, description: description.optional(), dueAt, remindAt: dueAt, assigneeUserId: z.string().nullish(), priority: TaskPriority.optional() });
 export const CreateWorkspaceTaskBody = CreateTaskBody.extend({ contactId: uuid.nullish() });
 export type CreateWorkspaceTaskBody = z.input<typeof CreateWorkspaceTaskBody>;
 /** expectedVersion is optional only so older clients keep working; when sent it is enforced (409 version_conflict). */
 export const UpdateTaskBody = z
-  .object({ title: title.optional(), description: description.optional(), dueAt, status: TaskStatus.optional(), priority: TaskPriority.optional(), assigneeUserId: z.string().nullish(), contactId: uuid.nullish(), expectedVersion: z.number().int().min(1).optional() })
+  .object({ title: title.optional(), description: description.optional(), dueAt, remindAt: dueAt, status: TaskStatus.optional(), priority: TaskPriority.optional(), assigneeUserId: z.string().nullish(), contactId: uuid.nullish(), expectedVersion: z.number().int().min(1).optional() })
   .refine((v) => Object.keys(v).some((k) => k !== "expectedVersion"), "Nothing to update");
 export type UpdateTaskBody = z.input<typeof UpdateTaskBody>;
 

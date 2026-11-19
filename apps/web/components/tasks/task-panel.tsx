@@ -11,7 +11,7 @@ import { Alert } from "@/components/ui/states";
 import { browserApi, errorMessage } from "@/lib/client-api";
 import { formatDateTime } from "@/lib/format";
 import { eventText, fromLocalInput, PRIORITY_LABEL, STATUS_LABEL, toLocalInput } from "@/lib/tasks";
-import { emptyFollowUp, FollowUpPicker, followUpLocal, followUpReady } from "./follow-up";
+import { emptyFollowUp, FollowUpPicker, followUpLocal, followUpReady, followUpRemindAt } from "./follow-up";
 
 type Props = {
   workspaceId: string;
@@ -79,7 +79,7 @@ export function TaskPanel({ task, workspaceId, timeZone, members, myUserId, canE
     let created: Task | null = null;
     const local = followUpLocal(fu);
     if (local) {
-      const c = await browserApi.call(endpoints.createWorkspaceTask, { params: { workspaceId }, body: { title: `Follow up: ${task.title.replace(/^follow[- ]?up:?\s*/i, "")}`.slice(0, 200), dueAt: fromLocalInput(local), priority: task.priority, assigneeUserId: task.assignee?.id ?? myUserId, contactId: task.contact?.id ?? null } });
+      const c = await browserApi.call(endpoints.createWorkspaceTask, { params: { workspaceId }, body: { title: `Follow up: ${task.title.replace(/^follow[- ]?up:?\s*/i, "")}`.slice(0, 200), dueAt: fromLocalInput(local), remindAt: fromLocalInput(local) ? followUpRemindAt(fromLocalInput(local)!, fu) : null, priority: task.priority, assigneeUserId: task.assignee?.id ?? myUserId, contactId: task.contact?.id ?? null } });
       if (c.ok) created = c.data; else setError(`The task is done, but the follow-up could not be created: ${errorMessage(c.error)}`);
     }
     setBusy(false);
