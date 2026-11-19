@@ -315,3 +315,9 @@ Updated: 2026-11-13 (Phase 0).
 - Testing always runs a saved version: edits are saved as a new version before the run, so a test adds a version.
 - The page sits outside the hub tabs, so Overview and the status strip are one click away (Back to Agents, then the tab), not on the page.
 - Tool names and descriptions are written for people in the page; a new server tool without an entry shows its technical name.
+
+## Knowledge add panel (2026-11-19, branch `feat/knowledge-add`)
+- The Read and Split steps are not reported separately by the server: while the request is open the source shows as reading, then ready or stopped. A source left `pending` (a page indexed in the background) is checked every 3 seconds.
+- "Retry" on a failed source re-reads it from what is stored. A failed audio, PDF or image upload stored no text, so a retry only helps once the AI provider problem is fixed; otherwise remove it and upload the file again.
+- A source added from the Inbox ("Add to knowledge" on an attachment) appears in the list as a file; its details are unchanged.
+- Question and answer sources can only be edited by removing them and adding them again.

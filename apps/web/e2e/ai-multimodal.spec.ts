@@ -82,29 +82,33 @@ test("capabilities, media playground, knowledge upload and a blocked viewer", as
 
   // Knowledge: a PDF and an audio file become ready sources.
   await page.goto(`/w/${workspaceId}/settings/knowledge`);
-  const dlg = page.getByRole("dialog", { name: "Add a source" });
+  const dlg = page.getByRole("dialog", { name: /^(Add knowledge|Adding…|Needs attention|Done)$/ });
+  const sources = page.getByRole("list", { name: "Knowledge sources" });
   for (const [name, mimeType, buffer] of [["manual.pdf", "application/pdf", PDF], ["voicemail.mp3", "audio/mpeg", MP3]] as const) {
-    await page.getByRole("button", { name: "Add source" }).first().click();
-    await dlg.getByLabel("Source type").selectOption("file");
-    await expect(dlg).toContainText("transcribed");
-    await dlg.getByLabel("File").setInputFiles({ name, mimeType, buffer });
-    await dlg.getByRole("button", { name: "Add source" }).click();
+    await page.getByRole("button", { name: "Add knowledge" }).first().click();
+    await dlg.getByRole("button", { name: /Upload files/ }).click();
+    await expect(dlg).toContainText("per audio file");
+    await dlg.getByTestId("kb-file").setInputFiles({ name, mimeType, buffer });
+    await dlg.getByRole("button", { name: /^Add 1 file$/ }).click();
+    await expect(dlg.getByRole("heading", { name: "Added. Your agents can use it now" })).toBeVisible();
+    await dlg.getByRole("button", { name: "Done" }).click();
     await expect(dlg).toHaveCount(0);
-    const row = page.getByRole("row").filter({ hasText: name });
-    await expect(row.getByText("Ready")).toBeVisible();
-    await expect(row).toContainText("File");
+    const row = sources.getByRole("listitem").filter({ hasText: name });
+    await expect(row.getByText(/passages?$/)).toBeVisible();
+    await expect(row).toContainText(name.endsWith(".pdf") ? "PDF" : "Voice or audio");
   }
   await page.getByLabel("Question or keywords").fill("transcript");
   await page.getByRole("button", { name: "Search", exact: true }).click();
   await expect(page.getByRole("list", { name: "Search results" })).toContainText("voicemail.mp3");
-  // A file that is not what it claims fails with a clear message and leaves a failed source.
-  await page.getByRole("button", { name: "Add source" }).first().click();
-  await dlg.getByLabel("Source type").selectOption("file");
-  await dlg.getByLabel("File").setInputFiles({ name: "spoof.pdf", mimeType: "application/pdf", buffer: Buffer.from("just some text, not a pdf") });
-  await dlg.getByRole("button", { name: "Add source" }).click();
+  // A file that is not what it claims fails with a clear message and leaves a failed source with Retry.
+  await page.getByRole("button", { name: "Add knowledge" }).first().click();
+  await dlg.getByRole("button", { name: /Upload files/ }).click();
+  await dlg.getByTestId("kb-file").setInputFiles({ name: "spoof.pdf", mimeType: "application/pdf", buffer: Buffer.from("just some text, not a pdf") });
+  await dlg.getByRole("button", { name: /^Add 1 file$/ }).click();
   await expect(dlg.getByRole("alert")).toContainText("not supported");
-  await dlg.getByRole("button", { name: "Cancel" }).click();
-  await expect(page.getByRole("row").filter({ hasText: "spoof.pdf" }).getByText("Failed")).toBeVisible();
+  await dlg.getByRole("button", { name: "Done" }).click();
+  await expect(sources.getByRole("listitem").filter({ hasText: "spoof.pdf" }).getByText("Needs attention")).toBeVisible();
+  await expect(sources.getByRole("listitem").filter({ hasText: "spoof.pdf" }).getByRole("button", { name: "Retry spoof.pdf" })).toBeVisible();
 
   // Viewer: the API refuses media and capabilities, and the AI settings page is owner and admin only.
   const vctx = await browser.newContext();
