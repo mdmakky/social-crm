@@ -20,6 +20,8 @@ export function Picker({ open, onOpenChange, anchor, title, description, width =
     const maxH = Math.min(440, window.innerHeight - 24);
     const below = window.innerHeight - r.bottom - 12;
     const top = below >= Math.min(maxH, 280) ? r.bottom + 6 : Math.max(12, r.top - 6 - Math.min(maxH, r.top - 18));
+    // measuring the button is DOM work, so state is set here on purpose
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setPos({ left: Math.max(12, Math.min(r.left, window.innerWidth - width - 12)), top, maxH: Math.max(160, Math.min(maxH, top === r.bottom + 6 ? below : r.top - 18)) });
   }, [open, phone, anchor, width]);
 

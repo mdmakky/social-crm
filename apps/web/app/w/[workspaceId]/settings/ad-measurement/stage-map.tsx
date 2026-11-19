@@ -50,7 +50,7 @@ export function StageMap({ workspaceId, dataset, pipelines, canManage }: { works
   const [errs, setErrs] = React.useState<Record<string, { message: string; retry: () => void }>>({});
   const [saved, setSaved] = React.useState(false);
   const rulesRef = React.useRef<CapiMappingDto[] | null>(null);
-  rulesRef.current = rules;
+  React.useEffect(() => { rulesRef.current = rules; });
   const params = { workspaceId, datasetId: dataset.id };
 
   const load = React.useCallback(async () => {
@@ -58,7 +58,8 @@ export function StageMap({ workspaceId, dataset, pipelines, canManage }: { works
     if (!r.ok) { setLoadError(errorMessage(r.error)); return false; }
     setLoadError(null); setRules(r.data.items); return true;
   }, [workspaceId, dataset.id]);
-  React.useEffect(() => { setRules(null); void load(); }, [load]);
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  React.useEffect(() => { void load(); }, [load]); // the parent remounts this map per dataset, so state starts empty
   React.useEffect(() => { if (!saved) return; const t = setTimeout(() => setSaved(false), 2500); return () => clearTimeout(t); }, [saved]);
 
   const pipeline = defaultPipeline(pipelines);
@@ -306,7 +307,7 @@ function ValueList({ m, currency0, onPick }: { m: CapiMappingDto; currency0: str
   const [currency, setCurrency] = React.useState(m.currency ?? currency0);
   const [showFixed, setShowFixed] = React.useState(cur === "fixed");
   const [err, setErr] = React.useState<string | null>(null);
-  function useFixed() {
+  function applyFixed() {
     if (amount.trim() === "" || !(Number(amount.replace(/,/g, "")) >= 0)) return setErr("Enter an amount, for example 25.");
     if (!/^[A-Z]{3}$/.test(currency)) return setErr("Use a three-letter currency code, for example USD.");
     const minor = toMinor(amount, currency);
@@ -326,7 +327,7 @@ function ValueList({ m, currency0, onPick }: { m: CapiMappingDto; currency0: str
         return <PickerOption key={o.k} title={o.t} hint={dis ? "A Purchase needs a value." : o.h} checked={cur === o.k} disabled={dis} onClick={() => (o.k === "fixed" ? setShowFixed(true) : onPick(o.k))} />;
       })}
       {showFixed && (
-        <form className="flex flex-col gap-1.5 px-2.5 pb-2 pt-1" noValidate onSubmit={(e) => { e.preventDefault(); useFixed(); }}>
+        <form className="flex flex-col gap-1.5 px-2.5 pb-2 pt-1" noValidate onSubmit={(e) => { e.preventDefault(); applyFixed(); }}>
           <div className="flex gap-2">
             <Input aria-label="Fixed amount" inputMode="decimal" autoComplete="off" placeholder="Amount" value={amount} aria-invalid={err ? true : undefined} className="min-h-10 min-w-0 flex-1" onChange={(e) => { setAmount(e.target.value); setErr(null); }} />
             <Select aria-label="Currency" wrapperClassName="w-24 [&_select]:min-h-10" value={currency} onChange={(e) => { setCurrency(e.target.value); setErr(null); }}>{(CURRENCIES.includes(currency as never) ? CURRENCIES : [...CURRENCIES, currency]).map((c) => <option key={c}>{c}</option>)}</Select>

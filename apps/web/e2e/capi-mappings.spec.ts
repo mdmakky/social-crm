@@ -49,8 +49,7 @@ test("stage map: empty state, choose events from the page, a move sends, off sta
   // The seeded default (lead won -> Purchase) is on its own row, off, and one row exists per open stage plus "when a lead is added".
   await expect(map.getByText("When a lead is added")).toBeVisible();
   for (const s of pipe.stages.filter((x) => x.kind === "open")) await expect(row(s.name)).toHaveCount(1);
-  const won = pipe.stages.find((s) => s.kind === "won")!;
-  await expect(row(won.name).getByRole("switch", { name: /^Off: Purchase/ })).toHaveAttribute("aria-checked", "false");
+  await expect(row("won leads").getByRole("switch", { name: /^Off: Purchase/ })).toHaveAttribute("aria-checked", "false");
   await expect(map.getByText("FINAL STAGES")).toBeVisible();
   await expect(map.getByLabel("What gets sent")).toContainText("Nothing yet");
 
@@ -68,19 +67,19 @@ test("stage map: empty state, choose events from the page, a move sends, off sta
   await expect(pop).toBeHidden();
   await expect(page.getByRole("button", { name: `Event for ${stage.name}: Lead. Change` })).toBeFocused(); // focus returns to the chip
   await expect(map.getByText("Saved")).toBeVisible();
-  let r = (await rulesApi()).find((x) => x.stageId === stage.id)!;
+  const r = (await rulesApi()).find((x) => x.stageId === stage.id)!;
   expect(r).toMatchObject({ triggerType: "lead_stage_entered", eventName: "Lead", valueMode: "none", enabled: true });
   await expect(map.getByLabel("What gets sent")).toContainText("Lead");
 
   // Won row: turn the default Purchase on, then set its value mode. "No value" is not allowed for a Purchase.
-  await row(won.name).getByRole("switch", { name: /Purchase/ }).click();
-  await expect(row(won.name).getByRole("switch", { name: /^On: Purchase/ })).toHaveAttribute("aria-checked", "true");
-  await row(won.name).getByRole("button", { name: /^Value for Purchase/ }).click();
+  await row("won leads").getByRole("switch", { name: /Purchase/ }).click();
+  await expect(row("won leads").getByRole("switch", { name: /^On: Purchase/ })).toHaveAttribute("aria-checked", "true");
+  await row("won leads").getByRole("button", { name: /^Value for Purchase/ }).click();
   const vp = page.getByRole("dialog", { name: "Value for Purchase" });
   await expect(vp.getByRole("button", { name: /^No value/ })).toBeDisabled();
   await vp.getByRole("button", { name: /Deal value, ask if missing/ }).click();
   await expect.poll(async () => (await rulesApi()).find((x) => x.triggerType === "lead_won")!.askForValue).toBe(true);
-  await row(won.name).getByRole("button", { name: /^Value for Purchase/ }).click();
+  await row("won leads").getByRole("button", { name: /^Value for Purchase/ }).click();
   await page.getByRole("dialog", { name: "Value for Purchase" }).getByRole("button", { name: /Fixed amount/ }).click();
   const fx = page.getByRole("dialog", { name: "Value for Purchase" });
   await fx.getByLabel("Fixed amount").fill("");
@@ -89,7 +88,7 @@ test("stage map: empty state, choose events from the page, a move sends, off sta
   await fx.getByLabel("Fixed amount").fill("25");
   await fx.getByRole("button", { name: "Use this amount" }).click();
   await expect.poll(async () => (await rulesApi()).find((x) => x.triggerType === "lead_won")!).toMatchObject({ valueMode: "fixed", askForValue: false });
-  await row(won.name).getByRole("button", { name: /^Value for Purchase/ }).click();
+  await row("won leads").getByRole("button", { name: /^Value for Purchase/ }).click();
   await page.getByRole("dialog", { name: "Value for Purchase" }).getByRole("button", { name: /Deal value, skip if missing/ }).click();
   await expect.poll(async () => (await rulesApi()).find((x) => x.triggerType === "lead_won")).toMatchObject({ valueMode: "lead_value", askForValue: false });
 

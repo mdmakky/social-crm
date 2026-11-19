@@ -30,7 +30,7 @@ test("configure Purchase on Won with ask, then move from the list and the lead p
 
   // Configure on the page: Purchase on the Won row defaults to "ask if missing".
   await page.goto(`/w/${workspaceId}/settings/ad-measurement`);
-  const wonRow = page.getByTestId("stage-map").getByRole("listitem").filter({ has: page.getByRole("button", { name: new RegExp(`Event for ${won.name}`) }) });
+  const wonRow = page.getByTestId("stage-map").getByRole("listitem").filter({ has: page.getByRole("button", { name: /Event for won leads/ }) });
   await wonRow.getByRole("switch").click(); // the seeded default Purchase rule is off: switch it on
   await expect(wonRow.getByRole("switch", { name: /^On: Purchase/ })).toHaveAttribute("aria-checked", "true");
   await wonRow.getByRole("button", { name: /^Value for Purchase/ }).click();
