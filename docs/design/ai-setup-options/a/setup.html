@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AI and automation: Setup (option A)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body data-state="normal">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></symbol>
+  <symbol id="i-inbox" viewBox="0 0 24 24"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.5 5.1 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.5-6.9A2 2 0 0 0 16.8 4H7.2a2 2 0 0 0-1.7 1.1z"/></symbol>
+  <symbol id="i-leads" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"/></symbol>
+  <symbol id="i-tasks" viewBox="0 0 24 24"><path d="m9 11 3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/></symbol>
+  <symbol id="i-reports" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 15v-4M12 15V7M17 15v-6"/></symbol>
+  <symbol id="i-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+  <symbol id="i-key" viewBox="0 0 24 24"><circle cx="7.5" cy="15.5" r="4.5"/><path d="m10.7 12.3 9.3-9.3M16 7l3 3"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></symbol>
+</svg>
+
+<div class="shell">
+  <aside class="side">
+    <div class="ws"><b>RD</b><span>RenoDevs Team</span></div>
+    <nav class="nav" aria-label="Main">
+      <a href="#" title="Home"><svg class="i"><use href="#i-home"/></svg><span>Home</span></a>
+      <a href="#" title="Inbox"><svg class="i"><use href="#i-inbox"/></svg><span>Inbox</span></a>
+      <a href="#" title="Leads"><svg class="i"><use href="#i-leads"/></svg><span>Leads</span></a>
+      <a href="#" title="Tasks"><svg class="i"><use href="#i-tasks"/></svg><span>Tasks</span></a>
+      <a href="#" title="Reports"><svg class="i"><use href="#i-reports"/></svg><span>Reports</span></a>
+      <a href="#" class="on" aria-current="page" title="Settings"><svg class="i"><use href="#i-settings"/></svg><span>Settings</span></a>
+    </nav>
+    <div class="user"><i>TA</i><div>Tanvir Ahmed<small>Owner</small></div></div>
+  </aside>
+
+  <div class="main">
+    <header class="top">
+      <label class="search"><svg class="i"><use href="#i-search"/></svg><input type="search" placeholder="Search or jump to" aria-label="Search or jump to"></label>
+      <button class="bell" aria-label="Notifications"><svg class="i"><use href="#i-bell"/></svg></button>
+    </header>
+
+    <div class="body">
+      <nav class="smenu" aria-label="Settings">
+        <p>Workspace</p><a href="#">General</a><a href="#">Notifications</a>
+        <p>CRM data</p><a href="#">Lead fields</a><a href="#">Lead stages</a>
+        <p>AI and automation</p><a href="#" class="on" aria-current="page">AI and automation</a>
+        <p>Channels</p><a href="#">Integrations</a><a href="#">Web chat</a><a href="#">Ad measurement</a>
+        <p>Team and security</p><a href="#">Members</a><a href="#">Audit log</a>
+      </nav>
+
+      <main class="content" id="content">
+        <h1>AI and automation</h1>
+        <nav class="tabs" aria-label="AI and automation">
+          <a href="#">Overview</a><a href="#">Agents</a><a href="#">Knowledge</a><a href="#">Automations</a><a href="#" class="on" aria-current="page">Setup</a>
+        </nav>
+
+        <div class="notice" role="status"><svg class="i"><use href="#i-alert"/></svg>Only owners and admins can manage AI</div>
+
+        <section class="panel conn" id="conn" aria-label="Provider connection"></section>
+
+        <div class="jobs-head">
+          <h2>What the AI does, and which model does it</h2>
+          <span class="muted small" id="est"></span>
+        </div>
+        <section class="panel jobs" id="jobs" role="table" aria-label="AI jobs">
+          <div class="cols thead" role="row">
+            <div role="columnheader">Job</div><div role="columnheader">Model</div><div role="columnheader">Indicative cost</div><div role="columnheader">This month</div><div role="columnheader">Status</div><div></div>
+          </div>
+          <div id="rows"></div>
+        </section>
+
+        <div>
+          <section class="sec" id="prompt">
+            <div><h2>Reply wording</h2><p>What the AI writes in a reply suggestion is set in its agent, not here.</p></div>
+            <div class="stack"><p>Edit the instructions in <a href="#">Agents, Reply drafter</a>. Setup only decides which model does the job, what it may cost and how it is connected.</p><textarea hidden id="tpl" aria-hidden="true"></textarea></div>
+          </section>
+
+          <section class="sec" id="budget">
+            <div><h2>Monthly budget</h2><p>The month is UTC.</p></div>
+            <div class="stack">
+              <label class="money"><span class="muted">Limit (USD)</span><input class="field" id="limit" value="25.00" inputmode="decimal" aria-describedby="limit-h"></label>
+              <span class="muted small" id="limit-h" style="margin-top:-8px">Leave empty for no limit</span>
+              <label class="check"><input type="checkbox" id="hard" checked>Hard stop: block AI calls when the limit is reached</label>
+            </div>
+          </section>
+
+          <section class="sec" id="usage">
+            <div><h2>Usage</h2><p>Last 30 days.</p></div>
+            <div>
+              <div class="usum"><span id="u-total"></span><span class="muted" id="u-err"></span></div>
+              <div class="bar" role="progressbar" aria-label="This month against limit" aria-valuemin="0" aria-valuemax="100"><i id="u-bar"></i></div>
+              <ul class="ulist" id="u-list" style="margin-top:10px"></ul>
+            </div>
+          </section>
+
+          <section class="sec adv" id="advanced">
+            <div><h2>Advanced</h2><p>Rarely needed.</p></div>
+            <div class="stack">
+              <div>
+                <h3>Base URL</h3>
+                <input class="field" id="base" style="width:100%;max-width:420px" placeholder="https://" aria-describedby="base-h">
+                <p class="muted small" id="base-h" style="margin-top:4px">Optional. OpenAI-compatible servers only, public https.</p>
+              </div>
+              <div>
+                <h3>Capabilities per model</h3>
+                <table class="cap"><thead><tr><th>Model</th><th>Images</th><th>Documents</th><th>Audio</th></tr></thead><tbody id="cap"></tbody></table>
+              </div>
+              <div>
+                <h3>Media playground</h3>
+                <p class="muted" style="margin-bottom:8px">Send one file to the provider to test a job. The file is not stored.</p>
+                <div class="row">
+                  <select class="field" id="pg-job" aria-label="Job to test"></select>
+                  <input type="file" class="field" style="padding-top:4px" aria-label="File to test">
+                  <button class="btn" id="pg-send">Send test file</button>
+                  <span class="muted small" id="pg-res" role="status"></span>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </main>
+    </div>
+  </div>
+</div>
+
+<div class="savebar" id="savebar" role="status"><span id="sb-msg">You have unsaved changes</span><span><button class="btn" id="discard">Discard</button> <button class="btn primary" id="save">Save changes</button></span></div>
+
+<div class="demo-state" role="group" aria-label="Demo state"><span>Demo state</span>
+  <button data-s="normal" aria-pressed="true">Normal</button><button data-s="nc" aria-pressed="false">Not connected</button><button data-s="mock" aria-pressed="false">Mock mode</button><button data-s="nonadmin" aria-pressed="false">Non-admin</button>
+</div>
+<nav class="opt-switch" aria-label="Design options"><a href="../a/setup.html" aria-current="page">A</a><a href="../b/setup.html">B</a><a href="../c/setup.html">C</a></nav>
+
+<script>
+(function(){
+var $=function(s,r){return (r||document).querySelector(s)};
+var ic=function(n){return '<svg class="i" aria-hidden="true"><use href="#i-'+n+'"/></svg>'};
+var M=[
+ {id:'haiku',n:'Haiku 5.5 (fast, low cost)',a:['text','vision'],p:'$0.80 in / $4.00 out',u:'per 1M tokens',au:'No',doc:'No',img:'Yes'},
+ {id:'sonnet',n:'Sonnet 5.5 (balanced)',a:['text','vision','document'],p:'$3.00 in / $15.00 out',u:'per 1M tokens',img:'Yes',doc:'Yes',au:'No'},
+ {id:'opus',n:'Opus 5.5 (best quality)',a:['text','vision','document'],p:'$15.00 in / $75.00 out',u:'per 1M tokens',img:'Yes',doc:'Yes',au:'No'},
+ {id:'flash',n:'Gemini Flash (low cost)',a:['text','vision','document'],p:'$0.10 in / $0.40 out',u:'per 1M tokens',img:'Yes',doc:'Yes',au:'Not confirmed'},
+ {id:'whisper',n:'Whisper large',a:['transcription'],p:'$0.006',u:'per minute',img:'No',doc:'No',au:'Yes'},
+ {id:'mock',n:'Mock model (no cost)',a:['text'],p:'No cost',u:'mock',img:'No',doc:'No',au:'No'}
+];
+var ABIL={text:'text',vision:'images',document:'documents',transcription:'voice'};
+var WHY={text:'Cannot write text',vision:'Cannot read images',document:'Cannot read documents',transcription:'Cannot transcribe voice'};
+var J=[
+ {id:'reply',n:'Reply suggestions in the inbox',d:'Drafts a reply the person edits and sends. The AI never sends.',need:'text',calls:312,cost:1.10},
+ {id:'notes',n:'Agent notes and proposed actions',d:'Used by AI agents and the step "Ask an AI agent to draft a note". Nothing is sent without approval.',need:'text',calls:64,cost:2.35},
+ {id:'img',n:'Read images customers send',d:'Reads photos and screenshots that arrive in conversations.',need:'vision',calls:21,cost:0.74},
+ {id:'pdf',n:'Read PDFs and documents for Knowledge',d:'Turns uploaded files into text the AI can use.',need:'document',calls:9,cost:0.31},
+ {id:'voice',n:'Turn voice messages into text',d:'Writes out voice notes so they can be read and searched.',need:'transcription',calls:6,cost:0.12,extra:' (14 min)'}
+];
+var ASSIGN={normal:{reply:'haiku',notes:'sonnet',img:'sonnet',pdf:'flash',voice:'whisper'},nc:{},mock:{reply:'mock',notes:'mock',img:'mock',pdf:'mock',voice:'mock'}};
+var TPL='You are a helpful assistant for {{company_name}}, a home renovation company in Dhaka.\nWrite a short reply to {{lead_name}} in a {{tone}} tone, based on the conversation below.\nNever promise a price or a date. Offer a site visit when it helps.\n\n{{last_messages}}';
+var S,saved,dirty,jobsHtml;
+var mget=function(id){return M.filter(function(m){return m.id===id})[0]};
+var money=function(x){return '$'+x.toFixed(2)};
+
+function load(st){
+  var st2=st==='nonadmin'?'normal':st;
+  document.body.dataset.state=st;
+  var nc=st==='nc',mock=st==='mock';
+  S={prov:nc?'':(mock?'mock':'openrouter'),en:!nc,assign:Object.assign({},ASSIGN[st2]),limit:nc?'':'25.00',hard:true,tpl:TPL,base:'',tested:false,use:!nc&&!mock,keyset:!nc&&!mock};
+  saved=JSON.stringify(S);dirty=false;
+  $('#tpl').value=S.tpl;$('#limit').value=S.limit;$('#hard').checked=true;$('#base').value='';
+  render();setDirty(false);
+  [].forEach.call(document.querySelectorAll('.demo-state button'),function(b){b.setAttribute('aria-pressed',b.dataset.s===st)});
+}
+function status(j,id){
+  if(!id)return {c:'warn',t:'Needs a model'};
+  return mget(id).a.indexOf(j.need)<0?{c:'bad',t:'Model cannot do this'}:{c:'ok',t:'Working'};
+}
+function usage(){var on=document.body.dataset.state==='normal'||document.body.dataset.state==='nonadmin';return on}
+function render(){
+  var st=document.body.dataset.state,nc=st==='nc',mock=st==='mock',un=usage();
+  var admin=st!=='nonadmin';
+  // connection
+  var h='<div class="grp"><label for="prov">Provider</label><select class="field" id="prov"><option value="">Choose a provider</option><option value="mock">Mock offline (MOCK)</option><option value="openrouter">OpenRouter</option><option value="compat">OpenAI-compatible server</option></select></div>';
+  if(S.keyset){h+='<div class="key">'+ic('key')+'<span>Key ending cdef is stored</span><a href="#" id="repl">Replace key</a></div>'}
+  else if(S.prov==='mock'){h+='<div class="key muted">No key needed in mock mode</div>'}
+  else{h+='<div class="grp"><label for="key">API key</label><input class="field" id="key" type="password" placeholder="Paste key, stored encrypted" style="width:200px" autocomplete="off"></div>'}
+  h+='<span class="spacer"></span><label class="sw"><input type="checkbox" id="en" role="switch"'+(S.en?' checked':'')+'><span class="t"></span>Enabled</label>';
+  h+='<button class="btn'+(S.prov&&S.prov!=='mock'&&!S.keyset?' primary':'')+'" id="test">'+(S.keyset||S.prov==='mock'?'Test connection':'Connect provider')+'</button>';
+  h+='<div class="honest" id="honest">'+honest()+'</div>';
+  $('#conn').innerHTML=h;$('#prov').value=S.prov;
+  $('#base').disabled=S.prov!=='compat';
+  // jobs
+  var r='';
+  J.forEach(function(j){
+    var id=S.assign[j.id],m=id&&mget(id),s=status(j,id);
+    var cost=!m?'<span class="muted">Choose a model</span>':(m.u==='mock'?'No cost<small>mock</small>':m.p+'<small>'+m.u+', indicative</small>');
+    var mo=un||0?'':'';
+    var month=un?money(j.cost)+'<small>'+j.calls+' calls'+(j.extra||'')+'</small>':'No usage yet';
+    r+='<div class="job" data-j="'+j.id+'"><div class="cols" role="row">'+
+     '<div class="jn" role="cell"><b>'+j.n+'</b><span>'+j.d+'</span></div>'+
+     '<div class="mp" role="cell" data-label="Model">'+picker(j,id)+'</div>'+
+     '<div class="cost" role="cell" data-label="Indicative cost">'+cost+'</div>'+
+     '<div class="cost" role="cell" data-label="This month">'+month+'</div>'+
+     '<div role="cell" data-label="Status"><span class="pill '+s.c+'">'+s.t+'</span></div>'+
+     '<button class="chev" aria-expanded="false" aria-label="Show details for '+j.n+'">'+ic('chev')+'</button></div>'+
+     '<div class="detail" hidden>'+detail(j,id)+'</div></div>';
+  });
+  $('#rows').innerHTML=r;
+  // estimate
+  $('#est').textContent=un?'Estimated monthly cost at current volume: about $5 (sample)':'';
+  // usage
+  var tot=un?4.62:0,lim=parseFloat(S.limit)||0,pct=lim?Math.round(tot/lim*100):0;
+  $('#u-total').textContent=money(tot)+(lim?' of '+money(lim)+' ('+pct+'%)':' this month, no limit set');
+  $('#u-err').textContent=un?'2 errors, 0 blocked':'0 errors, 0 blocked';
+  $('#u-bar').style.width=(lim?Math.min(pct,100):0)+'%';
+  $('.bar').setAttribute('aria-valuenow',pct);
+  $('#u-list').innerHTML=J.map(function(j){return '<li><span>'+j.n+'</span><span class="r mid muted">'+(un?j.calls+' calls'+(j.extra||''):'0 calls')+'</span><span class="r">'+(un?money(j.cost):'$0.00')+'</span></li>'}).join('');
+  // capabilities + playground
+  $('#cap').innerHTML=M.map(function(m){return '<tr><td>'+m.n+'</td><td>'+m.img+'</td><td>'+m.doc+'</td><td>'+m.au+'</td></tr>'}).join('');
+  $('#pg-job').innerHTML=J.map(function(j){return '<option>'+j.n+'</option>'}).join('');
+  $('#pg-send').disabled=nc;
+  // admin lock
+  [].forEach.call(document.querySelectorAll('#content button:not(.chev):not(.mp-btn),#content input,#content select,#content textarea,.mp-btn'),function(e){e.disabled=!admin});
+  $('#base').disabled=!admin||S.prov!=='compat';if(nc)$('#pg-send').disabled=true;
+  var e1=$('#en');if(nc||S.prov===''){e1.disabled=true}
+}
+function honest(){
+  if(S.prov==='')return '<span class="pill plain">Nothing connected yet</span><span>Choose a provider and add a key. Nothing is sent until you do.</span>';
+  if(S.prov==='mock')return '<span class="pill mock">MOCK</span><span>Offline sample answers, no cost. Image, document and voice jobs cannot run in mock mode.</span>';
+  if(S.tested)return '<span class="pill ok">Tested</span><span class="res">Demo result: a real request would be recorded here with its time and model.</span>';
+  return '<span class="pill warn">Not yet tested with a real request</span><span>Press Test connection to send one small request.</span>';
+}
+function picker(j,id){
+  var m=id&&mget(id);
+  var b='<button class="mp-btn" aria-haspopup="listbox" aria-expanded="false" aria-label="Model for '+j.n+'">'+(m?'<span>'+m.n+'</span>':'<span class="ph">Choose a model</span>')+ic('chev')+'</button><ul class="mp-list" role="listbox" aria-label="Models">';
+  M.forEach(function(x){
+    var ok=x.a.indexOf(j.need)>=0;
+    b+='<li role="presentation"><button class="mp-opt" role="option" data-m="'+x.id+'" aria-selected="'+(x.id===id)+'"'+(ok?'':' aria-disabled="true"')+'><span>'+(x.id===id?ic('check'):'')+'</span><span class="n">'+x.n+'</span>'+(ok?'<span></span>':'<span class="why">'+WHY[j.need]+'</span>')+'<span class="d">'+(x.u==='mock'?'No cost':x.p+' '+x.u+', indicative')+'</span></button></li>';
+  });
+  return b+'</ul>';
+}
+function detail(j,id){
+  var m=id&&mget(id),can=m?m.a.map(function(a){return ABIL[a]}).join(', '):'Not chosen yet';
+  if(j.id==='reply')return '<div><h3>Where the wording lives</h3><p>The instructions for this job are part of the Reply drafter agent. <a href="#">Open Agents</a>.</p></div>';
+  return '<div><h3>This job</h3><p>'+j.d+'</p></div><div><h3>Model</h3><ul><li>Needs a model that can handle: '+ABIL[j.need]+'.</li><li>Chosen model can handle: '+can+'.</li><li>Calls this month: '+(usage()?j.calls+(j.extra||''):'0')+'.</li></ul></div>';
+}
+function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;')}
+function setDirty(d){dirty=d;$('#savebar').classList.toggle('show',d);$('#sb-msg').textContent='You have unsaved changes'}
+function check(){setDirty(JSON.stringify(S)!==saved)}
+
+document.addEventListener('click',function(e){
+  var t=e.target;
+  var mb=t.closest('.mp-btn');
+  if(mb){var mp=mb.parentNode,o=mp.classList.contains('open');closeAll();if(!o){mp.classList.add('open');mb.setAttribute('aria-expanded','true');var f=mp.querySelector('[aria-selected=true]')||mp.querySelector('.mp-opt');f.focus()}return}
+  var op=t.closest('.mp-opt');
+  if(op){if(op.getAttribute('aria-disabled')==='true')return;var jid=op.closest('.job').dataset.j;S.assign[jid]=op.dataset.m;var open=openIds();closeAll();render();reopen(open);check();$('.job[data-j='+jid+'] .mp-btn').focus();return}
+  if(!t.closest('.mp'))closeAll();
+  var ch=t.closest('.chev');
+  if(ch){var jb=ch.closest('.job'),d=jb.querySelector('.detail'),o2=jb.classList.toggle('open');d.hidden=!o2;ch.setAttribute('aria-expanded',o2);return}
+  var ph=t.closest('.chip');
+  if(ph){var ta=$('#tpl'),a=ta.selectionStart,b=ta.selectionEnd;ta.value=ta.value.slice(0,a)+ph.dataset.ph+ta.value.slice(b);ta.focus();ta.selectionStart=ta.selectionEnd=a+ph.dataset.ph.length;S.tpl=ta.value;check();return}
+  if(t.closest('.goprompt')){e.preventDefault();$('#tpl').focus();$('#prompt').scrollIntoView({behavior:'smooth'});return}
+  if(t.closest('#repl')){e.preventDefault();S.keyset=false;render();$('#key').focus();check();return}
+  if(t.closest('#test')){test();return}
+  if(t.closest('#pg-send')){$('#pg-res').textContent='Demo only: no file was sent.';return}
+  if(t.closest('#save')){saved=JSON.stringify(S);setDirty(true);$('#sb-msg').textContent='Saved.';$('#savebar').querySelector('span:last-child').style.visibility='hidden';setTimeout(function(){$('#savebar').querySelector('span:last-child').style.visibility='';setDirty(false)},1400);return}
+  if(t.closest('#discard')){var st=document.body.dataset.state;var open2=openIds();load(st);reopen(open2);return}
+  var ds=t.closest('.demo-state button');
+  if(ds){load(ds.dataset.s)}
+  var vb=t.closest('.vers button');if(vb&&!vb.disabled){S.tpl=S.tpl;check()}
+});
+function openIds(){return [].map.call(document.querySelectorAll('.job.open'),function(x){return x.dataset.j})}
+function reopen(ids){ids.forEach(function(i){var jb=$('.job[data-j='+i+']');if(jb){jb.classList.add('open');jb.querySelector('.detail').hidden=false;jb.querySelector('.chev').setAttribute('aria-expanded','true')}})}
+function closeAll(){[].forEach.call(document.querySelectorAll('.mp.open'),function(m){m.classList.remove('open');m.querySelector('.mp-btn').setAttribute('aria-expanded','false')})}
+document.addEventListener('keydown',function(e){
+  var mp=e.target.closest&&e.target.closest('.mp.open');
+  if(e.key==='Escape'&&mp){var b=mp.querySelector('.mp-btn');closeAll();b.focus()}
+  if(mp&&(e.key==='ArrowDown'||e.key==='ArrowUp')){e.preventDefault();var os=[].slice.call(mp.querySelectorAll('.mp-opt')),i=os.indexOf(document.activeElement);i=e.key==='ArrowDown'?Math.min(os.length-1,i+1):Math.max(0,i-1);os[i].focus()}
+});
+document.addEventListener('change',function(e){
+  var t=e.target;
+  if(t.id==='prov'){S.prov=t.value;S.keyset=false;S.tested=false;if(t.value==='mock'){J.forEach(function(j){S.assign[j.id]=S.assign[j.id]||'mock'})}render();check()}
+  if(t.id==='en'){S.en=t.checked;check()}
+  if(t.id==='hard'){S.hard=t.checked;check()}
+});
+document.addEventListener('input',function(e){
+  var t=e.target;
+  if(t.id==='tpl'){S.tpl=t.value;check()}
+  if(t.id==='limit'){S.limit=t.value;var lim=parseFloat(t.value)||0,un=usage(),tot=un?4.62:0,p=lim?Math.round(tot/lim*100):0;$('#u-total').textContent=money(tot)+(lim?' of '+money(lim)+' ('+p+'%)':' this month, no limit set');$('#u-bar').style.width=(lim?Math.min(p,100):0)+'%';check()}
+  if(t.id==='base'){S.base=t.value;check()}
+});
+function test(){
+  var h=$('#honest');
+  if(S.prov===''){h.innerHTML='<span class="pill warn">Choose a provider first</span>';return}
+  h.classList.add('testing');h.innerHTML='<span class="spin"></span><span>Sending one small request...</span>';
+  setTimeout(function(){h.classList.remove('testing');
+    if(S.prov==='mock'){h.innerHTML='<span class="pill mock">MOCK</span><span>Mock answered offline. This does not prove a real provider works.</span>';return}
+    S.tested=true;saved=JSON.stringify(S);h.innerHTML=honest()},900);
+}
+[].forEach.call(document.querySelectorAll('.demo-state button'),function(){});
+load('normal');
+})();
+</script>
+</body>
+</html>

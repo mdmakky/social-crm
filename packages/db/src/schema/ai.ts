@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { bigint, boolean, customType, integer, jsonb, pgTable, real, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { bigint, boolean, customType, integer, jsonb, pgTable, primaryKey, real, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import { workspaces } from "./tenancy.ts";
 
 // Hand-written migration 0030 is the source of truth (checks, RLS, grants, triggers); these definitions only type the columns.
@@ -81,6 +81,16 @@ export const aiBudgets = pgTable("ai_budgets", {
   updatedBy: text("updated_by"),
   updatedAt: ts("updated_at").notNull().defaultNow(),
 });
+
+/** Migration 0045: one pinned model per job; no row = automatic. */
+export const aiJobModels = pgTable("ai_job_models", {
+  workspaceId: workspaceId(),
+  job: text("job").notNull(),
+  provider: text("provider").notNull(),
+  model: text("model").notNull(),
+  updatedBy: text("updated_by"),
+  updatedAt: ts("updated_at").notNull().defaultNow(),
+}, (t) => [primaryKey({ columns: [t.workspaceId, t.job] })]);
 
 export const AI_AGENT_STATUSES = ["draft", "active", "archived"] as const;
 export const AI_ACTION_STATUSES = ["pending", "approved", "rejected", "executed", "failed"] as const;

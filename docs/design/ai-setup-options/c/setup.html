@@ -1,0 +1,432 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AI and automation: Setup (option C)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body data-demo="normal">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
+  <symbol id="i-inbox" viewBox="0 0 24 24"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
+  <symbol id="i-task" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="m9 12 2 2 4-4"/></symbol>
+  <symbol id="i-chart" viewBox="0 0 24 24"><line x1="12" x2="12" y1="20" y2="10"/><line x1="18" x2="18" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="16"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+  <symbol id="i-plug" viewBox="0 0 24 24"><path d="M12 22v-5"/><path d="M9 8V2"/><path d="M15 8V2"/><path d="M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z"/></symbol>
+</svg>
+
+<div class="app">
+  <aside class="side">
+    <div class="ws"><div class="ws-logo">RD</div><div><b>RenoDevs Team</b><small>Workspace</small></div></div>
+    <nav class="nav" aria-label="Main">
+      <a href="#"><svg class="i"><use href="#i-home"/></svg><span>Home</span></a>
+      <a href="#"><svg class="i"><use href="#i-inbox"/></svg><span>Inbox</span></a>
+      <a href="#"><svg class="i"><use href="#i-users"/></svg><span>Leads</span></a>
+      <a href="#"><svg class="i"><use href="#i-task"/></svg><span>Tasks</span></a>
+      <a href="#"><svg class="i"><use href="#i-chart"/></svg><span>Reports</span></a>
+      <a href="#" aria-current="page"><svg class="i"><use href="#i-gear"/></svg><span>Settings</span></a>
+    </nav>
+    <div class="user"><div class="avatar">TA</div><div><b>Tanvir Ahmed</b><small>Owner</small></div></div>
+  </aside>
+
+  <div class="main">
+    <header class="top">
+      <label class="search"><svg class="i"><use href="#i-search"/></svg><input type="text" placeholder="Search or jump to" aria-label="Search or jump to"></label>
+      <button class="icon-btn" aria-label="Notifications"><svg class="i"><use href="#i-bell"/></svg></button>
+    </header>
+
+    <div class="page">
+      <nav class="smenu" aria-label="Settings">
+        <h2>Workspace</h2><a href="#">General</a><a href="#">Notifications</a>
+        <h2>CRM data</h2><a href="#">Lead fields</a><a href="#">Lead stages</a>
+        <h2>AI and automation</h2><a href="#" aria-current="page">AI and automation</a>
+        <h2>Channels</h2><a href="#">Integrations</a><a href="#">Web chat</a><a href="#">Ad measurement</a>
+        <h2>Team and security</h2><a href="#">Members</a><a href="#">Audit log</a>
+      </nav>
+
+      <main class="content">
+        <h1>AI and automation</h1>
+        <p class="lede">Thursday 19 November 2026</p>
+        <nav class="tabs" aria-label="AI and automation">
+          <a href="#">Overview</a><a href="#">Agents</a><a href="#">Knowledge</a><a href="#">Automations</a><a href="#" aria-current="page">Setup</a>
+        </nav>
+
+        <div class="notice" id="n-admin" hidden><svg class="i"><use href="#i-info"/></svg><span>Only owners and admins can manage AI. You can see this setup but not change it.</span></div>
+        <div class="notice mock" id="n-mock" hidden><svg class="i"><use href="#i-info"/></svg><span>MOCK mode. Nothing is sent to a real provider, so every estimate shows $0.</span></div>
+
+        <div class="grid">
+          <!-- 1. pick a style -->
+          <section class="card sec-style" aria-labelledby="h-style">
+            <fieldset id="fs-style">
+              <h2 id="h-style">How should your AI work?</h2>
+              <p class="sub">Pick a style and every job below gets a model. You can change any job afterwards.</p>
+              <p class="lock"><svg class="i"><use href="#i-alert"/></svg>Connect a provider first</p>
+              <div class="styles" role="radiogroup" aria-labelledby="h-style">
+                <label class="style"><input class="sr" type="radio" name="style" value="lowest"><span class="dot"></span>
+                  <strong>Lowest cost</strong>
+                  <span class="what">Fast, low-cost models. Good for short, simple replies.</span>
+                  <span class="cost"><span data-cost="lowest">about $2</span><small>a month, sample</small></span></label>
+                <label class="style"><input class="sr" type="radio" name="style" value="balanced" checked><span class="dot"></span>
+                  <strong>Balanced (recommended)</strong>
+                  <span class="what">A fast model for replies, a stronger one for notes and images.</span>
+                  <span class="cost"><span data-cost="balanced">about $5</span><small>a month, sample</small></span></label>
+                <label class="style"><input class="sr" type="radio" name="style" value="best"><span class="dot"></span>
+                  <strong>Best quality</strong>
+                  <span class="what">The strongest model for notes and images. Slower and costs more.</span>
+                  <span class="cost"><span data-cost="best">about $22</span><small>a month, sample</small></span></label>
+              </div>
+              <p class="custom-note" id="custom-note" hidden><span class="pill accent">Custom</span>You changed a job, so no style is selected.</p>
+              <p class="fine" style="margin:12px 0 0">Estimates use this month's volume and indicative prices. They are not a bill.</p>
+            </fieldset>
+          </section>
+
+          <!-- sticky: what this setup does -->
+          <aside class="card panel-side" aria-labelledby="h-panel">
+            <div class="head"><h2 id="h-panel">What this setup does</h2><span class="pill mock mockflag">MOCK</span></div>
+            <ul class="jobs" id="jobs"></ul>
+            <div class="sum">
+              <div class="row"><span class="muted">Estimated cost</span><b id="p-est">about $5 a month</b></div>
+              <div class="fine" id="p-est-note">Sample, at current volume.</div>
+              <div class="row"><span class="muted">Used this month</span><b>$4.62 of <span id="p-limit">$25.00</span></b></div>
+              <div class="bar" role="img" aria-label="18 percent of the monthly limit used"><i style="width:18%"></i></div>
+              <div class="fine">Month is UTC. Last 30 days: 2 errors, 0 blocked.</div>
+            </div>
+          </aside>
+
+          <div class="rest">
+            <!-- 2. fine-tune -->
+            <section class="card" aria-labelledby="h-fine">
+              <fieldset id="fs-fine">
+                <div class="head"><div><h2 id="h-fine">Fine-tune a job</h2><p class="sub" style="margin-bottom:6px">Change a model for one job. A model that cannot do a job is shown but cannot be picked.</p></div><span class="fine" id="inuse" style="margin-right:8px"></span><span class="pill accent" id="style-pill">Style: Balanced</span></div>
+                <div class="matrix" id="matrix">
+                  <div class="mrow mhead" aria-hidden="true"><span>Job</span><span>Model</span><span>Abilities</span><span style="text-align:right">Per month</span></div>
+                </div>
+                <p class="fine" style="margin:10px 0 0">Prices are indicative, in USD per 1 million tokens (input / output). Voice is per minute.</p>
+              </fieldset>
+            </section>
+
+            <!-- 3. connection -->
+            <section class="card" id="conn" aria-labelledby="h-conn">
+              <fieldset id="fs-conn">
+                <div class="head"><div><h2 id="h-conn">Connection</h2><p class="sub">Where your AI requests are sent.</p></div><span class="pill warn" id="conn-pill">Not yet tested with a real request</span></div>
+                <p class="hint"><svg class="i" style="vertical-align:-3px"><use href="#i-chev"/></svg> Start here. Choose a provider and add a key, then pick a style.</p>
+                <div class="form">
+                  <div class="field"><label for="provider">Provider</label>
+                    <select id="provider"><option value="">Choose a provider</option><option value="mock">Mock offline (MOCK)</option><option value="openrouter">OpenRouter</option><option value="compat">OpenAI-compatible server</option></select></div>
+                  <div class="field"><label for="key">API key</label>
+                    <input id="key" type="password" autocomplete="off" placeholder="A key ending in cdef is stored">
+                    <small id="key-help">Stored encrypted. Leave empty to keep it. It is never shown.</small></div>
+                  <div class="wide actions">
+                    <label class="switch"><input type="checkbox" id="enabled" checked><span class="tr"></span>Enabled</label>
+                    <span style="flex:1"></span>
+                    <button class="btn" id="test" type="button"><svg class="i"><use href="#i-plug"/></svg>Test connection</button>
+                    <button class="btn primary" id="save" type="button">Save connection</button>
+                  </div>
+                </div>
+                <div class="result" id="result" role="status" hidden></div>
+              </fieldset>
+            </section>
+
+            <!-- 4. budget -->
+            <section class="card" aria-labelledby="h-bud">
+              <fieldset id="fs-bud">
+                <h2 id="h-bud">Monthly budget</h2>
+                <p class="sub">A limit in USD for all AI calls. The month is UTC.</p>
+                <div class="form">
+                  <div class="field"><label for="limit">Monthly limit (USD)</label><input id="limit" type="number" min="0" step="0.01" value="25.00" inputmode="decimal"><small>Leave empty for no limit.</small></div>
+                  <div class="field"><span class="lbl">When the limit is reached</span>
+                    <label class="check" style="min-height:30px"><input type="checkbox" id="hard" checked>Hard stop: block AI calls when the limit is reached</label></div>
+                </div>
+                <p class="fine" id="bud-note" style="margin:12px 0 0"></p>
+                <h3 style="margin:18px 0 4px;font-size:13px;font-weight:650">Usage, last 30 days <span class="pill mock mockflag" style="margin-left:6px">MOCK</span></h3>
+                <div>
+                  <div class="ubar"><span class="n">Reply suggestions</span><div class="bar"><i style="width:23.8%"></i></div><span class="v">312 calls, $1.10</span></div>
+                  <div class="ubar"><span class="n">Agent notes</span><div class="bar"><i style="width:50.9%"></i></div><span class="v">64 calls, $2.35</span></div>
+                  <div class="ubar"><span class="n">Read images</span><div class="bar"><i style="width:16%"></i></div><span class="v">21 calls, $0.74</span></div>
+                  <div class="ubar"><span class="n">Read PDFs</span><div class="bar"><i style="width:6.7%"></i></div><span class="v">9 calls, $0.31</span></div>
+                  <div class="ubar"><span class="n">Voice to text</span><div class="bar"><i style="width:2.6%"></i></div><span class="v">6 calls (14 min), $0.12</span></div>
+                </div>
+                <p class="fine" style="margin:8px 0 0">Total $4.62. 2 errors, 0 blocked.</p>
+              </fieldset>
+            </section>
+
+            <!-- 5. reply wording lives in Agents -->
+            <section class="card" aria-labelledby="h-prompt">
+              <fieldset id="fs-prompt">
+                <h2 id="h-prompt">Reply wording</h2>
+                <p class="fine">The instructions for reply suggestions are part of the Reply drafter agent, not Setup. <a href="#">Open Agents</a>.</p>
+                <div hidden><textarea id="tpl"></textarea><button id="savever" type="button"></button><ul id="vers"></ul></div>
+              </fieldset>
+            </section>
+
+            <!-- 6. advanced -->
+            <details class="adv">
+              <summary><svg class="i"><use href="#i-chev"/></svg>Advanced</summary>
+              <fieldset id="fs-adv" class="adv-body">
+                <div>
+                  <h3>Base URL</h3>
+                  <div class="field"><label class="sr" for="base">Base URL</label><input id="base" type="url" placeholder="https://" disabled><small id="base-help">Only for OpenAI-compatible servers. Must be a public https address.</small></div>
+                </div>
+                <div>
+                  <h3>Capabilities</h3>
+                  <p class="fine" style="margin:0 0 6px">What each model in this setup can do. Yes, No or Not confirmed.</p>
+                  <table class="cap"><thead><tr><th>Model</th><th>Images</th><th>Documents</th><th>Audio</th></tr></thead><tbody id="cap"></tbody></table>
+                </div>
+                <div>
+                  <h3>Media playground</h3>
+                  <p class="fine" style="margin:0 0 8px">Send one file to the provider to test a job. The file is not stored.</p>
+                  <div class="form">
+                    <div class="field"><label for="pg-job">Job</label><select id="pg-job"><option>Read images customers send</option><option>Read PDFs and documents for Knowledge</option><option>Turn voice messages into text</option></select></div>
+                    <div class="field"><label for="pg-file">File</label><input id="pg-file" type="file" style="height:auto;padding:4px 6px"></div>
+                    <div class="wide actions"><button class="btn" type="button" id="pg-send">Send test file</button><span class="fine" id="pg-out"></span></div>
+                  </div>
+                </div>
+              </fieldset>
+            </details>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+</div>
+
+<div class="demo-state"><label for="demo">Demo state</label>
+  <select id="demo"><option value="normal">Normal</option><option value="notconnected">Not connected</option><option value="mock">Mock mode</option><option value="nonadmin">Non-admin notice</option></select></div>
+
+<dialog id="mp" aria-labelledby="mp-title">
+  <div class="mp-head"><h2 id="mp-title">Choose a model</h2><button type="button" class="mp-x" id="mp-close" aria-label="Close"><svg class="i"><use href="#i-x"/></svg></button></div>
+  <div class="mp-tools">
+    <label class="sr" for="mp-q">Search models</label>
+    <div class="mp-search"><svg class="i" aria-hidden="true"><use href="#i-search"/></svg><input type="search" id="mp-q" placeholder="Search by name or maker" autocomplete="off"></div>
+    <div class="mp-row">
+      <div class="mp-chips" role="group" aria-label="Filter by ability">
+        <button type="button" class="mchip" data-f="V" aria-pressed="false">Images</button>
+        <button type="button" class="mchip" data-f="D" aria-pressed="false">Documents</button>
+        <button type="button" class="mchip" data-f="A" aria-pressed="false">Audio</button>
+      </div>
+      <label class="mp-sort">Sort <select id="mp-sort" aria-label="Sort models"><option value="maker">By maker</option><option value="price">Price, low to high</option><option value="name">Name</option></select></label>
+    </div>
+    <label class="mp-hide"><input type="checkbox" id="mp-can" checked> Hide models that cannot do this job</label>
+  </div>
+  <p class="mp-count" id="mp-count" role="status"></p>
+  <div class="mp-list" id="mp-list"></div>
+  <p class="mp-foot">Choosing a model turns it on for this workspace (<span id="mp-inuse"></span> of 50). Prices are indicative. This is a sample of the list; the product loads your provider's live list.</p>
+</dialog>
+<nav class="opt-switch" aria-label="Design options"><a href="../a/setup.html">A</a><a href="../b/setup.html">B</a><a href="../c/setup.html" aria-current="page">C</a></nav>
+
+<script>
+(function(){
+  var $=function(s,r){return (r||document).querySelector(s)};
+  // A sample of OpenRouter's list. [key, name, abilities (T text, V images, D documents, A audio), input $/1M, output $/1M or $/minute for audio]. The product loads the provider's live list.
+  var CATALOG=[
+    ["Anthropic",[["haiku","Haiku 5.5 (fast, low cost)","TV",0.8,4],["sonnet","Sonnet 5.5 (balanced)","TVD",3,15],["opus","Opus 5.5 (best quality)","TVD",15,75],["c-sonnet45","Claude Sonnet 4.5","TVD",3,15],["c-haiku45","Claude Haiku 4.5","TV",0.8,4],["c-opus41","Claude Opus 4.1","TVD",15,75],["c-35haiku","Claude 3.5 Haiku","TV",0.8,4],["c-3haiku","Claude 3 Haiku","TV",0.25,1.25]]],
+    ["OpenAI",[["gpt5","GPT-5","TVD",1.25,10],["gpt5m","GPT-5 mini","TVD",0.25,2],["gpt5n","GPT-5 nano","TV",0.05,0.4],["gpt41","GPT-4.1","TVD",2,8],["gpt41m","GPT-4.1 mini","TVD",0.4,1.6],["gpt41n","GPT-4.1 nano","TV",0.1,0.4],["gpt4o","GPT-4o","TV",2.5,10],["gpt4om","GPT-4o mini","TV",0.15,0.6],["o3","o3","TVD",2,8],["o4m","o4-mini","TV",1.1,4.4],["oss120","gpt-oss-120b","T",0.15,0.6],["oss20","gpt-oss-20b","T",0.05,0.2],["whisper","Whisper large","A",0,0.006],["whisper-t","Whisper large v3 turbo","A",0,0.004],["gpt4o-tr","GPT-4o transcribe","A",0,0.006]]],
+    ["Google",[["gemini","Gemini Flash (low cost)","TVD",0.1,0.4,"unc"],["gem25p","Gemini 2.5 Pro","TVD",1.25,10],["gem25f","Gemini 2.5 Flash","TVD",0.3,2.5],["gem25l","Gemini 2.5 Flash-Lite","TVD",0.1,0.4],["gem20f","Gemini 2.0 Flash","TVD",0.1,0.4],["gemma27","Gemma 3 27B","TV",0.09,0.17],["gemma12","Gemma 3 12B","TV",0.05,0.1]]],
+    ["Meta",[["l33-70","Llama 3.3 70B Instruct","T",0.1,0.25],["l4-scout","Llama 4 Scout","TV",0.08,0.3],["l4-mav","Llama 4 Maverick","TV",0.15,0.6],["l31-405","Llama 3.1 405B Instruct","T",0.8,0.8],["l31-8","Llama 3.1 8B Instruct","T",0.02,0.05],["l32-90v","Llama 3.2 90B Vision","TV",0.35,0.4],["l32-11v","Llama 3.2 11B Vision","TV",0.05,0.05]]],
+    ["Mistral",[["m-large","Mistral Large 2","T",2,6],["m-medium","Mistral Medium 3","TV",0.4,2],["m-small","Mistral Small 3.2","TV",0.06,0.18],["pixtral","Pixtral Large","TV",2,6],["ministral","Ministral 8B","T",0.1,0.1],["m-ocr","Mistral OCR","D",1,3]]],
+    ["DeepSeek",[["ds-v3","DeepSeek V3.1","T",0.27,1.1],["ds-r1","DeepSeek R1","T",0.55,2.19]]],
+    ["Qwen",[["q3-235","Qwen3 235B","T",0.13,0.6],["q3-32","Qwen3 32B","T",0.1,0.3],["q25vl","Qwen2.5 VL 72B","TV",0.25,0.75]]],
+    ["xAI",[["grok4","Grok 4","TV",3,15],["grok3m","Grok 3 mini","T",0.3,0.5]]],
+    ["Cohere",[["cmd-a","Command A","T",2.5,10],["cmd-rp","Command R+","T",2.5,10],["cmd-r7","Command R7B","T",0.04,0.15]]],
+    ["Amazon",[["nova-pro","Nova Pro","TVD",0.8,3.2],["nova-lite","Nova Lite","TV",0.06,0.24],["nova-micro","Nova Micro","T",0.035,0.14]]],
+    ["Microsoft",[["phi4","Phi 4","T",0.07,0.14]]],
+    ["NVIDIA",[["nemo70","Llama 3.1 Nemotron 70B","T",0.12,0.3]]],
+    ["Moonshot AI",[["kimi","Kimi K2","T",0.15,2.5]]],
+    ["Z.ai",[["glm45","GLM 4.5","T",0.2,0.8]]],
+    ["Offline",[["mock","Mock model (no cost)","T",0,0]]]
+  ];
+  var CAPMAP={T:"text",V:"vision",D:"document",A:"transcription"};
+  var MODELS={};
+  CATALOG.forEach(function(g){g[1].forEach(function(r){
+    var cap=r[2].split("").map(function(c){return CAPMAP[c]});
+    var m={n:r[1],maker:g[0],cap:cap,unc:r[5]==="unc"};
+    if(cap.length===1&&cap[0]==="transcription"){m.min=r[4];m.price="$"+r[4].toFixed(3)+" per minute";}
+    else{m.p=[r[3],r[4]];m.price=r[3]||r[4]?"$"+r[3].toFixed(2)+" / $"+r[4].toFixed(2):"No cost";}
+    MODELS[r[0]]=m;
+  })});
+  function capRow(k){var c=MODELS[k].cap;return [c.indexOf("vision")>-1?"Yes":"No",c.indexOf("document")>-1?"Yes":"No",c.indexOf("transcription")>-1?(MODELS[k].unc?"Not confirmed":"Yes"):(MODELS[k].unc?"Not confirmed":"No")]}
+  var JOBS=[
+    {id:"reply",n:"Reply suggestions in the inbox",d:"A draft you edit and send. AI never sends.",need:"text",vol:[0.6,0.1]},
+    {id:"notes",n:"Agent notes and proposed actions",d:"Nothing is sent without approval.",need:"text",vol:[0.4,0.1]},
+    {id:"images",n:"Read images customers send",d:"Photos of rooms, damage, plans.",need:"vision",vol:[0.1,0.02]},
+    {id:"docs",n:"Read PDFs and documents for Knowledge",d:"Quotes, brochures, price lists.",need:"document",vol:[0.3,0.05]},
+    {id:"voice",n:"Turn voice messages into text",d:"Voice notes from customers.",need:"transcription",min:60}
+  ];
+  var NEEDTAG={text:"Text",vision:"Images",document:"Documents",transcription:"Audio"};
+  var STYLES={
+    lowest:{n:"Lowest cost",m:{reply:"haiku",notes:"haiku",images:"haiku",docs:"gemini",voice:"whisper"}},
+    balanced:{n:"Balanced",m:{reply:"haiku",notes:"sonnet",images:"sonnet",docs:"gemini",voice:"whisper"}},
+    best:{n:"Best quality",m:{reply:"sonnet",notes:"opus",images:"opus",docs:"sonnet",voice:"whisper"}}
+  };
+  var S={demo:"normal",style:"balanced",sel:Object.assign({},STYLES.balanced.m),tested:false};
+  var money=function(n){return "$"+n.toFixed(2)};
+  var about=function(n){return n<0.5?"under $1":"about $"+Math.round(n)};
+
+  function cost(job,mid){
+    if(S.demo==="mock"||!mid)return 0;
+    var m=MODELS[mid];
+    if(job.min)return job.min*(m.min||0);
+    return m.p?job.vol[0]*m.p[0]+job.vol[1]*m.p[1]:0;
+  }
+  function total(map){return JOBS.reduce(function(t,j){return t+cost(j,map[j.id])},0)}
+  function ok(job,mid){return MODELS[mid].cap.indexOf(job.need)>-1}
+
+  // build matrix once
+  var matrix=$("#matrix");
+  JOBS.forEach(function(j){
+    var row=document.createElement("div");row.className="mrow";row.dataset.job=j.id;
+    row.innerHTML='<div class="job"><b>'+j.n+'</b><span>'+j.d+'</span></div>'+
+      '<div class="m"><label class="lab" for="m-'+j.id+'">Model</label><button type="button" class="mbtn" id="m-'+j.id+'" aria-haspopup="dialog" aria-label="Model for '+j.n+'"><span class="mn"></span><svg class="i"><use href="#i-down"/></svg></button><span class="price"></span></div>'+
+      '<div><span class="lab">Abilities</span><div class="tags"></div></div>'+
+      '<div class="c"><span class="lab">Per month</span><span class="cv"></span></div>';
+    matrix.appendChild(row);
+    $(".mbtn",row).addEventListener("click",function(){openPicker(j)});
+  });
+
+  function render(){
+    var d=S.demo,nc=d==="notconnected",na=d==="nonadmin",mock=d==="mock";
+    document.body.dataset.demo=d;
+    $("#n-admin").hidden=!na;$("#n-mock").hidden=!mock;
+    // style radios
+    document.querySelectorAll("input[name=style]").forEach(function(r){r.checked=(r.value===S.style);r.disabled=nc||na;});
+    document.querySelectorAll("[data-cost]").forEach(function(el){
+      var k=el.dataset.cost;el.textContent=nc?"Connect a provider first":(mock?"$0 (MOCK)":about(total(STYLES[k].m)));
+    });
+    $("#custom-note").hidden=S.style!=="custom"||nc;
+    var inuse=[];JOBS.forEach(function(j){var m=S.sel[j.id];if(m&&inuse.indexOf(m)<0)inuse.push(m)});$("#inuse").textContent=nc?"":"Models in use: "+inuse.length+" of 50";
+    $("#style-pill").textContent=nc?"Style: not set":"Style: "+(S.style==="custom"?"Custom":STYLES[S.style].n);
+    $("#fs-style").disabled=na;
+    // matrix
+    var any=0,sum=0;
+    JOBS.forEach(function(j){
+      var row=$('.mrow[data-job="'+j.id+'"]'),sel=$(".mbtn",row),mid=nc?"":S.sel[j.id];
+      $(".mn",sel).textContent=mid?MODELS[mid].n:"Choose a model";sel.disabled=nc||na;
+      var tags=$(".tags",row),price=$(".price",row),cv=$(".cv",row);
+      if(!mid){tags.innerHTML='<span class="tag">No model</span>';price.textContent="";cv.textContent="n/a";}
+      else{
+        var m=MODELS[mid];
+        tags.innerHTML=m.cap.map(function(c){return '<span class="tag'+(c===j.need?" need":"")+'">'+NEEDTAG[c]+'</span>'}).join("")+(mock?'<span class="tag" style="background:var(--mock-bg);color:var(--mock)">MOCK</span>':"");
+        price.textContent="Indicative "+m.price;
+        var c=cost(j,mid);sum+=c;cv.textContent=money(c);
+      }
+    });
+    // panel
+    $("#jobs").innerHTML=JOBS.map(function(j){
+      var mid=nc?"":S.sel[j.id],st,txt;
+      if(!mid){st='<span class="st warn" aria-label="Warning"><svg class="i"><use href="#i-alert"/></svg></span>';txt="No model yet. Connect a provider first.";}
+      else if(!ok(j,mid)){st='<span class="st warn" aria-label="Warning"><svg class="i"><use href="#i-alert"/></svg></span>';txt=MODELS[mid].n+" cannot do this job";}
+      else if(mock){st='<span class="st mock" aria-label="Mock"><svg class="i"><use href="#i-check"/></svg></span>';txt=MODELS[mid].n+" (MOCK)";}
+      else{st='<span class="st ok" aria-label="Ready"><svg class="i"><use href="#i-check"/></svg></span>';txt=MODELS[mid].n;}
+      return '<li>'+st+'<span class="jn">'+j.n+'</span><span class="jm">'+txt+'</span></li>';
+    }).join("");
+    var est=nc?"Not set":(mock?"$0 (MOCK)":about(sum)+" a month");
+    $("#p-est").textContent=est;
+    $("#p-est-note").textContent=nc?"Connect a provider to see an estimate.":(mock?"Mock mode sends nothing, so nothing is charged.":"Sample, at current volume. Indicative prices.");
+    // budget
+    var lim=parseFloat($("#limit").value);
+    $("#p-limit").textContent=isNaN(lim)?"no limit":money(lim);
+    var bn=$("#bud-note");
+    if(nc||isNaN(lim))bn.textContent=isNaN(lim)?"No limit set. AI calls are never blocked by cost.":"";
+    else if(mock)bn.textContent="MOCK: estimated $0, well inside the limit.";
+    else bn.textContent="Estimated "+about(sum)+" a month against a "+money(lim)+" limit"+(sum>lim*0.8?". That is close to the limit.":". Comfortably inside it.");
+    // connection
+    var prov=$("#provider"),key=$("#key");
+    prov.value=nc?"":(mock?"mock":(S.provKeep||"openrouter"));
+    $("#fs-conn").disabled=na;
+    $("#conn").classList.toggle("focus",nc);
+    key.placeholder=nc?"Paste your API key":(mock?"No key needed":"A key ending in cdef is stored");
+    key.disabled=mock||na;
+    $("#key-help").textContent=nc?"Stored encrypted. It is never shown again.":(mock?"Mock offline needs no key.":"Stored encrypted. Leave empty to keep it. It is never shown.");
+    $("#enabled").checked=!nc;
+    $("#save").textContent=nc?"Connect provider":"Save connection";
+    var cp=$("#conn-pill");
+    if(nc){cp.className="pill";cp.textContent="Not connected";}
+    else if(mock){cp.className="pill mock";cp.textContent="MOCK: nothing is sent";}
+    else if(S.tested){cp.className="pill ok";cp.textContent="Tested with a real request, 19 Nov 2026";}
+    else{cp.className="pill warn";cp.textContent="Not yet tested with a real request";}
+    $("#base").disabled=prov.value!=="compat"||na;
+    $("#fs-bud").disabled=na;$("#fs-prompt").disabled=na;$("#fs-fine").disabled=na;$("#fs-adv").disabled=na;
+    // capabilities (models in use)
+    var used=[];JOBS.forEach(function(j){var m=S.sel[j.id];if(!nc&&m&&used.indexOf(m)<0)used.push(m)});
+    $("#cap").innerHTML=used.length?used.map(function(k){return '<tr><td>'+MODELS[k].n+'</td>'+capRow(k).map(function(v){return '<td>'+v+'</td>'}).join("")+'</tr>'}).join(""):'<tr><td colspan="4" class="muted">No model chosen yet.</td></tr>';
+  }
+
+
+  // ---- model browser
+  var MP={job:null};
+  var dlg=$("#mp");
+  function costScore(m){return m.min!==undefined?m.min:(m.p?m.p[0]*0.7+m.p[1]*0.3:0)}
+  function listModels(){
+    var job=MP.job,q=$("#mp-q").value.trim().toLowerCase(),sort=$("#mp-sort").value,hide=$("#mp-can").checked;
+    var need=[].slice.call(document.querySelectorAll(".mchip[aria-pressed=true]")).map(function(c){return CAPMAP[c.dataset.f]});
+    var keys=Object.keys(MODELS).filter(function(k){var m=MODELS[k];
+      if(q&&(m.n+" "+m.maker).toLowerCase().indexOf(q)<0)return false;
+      if(need.some(function(c){return m.cap.indexOf(c)<0}))return false;
+      if(hide&&!ok(job,k))return false;return true});
+    var total=Object.keys(MODELS).length,hidden=Object.keys(MODELS).filter(function(k){return !ok(job,k)}).length;
+    $("#mp-count").textContent="Showing "+keys.length+" of "+total+" models"+(hide&&hidden?". "+hidden+" cannot do this job and are hidden.":".");
+    var cur=S.sel[job.id];
+    function row(k){var m=MODELS[k],can=ok(job,k);
+      return '<button type="button" class="mrow2'+(k===cur?" on":"")+'" data-k="'+k+'"'+(can?"":" disabled")+'><span class="mt"><b>'+m.n+'</b><span class="mm">'+(sort==="maker"?"":m.maker)+(can?"":(sort==="maker"?"Cannot do this job":" · cannot do this job"))+'</span></span><span class="mtags">'+m.cap.map(function(c){return '<span class="tag'+(c===job.need?" need":"")+'">'+NEEDTAG[c]+'</span>'}).join("")+'</span><span class="mpr">'+m.price+'</span>'+(k===cur?'<svg class="i" style="color:var(--accent)"><use href="#i-check"/></svg>':"")+'</button>'}
+    var html="";
+    if(!keys.length)html='<p class="mp-empty">No model matches. Clear the search or a filter.</p>';
+    else if(sort==="maker"){var by={};keys.forEach(function(k){(by[MODELS[k].maker]=by[MODELS[k].maker]||[]).push(k)});
+      CATALOG.forEach(function(g){if(by[g[0]])html+='<h3 class="mp-g">'+g[0]+'</h3>'+by[g[0]].map(row).join("")})}
+    else{keys.sort(sort==="price"?function(a,b){return costScore(MODELS[a])-costScore(MODELS[b])}:function(a,b){return MODELS[a].n.localeCompare(MODELS[b].n)});html=keys.map(row).join("")}
+    $("#mp-list").innerHTML=html;
+  }
+  function openPicker(j){MP.job=j;$("#mp-title").textContent="Model for: "+j.n;$("#mp-q").value="";$("#mp-can").checked=true;document.querySelectorAll(".mchip").forEach(function(c){c.setAttribute("aria-pressed","false")});$("#mp-sort").value="maker";
+    var inuse=[];JOBS.forEach(function(x){var m=S.sel[x.id];if(m&&inuse.indexOf(m)<0)inuse.push(m)});$("#mp-inuse").textContent=inuse.length;
+    listModels();dlg.showModal();$("#mp-q").focus();var on=$(".mrow2.on",dlg);if(on)on.scrollIntoView({block:"center"})}
+  $("#mp-q").addEventListener("input",listModels);$("#mp-sort").addEventListener("change",listModels);$("#mp-can").addEventListener("change",listModels);
+  document.querySelectorAll(".mchip").forEach(function(c){c.addEventListener("click",function(){c.setAttribute("aria-pressed",c.getAttribute("aria-pressed")==="true"?"false":"true");listModels()})});
+  $("#mp-list").addEventListener("click",function(e){var b=e.target.closest(".mrow2");if(!b||b.disabled)return;S.sel[MP.job.id]=b.dataset.k;S.style="custom";dlg.close();render()});
+  $("#mp-close").addEventListener("click",function(){dlg.close()});
+  dlg.addEventListener("click",function(e){if(e.target===dlg)dlg.close()});
+  document.querySelectorAll("input[name=style]").forEach(function(r){
+    r.addEventListener("change",function(){S.style=r.value;S.sel=Object.assign({},STYLES[r.value].m);render();});
+  });
+  $("#demo").addEventListener("change",function(e){S.demo=e.target.value;$("#result").hidden=true;render();
+    if(S.demo==="notconnected")$("#conn").scrollIntoView({block:"center",behavior:matchMedia("(prefers-reduced-motion:reduce)").matches?"auto":"smooth"});});
+  $("#limit").addEventListener("input",render);
+  $("#provider").addEventListener("change",function(e){
+    if(S.demo==="notconnected"){return;}
+    S.provKeep=e.target.value==="mock"?"openrouter":e.target.value;
+    if(e.target.value==="mock"){S.demo="mock";$("#demo").value="mock";}
+    render();
+  });
+  $("#save").addEventListener("click",function(){
+    if(S.demo==="notconnected"&&$("#provider").value){S.demo="normal";S.provKeep=$("#provider").value;$("#demo").value="normal";S.tested=false;render();}
+    else if(S.demo==="notconnected"){var r=$("#result");r.hidden=false;r.innerHTML='<svg class="i" style="color:var(--warn)"><use href="#i-alert"/></svg><span>Choose a provider first.</span>';}
+  });
+  $("#test").addEventListener("click",function(){
+    var b=$("#test"),r=$("#result");
+    if(S.demo==="notconnected"){r.hidden=false;r.innerHTML='<svg class="i" style="color:var(--warn)"><use href="#i-alert"/></svg><span>Nothing to test yet. Connect a provider first.</span>';return;}
+    b.disabled=true;b.lastChild.textContent="Testing...";
+    setTimeout(function(){
+      b.disabled=false;b.lastChild.textContent="Test connection";r.hidden=false;
+      if(S.demo==="mock"){r.innerHTML='<svg class="i" style="color:var(--mock)"><use href="#i-info"/></svg><span>MOCK: no real request was sent. This does not show that a real provider works.</span>';}
+      else{S.tested=true;r.innerHTML='<svg class="i" style="color:var(--ok)"><use href="#i-check"/></svg><span>Fake result for this mockup: one small request to OpenRouter answered in 412 ms. In the product this is recorded as a real request.</span>';render();}
+    },900);
+  });
+  document.querySelectorAll(".chip").forEach(function(c){c.addEventListener("click",function(){
+    var t=$("#tpl");if(t.disabled)return;var s=t.selectionStart,e=t.selectionEnd;
+    t.value=t.value.slice(0,s)+c.textContent+t.value.slice(e);t.focus();t.selectionStart=t.selectionEnd=s+c.textContent.length;});});
+  $("#pg-send").addEventListener("click",function(){
+    $("#pg-out").textContent=S.demo==="notconnected"?"Connect a provider first.":(S.demo==="mock"?"MOCK: no file was sent.":($("#pg-file").files.length?"Sent for this test only. Not stored. (Mockup: no real request.)":"Choose a file first."));});
+  render();
+})();
+</script>
+</body>
+</html>

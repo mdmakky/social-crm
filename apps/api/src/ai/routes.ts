@@ -3,7 +3,7 @@ import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import type { z } from "zod";
 import { and, asc, desc, eq, sql } from "drizzle-orm";
-import { ActivateAiPromptBody, AiUsageQuery, MediaAskBody, MediaDescribeBody, MediaExtractBody, MediaTranscribeBody, type AiCapabilities, type MediaResult, SetAiBudgetBody, SetAiPromptBody, SetAiProviderBody, type AiBudgetDto, type AiPromptDto, type AiProviderDto, type AiStatusDto, type AiUsageDto, type SuggestReplyResult } from "@crm/contracts";
+import { ActivateAiPromptBody, AI_JOBS, AiJobSchema, AiUsageQuery, SetAiJobModelBody, type AiJobKey, type AiJobModelDto, MediaAskBody, MediaDescribeBody, MediaExtractBody, MediaTranscribeBody, type AiCapabilities, type MediaResult, SetAiBudgetBody, SetAiPromptBody, SetAiProviderBody, type AiBudgetDto, type AiPromptDto, type AiProviderDto, type AiStatusDto, type AiUsageDto, type SuggestReplyResult } from "@crm/contracts";
 import { checkTemplate, modelsFor, priceOf, PROMPTS, PROVIDERS, promptDef, providerDef, renderTemplate, REPLY_SUGGESTION_KEY, TemplateError, type Capability, type PriceOverrides, type StoredModel } from "@crm/ai";
 import { can } from "@crm/core/permissions";
 import { schema, withContext, type Db, type Tx } from "@crm/db";
@@ -11,6 +11,7 @@ import { writeAudit } from "../audit.ts";
 import { actor, body, fail, forbidden, isUuid, query, wctx, type SC, type ScopedEnv } from "../routes/scope.ts";
 import { WindowCounter } from "../throttle.ts";
 import { streamSSE } from "hono/streaming";
+import { pinProblem, resolveJob, type JobCfg } from "./jobs.ts";
 import { runAi, runAiStream, type AiDeps, type RunInput } from "./run.ts";
 import { MEDIA_FAILURES, type MediaOutcome, type MediaService } from "./media.ts";
 import { createModelBrowser, type ModelBrowser, type ModelList } from "./openrouter-browser.ts";
@@ -234,6 +235,48 @@ export function aiRoutes(db: Db, deps: AiRouteDeps = {}) {
       await writeAudit(tx, { ...actor(c), workspaceId, action: "ai.budget.updated", entityType: "ai_budget", summary: { monthlyCapMicro: b.data.monthlyCapMicro, hardStop: b.data.hardStop } });
     });
     return c.json(await budgetOf(c));
+  });
+
+  // ---- Jobs: one pinned model per job. Reads: ai.use (like status and capabilities); changes: ai.configure. ----
+  const jobCfgs = async (tx: Tx, workspaceId: string): Promise<JobCfg[]> =>
+    (await tx.select().from(schema.aiProviderConfigs).where(and(eq(schema.aiProviderConfigs.workspaceId, workspaceId), eq(schema.aiProviderConfigs.enabled, true))).orderBy(desc(schema.aiProviderConfigs.isDefault), asc(schema.aiProviderConfigs.id)))
+      .map((x) => ({ provider: x.provider, defaultModel: x.defaultModel, prices: (x.modelPrices ?? {}) as PriceOverrides, isDefault: x.isDefault }));
+  const jobDtos = async (tx: Tx, workspaceId: string, only?: AiJobKey): Promise<AiJobModelDto[]> => {
+    const cfgs = await jobCfgs(tx, workspaceId);
+    const pins = await tx.select().from(schema.aiJobModels).where(eq(schema.aiJobModels.workspaceId, workspaceId));
+    return (Object.keys(AI_JOBS) as AiJobKey[]).filter((j) => !only || j === only).map((j) => { const p = pins.find((x) => x.job === j); return resolveJob(cfgs, j, p ? { provider: p.provider, model: p.model } : null); });
+  };
+  r.get("/ai/jobs", async (c) => {
+    if (!can(c.get("role"), "ai.use", {})) return forbidden(c);
+    return c.json({ items: await withContext(db, wctx(c), (tx) => jobDtos(tx, c.get("workspaceId"))) });
+  });
+  r.put("/ai/jobs/:job", async (c) => {
+    if (!manage(c)) return forbidden(c);
+    const job = AiJobSchema.safeParse(c.req.param("job"));
+    if (!job.success) return fail(c, 404, "not_found");
+    const b = await body(c, SetAiJobModelBody);
+    if (!b.ok) return b.res;
+    const { workspaceId, userId } = wctx(c);
+    return withContext(db, wctx(c), async (tx) => {
+      const cfg = (await jobCfgs(tx, workspaceId)).find((x) => x.provider === b.data.provider);
+      const problem = pinProblem(cfg, b.data.provider, b.data.model, [AI_JOBS[job.data].needs] as Capability[]);
+      if (problem) return fail(c, 422, "model_cannot_do_job", problem.replace(", so the pinned model is not used.", ".").replace(" any more", ""));
+      await tx.insert(schema.aiJobModels).values({ workspaceId, job: job.data, provider: b.data.provider, model: b.data.model, updatedBy: userId })
+        .onConflictDoUpdate({ target: [schema.aiJobModels.workspaceId, schema.aiJobModels.job], set: { provider: b.data.provider, model: b.data.model, updatedBy: userId, updatedAt: new Date() } });
+      await writeAudit(tx, { ...actor(c), workspaceId, action: "ai.job_model_set", entityType: "ai_job_model", summary: { job: job.data, provider: b.data.provider, model: b.data.model } });
+      return c.json((await jobDtos(tx, workspaceId, job.data))[0]!);
+    });
+  });
+  r.delete("/ai/jobs/:job", async (c) => {
+    if (!manage(c)) return forbidden(c);
+    const job = AiJobSchema.safeParse(c.req.param("job"));
+    if (!job.success) return fail(c, 404, "not_found");
+    const { workspaceId } = wctx(c);
+    return withContext(db, wctx(c), async (tx) => {
+      const gone = await tx.delete(schema.aiJobModels).where(and(eq(schema.aiJobModels.workspaceId, workspaceId), eq(schema.aiJobModels.job, job.data))).returning({ model: schema.aiJobModels.model });
+      if (gone.length) await writeAudit(tx, { ...actor(c), workspaceId, action: "ai.job_model_cleared", entityType: "ai_job_model", summary: { job: job.data, model: gone[0]!.model } });
+      return c.json((await jobDtos(tx, workspaceId, job.data))[0]!);
+    });
   });
 
   r.get("/ai/usage", async (c) => {

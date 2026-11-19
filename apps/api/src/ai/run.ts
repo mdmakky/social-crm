@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
-import { AiError, costMicro, estimateAudioSeconds, estimateMediaTokens, fingerprint, fingerprintBytes, getProvider, invokeMedia, perMinuteCostMicro, pickModel, priceOf, promptDef, providerDef, renderTemplate, safeError, TemplateError, type AiProvider, type Capability, type MediaInput, type ModelInfo, type PriceOverrides, type ResponseFormat, type ToolCall, type ToolSpec } from "@crm/ai";
+import { JOB_OF_CAPABILITY, pickMediaCfg, pinProblem } from "./jobs.ts";
+import { AiError, costMicro, estimateAudioSeconds, estimateMediaTokens, fingerprint, fingerprintBytes, getProvider, invokeMedia, perMinuteCostMicro, priceOf, promptDef, providerDef, renderTemplate, safeError, TemplateError, type AiProvider, type Capability, type MediaInput, type ModelInfo, type PriceOverrides, type ResponseFormat, type ToolCall, type ToolSpec } from "@crm/ai";
 import { schema, withContext, type Db, type Tx } from "@crm/db";
 import type { SecretBox } from "@crm/integrations";
 
@@ -93,8 +94,16 @@ async function begin(deps: AiDeps, r: RunInput): Promise<Begun> {
   const ctx = { workspaceId: r.workspaceId, userId: r.userId };
   const prep: Prepared = await withContext(deps.workerDb, ctx, async (tx): Promise<Prepared> => {
     const cols = sql`id, provider, base_url, default_model, model_prices`;
-    const cfgs = rowsOf(await tx.execute(r.provider
-      ? sql`SELECT ${cols} FROM ai_provider_configs WHERE workspace_id = ${r.workspaceId} AND provider = ${r.provider} AND enabled`
+    // A workspace may pin one model per job. It applies only when the caller named no provider or model, and only while it still works; otherwise the automatic pick below stands.
+    let rProvider = r.provider, rModel = r.model;
+    const job = JOB_OF_CAPABILITY[r.capability];
+    if (job && !r.provider && !r.model) {
+      const p = rowsOf(await tx.execute(sql`SELECT provider, model FROM ai_job_models WHERE workspace_id = ${r.workspaceId} AND job = ${job}`))[0];
+      const pc = p ? rowsOf(await tx.execute(sql`SELECT ${cols} FROM ai_provider_configs WHERE workspace_id = ${r.workspaceId} AND provider = ${p.provider as string} AND enabled`))[0] : undefined;
+      if (p && !pinProblem(pc && { provider: pc.provider as string, defaultModel: pc.default_model as string | null, prices: pc.model_prices as PriceOverrides }, p.provider as string, p.model as string, r.media ? r.media.needs : ["text"])) { rProvider = p.provider as string; rModel = p.model as string; }
+    }
+    const cfgs = rowsOf(await tx.execute(rProvider
+      ? sql`SELECT ${cols} FROM ai_provider_configs WHERE workspace_id = ${r.workspaceId} AND provider = ${rProvider} AND enabled`
       : r.media ? sql`SELECT ${cols} FROM ai_provider_configs WHERE workspace_id = ${r.workspaceId} AND enabled ORDER BY is_default DESC, id`
       : sql`SELECT ${cols} FROM ai_provider_configs WHERE workspace_id = ${r.workspaceId} AND is_default AND enabled`));
     const none: Prepared = { kind: "stop", result: { ok: false, code: r.media ? "capability_not_configured" : "not_configured" } };
@@ -104,14 +113,11 @@ async function begin(deps: AiDeps, r: RunInput): Promise<Begun> {
     let via: Capability = "text";
     if (r.media) {
       // First config (default first) with a model that has a wanted capability; a pinned r.model must itself qualify.
-      cfg = undefined;
-      for (const c of cfgs) {
-        if (!providerDef(c.provider as string)) continue;
-        const hit = pickModel(c.provider as string, r.model ?? (c.default_model as string | null), r.media.needs, c.model_prices as PriceOverrides);
-        if (hit && (!r.model || hit.model.id === r.model)) { cfg = c; model = hit.model.id; price = hit.model; via = hit.via; break; }
-      }
+      const hit = pickMediaCfg(cfgs.map((c) => ({ provider: c.provider as string, defaultModel: c.default_model as string | null, prices: c.model_prices as PriceOverrides, row: c })), r.media.needs, rModel);
+      cfg = hit?.cfg.row;
+      if (hit) { model = hit.model.id; price = hit.model; via = hit.via; }
     } else if (cfg) {
-      model = r.model ?? (cfg.default_model as string);
+      model = rModel ?? (cfg.default_model as string);
       price = priceOf(cfg.provider as string, model, cfg.model_prices as PriceOverrides);
     }
     const def = cfg ? providerDef(cfg.provider as string) : null;

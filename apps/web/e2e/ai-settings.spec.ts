@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { addMemberByEmail, api, register, signUpAndCreate, openFold } from "./helpers";
+import { addMemberByEmail, api, register, signUpAndCreate } from "./helpers";
 import { axe, seed } from "./channel-helpers";
 
 /**
@@ -20,7 +20,7 @@ test.beforeAll(async ({ browser }) => {
 
 test("configure the mock provider and a budget", async () => {
   await owner.goto(SETTINGS());
-  await expect(owner.getByRole("heading", { name: "Provider", exact: true })).toBeVisible();
+  await expect(owner.getByRole("heading", { name: "Connection", exact: true })).toBeVisible();
   await expect(owner.getByText("MOCK", { exact: true }).first()).toBeVisible();
   await expect(owner.getByLabel("API key")).toHaveCount(0); // the mock takes no key
   await owner.getByRole("button", { name: "Connect provider" }).click();
@@ -32,9 +32,9 @@ test("configure the mock provider and a budget", async () => {
   await owner.getByLabel("Provider", { exact: true }).selectOption("anthropic");
   const key = owner.getByLabel("API key");
   await expect(key).toHaveAttribute("type", "password");
-  await expect(owner.getByText("Not tested live", { exact: true })).toBeVisible();
+  await expect(owner.getByText("Not yet tested with a real request", { exact: true })).toBeVisible();
   await key.fill("sk-ant-E2E-SECRET-0123456789abcdef");
-  await owner.getByLabel("Use for reply suggestions (default)").uncheck();
+  await owner.getByLabel("Use as the default provider").uncheck();
   await owner.getByRole("button", { name: "Connect provider" }).click();
   await expect(owner.getByText("AI provider saved")).toBeVisible();
   await expect(key).toHaveValue("");
@@ -45,12 +45,10 @@ test("configure the mock provider and a budget", async () => {
   await expect(owner.getByLabel("API key")).toHaveValue("");
 
   // The mock stays the default; budget saves and survives a reload.
-  await openFold(owner, "Monthly budget");
   await owner.getByLabel("Monthly limit (USD)").fill("5");
   await owner.getByRole("button", { name: "Save budget" }).click();
   await expect(owner.getByText("Budget saved")).toBeVisible();
   await owner.reload();
-  await openFold(owner, "Monthly budget");
   await expect(owner.getByLabel("Monthly limit (USD)")).toHaveValue("5.00");
   await owner.getByLabel("Monthly limit (USD)").fill("abc");
   await owner.getByRole("button", { name: "Save budget" }).click();
@@ -67,8 +65,8 @@ test("configure the mock provider and a budget", async () => {
 
 test("prompt versions", async () => {
   await owner.setViewportSize({ width: 1440, height: 900 });
-  await owner.goto(SETTINGS());
-  await openFold(owner, "Prompt");
+  await owner.goto(`/w/${workspaceId}/settings/ai/agents`);
+  await expect(owner.getByRole("heading", { name: "Reply suggestion wording" })).toBeVisible();
   const box = owner.getByLabel("Prompt template");
   await box.fill("Reply to {{contact_name}} politely. Use {{secret}}.");
   await owner.getByRole("button", { name: "Publish as new version" }).click();
@@ -128,7 +126,6 @@ test("suggest reply fills the composer as an editable draft and sends nothing", 
 
   // The usage table shows the calls (counts only), and the draft text is nowhere in it.
   await owner.goto(SETTINGS());
-  await openFold(owner, "Usage");
   const usage = owner.getByRole("region", { name: "AI usage by day" });
   await expect(usage).toContainText("Reply suggestion");
   await expect(owner.locator("body")).not.toContainText("MOCK DRAFT");
@@ -136,7 +133,6 @@ test("suggest reply fills the composer as an editable draft and sends nothing", 
 
 test("a spent budget blocks suggestions with a clear message", async () => {
   await owner.goto(SETTINGS());
-  await openFold(owner, "Monthly budget");
   await owner.getByLabel("Monthly limit (USD)").fill("0");
   await owner.getByRole("button", { name: "Save budget" }).click();
   await expect(owner.getByText("Budget saved")).toBeVisible();
@@ -147,7 +143,6 @@ test("a spent budget blocks suggestions with a clear message", async () => {
   await expect(owner.getByText(/monthly AI budget is used up/)).toBeVisible();
   await expect(owner.getByLabel("Reply", { exact: true })).toHaveValue("");
   await owner.goto(SETTINGS());
-  await openFold(owner, "Usage");
   await expect(owner.getByRole("region", { name: "AI usage by day" })).toContainText("Reply suggestion");
 });
 

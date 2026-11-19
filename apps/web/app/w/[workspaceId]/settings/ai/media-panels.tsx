@@ -27,7 +27,7 @@ export function CapabilitiesPanel({ workspaceId, providers }: { workspaceId: str
     const r = await browserApi.call(endpoints.getAiCapabilities, { params: { workspaceId } });
     setState(r.ok ? { kind: "ready", data: r.data } : { kind: "error", message: errorMessage(r.error) });
   }, [workspaceId]);
-  const sig = providers.map((p) => `${p.id}:${p.enabled}:${p.isDefault}:${p.defaultModel}`).join("|");
+  const sig = providers.map((p) => `${p.id}:${p.enabled}:${p.isDefault}:${p.defaultModel}:${p.models.length}`).join("|");
   React.useEffect(() => { void load(); }, [load, sig]); // eslint-disable-line react-hooks/set-state-in-effect
 
   return (

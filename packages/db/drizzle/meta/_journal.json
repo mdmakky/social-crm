@@ -295,6 +295,13 @@
       "when": 1795016864400,
       "tag": "0044_task_reminders",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1795103264400,
+      "tag": "0045_ai_job_models",
+      "breakpoints": true
     }
   ]
 }

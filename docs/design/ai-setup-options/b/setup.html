@@ -1,0 +1,378 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AI and automation: Setup (B, three clear steps)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body data-state="normal">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+<symbol id="i-home" viewBox="0 0 24 24"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
+<symbol id="i-inbox" viewBox="0 0 24 24"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></symbol>
+<symbol id="i-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
+<symbol id="i-tasks" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="m9 12 2 2 4-4"/></symbol>
+<symbol id="i-chart" viewBox="0 0 24 24"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></symbol>
+<symbol id="i-settings" viewBox="0 0 24 24"><line x1="21" x2="14" y1="4" y2="4"/><line x1="10" x2="3" y1="4" y2="4"/><line x1="21" x2="12" y1="12" y2="12"/><line x1="8" x2="3" y1="12" y2="12"/><line x1="21" x2="16" y1="20" y2="20"/><line x1="12" x2="3" y1="20" y2="20"/><line x1="14" x2="14" y1="2" y2="6"/><line x1="8" x2="8" y1="10" y2="14"/><line x1="16" x2="16" y1="18" y2="22"/></symbol>
+<symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></symbol>
+<symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></symbol>
+<symbol id="i-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+<symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+<symbol id="i-lock" viewBox="0 0 24 24"><rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></symbol>
+<symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></symbol>
+<symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
+</svg>
+
+<div class="app">
+  <aside class="sidebar" aria-label="Main">
+    <div class="ws"><div class="ws-mark">RD</div><div class="ws-name">RenoDevs Team</div></div>
+    <nav class="nav">
+      <a href="#"><svg class="i"><use href="#i-home"/></svg><span>Home</span></a>
+      <a href="#"><svg class="i"><use href="#i-inbox"/></svg><span>Inbox</span></a>
+      <a href="#"><svg class="i"><use href="#i-users"/></svg><span>Leads</span></a>
+      <a href="#"><svg class="i"><use href="#i-tasks"/></svg><span>Tasks</span></a>
+      <a href="#"><svg class="i"><use href="#i-chart"/></svg><span>Reports</span></a>
+      <a href="#" aria-current="page"><svg class="i"><use href="#i-settings"/></svg><span>Settings</span></a>
+    </nav>
+    <div class="user"><div class="avatar">TA</div><div><b>Tanvir Ahmed</b><span>Owner</span></div></div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <button class="search" type="button"><svg class="i"><use href="#i-search"/></svg>Search or jump to</button>
+      <button class="icon-btn" type="button" aria-label="Notifications"><svg class="i"><use href="#i-bell"/></svg></button>
+    </header>
+
+    <main class="page">
+      <div class="settings">
+        <nav class="smenu" aria-label="Settings">
+          <b>Workspace</b><a href="#">General</a><a href="#">Notifications</a>
+          <b>CRM data</b><a href="#">Lead fields</a><a href="#">Lead stages</a>
+          <b>AI and automation</b><a href="#" aria-current="page">AI and automation</a>
+          <b>Channels</b><a href="#">Integrations</a><a href="#">Web chat</a><a href="#">Ad measurement</a>
+          <b>Team and security</b><a href="#">Members</a><a href="#">Audit log</a>
+        </nav>
+
+        <div class="content" id="content">
+          <h1>AI and automation</h1>
+          <nav class="tabs" aria-label="AI and automation">
+            <a href="#">Overview</a><a href="#">Agents</a><a href="#">Knowledge</a><a href="#">Automations</a><a href="#" aria-current="page">Setup</a>
+          </nav>
+
+          <div class="banner" id="banner" role="status"><svg class="i"><use href="#i-lock"/></svg><span id="banner-text"></span></div>
+
+          <div class="flow">
+            <aside class="progress" aria-label="Progress">
+              <ol id="progress">
+                <li data-p="1"><a href="#step1"><span class="dot">1</span><span class="t">Connect<small></small></span></a></li>
+                <li data-p="2"><a href="#step2"><span class="dot">2</span><span class="t">Models<small></small></span></a></li>
+                <li data-p="3"><a href="#step3"><span class="dot">3</span><span class="t">Limits<small></small></span></a></li>
+                <li data-p="4"><a href="#going"><span class="dot"><svg class="i"><use href="#i-chart"/></svg></span><span class="t">How it is going<small></small></span></a></li>
+              </ol>
+            </aside>
+
+            <div class="steps" id="steps">
+
+              <!-- STEP 1 -->
+              <section class="panel step" id="step1" data-open="false" aria-labelledby="h1s">
+                <div class="step-head">
+                  <span class="dot" id="dot1">1</span>
+                  <div class="step-title">
+                    <h2 id="h1s">Connect a provider</h2>
+                    <div class="summary" id="sum1"></div>
+                  </div>
+                  <div class="head-actions"><button class="btn btn-quiet keep" type="button" id="edit1" aria-controls="body1" aria-expanded="false">Edit</button></div>
+                </div>
+                <div class="step-body" id="body1">
+                  <div class="radios" role="radiogroup" aria-label="Provider">
+                    <label class="radio"><input type="radio" name="prov" value="openrouter" checked><div><b>OpenRouter</b><span class="d">One key, many models.</span></div></label>
+                    <label class="radio"><input type="radio" name="prov" value="compat"><div><b>OpenAI-compatible server</b><span class="d">Your own or a third-party server.</span></div></label>
+                    <label class="radio"><input type="radio" name="prov" value="mock"><div><b>Mock offline</b><span class="d">No key, no cost, no real requests.</span></div><span class="pill">MOCK</span></label>
+                  </div>
+                  <div class="field">
+                    <label for="key">API key</label>
+                    <input class="input" id="key" type="password" autocomplete="off" placeholder="Stored, ending cdef">
+                    <span class="hint" id="keyhint">A key ending in cdef is stored. Leave empty to keep it. The key is never displayed.</span>
+                  </div>
+                  <div style="margin-top:12px">
+                    <button class="linkbtn" type="button" id="baseLink" aria-expanded="false" aria-controls="baseWrap">Add a base URL</button>
+                    <div class="field" id="baseWrap" hidden style="margin-top:8px">
+                      <label for="base">Base URL (optional)</label>
+                      <input class="input" id="base" type="url" placeholder="https://models.example.com/v1">
+                      <span class="hint">Only used by OpenAI-compatible servers. Must be a public https address.</span>
+                    </div>
+                  </div>
+                  <label class="switch"><input type="checkbox" id="enabled" checked> Enabled</label>
+                  <div class="actions">
+                    <button class="btn btn-primary" type="button" id="connect">Connect provider</button>
+                    <button class="btn" type="button" id="test">Test connection</button>
+                  </div>
+                  <div class="result" id="result" aria-live="polite"></div>
+                </div>
+              </section>
+
+              <!-- STEP 2 -->
+              <section class="panel step" id="step2" aria-labelledby="h2s">
+                <div class="step-head">
+                  <span class="dot" id="dot2">2</span>
+                  <div class="step-title">
+                    <h2 id="h2s">Choose a model for each job</h2>
+                    <p>Each job can use a different model. A model that cannot do a job is shown as unable, never hidden.</p>
+                    <div class="lock-note"><svg class="i"><use href="#i-lock"/></svg>Connect a provider first</div>
+                  </div>
+                  <div class="head-actions toolbar">
+                    <button class="btn btn-quiet" type="button" data-preset="low">Lowest cost</button>
+                    <button class="btn btn-quiet" type="button" data-preset="best">Best quality</button>
+                    <button class="btn btn-primary" type="button" data-preset="rec">Use recommended setup</button>
+                  </div>
+                </div>
+                <div class="step-body">
+                  <div class="jobs" id="jobs"></div>
+                  <div class="cost-line" id="costline"></div>
+                </div>
+              </section>
+
+              <!-- STEP 3 -->
+              <section class="panel step" id="step3" aria-labelledby="h3s">
+                <div class="step-head">
+                  <span class="dot" id="dot3">3</span>
+                  <div class="step-title">
+                    <h2 id="h3s">Set limits</h2>
+                    <div class="lock-note"><svg class="i"><use href="#i-lock"/></svg>Connect a provider first</div>
+                  </div>
+                </div>
+                <div class="step-body">
+                  <div class="field" style="margin-top:0">
+                    <label for="limit">Monthly budget</label>
+                    <div class="money"><span>$</span><input class="input" id="limit" inputmode="decimal" value="25.00"></div>
+                    <span class="hint">Leave empty for no limit. The month is UTC.</span>
+                  </div>
+                  <label class="check"><input type="checkbox" id="hard" checked> Hard stop: block AI calls when the limit is reached</label>
+                  <p class="hint" style="margin-top:6px">The limit is the most AI can spend in a UTC month, and with the hard stop on, calls are blocked at that point instead of only warning you.</p>
+
+                  <p class="hint" id="wording">The reply wording is set in the Reply drafter agent, not here. <a href="#">Open Agents</a>.</p>
+                      <div hidden><textarea id="prompt"></textarea><button id="savePrompt" type="button"></button><span id="promptMsg"></span><ul id="versions"></ul></div>
+                </div>
+              </section>
+
+              <!-- HOW IT IS GOING -->
+              <section class="panel" id="going" aria-labelledby="hg">
+                <h2 id="hg" style="font-size:16px;font-weight:700">How it is going</h2>
+                <div id="usage"></div>
+
+                <details class="sub" id="adv">
+                  <summary>Advanced <svg class="i"><use href="#i-down"/></svg></summary>
+                  <div class="in">
+                    <h3 style="font-size:13px;font-weight:700">Capabilities</h3>
+                    <p class="hint">What each model you chose can do with images, documents and audio.</p>
+                    <div class="table-wrap" style="margin-top:8px"><table><thead><tr><th>Model</th><th>Images</th><th>Documents</th><th>Audio</th></tr></thead><tbody id="caps"></tbody></table></div>
+                    <h3 style="font-size:13px;font-weight:700;margin-top:20px">Media playground</h3>
+                    <p class="hint">Send one file to the provider to test a job. The file is not stored.</p>
+                    <div class="actions" style="align-items:flex-end">
+                      <div class="field" style="margin:0;width:230px;max-width:100%"><label for="pjob">Job to test</label>
+                        <select class="input" id="pjob"><option>Read images customers send</option><option>Read PDFs and documents for Knowledge</option><option>Turn voice messages into text</option></select></div>
+                      <div class="field" style="margin:0;max-width:100%"><label for="pfile">File</label><input class="input" id="pfile" type="file" style="padding:3px 6px"></div>
+                      <button class="btn" type="button" id="psend">Send test file</button>
+                    </div>
+                    <div class="result" id="presult" aria-live="polite"></div>
+                  </div>
+                </details>
+              </section>
+
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<div class="scrim" id="scrim" hidden></div>
+<div class="picker" id="picker" role="dialog" aria-label="Choose a model" hidden>
+  <div class="picker-head"><strong id="pk-title">Choose a model</strong><button class="btn btn-quiet" type="button" id="pk-close">Close</button></div>
+  <div id="pk-list" role="listbox" aria-label="Models"></div>
+  <div class="o-foot">Prices are indicative, in USD.</div>
+</div>
+
+<label class="demo-state">Demo state
+  <select id="demo" aria-label="Demo state">
+    <option value="normal">Normal</option><option value="none">Not connected</option><option value="mock">Mock mode</option><option value="viewer">Non-admin notice</option>
+  </select>
+</label>
+<nav class="opt-switch" aria-label="Design options">
+  <a href="../a/setup.html">A</a><a href="../b/setup.html" aria-current="page">B</a><a href="../c/setup.html">C</a>
+</nav>
+
+<script>
+const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
+const TAGS={text:'Text',vision:'Images',document:'Documents',audio:'Audio'};
+const REASON={text:'Cannot write text',vision:'Cannot read images',document:'Cannot read documents',audio:'Cannot turn audio into text'};
+const MODELS=[
+ {id:'haiku',short:'Haiku 5.5',name:'Haiku 5.5 (fast, low cost)',ab:['text','vision'],price:'$0.80 / $4.00 per 1M tokens',pi:.8,po:4},
+ {id:'sonnet',short:'Sonnet 5.5',name:'Sonnet 5.5 (balanced)',ab:['text','vision','document'],price:'$3.00 / $15.00 per 1M tokens',pi:3,po:15},
+ {id:'opus',short:'Opus 5.5',name:'Opus 5.5 (best quality)',ab:['text','vision','document'],price:'$15.00 / $75.00 per 1M tokens',pi:15,po:75},
+ {id:'flash',short:'Gemini Flash',name:'Gemini Flash (low cost)',ab:['text','vision','document'],price:'$0.10 / $0.40 per 1M tokens',pi:.1,po:.4},
+ {id:'whisper',short:'Whisper large',name:'Whisper large',ab:['audio'],price:'$0.006 per minute',pm:.006},
+ {id:'mock',short:'Mock model',name:'Mock model (no cost)',ab:['text'],price:'No cost',pi:0,po:0}];
+const JOBS=[
+ {id:'reply',name:'Reply suggestions in the inbox',desc:'A draft the person edits and sends; AI never sends.',need:'text',rec:'haiku',use:'312 calls, $1.10',v:{i:.55,o:.15}},
+ {id:'notes',name:'Agent notes and proposed actions',desc:'Used by AI agents and by the automation step "Ask an AI agent to draft a note". Nothing is sent without approval.',need:'text',rec:'sonnet',use:'64 calls, $2.35',v:{i:.4,o:.075}},
+ {id:'images',name:'Read images customers send',desc:'Looks at photos and screenshots so the AI knows what the customer sent.',need:'vision',rec:'sonnet',use:'21 calls, $0.74',v:{i:.2,o:.009}},
+ {id:'docs',name:'Read PDFs and documents for Knowledge',desc:'Turns uploaded files into text your agents can use.',need:'document',rec:'flash',use:'9 calls, $0.31',v:{i:.6,o:.6}},
+ {id:'voice',name:'Turn voice messages into text',desc:'Writes out voice messages so you can read them in the inbox.',need:'audio',rec:'whisper',use:'6 calls (14 min), $0.12',v:{m:20}}];
+const PRESET={rec:{reply:'haiku',notes:'sonnet',images:'sonnet',docs:'flash',voice:'whisper'},
+ low:{reply:'flash',notes:'flash',images:'flash',docs:'flash',voice:'whisper'},
+ best:{reply:'opus',notes:'opus',images:'opus',docs:'opus',voice:'whisper'}};
+const M=id=>MODELS.find(m=>m.id===id);
+const S={state:'normal',assign:{...PRESET.rec},open1:false,tested:false,tlabel:''};
+const PROVIDER_NAME={openrouter:'OpenRouter',compat:'OpenAI-compatible server',mock:'Mock offline'};
+
+function blocked(m,job){ // returns reason or ''
+  if(S.state==='mock'&&m.id!=='mock')return 'Needs a real provider';
+  return m.ab.includes(job.need)?'':REASON[job.need];
+}
+function cost(){let t=0;JOBS.forEach(j=>{const m=M(S.assign[j.id]);if(!m)return;
+  t+= j.v.m? (m.pm||0)*j.v.m : (m.pi||0)*j.v.i+(m.po||0)*j.v.o;});return t;}
+const tagHtml=ab=>ab.map(a=>`<span class="tag">${TAGS[a]}</span>`).join('');
+
+function renderJobs(){
+  const mock=S.state==='mock', sample=S.state==='normal'||S.state==='viewer';
+  $('#jobs').innerHTML=JOBS.map(j=>{
+    const m=M(S.assign[j.id]);
+    const chip=m?`<span>${m.short}</span>`:`<span>No model available</span>`;
+    return `<div class="job" data-job="${j.id}">
+      <div><div class="job-name">${j.name}</div><p>${j.desc}</p>
+      <div class="meta"><span>Needs: ${TAGS[j.need]}</span>${sample?`<span>This month: ${j.use}</span>`:''}</div></div>
+      <div class="job-pick"><button class="chip ${m?'':'none'}" type="button" aria-haspopup="listbox" aria-expanded="false" aria-label="Model for ${j.name}">${chip}<svg class="i"><use href="#i-down"/></svg></button></div></div>`;}).join('');
+  const t=cost();
+  let txt=`Estimated monthly cost at current volume: <b>${t===0?'$0, no cost':'about $'+Math.max(1,Math.round(t))}</b> (sample, indicative prices).`;
+  if(S.state!=='none'&&parseFloat($('#limit').value)>0&&t>parseFloat($('#limit').value))txt+=` <b style="color:var(--bad)">This is above your monthly limit of $${parseFloat($('#limit').value).toFixed(2)}.</b>`;
+  $('#costline').innerHTML=txt;
+}
+function renderCaps(){
+  const ids=[...new Set(JOBS.map(j=>S.assign[j.id]).filter(Boolean))];
+  const y=v=>v==='Yes'?`<span class="pill ok">Yes</span>`:v==='No'?`<span class="pill">No</span>`:`<span class="pill warn">Not confirmed</span>`;
+  $('#caps').innerHTML=ids.map(id=>{const m=M(id);
+    const f=a=>m.ab.includes(a)?(id==='flash'&&a==='document'&&0?'Not confirmed':'Yes'):'No';
+    return `<tr><td>${m.name}</td><td>${y(f('vision'))}</td><td>${y(f('document'))}</td><td>${y(id==='flash'?'Not confirmed':f('audio'))}</td></tr>`;}).join('')||'<tr><td colspan="4" class="empty">Choose a provider first.</td></tr>';
+}
+function renderUsage(){
+  const el=$('#usage');
+  if(S.state==='none'||S.state==='mock'){el.innerHTML=`<p class="empty">No usage yet this month.${S.state==='mock'?' Mock mode makes no real requests and costs nothing.':' Usage appears here after your first AI call.'}</p>`;return;}
+  const rows=[['Reply suggestions','312 calls','$1.10',1.10],['Agent notes','64 calls','$2.35',2.35],['Read images','21 calls','$0.74',.74],['Read PDFs','9 calls','$0.31',.31],['Voice to text','6 calls (14 min)','$0.12',.12]];
+  el.innerHTML=`<div class="usage-top"><span><strong>$4.62</strong> of $25.00 this month (18%)</span><span class="hint">2 errors, 0 blocked. Month is UTC.</span></div>
+   <div class="bar" role="progressbar" aria-label="Spend this month" aria-valuemin="0" aria-valuemax="25" aria-valuenow="4.62"><i style="width:18%"></i></div>
+   <ul class="ulist">${rows.map(r=>`<li><span>${r[0]}</span><span class="hint">${r[1]}</span><span class="num">${r[2]}</span><span class="bar" aria-hidden="true"><i style="width:${Math.round(r[3]/2.35*100)}%"></i></span></li>`).join('')}</ul>`;
+}
+function renderSteps(){
+  const st=S.state, none=st==='none', mock=st==='mock', prov=$('input[name=prov]:checked').value;
+  document.body.dataset.state=st;
+  const done1=!none;
+  $('#step1').classList.toggle('done',done1);
+  $('#dot1').innerHTML=done1?'<svg class="i" style="width:14px;height:14px;stroke-width:2.4"><use href="#i-check"/></svg>':'1';
+  ['2','3'].forEach(n=>$('#step'+n).classList.toggle('locked',none));
+  $('#step1').dataset.open=S.open1;
+  $('#edit1').textContent=S.open1?'Close':'Edit'; $('#edit1').setAttribute('aria-expanded',S.open1);
+  $('#edit1').hidden=none;
+  // summary
+  const pill=mock?'<span class="pill">MOCK</span>':S.tested?`<span class="pill ok"><svg class="i"><use href="#i-check"/></svg>${S.tlabel}</span>`:'<span class="pill warn">Not yet tested with a real request</span>';
+  $('#sum1').innerHTML=none?'':mock?`<span><b>Mock offline</b>, no key needed</span>${pill}`:`<span><b>${PROVIDER_NAME[prov]}</b>, key ending cdef, ${$('#enabled').checked?'enabled':'off'}</span>${pill}`;
+  // fields
+  const k=$('#key'); k.disabled=prov==='mock'&&!none||prov==='mock';
+  k.placeholder=prov==='mock'?'No key needed for Mock':none?'Paste your API key':'Stored, ending cdef';
+  $('#keyhint').textContent=prov==='mock'?'Mock runs offline and answers with fixed sample text.':none?'The key is stored encrypted and never displayed again.':'A key ending in cdef is stored. Leave empty to keep it. The key is never displayed.';
+  $('#test').disabled=false;
+  // progress
+  const p=(n,done,locked,sub)=>{const li=$(`#progress [data-p="${n}"]`);li.className=locked?'locked':done?'done':'';
+    $('small',li).textContent=sub;const d=$('.dot',li);if(n<4)d.innerHTML=done?'<svg class="i"><use href="#i-check"/></svg>':locked?'<svg class="i"><use href="#i-lock"/></svg>':n;};
+  p(1,done1,false,done1?(mock?'Mock':'Connected'):'Start here');
+  p(2,false,none,none?'Locked':'Pick models');
+  p(3,false,none,none?'Locked':'Budget and limit');
+  $('#progress [data-p="4"] small').textContent=none?'No usage yet':'This month';
+  // banner
+  const b=$('#banner');b.className='banner'+(st==='viewer'?' show':mock?' show mock':'');
+  $('#banner-text').textContent=st==='viewer'?'Only owners and admins can manage AI. You can see the setup but not change it.':mock?'Mock mode: answers are fixed sample text and nothing is sent to a real provider.':'';
+  // readonly
+  const ro=st==='viewer';$('#content').classList.toggle('readonly',ro);
+  $$('#steps .step button, #steps .step input:not([type=radio]), #steps .step textarea, #steps .step input[type=radio]').forEach(e=>e.disabled=ro||(e.id==='key'&&prov==='mock'));
+  $('#edit1').disabled=ro&&false;
+  renderJobs();renderCaps();renderUsage();
+}
+
+/* step 1 */
+$('#edit1').onclick=()=>{S.open1=!S.open1;renderSteps();};
+$$('input[name=prov]').forEach(r=>r.onchange=()=>{$('#result').textContent='';$('#result').className='result';renderSteps();});
+$('#enabled').onchange=renderSteps;
+$('#baseLink').onclick=e=>{const w=$('#baseWrap');w.hidden=!w.hidden;e.target.setAttribute('aria-expanded',!w.hidden);e.target.textContent=w.hidden?'Add a base URL':'Hide base URL';};
+function say(cls,msg){const r=$('#result');r.className='result '+cls;r.textContent=msg;}
+$('#connect').onclick=()=>{
+  const prov=$('input[name=prov]:checked').value;
+  if(prov==='mock'){S.state='mock';S.assign={reply:'mock',notes:'mock',images:null,docs:null,voice:null};S.open1=false;S.tested=false;$('#demo').value='mock';say('','');renderSteps();return;}
+  if(S.state==='none'&&!$('#key').value.trim()){say('bad','Paste an API key to connect.');$('#key').focus();return;}
+  if(prov==='compat'&&!$('#base').value.trim()){say('bad','An OpenAI-compatible server needs a public https base URL.');if($('#baseWrap').hidden)$('#baseLink').click();return;}
+  if(S.state!=='normal'){S.state='normal';S.assign={...PRESET.rec};$('#demo').value='normal';}
+  S.open1=false;S.tested=false;say('','');renderSteps();
+};
+$('#test').onclick=()=>{
+  const prov=$('input[name=prov]:checked').value, b=$('#test');
+  if(prov==='mock'){say('warn','Mock answered. Nothing left this browser, so this does not show that a real provider works.');return;}
+  if(S.state==='none'&&!$('#key').value.trim()){say('bad','Paste an API key first, then test.');return;}
+  if(prov==='compat'&&!$('#base').value.trim()){say('bad','Add a base URL first, then test.');return;}
+  b.disabled=true;b.textContent='Testing...';say('','Sending one small test request...');
+  setTimeout(()=>{b.disabled=false;b.textContent='Test connection';S.tested=true;S.tlabel='Tested with a real request, 14:32 UTC';
+    say('ok','Demo result: the provider answered one test request in 1.2 s. In the product this is recorded as a real request.');renderSteps();$('#result').className='result ok';
+    $('#result').textContent='Demo result: the provider answered one test request in 1.2 s. In the product this is recorded as a real request.';},900);
+};
+
+/* pickers */
+const picker=$('#picker'),scrim=$('#scrim');let curChip=null,curJob=null;
+function closePicker(ret){picker.hidden=true;scrim.hidden=true;if(curChip){curChip.setAttribute('aria-expanded','false');if(ret)curChip.focus();}curChip=null;}
+function openPicker(chip){
+  if(curChip===chip){closePicker(true);return;}
+  closePicker();curChip=chip;curJob=JOBS.find(j=>j.id===chip.closest('.job').dataset.job);
+  chip.setAttribute('aria-expanded','true');
+  $('#pk-title').textContent=curJob.name;
+  $('#pk-list').innerHTML=MODELS.map(m=>{const why=blocked(m,curJob),sel=S.assign[curJob.id]===m.id,rec=m.id===curJob.rec&&S.state!=='mock'||(S.state==='mock'&&m.id==='mock'&&curJob.need==='text');
+    return `<button class="opt" type="button" role="option" data-m="${m.id}" aria-selected="${sel}" ${why?'aria-disabled="true"':''}>
+      <span class="o-name">${m.name}${sel?'<svg class="i" style="color:var(--accent)"><use href="#i-check"/></svg>':''}</span><span class="o-price">${m.id==='mock'?m.price:'Indicative '+m.price}</span>
+      <span class="o-tags">${tagHtml(m.ab)}</span>
+      ${why?`<span class="o-note no"><svg class="i" style="width:13px;height:13px"><use href="#i-info"/></svg>${why}</span>`:rec?`<span class="o-note rec"><svg class="i" style="width:13px;height:13px"><use href="#i-check"/></svg>Recommended for this job</span>`:''}</button>`;}).join('');
+  chip.parentNode.appendChild(picker);picker.hidden=false;
+  if(matchMedia('(max-width:600px)').matches)scrim.hidden=false;
+  const f=$('.opt[aria-selected=true]',picker)||$('.opt:not([aria-disabled])',picker);if(f)f.focus();
+  if(!matchMedia('(max-width:600px)').matches)requestAnimationFrame(()=>{const r=picker.getBoundingClientRect();if(r.bottom>innerHeight)scrollBy({top:r.bottom-innerHeight+80,behavior:'smooth'});});
+}
+$('#jobs').addEventListener('click',e=>{const c=e.target.closest('.chip');if(c)openPicker(c);});
+$('#pk-list').addEventListener('click',e=>{const o=e.target.closest('.opt');if(!o||o.getAttribute('aria-disabled'))return;
+  S.assign[curJob.id]=o.dataset.m;const jid=curJob.id;closePicker(false);renderSteps();$(`.job[data-job=${jid}] .chip`).focus();});
+$('#pk-close').onclick=()=>closePicker(true);scrim.onclick=()=>closePicker(true);
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!picker.hidden)closePicker(true);});
+document.addEventListener('click',e=>{if(!picker.hidden&&!e.target.closest('#picker,.chip'))closePicker(false);});
+$$('[data-preset]').forEach(b=>b.onclick=()=>{
+  const p=PRESET[b.dataset.preset];
+  S.assign=S.state==='mock'?{reply:'mock',notes:'mock',images:null,docs:null,voice:null}:{...p};closePicker();renderSteps();
+});
+
+/* step 3 */
+$('#limit').oninput=renderJobs;
+$('#versions').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
+  $$('#versions li').forEach(l=>l.classList.remove('active'));b.closest('li').classList.add('active');$('#promptMsg').textContent=b.closest('li').firstElementChild.textContent+' is now in use.';});
+$('#savePrompt').onclick=()=>{$('#promptMsg').textContent='Saved as Version 4 (demo).';$$('#versions li').forEach(l=>l.classList.remove('active'));
+  const li=document.createElement('li');li.className='active';li.innerHTML='<span>Version 4</span><em class="pill ok" style="font-style:normal">Active</em><button class="btn btn-quiet" type="button">Use this version</button>';$('#versions').prepend(li);$('#savePrompt').disabled=true;};
+$('#psend').onclick=()=>{const r=$('#presult');const f=$('#pfile').files[0];
+  r.className='result '+(f?'':'bad');r.textContent=f?`Demo: "${f.name}" was not sent anywhere. In the product the file goes to the provider for one test and is not stored.`:'Choose a file first.';};
+
+/* demo state */
+$('#demo').onchange=e=>{const v=e.target.value;closePicker();
+  S.state=v;S.tested=false;$('#result').textContent='';$('#result').className='result';
+  S.assign=v==='mock'?{reply:'mock',notes:'mock',images:null,docs:null,voice:null}:{...PRESET.rec};
+  S.open1=v==='none';
+  const radio=v==='mock'?'mock':'openrouter';$(`input[name=prov][value=${radio}]`).checked=true;$('#key').value='';
+  renderSteps();};
+$$('a[href="#"]').forEach(a=>a.addEventListener('click',e=>e.preventDefault()));
+renderSteps();
+</script>
+</body>
+</html>

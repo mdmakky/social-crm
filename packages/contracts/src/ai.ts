@@ -82,6 +82,32 @@ export type AiStatusDto = z.infer<typeof AiStatusDto>;
 export const SuggestReplyResult = z.object({ draft: z.string(), provider: z.string(), model: z.string(), mock: z.boolean(), runId: z.string() });
 export type SuggestReplyResult = z.infer<typeof SuggestReplyResult>;
 
+/**
+ * The jobs the AI does and the ability each needs. A workspace may pin one model per job; without a pin the server picks automatically
+ * (text jobs: the default provider's default model; media jobs: the default model if it can, else the first enabled model that can).
+ */
+export const AI_JOBS = {
+  reply: { label: "Reply suggestions in the inbox", needs: "text" },
+  agent: { label: "Agent notes and proposed actions", needs: "text" },
+  vision: { label: "Read images customers send", needs: "vision" },
+  document: { label: "Read PDFs and documents for Knowledge", needs: "document" },
+  transcription: { label: "Turn voice messages into text", needs: "transcription" },
+} as const;
+export type AiJobKey = keyof typeof AI_JOBS;
+export const AiJobSchema = z.enum(Object.keys(AI_JOBS) as [AiJobKey, ...AiJobKey[]]);
+
+/** One job as the workspace sees it. `pinned` is what a person chose; `effective` is what a call would use right now (null = nothing can do this job yet); `problem` explains a pin that no longer works. */
+export const AiJobModelDto = z.object({
+  job: AiJobSchema,
+  pinned: z.object({ provider: z.string(), model: z.string() }).nullable(),
+  effective: z.object({ provider: z.string(), model: z.string(), automatic: z.boolean() }).nullable(),
+  problem: z.string().nullable(),
+});
+export type AiJobModelDto = z.infer<typeof AiJobModelDto>;
+export const AiJobModelList = z.object({ items: z.array(AiJobModelDto) });
+export const SetAiJobModelBody = z.object({ provider: z.string().trim().min(1).max(40), model: z.string().trim().min(1).max(100) });
+export type SetAiJobModelBody = z.infer<typeof SetAiJobModelBody>;
+
 export const aiEndpoints = {
   listAiProviders: endpoint({ method: "GET", path: `${W}/ai/providers`, response: AiProviderList }),
   setAiProvider: endpoint({ method: "PUT", path: `${W}/ai/providers/:provider`, body: SetAiProviderBody, response: AiProviderDto }),
@@ -92,6 +118,9 @@ export const aiEndpoints = {
   getAiBudget: endpoint({ method: "GET", path: `${W}/ai/budget`, response: AiBudgetDto }),
   setAiBudget: endpoint({ method: "PUT", path: `${W}/ai/budget`, body: SetAiBudgetBody, response: AiBudgetDto }),
   getAiUsage: endpoint({ method: "GET", path: `${W}/ai/usage`, query: AiUsageQuery, response: AiUsageDto }),
+  listAiJobModels: endpoint({ method: "GET", path: `${W}/ai/jobs`, response: AiJobModelList }),
+  setAiJobModel: endpoint({ method: "PUT", path: `${W}/ai/jobs/:job`, body: SetAiJobModelBody, response: AiJobModelDto }),
+  clearAiJobModel: endpoint({ method: "DELETE", path: `${W}/ai/jobs/:job`, response: AiJobModelDto }),
   getAiStatus: endpoint({ method: "GET", path: `${W}/ai/status`, response: AiStatusDto }),
   suggestReply: endpoint({ method: "POST", path: `${W}/conversations/:conversationId/ai/suggest-reply`, response: SuggestReplyResult }),
   /** Server-Sent Events (text/event-stream): `delta` {text}, `usage`, `done`, or one `error` {code, message, status}. The web client reads it with fetch; the declared response is the raw text. */

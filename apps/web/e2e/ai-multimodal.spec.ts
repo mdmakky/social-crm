@@ -54,17 +54,17 @@ test("capabilities, media playground, knowledge upload and a blocked viewer", as
   await expect(resultPanel).toContainText("Cost: 0.00 USD");
   await expect(resultPanel).toContainText(/Tokens: \d+ in, \d+ out/);
 
-  await page.getByLabel("Action").selectOption("transcribe");
+  await page.getByLabel("Action", { exact: true }).selectOption("transcribe");
   await expect(page.getByTestId("media-result")).toHaveCount(0); // switching clears the old result
   await page.getByLabel("File").setInputFiles({ name: "voice.mp3", mimeType: "audio/mpeg", buffer: MP3 });
   await run.click();
   await expect(page.getByTestId("media-result")).toContainText("[MOCK TRANSCRIPT]");
 
-  await page.getByLabel("Action").selectOption("describe");
+  await page.getByLabel("Action", { exact: true }).selectOption("describe");
   await page.getByLabel("File").setInputFiles({ name: "fake.png", mimeType: "image/png", buffer: Buffer.from("this is not an image at all") });
   await run.click();
   await expect(page.getByRole("alert").filter({ hasText: "Could not process the file" })).toContainText("not supported");
-  await page.getByLabel("Action").selectOption("ask");
+  await page.getByLabel("Action", { exact: true }).selectOption("ask");
   await page.getByLabel("File").setInputFiles({ name: "photo.png", mimeType: "image/png", buffer: PNG });
   await run.click();
   await expect(page.getByText("Type a question about the image.")).toBeVisible();

@@ -117,3 +117,6 @@ Owner rule (D310): no phone number means Enquiry, not lead; a phone number (type
 
 ## Ad measurement stage map (2026-11-19, branch `feat/ad-measurement-stage-map` from `main` 0025a3e, local only: not pushed, merged or deployed)
 Owner request: configure from the page which stage fires which event, and ask for the deal value when a stage change needs it. Built design A2 (D330 to D339): stage map page, `ask_for_value` (migration 0043, journal idx 41), preflight endpoint, value on move, the deal-value dialog on every single stage change, bulk skip count. Mock only. Tests and screenshots: see `testing-report.md`.
+
+## Update 2026-11-19: AI model per job
+Workspaces can pin one model per AI job (D343, migration 0045, `ai_job_models`, API `/ai/jobs`). `runAi` uses a valid pin, else the automatic pick. Verified with the mock provider and a scripted fake only (`apps/api/test/ai-job-models.test.ts`); no real provider request. The settings UI is separate work.

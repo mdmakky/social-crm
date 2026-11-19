@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState, ErrorState } from "@/components/ui/states";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import { browserApi, errorMessage } from "@/lib/client-api";
+import { ReplyWording } from "./reply-wording";
 
 const STATUS_TONE = { draft: "neutral", active: "success", archived: "stone" } as const;
 
@@ -32,6 +33,7 @@ export function AgentsSettings({ workspaceId }: { workspaceId: string }) {
   if (!data) return <div className="flex flex-col gap-4" role="status" aria-label="Loading AI agents"><Skeleton className="h-40" /></div>;
   const newHref = `/w/${workspaceId}/agents/new`;
   return (
+    <div className="flex flex-col gap-[var(--page-gap)]">
     <Panel>
       <PanelHeader title="Agents" description={`${data.activeCount} of ${data.maxActive} active agents used.`} actions={<Button variant="primary" asChild><Link href={newHref}><Plus className="size-4" aria-hidden />New agent</Link></Button>} />
       {data.agents.length === 0 ? (
@@ -52,5 +54,7 @@ export function AgentsSettings({ workspaceId }: { workspaceId: string }) {
         </Table>
       )}
     </Panel>
+    <ReplyWording workspaceId={workspaceId} />
+    </div>
   );
 }
