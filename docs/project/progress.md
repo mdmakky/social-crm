@@ -114,3 +114,6 @@ Leads page (2026-11-18, branch `feat/leads-page` from `main` 75f15f9, local only
 
 ## Enquiries (2026-11-18, branch `feat/enquiries`)
 Owner rule (D310): no phone number means Enquiry, not lead; a phone number (typed, imported, detected in a message, WhatsApp sender id) makes the person a lead in the first stage. Computed from the phone and lead rows, no migration. API `kind` filter and `enquiryCount`, Enquiries tab and list with Add phone, enquiry lead page, Add lead and import copy, WhatsApp sender id stored as the phone (D311). See decisions D310 to D318 and the testing report.
+
+## Ad measurement stage map (2026-11-19, branch `feat/ad-measurement-stage-map` from `main` 0025a3e, local only: not pushed, merged or deployed)
+Owner request: configure from the page which stage fires which event, and ask for the deal value when a stage change needs it. Built design A2 (D330 to D339): stage map page, `ask_for_value` (migration 0043, journal idx 41), preflight endpoint, value on move, the deal-value dialog on every single stage change, bulk skip count. Mock only. Tests and screenshots: see `testing-report.md`.
