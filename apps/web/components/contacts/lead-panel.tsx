@@ -11,6 +11,7 @@ import { Alert, EmptyState } from "@/components/ui/states";
 import { useToast } from "@/components/ui/toast";
 import { browserApi, errorMessage } from "@/lib/client-api";
 import { cn } from "@/lib/cn";
+import { useStageValueGate } from "@/components/contacts/stage-value";
 import { defaultPipeline, shownStage, stagesForContact } from "@/lib/contact-lead";
 import { CURRENCIES, fromMinor, toMinor } from "@/lib/leads";
 
@@ -45,6 +46,7 @@ function Form({ workspaceId, contact, lead, pipelines, lostReasons, members, can
   const [busy, setBusy] = React.useState(false);
   const [lostFor, setLostFor] = React.useState<StageDto | null>(null);
   const [reasonId, setReasonId] = React.useState(lostReasons[0]?.id ?? "");
+  const { gate, dialog } = useStageValueGate(workspaceId);
 
   if (!cur) {
     return (
@@ -87,10 +89,18 @@ function Form({ workspaceId, contact, lead, pipelines, lostReasons, members, can
     }
   }
 
+  /** Asks the server whether an ad rule needs a deal value for this move; if so, the dialog decides (value saved with the move, move without it, or cancel). */
+  async function moveTo(s: StageDto) {
+    setBusy(true);
+    const choice = await gate(contact, s);
+    setBusy(false);
+    if (choice.cancel) return;
+    void commit({ stage: s, ...(choice.value ? { value: { minor: choice.value.valueMinor, currency: choice.value.currency } } : {}) });
+  }
   const pickStage = (s: StageDto) => {
     if (s.id === cur.id && !cur.virtual) return;
     if (s.kind === "lost") return setLostFor(s);
-    void commit({ stage: s });
+    void moveTo(s);
   };
   const saveValue = () => {
     if (!canSetValue || !canEdit || lead?.valueHidden) return;
@@ -138,10 +148,11 @@ function Form({ workspaceId, contact, lead, pipelines, lostReasons, members, can
           <Field label="Why was it lost?">{(x) => <Select {...x} value={reasonId} onChange={(e) => setReasonId(e.target.value)}>{lostReasons.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}</Select>}</Field>
           <DialogActions className="mt-3">
             <DialogClose asChild><Button variant="ghost">Cancel</Button></DialogClose>
-            <Button variant="primary" disabled={!reasonId} onClick={() => { const s = lostFor!; setLostFor(null); void commit({ stage: s }); }}>Mark as lost</Button>
+            <Button variant="primary" disabled={!reasonId} onClick={() => { const s = lostFor!; setLostFor(null); void moveTo(s); }}>Mark as lost</Button>
           </DialogActions>
         </DialogContent>
       </Dialog>
+      {dialog}
     </>
   );
 }

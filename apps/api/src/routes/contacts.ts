@@ -10,6 +10,7 @@ import { deleteAttachmentBlobs } from "../inbox/attachments.ts";
 import { emitEvent } from "../events.ts";
 import { activeMember, activeStages, customDefs, findDuplicates, loadContact, lockContactWrites, recordActivity, toDetail, toFieldDef, toSummaries } from "../crm-service.ts";
 import { filters, kindWhere, type Q } from "../contact-query.ts";
+import { stageCheck } from "../capi/stage-check.ts";
 import { firstStage, leadsFor, PRIMARY_LEAD_JOIN, Rollback, stageWhere, upsertContactLead, type FirstStage } from "../contact-lead.ts";
 import { WindowCounter } from "../throttle.ts";
 import { leadOps } from "./leads.ts";
@@ -145,12 +146,16 @@ export function contactRoutes(db: Db, hooks: { blobs?: BlobStore } = {}) {
     if (!bulkCalls.allow(`${c.get("workspaceId")}:${c.get("userId")}`)) { c.header("Retry-After", "60"); return fail(c, 429, "rate_limited", "Too many bulk moves. Try again in a minute."); }
     const b = await body(c, BulkContactStageBody);
     if (!b.ok) return b.res;
-    const results: { id: string; ok: boolean; code: string }[] = [];
+    const results: { id: string; ok: boolean; code: string; noValue?: true }[] = [];
+    // A bulk move never asks for a value: leads whose firing rule wants one are moved anyway and their event is recorded as skipped (no_value). `noValue` tells the client how many, so it can say so.
     // ponytail: one transaction per contact, sequential (max 100), like /leads/bulk-stage; one shared transaction would let one bad contact undo the rest.
     for (const id of [...new Set(b.data.contactIds)]) {
       try {
-        const out = await withContext(db, wctx(c), (tx) => upsertContactLead(tx, c, ops, id, { stageId: b.data.stageId, lostReasonId: b.data.lostReasonId }, true));
-        results.push({ id, ok: out.ok, code: out.ok ? (out.created ? "created" : out.changed ? "ok" : "unchanged") : out.code });
+        const out = await withContext(db, wctx(c), async (tx) => {
+          const pre = await stageCheck(tx, c, ops, id, b.data.stageId);
+          return { moved: await upsertContactLead(tx, c, ops, id, { stageId: b.data.stageId, lostReasonId: b.data.lostReasonId }, true), noValue: typeof pre === "object" && pre.needsValue };
+        });
+        results.push({ id, ok: out.moved.ok, code: out.moved.ok ? (out.moved.created ? "created" : out.moved.changed ? "ok" : "unchanged") : out.moved.code, ...(out.moved.ok && out.moved.changed && out.noValue ? { noValue: true as const } : {}) });
       } catch (e) {
         results.push({ id, ok: false, code: e instanceof Rollback ? e.code : "internal_error" });
       }

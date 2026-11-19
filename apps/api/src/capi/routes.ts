@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { Hono } from "hono";
 import { and, asc, desc, eq, lt, sql } from "drizzle-orm";
-import { CapiEventsQuery, CapiMappingPreviewBody, CreateCapiDatasetBody, CreateCapiMappingBody, SetAdConsentBody, UpdateCapiMappingBody, type AdConsentDto, type CapiDatasetDto, type CapiEventDto, type CapiEventList, type CapiMappingDto, type CapiMappingPreview } from "@crm/contracts";
+import { CapiEventsQuery, CapiMappingPreviewBody, StageCheckQuery, CreateCapiDatasetBody, CreateCapiMappingBody, SetAdConsentBody, UpdateCapiMappingBody, type AdConsentDto, type CapiDatasetDto, type CapiEventDto, type CapiEventList, type CapiMappingDto, type CapiMappingPreview } from "@crm/contracts";
 import { CONSENT_PURPOSE } from "@crm/capi";
 import { can } from "@crm/core/permissions";
 import { schema, withContext, type Db } from "@crm/db";
@@ -9,6 +9,8 @@ import type { SecretBox } from "@crm/integrations";
 import { writeAudit } from "../audit.ts";
 import { actor, body, fail, forbidden, isUuid, query, wctx, type SC, type ScopedEnv } from "../routes/scope.ts";
 import { WindowCounter } from "../throttle.ts";
+import { leadOps } from "../routes/leads.ts";
+import { stageCheck } from "./stage-check.ts";
 import { previewLead, seedDefaultMapping } from "./mappings.ts";
 
 export type CapiRouteDeps = { box?: SecretBox; createsPerUser?: number };
@@ -21,7 +23,7 @@ const toDataset = (r: typeof schema.capiDatasets.$inferSelect): CapiDatasetDto =
 });
 const toMappingDto = (r: typeof schema.capiEventMappings.$inferSelect): CapiMappingDto => ({
   id: r.id, datasetId: r.datasetId, triggerType: r.triggerType as CapiMappingDto["triggerType"], stageId: r.stageId, eventName: r.eventName, valueMode: r.valueMode as CapiMappingDto["valueMode"],
-  fixedValueMinor: r.fixedValueMinor, currency: r.currency, enabled: r.enabled, createdAt: r.createdAt.toISOString(), updatedAt: r.updatedAt.toISOString(),
+  fixedValueMinor: r.fixedValueMinor, currency: r.currency, enabled: r.enabled, askForValue: r.askForValue, createdAt: r.createdAt.toISOString(), updatedAt: r.updatedAt.toISOString(),
 });
 const dbCode = (e: unknown) => (e as { cause?: { code?: string } })?.cause?.code;
 const toEvent = (r: typeof schema.capiEvents.$inferSelect): CapiEventDto => ({
@@ -176,7 +178,7 @@ export function capiRoutes(db: Db, deps: CapiRouteDeps = {}) {
       const p = await previewLead(tx, workspaceId, l);
       const out: CapiMappingPreview = {
         consent: p.consent,
-        items: p.items.map((i) => ({ mappingId: i.mapping.id, datasetId: i.mapping.datasetId, datasetName: i.datasetName, triggerType: i.mapping.triggerType, stageId: i.mapping.stageId, eventName: i.mapping.eventName, result: i.result, reason: i.reason, value: i.value, currency: i.currency })),
+        items: p.items.map((i) => ({ mappingId: i.mapping.id, datasetId: i.mapping.datasetId, datasetName: i.datasetName, triggerType: i.mapping.triggerType, stageId: i.mapping.stageId, eventName: i.mapping.eventName, result: i.result, reason: i.reason, value: i.value, currency: i.currency, askForValue: i.mapping.askForValue })),
       };
       return c.json(out);
     });
@@ -196,6 +198,23 @@ export function capiRoutes(db: Db, deps: CapiRouteDeps = {}) {
     const page = rows.slice(0, limit);
     const out: CapiEventList = { items: page.map(toEvent), nextCursor: rows.length > limit ? page[page.length - 1]!.id : null };
     return c.json(out);
+  });
+
+  const ops = leadOps();
+  /** Preflight of a stage change for the caller (agents included: they are the ones moving leads). Read only; see stage-check.ts. */
+  r.get("/contacts/:contactId/stage-check", async (c) => {
+    if (!can(c.get("role"), "lead.edit", {})) return forbidden(c);
+    const id = c.req.param("contactId");
+    if (!isUuid(id)) return fail(c, 404, "not_found");
+    const q = query(c, StageCheckQuery);
+    if (!q.ok) return q.res;
+    return withContext(db, wctx(c), async (tx) => {
+      const out = await stageCheck(tx, c, ops, id, q.data.stageId);
+      if (out === "no_contact") return fail(c, 404, "not_found");
+      if (out === "bad_stage") return fail(c, 400, "invalid_body", "Choose an active stage.");
+      if (out === "no_pipeline") return fail(c, 409, "no_pipeline", "Set up a pipeline with a stage first.");
+      return c.json(out);
+    });
   });
 
   const consentOf = async (c: SC, contactId: string): Promise<AdConsentDto | null> =>

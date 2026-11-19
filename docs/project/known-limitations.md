@@ -321,3 +321,12 @@ Updated: 2026-11-13 (Phase 0).
 - "Retry" on a failed source re-reads it from what is stored. A failed audio, PDF or image upload stored no text, so a retry only helps once the AI provider problem is fixed; otherwise remove it and upload the file again.
 - A source added from the Inbox ("Add to knowledge" on an attachment) appears in the list as a file; its details are unchanged.
 - Question and answer sources can only be edited by removing them and adding them again.
+## Ad measurement stage map and deal-value dialog (2026-11-19, branch `feat/ad-measurement-stage-map`)
+- Not verified: real Meta (everything is mock), real phones and screen readers (Playwright emulation and axe only).
+- The map shows the default pipeline. Rules on stages of other pipelines, or entered-stage rules on a won or lost stage, show under "Other rules".
+- One event per row in the UI. Several rules on one moment are possible through the API; the UI lists them under "+N more" but cannot create a second one on a row.
+- The preflight does not know that a won or lost rule already sent once for this lead (dedupe, D202), so the dialog may ask once more than needed when a lead is re-won.
+- A caller who may not see a lead's value can infer from the dialog that it is empty (D338).
+- `/leads/bulk-stage` does not report skipped-for-no-value leads; only `/contacts/bulk-stage` (the web) does.
+- Only 2-decimal and zero-decimal currencies are exact (as in the CAPI value conversion); three-decimal currencies would be sent 10x off.
+- A failed preflight lets the move go ahead without the dialog (the event is then recorded skipped).

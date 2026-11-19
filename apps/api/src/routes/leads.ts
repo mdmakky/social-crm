@@ -197,7 +197,7 @@ export function leadOps() {
    * The one stage-move implementation: the single move and the bulk move both call it, so history, activity, audit, the lead.stage_changed event,
    * the CAPI Won hook and the permission rules are identical. expectedVersion undefined (bulk) means "whatever is current"; noReorder makes a move to the current stage a no-op.
    */
-  async function moveLead(tx: Tx, c: SC, id: string, b: { expectedVersion?: number; stageId: string; lostReasonId?: string; beforeLeadId?: string; afterLeadId?: string }, noReorder = false): Promise<MoveOut> {
+  async function moveLead(tx: Tx, c: SC, id: string, b: { expectedVersion?: number; stageId: string; lostReasonId?: string; beforeLeadId?: string; afterLeadId?: string; valueMinor?: number; currency?: string }, noReorder = false): Promise<MoveOut> {
     const { workspaceId, userId } = wctx(c);
     const [cur] = (await tx.execute(sql`SELECT pipeline_id FROM leads WHERE workspace_id = ${workspaceId} AND id = ${id} AND deleted_at IS NULL FOR UPDATE`)).rows as { pipeline_id: string }[];
     if (!cur) return no(404, "not_found");
@@ -213,6 +213,9 @@ export function leadOps() {
     const wasClosed = l!.outcome !== "open";
     if (wasClosed && !can(c.get("role"), "lead.reopen", {})) return no(403, "forbidden", "You don't have permission to do that.");
     if (to.id === l!.stageId && noReorder) return { ok: true, lead: null, changed: false };
+    // A value given with the move is written in this same update, so the CAPI hook below sees it. Same permission as editing the value on the lead.
+    const withValue = b.valueMinor !== undefined && b.currency !== undefined && to.id !== l!.stageId;
+    if (withValue && !mayEditValue(c, await grantsFor(tx, c, [id]), id)) return no(403, "forbidden", "You don't have permission to set lead value.");
     if (to.kind === "lost" && !b.lostReasonId) return no(400, "lost_reason_required", "Choose a reason for losing this lead.");
     if (to.kind === "lost") {
       const [lr] = await tx.select({ a: schema.lostReasons.archivedAt }).from(schema.lostReasons).where(and(eq(schema.lostReasons.workspaceId, workspaceId), eq(schema.lostReasons.id, b.lostReasonId!)));
@@ -231,14 +234,16 @@ export function leadOps() {
     const rank = await rankBetween(tx, workspaceId, to.id, b.beforeLeadId, b.afterLeadId);
     await tx.update(schema.leads).set({
       stageId: to.id, outcome: to.kind, rank, probability, probabilityManual: keepManual, closedAt: closing ? new Date() : null, lostReasonId: to.kind === "lost" ? b.lostReasonId! : null,
+      ...(withValue ? { valueMinor: b.valueMinor!, currency: b.currency! } : {}),
       version: l!.version + 1, updatedAt: new Date(),
     }).where(and(eq(schema.leads.workspaceId, workspaceId), eq(schema.leads.id, id)));
+    const valueMinor = withValue ? b.valueMinor! : l!.valueMinor, currency = withValue ? b.currency! : l!.currency;
     await transition(tx, c, l!, { stageId: l!.stageId, outcome: l!.outcome }, { stageId: to.id, outcome: to.kind }, to.kind === "lost" ? b.lostReasonId : null);
     const kind = wasClosed ? "lead.reopened" : to.kind === "won" ? "lead.won" : to.kind === "lost" ? "lead.lost" : "lead.stage_changed";
-    await recordActivity(tx, { workspaceId, contactId: l!.primaryContactId, leadId: id, kind, actorUserId: userId, data: { fromStageId: l!.stageId, toStageId: to.id } });
-    await audit(c, tx, kind, id, { fromStageId: l!.stageId, toStageId: to.id });
+    await recordActivity(tx, { workspaceId, contactId: l!.primaryContactId, leadId: id, kind, actorUserId: userId, data: { fromStageId: l!.stageId, toStageId: to.id, ...(withValue ? { valueSet: true } : {}) } });
+    await audit(c, tx, kind, id, { fromStageId: l!.stageId, toStageId: to.id, ...(withValue ? { valueSet: true } : {}) });
     await emitEvent(tx, { workspaceId, type: "lead.stage_changed", entityType: "lead", entityId: id, actorUserId: userId, payload: { fromStageId: l!.stageId, toStageId: to.id, outcome: to.kind, pipelineId: l!.pipelineId, contactId: l!.primaryContactId, leadTitle: l!.title } });
-    await captureLeadTransition(tx, { workspaceId, leadId: id, contactId: l!.primaryContactId, fromStageId: l!.stageId, toStageId: to.id, fromOutcome: l!.outcome, outcome: to.kind as "open" | "won" | "lost", valueMinor: l!.valueMinor, currency: l!.currency }); // track:capi, the one CAPI hook (savepoints, never fails the move)
+    await captureLeadTransition(tx, { workspaceId, leadId: id, contactId: l!.primaryContactId, fromStageId: l!.stageId, toStageId: to.id, fromOutcome: l!.outcome, outcome: to.kind as "open" | "won" | "lost", valueMinor, currency }); // track:capi, the one CAPI hook (savepoints, never fails the move)
     return { ok: true, lead: await loadDto(tx, c, id), changed: true };
   }
 

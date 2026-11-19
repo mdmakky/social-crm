@@ -316,6 +316,7 @@ export function Thread({ conversationId }: { conversationId: string }) {
 
   return (
     <div className="fade-in flex min-w-0 flex-1">
+      {lead.valueDialog}
       <section aria-label={`Conversation with ${name}`} className="flex min-w-0 flex-1 flex-col bg-canvas">
         <header className="border-b border-line bg-surface">
           <div className="flex items-center gap-1 py-1.5 pl-1 pr-1.5 md:gap-3 md:px-4 md:py-3">

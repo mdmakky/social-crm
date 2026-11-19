@@ -179,3 +179,6 @@ Owner decision D260 to D269: Leads and Contacts are one list and one page; a con
 Owner decisions D300 to D309: the unified list is called Leads everywhere (URLs and API keep `contacts`), a one-line stage strip, a multi-select Agent filter with counts, only filters the API supports, a phone layout with one filter sheet, cards, stage sheet and Select mode, and a cleaner lead page (stepper, autosaving value and owner, collapsed Details). Open for the owner: a total value in the header and value or last-activity filters need new API aggregates (D304); real-device check of the phone layout.
 
 Enquiries (2026-11-18, branch `feat/enquiries` from `main` f807e2d, local only: not pushed, not merged, not deployed; no migration). D310 to D318. A person with no phone number and no lead row is an Enquiry, not a lead: new Enquiries tab before the stages on Leads, "Add phone" moves them to Leads in New. Computed, nothing stored. Open: Inbox badge, Settings per-stage counts (D318).
+
+## Ad measurement stage map (2026-11-19)
+Done on `feat/ad-measurement-stage-map`: stage-centred event map, ask-for-value rules, stage-change preflight and deal-value dialog (D330 to D339). Still open: a recorded real Meta test event before any live mode (Phase 6b gate), more than one event per row in the UI if the owner wants it, other pipelines on the map.
