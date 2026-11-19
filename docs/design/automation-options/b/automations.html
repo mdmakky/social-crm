@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Automations - RenoDevs Team</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body data-state="normal">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+<symbol id="i-home" viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></symbol>
+<symbol id="i-inbox" viewBox="0 0 24 24"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.5 5h13L22 12v6a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-6z"/></symbol>
+<symbol id="i-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.9"/><path d="M16 3.1a4 4 0 0 1 0 7.8"/></symbol>
+<symbol id="i-tasks" viewBox="0 0 24 24"><path d="m9 11 3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></symbol>
+<symbol id="i-chart" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></symbol>
+<symbol id="i-settings" viewBox="0 0 24 24"><path d="M4 6h10"/><path d="M18 6h2"/><circle cx="16" cy="6" r="2"/><path d="M4 12h2"/><path d="M10 12h10"/><circle cx="8" cy="12" r="2"/><path d="M4 18h12"/><path d="M20 18h0"/><circle cx="18" cy="18" r="2"/></symbol>
+<symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></symbol>
+<symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></symbol>
+<symbol id="i-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+<symbol id="i-plus" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M12 5v14"/></symbol>
+<symbol id="i-pause" viewBox="0 0 24 24"><rect x="14" y="4" width="4" height="16" rx="1"/><rect x="6" y="4" width="4" height="16" rx="1"/></symbol>
+<symbol id="i-play" viewBox="0 0 24 24"><polygon points="6 3 20 12 6 21 6 3"/></symbol>
+<symbol id="i-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></symbol>
+<symbol id="i-lock" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></symbol>
+</svg>
+
+<div class="app">
+  <aside class="side">
+    <div class="ws"><div class="av">R</div><b>RenoDevs Team</b><svg class="ic"><use href="#i-down"/></svg></div>
+    <nav class="nav" aria-label="Main">
+      <a href="#"><svg class="ic"><use href="#i-home"/></svg><span>Home</span></a>
+      <a href="#"><svg class="ic"><use href="#i-inbox"/></svg><span>Inbox</span></a>
+      <a href="#"><svg class="ic"><use href="#i-users"/></svg><span>Leads</span></a>
+      <a href="#"><svg class="ic"><use href="#i-tasks"/></svg><span>Tasks</span></a>
+      <a href="#"><svg class="ic"><use href="#i-chart"/></svg><span>Reports</span></a>
+      <a href="#" aria-current="page"><svg class="ic"><use href="#i-settings"/></svg><span>Settings</span></a>
+    </nav>
+    <div class="me"><div class="av round">TA</div><div><b>Tanvir Ahmed</b><span>Owner</span></div></div>
+  </aside>
+
+  <div>
+    <header class="top">
+      <button class="search" type="button" aria-label="Search or jump to"><svg class="ic"><use href="#i-search"/></svg>Search or jump to</button>
+      <button class="iconbtn" type="button" aria-label="Notifications"><svg class="ic"><use href="#i-bell"/></svg></button>
+    </header>
+
+    <main class="page">
+      <div class="settings">
+        <nav class="smenu" aria-label="Settings">
+          <small>Workspace</small>
+          <a href="#">General</a><a href="#">Notifications</a>
+          <small>CRM data</small>
+          <a href="#">Lead fields</a><a href="#">Lead stages</a>
+          <small>AI and automation</small>
+          <a href="#" aria-current="page">AI and automation</a>
+          <small>Channels</small>
+          <a href="#">Integrations</a><a href="#">Web chat</a><a href="#">Ad measurement</a>
+          <small>Team and security</small>
+          <a href="#">Members</a><a href="#">Audit log</a>
+        </nav>
+
+        <div>
+          <h1>AI and automation</h1>
+          <nav class="tabs" aria-label="AI and automation">
+            <a href="#">Overview</a><a href="#">Agents</a><a href="#">Knowledge</a><a href="#" aria-current="page">Automations</a><a href="#">Setup</a>
+          </nav>
+
+          <div class="notice" data-nonadmin><svg class="ic"><use href="#i-lock"/></svg><span>Only owners and admins can manage automations.</span></div>
+
+          <p class="lede">An automation does a small job for you when something happens to a lead, such as creating a task, adding a tag, assigning an owner or asking an AI agent to draft a note. AI never sends a message to anyone.</p>
+
+          <div class="status" data-ok>
+            <span class="dot"></span><b>Automations are on</b>
+            <button class="btn quiet admin" type="button" id="pause"><svg class="ic"><use href="#i-pause"/></svg>Pause all automations</button>
+          </div>
+          <div class="status" data-paused>
+            <span class="dot off"></span><b>Automations are paused</b><span class="muted">Nothing runs and approvals are blocked until you resume.</span>
+            <button class="btn admin" type="button" id="resume"><svg class="ic"><use href="#i-play"/></svg>Resume automations</button>
+          </div>
+
+          <section class="sec" aria-labelledby="h-list">
+            <div class="sec-h">
+              <h2 id="h-list">Your automations</h2>
+              <a class="btn primary admin" href="editor.html"><svg class="ic"><use href="#i-plus"/></svg>New automation</a>
+            </div>
+            <div class="panel rows" data-has>
+              <article class="row">
+                <div>
+                  <h3>Follow up on new leads</h3>
+                  <p>When a lead is created, create the task “Follow up with the new lead” due in 1 day.</p>
+                  <div class="meta"><span class="pill">Asks you first</span></div>
+                </div>
+                <div class="ctl">
+                  <label class="sw-l"><button class="switch admin" role="switch" aria-checked="true" aria-label="Follow up on new leads"></button><span class="onoff">On</span></label>
+                  <a class="btn admin" href="editor.html?edit=1">Edit</a>
+                </div>
+              </article>
+              <article class="row">
+                <div>
+                  <h3>Tag Instagram leads Hot</h3>
+                  <p>When a lead is created and Source is Instagram, add the tag “Hot”.</p>
+                  <div class="meta"><span class="pill">Runs on its own</span></div>
+                </div>
+                <div class="ctl">
+                  <label class="sw-l"><button class="switch admin" role="switch" aria-checked="true" aria-label="Tag Instagram leads Hot"></button><span class="onoff">On</span></label>
+                  <a class="btn admin" href="editor.html?edit=2">Edit</a>
+                </div>
+              </article>
+              <article class="row">
+                <div>
+                  <h3>Hand Facebook leads to Sagor</h3>
+                  <p>When a lead is created and Source is Facebook lead ad, make Sagor Hossen the owner.</p>
+                  <div class="meta"><span class="pill">Asks you first</span></div>
+                </div>
+                <div class="ctl">
+                  <label class="sw-l"><button class="switch admin" role="switch" aria-checked="false" aria-label="Hand Facebook leads to Sagor"></button><span class="onoff">Off</span></label>
+                  <a class="btn admin" href="editor.html?edit=3">Edit</a>
+                </div>
+              </article>
+            </div>
+
+            <div class="panel" data-none>
+              <h3 style="font-size:14px;font-weight:600">You have no automations yet</h3>
+              <p class="muted" style="margin-top:2px">Pick a ready-made starting point. You can change every word of it before you turn it on.</p>
+              <div style="margin-top:8px">
+                <div class="start"><div><b>Follow up on every new lead</b><br><span>Creates a task due the next day so no lead is forgotten.</span></div><a class="btn admin" href="editor.html?start=follow-up">Use this</a></div>
+                <div class="start"><div><b>Tag every new lead</b><br><span>Adds a tag so you can find them later.</span></div><a class="btn admin" href="editor.html?start=tag">Use this</a></div>
+                <div class="start"><div><b>Give Instagram leads to a teammate</b><br><span>Assigns every lead from Instagram to one person.</span></div><a class="btn admin" href="editor.html?start=assign">Use this</a></div>
+                <div class="start"><div><b>Ask an AI agent to draft a note</b><br><span>The agent reads each new lead and writes a note for you to review. Nothing is sent.</span></div><a class="btn admin" href="editor.html?start=ai">Use this</a></div>
+                <div class="start"><div><b>Celebrate a won deal</b><br><span>When a lead record moves to Won: create the task “Ask for a review” due in 3 days.</span></div><a class="btn admin" href="editor.html?start=won">Use this</a></div>
+                <div class="start"><div><b>Welcome Facebook leads</b><br><span>When a lead is created and source is Facebook lead ad: add the tag “Facebook” and create the task “Call within 1 hour”.</span></div><a class="btn admin" href="editor.html?start=facebook">Use this</a></div>
+              </div>
+            </div>
+          </section>
+
+          <section class="sec" aria-labelledby="h-act">
+            <div class="sec-h"><h2 id="h-act">Activity</h2></div>
+            <div class="panel rows act" data-has>
+              <p class="muted" data-paused style="padding:14px 0">Approvals are blocked while automations are paused.</p>
+              <article class="row" id="wait">
+                <div>
+                  <h3>Follow up on new leads</h3>
+                  <p class="when">A lead was created: Nusrat Jahan (Full home renovation) &middot; 12 min ago</p>
+                  <p style="color:var(--ink)">Create the task “Follow up with the new lead” due in 1 day.</p>
+                  <details><summary>Details<svg class="ic"><use href="#i-down"/></svg></summary><ol><li>Create the task “Follow up with the new lead” due Fri 20 Nov. Waiting for your approval.</li></ol></details>
+                </div>
+                <div class="ctl"><span class="pill wait st">Waiting for your approval</span><span class="btns" style="display:flex;gap:6px"><button class="btn primary ap admin" type="button">Approve</button><button class="btn rj admin" type="button">Reject</button></span></div>
+              </article>
+              <article class="row">
+                <div>
+                  <h3>Tag Instagram leads Hot</h3>
+                  <p class="when">A lead was created: Md. Arafatuzzaman &middot; 40 min ago</p>
+                  <p style="color:var(--ink)">Add the tag “Hot”.</p>
+                  <details><summary>Details<svg class="ic"><use href="#i-down"/></svg></summary><ol><li>Add the tag “Hot”. Done.</li></ol></details>
+                </div>
+                <div class="ctl"><span class="pill ok">Done</span></div>
+              </article>
+              <article class="row">
+                <div>
+                  <h3>Follow up on new leads</h3>
+                  <p class="when">A lead was created: Rahim Uddin &middot; Yesterday, 11:05 AM</p>
+                  <p style="color:var(--ink)">Create the task “Follow up with the new lead”.</p>
+                  <details><summary>Details<svg class="ic"><use href="#i-down"/></svg></summary><ol><li>Create the task “Follow up with the new lead”. Done.</li></ol></details>
+                </div>
+                <div class="ctl"><span class="pill ok">Done (you approved it)</span></div>
+              </article>
+              <article class="row">
+                <div>
+                  <h3>Hand Facebook leads to Sagor</h3>
+                  <p class="when">A lead was created: Farhana Akter &middot; Mon 16 Nov, 2:10 PM</p>
+                  <p class="err"><svg class="ic" style="margin-top:2px"><use href="#i-alert"/></svg><span>Sagor Hossen could not be assigned: they no longer have access to this workspace.</span></p>
+                  <details><summary>Details<svg class="ic"><use href="#i-down"/></svg></summary><ol><li>Make Sagor Hossen the owner. Failed.</li></ol></details>
+                </div>
+                <div class="ctl"><span class="pill bad">Failed</span></div>
+              </article>
+            </div>
+            <div class="panel" data-none><p class="empty-note" style="padding:0">Nothing has run yet. When an automation runs, you will see it here.</p></div>
+          </section>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<div class="demo-state" role="group" aria-label="Demo state"><span>Demo state</span>
+  <button type="button" data-s="normal" aria-pressed="true">Normal</button>
+  <button type="button" data-s="empty" aria-pressed="false">Empty</button>
+  <button type="button" data-s="paused" aria-pressed="false">Paused</button>
+  <button type="button" data-s="nonadmin" aria-pressed="false">Non-admin</button>
+</div>
+<nav class="opt-switch" aria-label="Design options"><a href="../a/automations.html">A</a><a class="current" href="../b/automations.html" aria-current="page">B</a><a href="../c/automations.html">C</a></nav>
+
+<script>
+const $=(s,r=document)=>[...r.querySelectorAll(s)];
+function setState(s){
+  document.body.dataset.state=s;
+  $('.demo-state button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.s===s));
+  const lock=s==='nonadmin';
+  $('.admin').forEach(e=>{e.toggleAttribute('disabled',lock);e.setAttribute('aria-disabled',lock);if(e.tagName==='A')e.style.pointerEvents=lock?'none':'';if(e.tagName==='A')e.style.opacity=lock?.45:''});
+  const p=s==='paused';
+  $('.ap,.rj').forEach(b=>{b.disabled=p||lock;b.style.opacity=(p||lock)?.45:''});
+}
+$('.demo-state button').forEach(b=>b.onclick=()=>setState(b.dataset.s));
+$('#pause').onclick=()=>setState('paused');
+$('#resume').onclick=()=>setState('normal');
+$('.switch').forEach(s=>s.onclick=()=>{const on=s.getAttribute('aria-checked')!=='true';s.setAttribute('aria-checked',on);s.parentNode.querySelector('.onoff').textContent=on?'On':'Off'});
+function resolve(label,cls){const r=$('#wait .st')[0];r.className='pill st '+cls;r.textContent=label;$('#wait .btns')[0].remove()}
+$('.ap')[0].onclick=()=>resolve('Done (you approved it)','ok');
+$('.rj')[0].onclick=()=>resolve('Rejected','');
+</script>
+</body>
+</html>

@@ -28,6 +28,8 @@ export function AiHub({ workspaceId, canAi, canWorkflow, children }: { workspace
   ];
   const active = tabs.find((t) => (t.path === base ? pathname === base : pathname === t.path || pathname.startsWith(`${t.path}/`)));
   const showStrip = canAi || canWorkflow;
+  // The automation editor is a full page of its own: no status strip or tabs around it.
+  if (new RegExp(`^${base}/automations/(new|[0-9a-f-]{36})/?$`).test(pathname)) return <div>{children}</div>;
   return (
     <div>
       {showStrip && (

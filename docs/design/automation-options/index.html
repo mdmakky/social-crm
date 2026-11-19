@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Automations: pick a design</title>
+<style>
+:root{--ink:#1f1b3a;--muted:#55556a;--line:#e6e6ec;--accent:#5b4bf0;--bg:#f7f7f9}
+*{box-sizing:border-box}body{margin:0;font:14px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--ink);background:var(--bg)}
+main{max-width:880px;margin:0 auto;padding:40px 24px 80px}h1{font-size:24px;margin:0 0 6px;letter-spacing:-.01em}.sub{color:var(--muted);margin:0 0 24px}
+.opts{display:grid;gap:12px}.opt{background:#fff;border-radius:12px;box-shadow:0 1px 2px rgba(30,29,43,.05),0 0 0 1px rgba(30,29,43,.04);padding:16px 18px;display:flex;gap:16px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.opt b{display:block;font-size:15px}.opt span{color:var(--muted)}
+a.open{background:var(--accent);color:#fff;text-decoration:none;font-weight:600;padding:8px 14px;border-radius:8px}a.open:hover{background:#4637d6}a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.pick{margin-top:22px;display:flex;gap:16px;align-items:center;flex-wrap:wrap}label{display:inline-flex;gap:6px;align-items:center;cursor:pointer}input{accent-color:var(--accent)}
+button{font:inherit;font-weight:600;border:0;background:var(--accent);color:#fff;border-radius:8px;padding:8px 14px;cursor:pointer}pre{background:#fff;border-radius:10px;padding:12px;white-space:pre-wrap}
+</style></head><body><main>
+<h1>Automations: pick a design</h1>
+<p class="sub">Open each one, click New automation, try the Demo state switch (bottom-left) and the A / B / C switcher (bottom-right). Then pick one.</p>
+<div class="opts">
+<div class="opt"><div><b>A. Guided steps</b><span>A dialog that asks one plain question at a time, with a sentence that fills in at the top.</span></div><a class="open" href="a/automations.html">Open A</a></div>
+<div class="opt"><div><b>B. Sentence builder</b><span>No dialog. The automation is one readable sentence you edit in place, with a live preview.</span></div><a class="open" href="b/automations.html">Open B</a></div>
+<div class="opt"><div><b>C. Recipes first</b><span>A drawer of ready-made recipes grouped by goal; each asks only 1 to 3 questions. "Build your own" is secondary.</span></div><a class="open" href="c/automations.html">Open C</a></div>
+</div>
+<div class="pick"><b>My pick:</b>
+<label><input type="radio" name="p" value="A">A</label><label><input type="radio" name="p" value="B">B</label><label><input type="radio" name="p" value="C">C</label>
+<button id="c" type="button">Copy</button><output id="o"></output></div>
+<script>document.getElementById("c").onclick=async()=>{const v=(document.querySelector("input:checked")||{}).value||"not chosen";const t="Automations design: "+v;try{await navigator.clipboard.writeText(t);document.getElementById("o").textContent=" Copied: "+t}catch{document.getElementById("o").textContent=" "+t}}</script>
+</main></body></html>

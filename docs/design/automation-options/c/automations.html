@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Automations - Settings - RenoDevs Team</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+<symbol id="home" viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></symbol>
+<symbol id="inbox" viewBox="0 0 24 24"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.5 5h13l3.5 7v6a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-6z"/></symbol>
+<symbol id="users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"/></symbol>
+<symbol id="check" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="m8 12 3 3 5-6"/></symbol>
+<symbol id="chart" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M8 17v-5M13 17V8M18 17v-9"/></symbol>
+<symbol id="cog" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></symbol>
+<symbol id="search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></symbol>
+<symbol id="bell" viewBox="0 0 24 24"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></symbol>
+<symbol id="arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+<symbol id="back" viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></symbol>
+<symbol id="chev" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></symbol>
+<symbol id="x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+<symbol id="plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+<symbol id="pause" viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></symbol>
+</svg>
+
+<div class="app" id="app">
+ <aside class="side">
+  <div class="ws"><div class="ws-tile">RT</div><div><b>RenoDevs Team</b><span>Workspace</span></div></div>
+  <nav class="nav" aria-label="Main">
+   <a href="#"><svg class="i"><use href="#home"/></svg><span>Home</span></a>
+   <a href="#"><svg class="i"><use href="#inbox"/></svg><span>Inbox</span></a>
+   <a href="#"><svg class="i"><use href="#users"/></svg><span>Leads</span></a>
+   <a href="#"><svg class="i"><use href="#check"/></svg><span>Tasks</span></a>
+   <a href="#"><svg class="i"><use href="#chart"/></svg><span>Reports</span></a>
+   <a href="#" aria-current="page"><svg class="i"><use href="#cog"/></svg><span>Settings</span></a>
+  </nav>
+  <div class="me"><div class="avatar">TA</div><div><b>Tanvir Ahmed</b><span>Owner</span></div></div>
+ </aside>
+
+ <div class="main">
+  <header class="top">
+   <label class="search"><svg class="i"><use href="#search"/></svg><span class="sr">Search or jump to</span><input type="text" placeholder="Search or jump to"></label>
+   <button class="icon-btn" aria-label="Notifications"><svg class="i"><use href="#bell"/></svg></button>
+  </header>
+  <div class="scroll"><div class="page">
+   <h1 class="page-title">Settings</h1>
+   <div class="settings">
+    <nav class="smenu" aria-label="Settings">
+     <h3>Workspace</h3><a href="#">General</a><a href="#">Notifications</a>
+     <h3>CRM data</h3><a href="#">Lead fields</a><a href="#">Lead stages</a>
+     <h3>AI and automation</h3><a href="#" aria-current="page">AI and automation</a>
+     <h3>Channels</h3><a href="#">Integrations</a><a href="#">Web chat</a><a href="#">Ad measurement</a>
+     <h3>Team and security</h3><a href="#">Members</a><a href="#">Audit log</a>
+    </nav>
+
+    <main class="content" id="page" data-state="normal">
+     <nav class="tabs" aria-label="AI and automation">
+      <a href="#">Overview</a><a href="#">Agents</a><a href="#">Knowledge</a><a href="#" aria-current="page">Automations</a><a href="#">Setup</a>
+     </nav>
+
+     <div class="notice viewer-n" role="status">Only owners and admins can manage automations.</div>
+     <div class="notice paused-n" role="status"><span>Automations are paused. Nothing runs and approvals are blocked until you resume.</span><button class="btn primary" data-demo="normal">Resume automations</button></div>
+
+     <p class="intro">An automation does a small job for you each time something happens, like creating a follow-up task whenever a new lead arrives. AI never sends a message; it only drafts notes for you to review.</p>
+
+     <div class="panel status">
+      <div class="st"><span class="dot"></span>Automations are on</div>
+      <button class="btn quiet" data-demo="paused"><svg class="i"><use href="#pause"/></svg>Pause all automations</button>
+     </div>
+
+     <section class="panel gallery" aria-labelledby="gal-h">
+      <div class="sec-h"><h2 id="gal-h">Start with a ready-made automation</h2></div>
+      <p class="intro" style="padding:0 16px 12px">You have no automations yet. Pick one below and answer a question or two.</p>
+      <div class="gal-grid" id="gal"></div>
+      <div style="padding:0 16px 16px"><button class="linkbtn muted" data-build>Build your own</button></div>
+     </section>
+
+     <section class="panel has-items" aria-labelledby="mine-h">
+      <div class="sec-h"><h2 id="mine-h">Your automations</h2><button class="btn primary new-btn" id="new"><svg class="i"><use href="#plus"/></svg>New automation</button></div>
+      <ul class="rows" id="rows">
+       <li class="row"><div class="grow"><b>Follow up on new leads</b><div class="flow-hint">A lead is created <svg class="i"><use href="#arrow"/></svg> Create task</div></div><div class="end"><span class="pill ask">Asks you first</span><button class="switch" role="switch" aria-checked="true" aria-label="Follow up on new leads"></button><button class="btn">Edit</button></div></li>
+       <li class="row"><div class="grow"><b>Tag Instagram leads Hot</b><div class="flow-hint">A lead is created <svg class="i"><use href="#arrow"/></svg> Only Instagram <svg class="i"><use href="#arrow"/></svg> Add tag</div></div><div class="end"><span class="pill">Runs on its own</span><button class="switch" role="switch" aria-checked="true" aria-label="Tag Instagram leads Hot"></button><button class="btn">Edit</button></div></li>
+       <li class="row off"><div class="grow"><b>Hand Facebook leads to Sagor</b><div class="flow-hint">A lead is created <svg class="i"><use href="#arrow"/></svg> Only Facebook lead ad <svg class="i"><use href="#arrow"/></svg> Assign owner</div></div><div class="end"><span class="pill ask">Asks you first</span><button class="switch" role="switch" aria-checked="false" aria-label="Hand Facebook leads to Sagor"></button><button class="btn">Edit</button></div></li>
+      </ul>
+     </section>
+
+     <section class="panel activity" aria-labelledby="act-h">
+      <div class="sec-h"><h2 id="act-h">Activity</h2></div>
+      <div>
+       <div class="act"><div class="act-top"><b>Follow up on new leads</b><span class="pill warn">Waiting for your approval</span><span class="when">12 min ago</span></div>
+        <p>A lead was created: Nusrat Jahan (Full home renovation). Create the task "Follow up with the new lead" due in 1 day.</p>
+        <div class="btns"><button class="btn primary approve">Approve</button><button class="btn approve">Reject</button></div></div>
+       <div class="act"><div class="act-top"><b>Tag Instagram leads Hot</b><span class="pill ok">Done</span><span class="when">40 min ago</span></div>
+        <p>A lead was created: Md. Arafatuzzaman. Add the tag "Hot".</p></div>
+       <div class="act"><div class="act-top"><b>Follow up on new leads</b><span class="pill ok">Done (you approved it)</span><span class="when">Yesterday, 11:05 AM</span></div>
+        <p>A lead was created: Rahim Uddin. Create the task "Follow up with the new lead".</p></div>
+       <div class="act"><div class="act-top"><b>Hand Facebook leads to Sagor</b><span class="pill bad">Failed</span><span class="when">Mon 16 Nov, 2:10 PM</span></div>
+        <p>A lead was created: Farhana Akter.</p>
+        <p class="err">Sagor Hossen could not be assigned: they no longer have access to this workspace.</p>
+        <details><summary><svg class="i"><use href="#chev"/></svg>Details</summary><ol class="steps"><li>Make Sagor Hossen the owner: failed</li></ol></details></div>
+      </div>
+     </section>
+    </main>
+   </div>
+  </div></div>
+ </div>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-labelledby="d-title" aria-hidden="true">
+ <div class="d-head">
+  <button class="btn quiet back" id="back" hidden><svg class="i"><use href="#back"/></svg>All recipes</button>
+  <h2 id="d-title">Add an automation</h2>
+  <button class="icon-btn" id="close" aria-label="Close"><svg class="i"><use href="#x"/></svg></button>
+ </div>
+
+ <div class="view on" id="v-list">
+  <div class="d-body">
+   <p class="d-note">Pick a ready-made automation. You only answer a question or two.</p>
+   <div id="groups"></div>
+  </div>
+  <div class="d-foot"><span class="d-note">Need something different?</span><button class="linkbtn muted" data-build>Build your own</button></div>
+ </div>
+
+ <form class="view" id="v-form" novalidate>
+  <div class="d-body">
+   <div><h3 id="f-name" style="font-size:15px;font-weight:700"></h3><p class="d-note" id="f-res"></p></div>
+   <div id="f-fields" style="display:flex;flex-direction:column;gap:14px"></div>
+   <div class="flowbox"><span class="lab">What will happen</span><div class="flow" id="f-flow" aria-live="polite"></div></div>
+   <fieldset class="field" style="border:0;padding:0;margin:0"><legend class="lab" style="padding:0;margin-bottom:6px;font-weight:600">Should it check with you?</legend>
+    <div class="choice">
+     <label><input type="radio" name="mode" value="ask" checked><b>Ask me first <span class="rec">Recommended</span></b><em>Each time it triggers, it waits in Activity until you approve or reject.</em></label>
+     <label><input type="radio" name="mode" value="auto"><b>Run on its own</b><em>It does the job right away, with no approval.</em></label>
+    </div></fieldset>
+   <p class="d-note" id="f-ai" hidden>AI never sends a message. The agent only drafts a note and proposes actions that a person approves.</p>
+  </div>
+  <div class="d-foot"><button type="button" class="linkbtn muted" data-build>Build your own</button><button type="submit" class="btn primary">Turn on</button></div>
+ </form>
+
+ <form class="view" id="v-build" novalidate>
+  <div class="d-body">
+   <p class="d-note">Build it step by step: when something happens, only if it matches, then do something.</p>
+   <div class="build">
+    <div class="block"><div class="lab">When<small>What starts this automation</small></div>
+     <div class="field"><label class="sr" for="b-when">When</label><select id="b-when"><option>A lead is created</option><option>A lead moves to another stage</option><option>A lead gets an owner</option><option>A lead record gets an owner</option></select></div></div>
+    <div class="link"></div>
+    <div class="block"><div class="lab">Only if<small>Optional. Leave as it is to run every time</small></div>
+     <div class="two"><div class="field"><label class="sr" for="b-f">Filter</label><select id="b-f"></select></div><div class="field"><label class="sr" for="b-fv">Value</label><select id="b-fv"></select></div></div></div>
+    <div class="link"></div>
+    <div class="block"><div class="lab">Then<small>What it does, in order</small></div>
+     <div class="two"><div class="field"><label class="sr" for="b-a">Action</label><select id="b-a"></select></div><div class="field" id="b-av"></div></div></div>
+   </div>
+   <fieldset class="field" style="border:0;padding:0;margin:0"><legend class="lab" style="padding:0;margin-bottom:6px;font-weight:600">Should it check with you?</legend>
+    <div class="choice">
+     <label><input type="radio" name="bmode" value="ask" checked><b>Ask me first <span class="rec">Recommended</span></b><em>Waits in Activity until you approve or reject.</em></label>
+     <label><input type="radio" name="bmode" value="auto"><b>Run on its own</b><em>Does the job right away, with no approval.</em></label>
+    </div></fieldset>
+  </div>
+  <div class="d-foot"><span class="d-note">AI never sends a message.</span><button type="submit" class="btn primary">Turn on</button></div>
+ </form>
+</aside>
+
+<div class="toast" id="toast" role="status"></div>
+
+<label class="demo-state">Demo state
+ <select id="demo" aria-label="Demo state"><option value="normal">Normal</option><option value="empty">Empty</option><option value="paused">Paused</option><option value="viewer">Non-admin</option></select>
+</label>
+<nav class="opt-switch" aria-label="Design options"><a href="../a/automations.html">A</a><a href="../b/automations.html">B</a><a href="../c/automations.html" aria-current="page">C</a></nav>
+
+<script>
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const ic=n=>`<svg class="i"><use href="#${n}"/></svg>`;
+const TEAM=['Sagor Hossen','Nusrat Jahan','Tanvir Ahmed'], TAGS=['Hot','VIP','Renovation'];
+const STAGES=['New','Contacted','Qualified','Proposal','Negotiation','Won','Lost'];
+const SRC=['Instagram','Messenger','WhatsApp','Facebook lead ad','Web form','Referral','Added manually','CSV import'];
+const sel=(id,label,opts,def)=>`<div class="field"><label for="${id}">${label}</label><select id="${id}">${opts.map(o=>`<option${o===def?' selected':''}>${o}</option>`).join('')}</select></div>`;
+const R=[
+ {g:'Never miss a lead',n:'Follow up on every new lead',r:'Creates a task due the next day so no lead is forgotten.',h:['New lead','Create task'],
+  f:[['when','How soon?',['In 1 hour','In 1 day','In 2 days','In 3 days'],'In 1 day']],
+  flow:v=>[['When','A lead is created'],['Then',`Create the task "Follow up with the new lead" due ${v.when.toLowerCase().replace('in ','in ')}`]]},
+ {g:'Never miss a lead',n:'Welcome Facebook leads',r:'Tags the lead "Facebook" and creates a quick call task.',h:['New lead','Tag + task'],
+  f:[['tag','Tag name',TAGS.concat(['Facebook']),'Facebook'],['when','How soon should you call?',['Within 1 hour','Within 3 hours','Within 1 day'],'Within 1 hour']],
+  flow:v=>[['When','A lead is created'],['Only if','Source is Facebook lead ad'],['Then',`Add the tag "${v.tag}"`],['Then',`Create the task "Call ${v.when.toLowerCase()}"`]]},
+ {g:'Never miss a lead',n:'Give Instagram leads to a teammate',r:'Assigns every lead from Instagram to one person.',h:['New lead','Assign owner'],
+  f:[['who','Which teammate?',TEAM,'Sagor Hossen']],
+  flow:v=>[['When','A lead is created'],['Only if','Source is Instagram'],['Then',`Make ${v.who} the owner`]]},
+ {g:'Keep the team organised',n:'Tag every new lead',r:'Adds a tag so you can find them later.',h:['New lead','Add tag'],
+  f:[['tag','Tag name',TAGS,'Renovation']],
+  flow:v=>[['When','A lead is created'],['Then',`Add the tag "${v.tag}"`]]},
+ {g:'Keep the team organised',n:'Celebrate a won deal',r:'Creates a review request task after a deal is won.',h:['Moves to Won','Create task'],
+  f:[['when','How soon?',['In 1 day','In 3 days','In 7 days'],'In 3 days']],
+  flow:v=>[['When','A lead record moves to another stage'],['Only if','Moved to stage is Won'],['Then',`Create the task "Ask for a review" due ${v.when.toLowerCase()}`]]},
+ {g:'Use AI safely',n:'Ask an AI agent to draft a note',r:'The agent reads each new lead and writes a note for you to review. Nothing is sent.',h:['New lead','AI drafts note'],
+  f:[['agent','Which AI agent?',['Reply drafter'],'Reply drafter']],ai:1,
+  flow:v=>[['When','A lead is created'],['Then',`Ask ${v.agent} to draft a note (nothing is sent)`]]}
+];
+const hint=a=>a.map((t,i)=>(i?ic('arrow'):'')+t).join('');
+const gal=$('#gal'), groups=$('#groups');
+[...new Set(R.map(r=>r.g))].forEach(g=>{
+ groups.insertAdjacentHTML('beforeend',`<div class="grp"><h3>${g}</h3>${R.map((r,i)=>r.g===g?`<button type="button" class="recipe" data-r="${i}"><div class="grow"><b>${r.n}</b><span class="res">${r.r}</span><span class="fh">${hint(r.h)}</span></div>${ic('chev')}</button>`:'').join('')}</div>`);
+});
+gal.innerHTML=R.map((r,i)=>`<button type="button" data-r="${i}"><b>${r.n}</b><span>${r.r}</span></button>`).join('');
+
+const drawer=$('#drawer'),scrim=$('#scrim'),app=$('#app'); let opener=null,cur=null;
+const view=id=>{$$('.view').forEach(v=>v.classList.toggle('on',v.id===id));$('#back').hidden=id==='v-list';
+ $('#d-title').textContent=id==='v-list'?'Add an automation':id==='v-form'?'Set it up':'Build your own';
+ drawer.querySelector('.view.on .d-body').scrollTop=0};
+function open(){opener=document.activeElement;view('v-list');drawer.classList.add('on');scrim.classList.add('on');drawer.setAttribute('aria-hidden','false');app.inert=true;setTimeout(()=>$('#close').focus(),30)}
+function close(){drawer.classList.remove('on');scrim.classList.remove('on');drawer.setAttribute('aria-hidden','true');app.inert=false;opener&&opener.focus()}
+function vals(){const v={};R[cur].f.forEach(f=>v[f[0]]=$('#f-'+f[0]).value);return v}
+function renderFlow(){const rows=R[cur].flow(vals());
+ $('#f-flow').innerHTML=rows.map((x,i)=>(i?'<div class="link"></div>':'')+`<div class="node"><small>${x[0]}</small><span>${x[1]}</span></div>`).join('')}
+function pick(i){cur=+i;const r=R[cur];$('#f-name').textContent=r.n;$('#f-res').textContent=r.r;
+ $('#f-fields').innerHTML=r.f.map(f=>sel('f-'+f[0],f[1],f[2],f[3])).join('');
+ $('#f-ai').hidden=!r.ai;$('#v-form [value=ask]').checked=true;
+ $$('#f-fields select').forEach(s=>s.onchange=renderFlow);renderFlow();view('v-form');$('#f-fields select').focus()}
+document.addEventListener('click',e=>{
+ const rc=e.target.closest('[data-r]');
+ if(rc){ if(!drawer.classList.contains('on'))open(); pick(rc.dataset.r); return}
+ if(e.target.closest('[data-build]')){ if(!drawer.classList.contains('on'))open(); buildInit(); view('v-build'); $('#b-when').focus(); return}
+ if(e.target.closest('#new'))open();
+ if(e.target.closest('#close')||e.target===scrim)close();
+ if(e.target.closest('#back'))view('v-list');
+ const d=e.target.closest('[data-demo]'); if(d){$('#demo').value=d.dataset.demo;setState(d.dataset.demo)}
+ const sw=e.target.closest('.switch'); if(sw){const on=sw.getAttribute('aria-checked')!=='true';sw.setAttribute('aria-checked',on);sw.closest('.row').classList.toggle('off',!on)}
+});
+document.addEventListener('keydown',e=>{
+ if(!drawer.classList.contains('on'))return;
+ if(e.key==='Escape'){close();return}
+ if(e.key!=='Tab')return;
+ const f=$$('#drawer button:not([hidden]):not(:disabled),#drawer select,#drawer input,#drawer a[href]').filter(x=>x.offsetParent&&!x.closest('.view:not(.on)')&&x.type!=='radio'||x.type==='radio'&&x.checked&&x.offsetParent&&x.closest('.view.on'));
+ const a=f[0],z=f[f.length-1];
+ if(e.shiftKey&&document.activeElement===a){e.preventDefault();z.focus()}
+ else if(!e.shiftKey&&document.activeElement===z){e.preventDefault();a.focus()}
+});
+function setState(s){$('#page').dataset.state=s}
+$('#demo').onchange=e=>setState(e.target.value);
+
+// Build your own
+const FILT={'Source':SRC,'Lead name contains':['Type a name part'],'Lifecycle stage':['Lead','Customer'],'Owner':TEAM,'Moved to stage':STAGES,'Moved from stage':STAGES,'Outcome':['Open','Won','Lost'],'Pipeline':['Renovation projects'],'Lead title contains':['Type a title part']};
+const ACT={'Create a follow-up task':['text','Follow up with the new lead'],'Add a tag to the lead':['sel',TAGS],'Assign an owner':['sel',TEAM],'Ask an AI agent to draft a note':['sel',['Reply drafter']]};
+const opts=a=>a.map(o=>`<option>${o}</option>`).join('');
+function buildInit(){
+ if(!$('#b-f').options.length){$('#b-f').innerHTML='<option>No filter, run every time</option>'+opts(Object.keys(FILT));$('#b-a').innerHTML=opts(Object.keys(ACT));
+  $('#b-f').onchange=fv;$('#b-a').onchange=av;fv();av()}}
+function fv(){const k=$('#b-f').value,o=FILT[k],t=$('#b-fv');t.disabled=!o;
+ t.innerHTML=o?(/contains/.test(k)?'<option>Choose a value</option>':opts(o)):'<option>Nothing to match</option>'}
+function av(){const [t,v]=ACT[$('#b-a').value];
+ $('#b-av').innerHTML=t==='text'?'<label class="sr" for="b-avi">Task title</label><input type="text" id="b-avi" value="'+v+'">':`<label class="sr" for="b-avi">Choose</label><select id="b-avi">${opts(v)}</select>`}
+
+// Turn on
+function add(name,hintHtml,ask){
+ $('#rows').insertAdjacentHTML('afterbegin',`<li class="row"><div class="grow"><b>${name}</b><div class="flow-hint">${hintHtml}</div></div><div class="end"><span class="pill ${ask?'ask':''}">${ask?'Asks you first':'Runs on its own'}</span><button class="switch" role="switch" aria-checked="true" aria-label="${name}"></button><button class="btn">Edit</button></div></li>`);
+ setState('normal');$('#demo').value='normal';close();
+ const t=$('#toast');t.textContent=`"${name}" is on.`;t.classList.add('on');setTimeout(()=>t.classList.remove('on'),2600)}
+$('#v-form').onsubmit=e=>{e.preventDefault();const r=R[cur];add(r.n,hint(r.h),$('#v-form [name=mode]:checked').value==='ask')};
+$('#v-build').onsubmit=e=>{e.preventDefault();add('My automation',hint([$('#b-when').value,$('#b-a').value]),$('#v-build [name=bmode]:checked').value==='ask')};
+</script>
+</body>
+</html>

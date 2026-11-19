@@ -1,0 +1,341 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Automations - Settings - RenoDevs Team</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body data-st="normal">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<symbol id="ic-home" viewBox="0 0 24 24"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></symbol>
+<symbol id="ic-inbox" viewBox="0 0 24 24"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></symbol>
+<symbol id="ic-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
+<symbol id="ic-check-square" viewBox="0 0 24 24"><path d="m9 11 3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></symbol>
+<symbol id="ic-bars" viewBox="0 0 24 24"><path d="M12 20V10M18 20V4M6 20v-4"/></symbol>
+<symbol id="ic-sliders" viewBox="0 0 24 24"><path d="M21 4h-7M10 4H3M21 12h-9M8 12H3M21 20h-5M12 20H3M14 2v4M8 10v4M16 18v4"/></symbol>
+<symbol id="ic-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></symbol>
+<symbol id="ic-bell" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></symbol>
+<symbol id="ic-plus" viewBox="0 0 24 24"><path d="M5 12h14M12 5v14"/></symbol>
+<symbol id="ic-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+<symbol id="ic-back" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7M19 12H5"/></symbol>
+<symbol id="ic-next" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></symbol>
+<symbol id="ic-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+<symbol id="ic-pause" viewBox="0 0 24 24"><rect x="14" y="4" width="4" height="16" rx="1"/><rect x="6" y="4" width="4" height="16" rx="1"/></symbol>
+<symbol id="ic-play" viewBox="0 0 24 24"><path d="M6 3l14 9-14 9z"/></symbol>
+<symbol id="ic-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></symbol>
+<symbol id="ic-user-plus" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/></symbol>
+<symbol id="ic-tag" viewBox="0 0 24 24"><path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"/><path d="M7.5 7.5h.01"/></symbol>
+<symbol id="ic-sparkles" viewBox="0 0 24 24"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 17v4M17 19h4"/></symbol>
+<symbol id="ic-swap" viewBox="0 0 24 24"><path d="m16 3 4 4-4 4M20 7H4M8 21l-4-4 4-4M4 17h16"/></symbol>
+<symbol id="ic-brief" viewBox="0 0 24 24"><rect width="20" height="14" x="2" y="7" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></symbol>
+<symbol id="ic-shield" viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></symbol>
+</defs></svg>
+
+<div class="app">
+ <aside class="side">
+  <div class="ws"><b>RT</b><span>RenoDevs Team</span></div>
+  <nav class="nav" aria-label="Main">
+   <a href="#"><svg class="i"><use href="#ic-home"/></svg><span>Home</span></a>
+   <a href="#"><svg class="i"><use href="#ic-inbox"/></svg><span>Inbox</span></a>
+   <a href="#"><svg class="i"><use href="#ic-users"/></svg><span>Leads</span></a>
+   <a href="#"><svg class="i"><use href="#ic-check-square"/></svg><span>Tasks</span></a>
+   <a href="#"><svg class="i"><use href="#ic-bars"/></svg><span>Reports</span></a>
+   <a href="#" aria-current="page"><svg class="i"><use href="#ic-sliders"/></svg><span>Settings</span></a>
+  </nav>
+  <div class="me"><span class="av">TA</span><div><strong>Tanvir Ahmed</strong><small>Owner</small></div></div>
+ </aside>
+ <div class="main">
+  <header class="top">
+   <label class="search"><svg class="i"><use href="#ic-search"/></svg><input type="search" placeholder="Search or jump to" aria-label="Search or jump to"></label>
+   <button class="btn quiet" aria-label="Notifications"><svg class="i"><use href="#ic-bell"/></svg></button>
+  </header>
+  <div class="settings">
+   <nav class="smenu" aria-label="Settings">
+    <h3>Workspace</h3><a href="#">General</a><a href="#">Notifications</a>
+    <h3>CRM data</h3><a href="#">Lead fields</a><a href="#">Lead stages</a>
+    <h3>AI and automation</h3><a href="#" aria-current="page">AI and automation</a>
+    <h3>Channels</h3><a href="#">Integrations</a><a href="#">Web chat</a><a href="#">Ad measurement</a>
+    <h3>Team and security</h3><a href="#">Members</a><a href="#">Audit log</a>
+   </nav>
+   <select class="field msel" aria-label="Settings section"><option>AI and automation</option><option>General</option><option>Notifications</option><option>Lead fields</option><option>Lead stages</option><option>Integrations</option><option>Web chat</option><option>Ad measurement</option><option>Members</option><option>Audit log</option></select>
+   <main class="content">
+    <h1>AI and automation</h1>
+    <nav class="tabs" aria-label="AI and automation"><a href="#">Overview</a><a href="#">Agents</a><a href="#">Knowledge</a><a href="#" aria-current="page">Automations</a><a href="#">Setup</a></nav>
+
+    <div class="notice v"><svg class="i"><use href="#ic-info"/></svg>Only owners and admins can manage automations.</div>
+
+    <section class="panel">
+     <p class="intro">An automation does a small job for you when something happens to a lead. AI never sends a message: an AI agent only drafts a note, and a person approves anything it proposes.</p>
+     <div class="status">
+      <span class="dot" id="dot"></span><strong id="stat">Automations are on</strong>
+      <span class="when" id="statsub" style="color:var(--muted)">Everything below can run.</span>
+      <div class="sp"><button class="btn quiet" id="pause" data-admin><svg class="i"><use href="#ic-pause"/></svg><span>Pause all automations</span></button></div>
+     </div>
+    </section>
+
+    <section class="panel">
+     <div class="sectionhead"><h2>Your automations</h2><button class="btn primary" id="new" data-admin><svg class="i"><use href="#ic-plus"/></svg>New automation</button></div>
+     <ul class="list has-only" id="mine"></ul>
+     <div class="empty-only">
+      <p class="intro" style="margin-bottom:6px">You have no automations yet. Start from one of these, then change anything you like.</p>
+      <ul class="list start" id="starts"></ul>
+     </div>
+    </section>
+
+    <section class="panel">
+     <div class="sectionhead"><h2>Activity</h2></div>
+     <div class="notice p" style="margin:6px 0 8px"><svg class="i"><use href="#ic-pause"/></svg>Automations are paused, so nothing runs and approvals are blocked until you choose Resume automations.</div>
+     <ul class="list act" id="act"></ul>
+    </section>
+   </main>
+  </div>
+ </div>
+</div>
+
+<div class="toast" id="toast" role="status"></div>
+
+<div class="demo-state"><label for="demo">Demo state</label>
+ <select class="field" id="demo"><option value="normal">Normal</option><option value="empty">Empty</option><option value="paused">Paused</option><option value="viewer">Non-admin notice</option></select></div>
+<nav class="opt-switch" aria-label="Design options"><a href="../a/automations.html" aria-current="true">A</a><a href="../b/automations.html">B</a><a href="../c/automations.html">C</a></nav>
+
+<dialog id="dlg" aria-labelledby="live">
+ <div class="dh">
+  <button class="btn quiet x" id="close" aria-label="Close"><svg class="i"><use href="#ic-x"/></svg></button>
+  <p class="live" id="live" aria-live="polite"></p>
+  <ol class="rail" id="rail" aria-hidden="true"><li></li><li></li><li></li><li></li><li></li></ol>
+  <p class="railtxt" id="railtxt"></p>
+ </div>
+ <div class="db">
+  <section class="step" data-s="1">
+   <h2 id="h1">What should start it?</h2><p class="sub">Pick the moment this automation wakes up.</p>
+   <div class="rows" id="trigs" role="radiogroup" aria-labelledby="h1"></div>
+  </section>
+  <section class="step" data-s="2">
+   <h2 id="h2">Only for some leads? (optional)</h2><p class="sub">Choose from the lists. Leave this empty and it runs for every lead.</p>
+   <div id="filters"></div>
+   <div class="bar">
+    <button class="btn" id="addf"><svg class="i"><use href="#ic-plus"/></svg>Add another filter</button>
+    <div class="seg" id="match" role="radiogroup" aria-label="How filters combine"><label><input type="radio" name="m" value="all" checked>All must match</label><label><input type="radio" name="m" value="any">Any is enough</label></div>
+   </div>
+  </section>
+  <section class="step" data-s="3">
+   <h2 id="h3">What should happen?</h2><p class="sub">Steps run in order. Nothing is ever sent to a lead.</p>
+   <div id="actions"></div>
+   <div class="bar"><button class="btn" id="adda"><svg class="i"><use href="#ic-plus"/></svg>Add another step</button><span id="acount" style="color:var(--muted)"></span></div>
+  </section>
+  <section class="step" data-s="4">
+   <h2 id="h4">Should it ask you first?</h2><p class="sub">You can change this later.</p>
+   <div class="two" role="radiogroup" aria-labelledby="h4">
+    <label class="rowopt big"><input type="radio" name="ask" value="ask"><svg class="i ic"><use href="#ic-shield"/></svg><span><span class="pill ok tagline">Recommended</span><b>Ask me first</b><span class="t">Every time it starts, it waits in Activity until you approve or reject it. Nothing happens without a yes.</span></span></label>
+    <label class="rowopt big"><input type="radio" name="ask" value="auto"><svg class="i ic"><use href="#ic-play"/></svg><span><span class="pill tagline" style="visibility:hidden" aria-hidden="true">.</span><b>Run on its own</b><span class="t">It does its steps as soon as it starts. You see the result in Activity afterwards.</span></span></label>
+   </div>
+  </section>
+  <section class="step" data-s="5">
+   <h2 id="h5">Review and turn on</h2>
+   <p class="final" id="final"></p>
+   <div class="opts">
+    <label class="n">Name<input class="field" id="name" maxlength="60"></label>
+    <div class="tog"><button class="switch" id="on" role="switch" aria-checked="true" aria-labelledby="onl"></button><span id="onl">Turn it on now</span></div>
+    <p style="color:var(--muted)" id="askline"></p>
+   </div>
+  </section>
+ </div>
+ <div class="df">
+  <button class="btn" id="back"><svg class="i"><use href="#ic-back"/></svg>Back</button>
+  <div class="sp"><button class="link" id="skip">Skip</button><button class="btn primary" id="next">Next<svg class="i"><use href="#ic-next"/></svg></button></div>
+ </div>
+</dialog>
+
+<script>
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const STAGES=['New','Contacted','Qualified','Proposal','Negotiation','Won','Lost'];
+const TEAM=['Tanvir Ahmed','Sagor Hossen','Nusrat Jahan'];
+const TAGS=['Hot','VIP','Renovation','Facebook'];
+const TRIG=[
+ {id:'created',icon:'plus',label:'A lead is created',phrase:'a lead is created',t:'Starts the moment a new lead arrives.',ex:'Example: someone messages you on Instagram.'},
+ {id:'stage',icon:'swap',label:'A lead moves to another stage',phrase:'a lead moves to another stage',t:'Starts when someone changes a lead’s stage.',ex:'Example: Contacted becomes Qualified.'},
+ {id:'owner',icon:'user-plus',label:'A lead gets an owner',phrase:'a lead gets an owner',t:'Starts when a teammate is made responsible for a lead.',ex:'Example: Sagor takes a new lead.'},
+ {id:'rowner',icon:'brief',label:'A lead record gets an owner',phrase:'a lead record gets an owner',t:'The same, but for a deal in a pipeline.',ex:'Example: a Proposal deal is given to Nusrat.'}];
+const FIL={
+ source:{l:'Source',v:'is',o:['Instagram','Messenger','WhatsApp','Facebook lead ad','Web form','Referral','Added manually','CSV import']},
+ name:{l:'Lead name',v:'contains'},
+ life:{l:'Lifecycle stage',v:'is',o:STAGES},
+ owner:{l:'Owner',v:'is',o:TEAM},
+ to:{l:'Moved to stage',v:'is',o:STAGES},
+ from:{l:'Moved from stage',v:'is',o:STAGES},
+ out:{l:'Outcome',v:'is',o:['Open','Won','Lost']},
+ pipe:{l:'Pipeline',v:'is',o:['Sales pipeline','Renovation projects']},
+ title:{l:'Lead title',v:'contains'}};
+const ACT={
+ task:{icon:'check-square',l:'Create a follow-up task',d:()=>({t:'task',title:'Follow up with the new lead',n:'1',unit:'days'})},
+ tag:{icon:'tag',l:'Add a tag to the lead',d:()=>({t:'tag',tag:'Hot'})},
+ owner:{icon:'user-plus',l:'Assign an owner',d:()=>({t:'owner',who:'Sagor Hossen'})},
+ ai:{icon:'sparkles',l:'Ask an AI agent to draft a note',d:()=>({t:'ai',agent:'Reply drafter'})}};
+const ST_DESC={task:'Adds a task to your list.',tag:'Labels the lead so you can find it later.',owner:'Makes one teammate responsible.',ai:'The agent reads the lead and writes a note for you to review. Nothing is sent.'};
+
+let AUTOS=[
+ {name:'Follow up on new leads',trig:'created',filters:[],match:'all',actions:[{t:'task',title:'Follow up with the new lead',n:'1',unit:'days'}],ask:true,on:true},
+ {name:'Tag Instagram leads Hot',trig:'created',filters:[{f:'source',v:'Instagram'}],match:'all',actions:[{t:'tag',tag:'Hot'}],ask:false,on:true},
+ {name:'Hand Facebook leads to Sagor',trig:'created',filters:[{f:'source',v:'Facebook lead ad'}],match:'all',actions:[{t:'owner',who:'Sagor Hossen'}],ask:true,on:false}];
+const STARTS=[
+ {name:'Follow up on every new lead',d:'Creates a task due the next day so no lead is forgotten.',c:{trig:'created',filters:[],actions:[{t:'task',title:'Follow up with the new lead',n:'1',unit:'days'}]}},
+ {name:'Tag every new lead',d:'Adds a tag so you can find them later.',c:{trig:'created',filters:[],actions:[{t:'tag',tag:'Renovation'}]}},
+ {name:'Give Instagram leads to a teammate',d:'Assigns every lead from Instagram to one person.',c:{trig:'created',filters:[{f:'source',v:'Instagram'}],actions:[{t:'owner',who:'Sagor Hossen'}]}},
+ {name:'Ask an AI agent to draft a note',d:'The agent reads each new lead and writes a note for you to review; nothing is sent.',c:{trig:'created',filters:[],actions:[{t:'ai',agent:'Reply drafter'}]}},
+ {name:'Celebrate a won deal',d:'When a lead record moves to Won: create the task “Ask for a review” due in 3 days.',c:{trig:'stage',filters:[{f:'to',v:'Won'}],actions:[{t:'task',title:'Ask for a review',n:'3',unit:'days'}]}},
+ {name:'Welcome Facebook leads',d:'When a lead is created and source is Facebook lead ad: add the tag “Facebook” and create the task “Call within 1 hour”.',c:{trig:'created',filters:[{f:'source',v:'Facebook lead ad'}],actions:[{t:'tag',tag:'Facebook'},{t:'task',title:'Call within 1 hour',n:'1',unit:'hours'}]}}];
+
+/* sentence */
+const q=s=>'“'+s+'”';
+function actPhrase(a){return a.t==='task'?'create the task '+q(a.title||'…')+(a.n?' due in '+a.n+' '+(a.n==1?a.unit.replace(/s$/,''):a.unit):''):
+ a.t==='tag'?'add the tag '+q(a.tag):a.t==='owner'?'make '+a.who+' the owner':'ask '+a.agent+' to draft a note';}
+function filPhrase(f){const d=FIL[f.f];return d.l.toLowerCase()+' '+d.v+' '+(f.v||'…');}
+function sentence(c,html){
+ const W=(s,k)=>html?`<span class="${k||'fl'}">${esc(s)}</span>`:s;
+ const t=TRIG.find(x=>x.id===c.trig);
+ let s='When '+(t?W(t.phrase):W('… (choose what starts it)','ph'));
+ const fl=c.filters.filter(f=>f.v);
+ if(fl.length)s+=', and '+(fl.length>1&&c.match==='any'?'any of these is true: ':'')+fl.map(f=>W(filPhrase(f))).join(c.match==='any'?' or ':' and ');
+ const as=c.actions.filter(Boolean);
+ s+=', '+(as.length?as.map(a=>W(actPhrase(a))).join(', then '):W('… (choose what happens)','ph'));
+ return s+'.';
+}
+function autoName(c){const a=c.actions[0];return a?({task:'Follow up on leads',tag:'Tag leads',owner:'Assign leads',ai:'Draft notes for leads'})[a.t]:'My automation';}
+
+/* page lists */
+function renderPage(){
+ const adm=document.body.dataset.st!=='viewer';
+ $('#mine').innerHTML=AUTOS.map((a,i)=>`<li><div><h3>${esc(a.name)}</h3><p class="sent">${esc(sentence(a))}</p></div>
+  <div class="meta"><span class="pill ${a.ask?'soft':''}">${a.ask?'Asks you first':'Runs on its own'}</span>
+  <label>${a.on?'On':'Off'}<button class="switch" role="switch" aria-checked="${a.on}" aria-label="${esc(a.name)} on or off" data-sw="${i}" data-admin></button></label>
+  <button class="btn" data-edit="${i}" data-admin>Edit</button></div></li>`).join('');
+ $('#starts').innerHTML=STARTS.map((s,i)=>`<li><div><h3>${s.name}</h3><p class="sent">${s.d}</p></div><button class="btn" data-start="${i}" data-admin>Use this</button></li>`).join('');
+ lock();
+}
+function lock(){const st=document.body.dataset.st;
+ $$('[data-admin]').forEach(b=>b.disabled=st==='viewer');
+ $$('[data-appr]').forEach(b=>b.disabled=st==='viewer'||st==='paused');
+ const p=st==='paused';
+ $('#stat').textContent=p?'Automations are paused':'Automations are on';
+ $('#statsub').textContent=p?'Nothing runs and approvals are blocked.':'Everything below can run.';
+ $('#dot').style.background=p?'#B7791F':'#1E9E5C';
+ $('#pause').querySelector('span').textContent=p?'Resume automations':'Pause all automations';
+ $('#pause').classList.toggle('primary',p);$('#pause').classList.toggle('quiet',!p);
+}
+function actRow(o){return `<li id="${o.id}"><div class="head"><h3>${o.n}</h3><span class="pill ${o.cls}" data-pill>${o.st}</span><span class="when">${o.when}</span></div>
+ <p class="sent">${o.what}</p>${o.extra||''}</li>`;}
+$('#act').innerHTML=
+ actRow({id:'r1',n:'Follow up on new leads',cls:'warn',st:'Waiting for your approval',when:'12 min ago',what:'A lead was created: Nusrat Jahan (Full home renovation). Create the task “Follow up with the new lead” due in 1 day.',
+  extra:'<div class="row" data-row><button class="btn primary" data-appr="ok"><svg class="i"><use href="#ic-check"/></svg>Approve</button><button class="btn" data-appr="no">Reject</button></div>'})+
+ actRow({id:'r2',n:'Tag Instagram leads Hot',cls:'ok',st:'Done',when:'40 min ago',what:'A lead was created: Md. Arafatuzzaman. Add the tag “Hot”.'})+
+ actRow({id:'r3',n:'Follow up on new leads',cls:'ok',st:'Done (you approved it)',when:'Yesterday, 11:05 AM',what:'A lead was created: Rahim Uddin. Create the task “Follow up with the new lead”.'})+
+ actRow({id:'r4',n:'Hand Facebook leads to Sagor',cls:'bad',st:'Failed',when:'Mon 16 Nov, 2:10 PM',what:'A lead was created: Farhana Akter.',
+  extra:'<p class="err">Sagor Hossen could not be assigned: they no longer have access to this workspace.</p><details class="d"><summary>Details</summary><p>1 step: Make Sagor Hossen the owner. Failed.</p></details>'});
+
+/* toast */
+let tt;function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('on');clearTimeout(tt);tt=setTimeout(()=>t.classList.remove('on'),2600);}
+
+/* dialog */
+const dlg=$('#dlg');let cfg,step,editIdx,nameTouched,opener;
+const NAMES=['Start','Filters','Action','Approval','Review'],Q=['What should start it?','Only for some leads?','What should happen?','Should it ask you first?','Review and turn on'];
+function openDlg(c,idx,from,el){
+ cfg=JSON.parse(JSON.stringify(c));cfg.match=cfg.match||'all';cfg.ask=cfg.ask!==false;cfg.on=cfg.on!==false;
+ cfg.name=cfg.name||'';nameTouched=!!cfg.name;editIdx=idx;opener=el;
+ dlg.showModal();go(from||1);
+}
+function go(n){
+ step=n;
+ $$('.step').forEach(s=>s.classList.toggle('on',+s.dataset.s===n));
+ $$('#rail li').forEach((li,i)=>{li.className=i+1<n?'done':i+1===n?'cur':''});
+ $('#railtxt').textContent='Step '+n+' of 5: '+Q[n-1];
+ render();
+ $('#back').style.visibility=n===1?'hidden':'visible';
+ $('#skip').hidden=n!==2;$('#live').hidden=n===5;
+ const nx=$('#next');
+ nx.innerHTML=n===5?'<svg class="i"><use href="#ic-check"/></svg>'+(editIdx>=0?'Save changes':'Create automation'):'Next<svg class="i"><use href="#ic-next"/></svg>';
+ $('.db').scrollTop=0;
+ const f=$('.step.on input:checked,.step.on input:not([type=radio]),.step.on select,.step.on button');
+ if(f&&!dlg._noFocus)f.focus({preventScroll:true});
+}
+function live(){$('#next').disabled=(step===1&&!cfg.trig)||(step===3&&!cfg.actions.length)||(step===5&&!cfg.name.trim());$('#live').innerHTML=sentence(cfg,true);$('#final').innerHTML=sentence(cfg,true);
+ $('#askline').textContent=cfg.ask?'It asks you first: each run waits in Activity until you approve or reject it.':'It runs on its own: each run happens right away and shows up in Activity.';}
+function render(){
+ // trigger rows
+ $('#trigs').innerHTML=TRIG.map(t=>`<label class="rowopt big"><input type="radio" name="trig" value="${t.id}" ${cfg.trig===t.id?'checked':''}><svg class="i ic"><use href="#ic-${t.icon}"/></svg><span><b>${t.label}</b><span class="t">${t.t} ${t.ex}</span></span></label>`).join('');
+ // filters
+ $('#filters').innerHTML=cfg.filters.length?cfg.filters.map((f,i)=>{const d=FIL[f.f];
+  return `<div class="frow"><select class="field" data-ff="${i}" aria-label="Filter ${i+1} field">${Object.entries(FIL).map(([k,v])=>`<option value="${k}" ${k===f.f?'selected':''}>${v.l}</option>`).join('')}</select>
+  <span class="is">${d.v}</span>${d.o?`<select class="field" data-fv="${i}" aria-label="Filter ${i+1} value">${d.o.map(o=>`<option ${o===f.v?'selected':''}>${o}</option>`).join('')}</select>`:`<input class="field" data-fv="${i}" value="${esc(f.v)}" placeholder="Type a word" aria-label="Filter ${i+1} value">`}
+  <button class="btn quiet" data-rf="${i}" aria-label="Remove filter ${i+1}"><svg class="i"><use href="#ic-x"/></svg></button></div>`}).join(''):'<p style="color:var(--muted);margin-bottom:12px">No filters yet. This will run for every lead.</p>';
+ $('#addf').disabled=cfg.filters.length>=5;
+ $('#match').style.display=cfg.filters.length>1?'inline-flex':'none';
+ $$('#match input').forEach(r=>r.checked=r.value===cfg.match);
+ // actions
+ $('#actions').innerHTML=(cfg.actions.length?cfg.actions:[{}]).map((a,i)=>i===0?
+  `<div class="rows" role="radiogroup" aria-label="Step 1">${Object.entries(ACT).map(([k,v])=>`<div><label class="rowopt"><input type="radio" name="act0" value="${k}" ${a.t===k?'checked':''}><svg class="i ic"><use href="#ic-${v.icon}"/></svg><span><b>${v.l}</b><span class="t">${ST_DESC[k]}</span></span></label>${a.t===k?fields(a,0):''}</div>`).join('')}</div>`:
+  `<div class="extra"><span style="font-weight:700;color:var(--muted)">Then</span><select class="field" data-ta="${i}" aria-label="Step ${i+1} type">${Object.entries(ACT).map(([k,v])=>`<option value="${k}" ${a.t===k?'selected':''}>${v.l}</option>`).join('')}</select><button class="btn quiet" data-ra="${i}" aria-label="Remove step ${i+1}"><svg class="i"><use href="#ic-x"/></svg></button></div>${fields(a,i)}`).join('');
+ $('#adda').disabled=cfg.actions.length>=5||!cfg.actions.length;
+ $('#acount').textContent=cfg.actions.length?cfg.actions.length+' of 5 steps':'';
+ $$('input[name=ask]').forEach(r=>r.checked=(r.value==='ask')===cfg.ask);
+ if(!nameTouched)cfg.name=cfg.name&&editIdx>=0?cfg.name:autoName(cfg);
+ $('#name').value=cfg.name;
+ $('#on').setAttribute('aria-checked',cfg.on);
+ live();
+}
+function fields(a,i){const o=(arr,v)=>arr.map(x=>`<option ${x===v?'selected':''}>${x}</option>`).join('');
+ if(a.t==='task')return `<div class="reveal"><label class="wide">Task title<input class="field" data-af="${i}:title" value="${esc(a.title)}"></label><label>Due in (optional)<span style="display:flex;gap:6px"><input class="field" type="number" min="1" style="width:64px" data-af="${i}:n" value="${esc(a.n)}"><select class="field" data-af="${i}:unit"><option ${a.unit==='hours'?'selected':''}>hours</option><option ${a.unit==='days'?'selected':''}>days</option></select></span></label></div>`;
+ if(a.t==='tag')return `<div class="reveal"><label>Tag name<select class="field" data-af="${i}:tag">${o(TAGS,a.tag)}</select></label></div>`;
+ if(a.t==='owner')return `<div class="reveal"><label>Teammate<select class="field" data-af="${i}:who">${o(TEAM,a.who)}</select></label></div>`;
+ return `<div class="reveal"><label>AI agent<select class="field" data-af="${i}:agent"><option>Reply drafter</option></select></label><p class="note">Nothing is ever sent. The agent only drafts a note and proposes actions that a person approves.</p></div>`;}
+function refocus(sel){const e=$(sel);if(e)e.focus({preventScroll:true});}
+
+dlg.addEventListener('input',e=>{const t=e.target;
+ if(t.dataset.af){const[i,k]=t.dataset.af.split(':');cfg.actions[i][k]=t.value;live();}
+ else if(t.dataset.fv&&t.tagName==='INPUT'){cfg.filters[t.dataset.fv].v=t.value;live();}
+ else if(t.id==='name'){cfg.name=t.value;nameTouched=true;$('#next').disabled=!t.value.trim();}});
+dlg.addEventListener('change',e=>{const t=e.target;
+ if(t.name==='trig'){cfg.trig=t.value;$('#next').disabled=false;live();}
+ else if(t.name==='act0'){cfg.actions[0]=ACT[t.value].d();render();refocus('[name=act0]:checked');}
+ else if(t.dataset.ta){const i=t.dataset.ta;cfg.actions[i]=ACT[t.value].d();render();refocus(`[data-ta="${i}"]`);}
+ else if(t.dataset.ff){const i=t.dataset.ff,d=FIL[t.value];cfg.filters[i]={f:t.value,v:d.o?d.o[0]:''};render();refocus(`[data-ff="${i}"]`);}
+ else if(t.dataset.fv){cfg.filters[t.dataset.fv].v=t.value;live();}
+ else if(t.name==='m'){cfg.match=t.value;live();}
+ else if(t.name==='ask'){cfg.ask=t.value==='ask';live();}});
+dlg.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
+ if(b.dataset.rf!==undefined){cfg.filters.splice(b.dataset.rf,1);render();refocus('#addf');}
+ if(b.dataset.ra!==undefined){cfg.actions.splice(b.dataset.ra,1);render();refocus('#adda');}
+ if(b.id==='on'){cfg.on=!cfg.on;b.setAttribute('aria-checked',cfg.on);}});
+$('#addf').onclick=()=>{cfg.filters.push({f:'source',v:'Instagram'});render();refocus(`[data-ff="${cfg.filters.length-1}"]`);};
+$('#adda').onclick=()=>{cfg.actions.push(ACT.tag.d());render();refocus(`[data-ta="${cfg.actions.length-1}"]`);};
+$('#back').onclick=()=>go(step-1);
+$('#skip').onclick=()=>{cfg.filters=[];go(3);};
+$('#close').onclick=()=>dlg.close();
+$('#next').onclick=()=>{
+ if(step<5)return go(step+1);
+ const a={name:cfg.name.trim(),trig:cfg.trig,filters:cfg.filters.filter(f=>f.v),match:cfg.match,actions:cfg.actions,ask:cfg.ask,on:cfg.on};
+ if(editIdx>=0)AUTOS[editIdx]=a;else AUTOS.unshift(a);
+ if(document.body.dataset.st==='empty')setSt('normal');
+ renderPage();dlg.close();toast(editIdx>=0?'Changes saved.':'Automation created'+(a.on?' and turned on.':'. It is off for now.'));
+};
+dlg.addEventListener('close',()=>{if(opener&&document.contains(opener))opener.focus();});
+dlg.addEventListener('click',e=>{if(e.target===dlg)dlg.close();});
+
+/* page events */
+$('#new').onclick=e=>openDlg({trig:'',filters:[],actions:[]},-1,1,e.currentTarget);
+document.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
+ if(b.dataset.start!==undefined){const s=STARTS[b.dataset.start];openDlg({name:s.name,...s.c},-1,5,b);}
+ if(b.dataset.edit!==undefined)openDlg(AUTOS[b.dataset.edit],+b.dataset.edit,1,b);
+ if(b.dataset.sw!==undefined){const a=AUTOS[b.dataset.sw];a.on=!a.on;renderPage();refocus(`[data-sw="${b.dataset.sw}"]`);}
+ if(b.dataset.appr){const li=b.closest('li'),ok=b.dataset.appr==='ok',p=li.querySelector('[data-pill]');
+  p.className='pill '+(ok?'ok':''); p.textContent=ok?'Done (you approved it)':'Rejected';li.querySelector('[data-row]').remove();toast(ok?'Approved. The task was created.':'Rejected. Nothing was changed.');}
+ if(b.id==='pause')setSt(document.body.dataset.st==='paused'?'normal':'paused');});
+function setSt(s){document.body.dataset.st=s;$('#demo').value=s;lock();}
+$('#demo').onchange=e=>setSt(e.target.value);
+renderPage();
+</script>
+</body>
+</html>

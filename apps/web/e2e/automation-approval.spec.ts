@@ -32,7 +32,7 @@ const waitRun = async (id: string, status: string) => {
 };
 const tags = async (id: string) => ((await (await ownerA.get(`${W}/contacts/${id}`)).json()).tags as { name: string }[]).map((t) => t.name);
 const taskCount = async (id: string) => ((await (await ownerA.get(`${W}/tasks?contactId=${id}`)).json()).items as { title: string }[]).filter((t) => t.title === TASK).length;
-const open = async () => { await owner.goto(`/w/${workspaceId}/settings/automations`); await expect(owner.getByRole("heading", { name: "Rules", level: 2 })).toBeVisible(); };
+const open = async () => { await owner.goto(`/w/${workspaceId}/settings/automations`); await expect(owner.getByRole("heading", { name: "Your automations", level: 2 })).toBeVisible(); };
 
 test.beforeAll(async ({ browser }) => {
   owner = await (await browser.newContext()).newPage();
@@ -46,25 +46,27 @@ test.beforeAll(async ({ browser }) => {
 
 test("owner builds a rule in the UI (approval on)", async () => {
   await open();
-  await expect(owner.getByText("No rules yet")).toBeVisible();
-  await owner.getByRole("button", { name: "New rule" }).first().click();
-  const d = owner.getByRole("dialog", { name: "New rule" });
-  await d.getByLabel("Name", { exact: true }).fill(RULE);
-  await d.getByLabel("When", { exact: true }).selectOption("contact.created");
-  await d.getByRole("button", { name: "Add condition" }).click();
-  await d.getByLabel("Condition 1 field").selectOption("contactName");
-  await d.getByLabel("Condition 1 operator").selectOption("contains");
-  await d.getByLabel("Condition 1 value").fill("Trig");
-  await d.getByLabel("Action 1 tag name").fill(TAG);
-  await d.getByRole("button", { name: "Add action" }).click();
-  await d.getByLabel("Action 2 type").selectOption("create_task");
-  await d.getByLabel("Action 2 task title").fill(TASK);
-  await expect(d.getByLabel("Require approval for every run")).toBeChecked();
-  await d.getByLabel("Enabled", { exact: true }).check();
-  await d.getByRole("button", { name: "Create rule" }).click();
-  await expect(d).toBeHidden();
+  await expect(owner.getByText("No automations yet")).toBeVisible();
+  await owner.getByRole("link", { name: "New automation" }).first().click();
+  await expect(owner).toHaveURL(/\/settings\/ai\/automations\/new$/);
+  await expect(owner.getByRole("heading", { name: "New automation", level: 2 })).toBeVisible();
+  await owner.getByLabel("Name", { exact: true }).fill(RULE);
+  await expect(owner.getByRole("button", { name: /^When this happens: a lead is created/ })).toBeVisible();
+  await owner.getByRole("button", { name: "Add a filter" }).click();
+  await owner.getByRole("button", { name: /^Filter 1 field/ }).click();
+  await owner.getByRole("menuitem", { name: "Lead name" }).click();
+  await owner.getByLabel("Filter 1 value").fill("Trig");
+  await owner.getByRole("button", { name: /^Step 1: / }).click();
+  await owner.getByRole("menuitem", { name: /add a tag/ }).click();
+  await owner.getByLabel("Step 1 tag name").fill(TAG);
+  await owner.getByRole("button", { name: "Add another step" }).click();
+  await owner.getByLabel("Step 2 task title").fill(TASK);
+  await expect(owner.getByRole("radio", { name: /Ask me first/ })).toBeChecked();
+  await expect(owner.getByRole("switch", { name: "Turn it on" })).toBeChecked();
+  await owner.getByRole("button", { name: "Create automation" }).click();
+  await expect(owner).toHaveURL(/\/settings\/ai\/automations$/);
   const row = owner.getByRole("listitem").filter({ hasText: RULE });
-  await expect(row.getByText("Needs approval")).toBeVisible();
+  await expect(row.getByText("Asks you first")).toBeVisible();
   ruleId = ((await (await ownerA.get(`${W}/automations/rules`)).json()) as { id: string; name: string }[]).find((r) => r.name === RULE)!.id;
 });
 
@@ -74,10 +76,10 @@ test("approve: run waits, owner approves in UI, tag and task exist, step log sho
   expect(await tags(id)).not.toContain(TAG); // nothing happens before approval
   expect(await taskCount(id)).toBe(0);
   await open();
-  await expect(owner.getByText("Needs approval", { exact: true }).first()).toBeVisible();
+  await expect(owner.getByText("Waiting for your approval", { exact: true }).first()).toBeVisible();
   await axe(owner, "automation-approvals-list");
   await owner.getByRole("button", { name: `Approve run of ${RULE}` }).click();
-  await expect(owner.getByText("Succeeded", { exact: true })).toBeVisible({ timeout: 20_000 });
+  await expect(owner.getByText("Done", { exact: true })).toBeVisible({ timeout: 20_000 });
   expect((await waitRun(id, "succeeded")).steps.map((s) => s.status)).toEqual(["succeeded", "succeeded"]);
   expect(await tags(id)).toContain(TAG);
   expect(await taskCount(id)).toBe(1);
@@ -103,7 +105,7 @@ test("permissions: agent and viewer cannot see or call; outsider gets 404", asyn
     const p = people[k]!.page, a = api(p);
     await p.goto(`/w/${workspaceId}/settings/automations`);
     await expect(p.getByText("Only owners and admins can manage automations")).toBeVisible();
-    await expect(p.getByRole("button", { name: /Approve run|Reject run|New rule/ })).toHaveCount(0);
+    await expect(p.getByRole("button", { name: /Approve run|Reject run|New automation/ })).toHaveCount(0);
     expect((await a.post(`${W}/automations/runs/${run.id}/approve`, {})).status()).toBe(403);
     expect((await a.post(`${W}/automations/runs/${run.id}/reject`, {})).status()).toBe(403);
     expect((await a.post(`${W}/automations/rules`, { name: "x", triggerType: "contact.created", actions: [{ type: "add_tag", tagName: "x" }] })).status()).toBe(403);
@@ -150,6 +152,6 @@ test("idempotency: approving twice executes once", async () => {
   expect(done.steps).toHaveLength(2);
   expect(await tags(id)).toEqual([TAG]);
   await open();
-  await expect(owner.getByText("Succeeded", { exact: true }).first()).toBeVisible();
+  await expect(owner.getByText("Done", { exact: true }).first()).toBeVisible();
   await expect(owner.getByRole("button", { name: /Approve run of/ })).toHaveCount(0);
 });
