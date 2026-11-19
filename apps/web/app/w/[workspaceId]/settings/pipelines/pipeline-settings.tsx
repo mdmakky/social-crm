@@ -12,6 +12,7 @@ import { Alert, EmptyState, ErrorState } from "@/components/ui/states";
 import { ToastProvider, useToast } from "@/components/ui/toast";
 import { browserApi, errorMessage } from "@/lib/client-api";
 import { CURRENCIES } from "@/lib/leads";
+import { useWorkspacePrefs } from "@/components/shell/workspace-prefs";
 import { cn } from "@/lib/cn";
 
 type Props = { workspaceId: string; canManage: boolean; initial: PipelineList | null };
@@ -214,7 +215,7 @@ function ArchiveStageForm({ stage, options, onCancel, onConfirm }: { stage: Stag
 function NewPipeline({ open, onOpenChange, w, run }: { open: boolean; onOpenChange: (o: boolean) => void; w: { workspaceId: string }; run: Run }) {
   const [name, setName] = React.useState("");
   const [kind, setKind] = React.useState<"lead" | "sales">("sales");
-  const [currency, setCurrency] = React.useState("USD");
+  const [currency, setCurrency] = React.useState(useWorkspacePrefs().currency);
   const [err, setErr] = React.useState<string | null>(null);
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

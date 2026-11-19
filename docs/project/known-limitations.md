@@ -340,3 +340,12 @@ Updated: 2026-11-13 (Phase 0).
 - The panel loads when it opens and refreshes on read-state changes; it does not live-update while open (the bell badge polls every 30 s).
 - Open links to the contact page, or to the Tasks page for a task without a contact; there is no deep link to one task.
 - Verified in Chromium and a Pixel 7 profile only; no real phone, and no real clock wait for a reminder (the test creates a reminder that is already due).
+
+## Settings > General (2026-11-20, branch `feat/general-settings`)
+- The 12 or 24 hour clock and the week start apply only to the follow-up picker, the notification panel and the task panel. Other screens (lists, inbox, dashboard, reports) still show 12 hour times; native date and time inputs follow the browser.
+- Currency changes only defaults (new pipelines, values with no pipeline currency). Existing leads and pipelines keep their own currency, and no amount is converted.
+- Business info is not used anywhere yet (web chat, email and the invoice-style screens will read it later). Nothing validates the phone number format.
+- The logo is stored inside the workspace settings, so it is sent with every workspace read (about 5 to 20 KB). It shows only in the sidebar tile (not in the workspace list, the switcher rows, web chat or emails). Animated or very detailed images are refused when they do not fit after shrinking.
+- The default week start is Sunday, the same as before; there is no per-user override. Business hours, language, brand colours, data export and deleting or leaving a workspace are not built.
+- Changing your password signs out other devices through the auth library; the current device stays signed in. There is no email notice after a password change.
+- Verified in Chromium and a Pixel 7 profile only. `mobile.spec` "dialog actions stay in reach" already fails on main because the automations page was rewritten by another branch (its "New rule" button is now a "New automation" link); it is not caused by this work.

@@ -1,15 +1,16 @@
 "use client";
 import * as React from "react";
 import { Bell, CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
+import { useWorkspacePrefs } from "@/components/shell/workspace-prefs";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/cn";
 
 const pad = (n: number) => String(n).padStart(2, "0");
 const ymd = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const SLOTS = ["09:00", "11:30", "14:00", "17:00"];
-export const fmtTime = (h: string) => {
+export const fmtTime = (h: string, format: "12h" | "24h" = "12h") => {
   const [a, b] = h.split(":").map(Number) as [number, number];
-  return `${a % 12 || 12}:${pad(b)} ${a < 12 ? "AM" : "PM"}`;
+  return format === "24h" ? `${pad(a)}:${pad(b)}` : `${a % 12 || 12}:${pad(b)} ${a < 12 ? "AM" : "PM"}`;
 };
 
 /** How long before the due time the assignee is notified. 0 = at the time. */
@@ -30,13 +31,14 @@ const parts = (h: string) => ({ h12: Number(h.slice(0, 2)) % 12 || 12, m: Number
 const make = (h12: number, m: number, pm: boolean) => `${pad((h12 % 12) + (pm ? 12 : 0))}:${pad(m)}`;
 
 /** A month grid. Days before today cannot be picked. */
-function MonthCalendar({ value, today, onPick }: { value?: string; today: Date; onPick: (d: string) => void }) {
+const WEEK_START = { sun: 0, mon: 1, sat: 6 } as const;
+function MonthCalendar({ value, today, onPick, weekStart }: { value?: string; today: Date; onPick: (d: string) => void; weekStart: "sat" | "sun" | "mon" }) {
   const start = value ? new Date(`${value}T00:00`) : today;
   const [month, setMonth] = React.useState(() => new Date(start.getFullYear(), start.getMonth(), 1));
-  const first = month.getDay();
+  const first = (month.getDay() - WEEK_START[weekStart] + 7) % 7;
   const count = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
   const todayKey = ymd(today);
-  const weekdays = Array.from({ length: 7 }, (_, i) => new Date(2026, 0, 4 + i).toLocaleDateString(undefined, { weekday: "narrow" }));
+  const weekdays = Array.from({ length: 7 }, (_, i) => new Date(2026, 0, 4 + WEEK_START[weekStart] + i).toLocaleDateString(undefined, { weekday: "narrow" }));
   const atFirstMonth = month.getFullYear() === today.getFullYear() && month.getMonth() === today.getMonth();
   return (
     <div className="mt-2 rounded-card border border-line p-2" data-testid="follow-up-calendar">
@@ -61,22 +63,25 @@ function MonthCalendar({ value, today, onPick }: { value?: string; today: Date; 
 }
 
 /** Hour, minute (5 min steps) and AM/PM buttons. Replaces the browser's own time dropdown, which is awkward on desktop. */
-function TimeGrid({ value, onChange }: { value: string; onChange: (t: string) => void }) {
+function TimeGrid({ value, onChange, format }: { value: string; onChange: (t: string) => void; format: "12h" | "24h" }) {
   const t = parts(value);
+  const h24 = Number(value.slice(0, 2));
   const group = "grid grid-cols-6 gap-1";
   return (
     <div className="mt-2 flex flex-col gap-3 rounded-card border border-line bg-subtle p-3" data-testid="follow-up-time-grid">
-      <div><p className="mb-1 text-xs font-semibold">Hour</p><div role="group" aria-label="Hour" className={group}>{Array.from({ length: 12 }, (_, i) => i + 1).map((h) => <button key={h} type="button" aria-pressed={t.h12 === h} onClick={() => onChange(make(h, t.m, t.pm))} className={cell(t.h12 === h)}>{h}</button>)}</div></div>
-      <div><p className="mb-1 text-xs font-semibold">Minute</p><div role="group" aria-label="Minute" className={group}>{Array.from({ length: 12 }, (_, i) => i * 5).map((m) => <button key={m} type="button" aria-pressed={t.m === m} onClick={() => onChange(make(t.h12, m, t.pm))} className={cell(t.m === m)}>{pad(m)}</button>)}</div></div>
-      <div role="group" aria-label="AM or PM" className="inline-flex gap-1 self-start rounded-control bg-line/60 p-0.5">
+      <div><p className="mb-1 text-xs font-semibold">Hour</p><div role="group" aria-label="Hour" className={group}>{format === "24h" ? Array.from({ length: 24 }, (_, i) => i).map((h) => <button key={h} type="button" aria-pressed={h24 === h} onClick={() => onChange(`${pad(h)}:${pad(t.m)}`)} className={cell(h24 === h)}>{pad(h)}</button>) : Array.from({ length: 12 }, (_, i) => i + 1).map((h) => <button key={h} type="button" aria-pressed={t.h12 === h} onClick={() => onChange(make(h, t.m, t.pm))} className={cell(t.h12 === h)}>{h}</button>)}</div></div>
+      <div><p className="mb-1 text-xs font-semibold">Minute</p><div role="group" aria-label="Minute" className={group}>{Array.from({ length: 12 }, (_, i) => i * 5).map((m) => <button key={m} type="button" aria-pressed={t.m === m} onClick={() => onChange(`${pad(h24)}:${pad(m)}`)} className={cell(t.m === m)}>{pad(m)}</button>)}</div></div>
+      {format === "12h" && <div role="group" aria-label="AM or PM" className="inline-flex gap-1 self-start rounded-control bg-line/60 p-0.5">
         {[false, true].map((pm) => <button key={String(pm)} type="button" aria-pressed={t.pm === pm} onClick={() => onChange(make(t.h12, t.m, pm))} className={cn("press h-8 rounded-[6px] px-4 text-sm font-medium pointer-coarse:h-11", t.pm === pm ? "bg-surface shadow-sm" : "text-fg-muted")}>{pm ? "PM" : "AM"}</button>)}
-      </div>
+      </div>}
     </div>
   );
 }
 
 /** Day strip, time chips, optional calendar and time grid, and a "Remind me" choice so a notification really arrives. */
 export function FollowUpPicker({ value, onChange, disabled }: { value: FollowUp; onChange: (v: FollowUp) => void; disabled?: boolean }) {
+  const { timeFormat, weekStart } = useWorkspacePrefs();
+  const ft = (h: string) => fmtTime(h, timeFormat);
   const [today] = React.useState(() => new Date());
   const [showCal, setShowCal] = React.useState(false);
   const [showTime, setShowTime] = React.useState(false);
@@ -112,12 +117,12 @@ export function FollowUpPicker({ value, onChange, disabled }: { value: FollowUp;
             {custom ? <span className="tnum text-lg font-semibold">{new Date(`${value.day}T00:00`).getDate()}</span> : <CalendarDays className="size-5" aria-hidden />}
           </button>
         </div>
-        {showCal && <MonthCalendar value={value.day} today={today} onPick={(d) => { set({ day: d }); setShowCal(false); }} />}
+        {showCal && <MonthCalendar weekStart={weekStart} value={value.day} today={today} onPick={(d) => { set({ day: d }); setShowCal(false); }} />}
         <div role="group" aria-label="Time" className="mt-2 flex flex-wrap items-center gap-1.5">
-          {SLOTS.map((s) => <button key={s} type="button" aria-pressed={value.time === s && !showTime} onClick={() => { set({ time: s }); setShowTime(false); }} className={chip(value.time === s && !showTime)}>{fmtTime(s)}</button>)}
-          <button type="button" aria-expanded={showTime} onClick={() => setShowTime((v) => !v)} className={chip(showTime || customTime)}>{customTime ? fmtTime(value.time) : "Other time"}</button>
+          {SLOTS.map((s) => <button key={s} type="button" aria-pressed={value.time === s && !showTime} onClick={() => { set({ time: s }); setShowTime(false); }} className={chip(value.time === s && !showTime)}>{ft(s)}</button>)}
+          <button type="button" aria-expanded={showTime} onClick={() => setShowTime((v) => !v)} className={chip(showTime || customTime)}>{customTime ? ft(value.time) : "Other time"}</button>
         </div>
-        {showTime && <TimeGrid value={value.time} onChange={(t) => set({ time: t })} />}
+        {showTime && <TimeGrid format={timeFormat} value={value.time} onChange={(t) => set({ time: t })} />}
         <div className="mt-3 flex flex-col gap-2 border-t border-line pt-3">
           <div className="flex items-center gap-2">
             <Switch label="Remind me" checked={value.remind !== null} onCheckedChange={(v) => set({ remind: v ? 15 : null })} />
@@ -131,7 +136,7 @@ export function FollowUpPicker({ value, onChange, disabled }: { value: FollowUp;
         </div>
       </div>
       <p className="mt-3 text-sm text-fg-muted" aria-live="polite">
-        {value.none ? "This task will finish without a follow-up." : due ? `A follow-up task will be created for ${fmtD(due)}, ${fmtTime(value.time)}.${remindAt ? ` You will get a notification ${fmtD(remindAt)}, ${fmtTime(`${pad(remindAt.getHours())}:${pad(remindAt.getMinutes())}`)}.` : " No reminder."}` : "Pick a day, or choose “No follow-up”, to finish this task."}
+        {value.none ? "This task will finish without a follow-up." : due ? `A follow-up task will be created for ${fmtD(due)}, ${ft(value.time)}.${remindAt ? ` You will get a notification ${fmtD(remindAt)}, ${ft(`${pad(remindAt.getHours())}:${pad(remindAt.getMinutes())}`)}.` : " No reminder."}` : "Pick a day, or choose “No follow-up”, to finish this task."}
       </p>
     </fieldset>
   );

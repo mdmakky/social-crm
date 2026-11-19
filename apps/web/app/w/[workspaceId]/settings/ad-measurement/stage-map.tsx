@@ -13,6 +13,7 @@ import { browserApi, errorMessage } from "@/lib/client-api";
 import { cn } from "@/lib/cn";
 import { defaultPipeline, orderedStages, stageHue } from "@/lib/contact-lead";
 import { CURRENCIES, fromMinor, toMinor } from "@/lib/leads";
+import { useWorkspacePrefs } from "@/components/shell/workspace-prefs";
 
 /** One line per event Meta documents, in plain words. The first seven are the ones people reach for. */
 const DESC: Record<string, string> = {
@@ -44,6 +45,7 @@ const valueBody = (kind: ValueKind, fixed?: { minor: number; currency: string })
  * Every change goes through the normal rules API (create, update, delete) and shows at once; if the server says no, the row goes back and says why, with a Retry.
  */
 export function StageMap({ workspaceId, dataset, pipelines, canManage }: { workspaceId: string; dataset: CapiDatasetDto; pipelines: PipelineDto[]; canManage: boolean }) {
+  const prefs = useWorkspacePrefs();
   const [rules, setRules] = React.useState<CapiMappingDto[] | null>(null);
   const [loadError, setLoadError] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState<Set<string>>(new Set());
@@ -67,7 +69,7 @@ export function StageMap({ workspaceId, dataset, pipelines, canManage }: { works
   const openStages = stages.filter((s) => s.kind === "open");
   const wonStages = stages.filter((s) => s.kind === "won");
   const lostStages = stages.filter((s) => s.kind === "lost");
-  const currency0 = pipeline?.defaultCurrency ?? "USD";
+  const currency0 = pipeline?.defaultCurrency ?? prefs.currency;
 
   const rows: Row[] = [
     { key: "created", kind: "created", trigger: "lead_created", stageId: null, match: (m) => m.triggerType === "lead_created" },

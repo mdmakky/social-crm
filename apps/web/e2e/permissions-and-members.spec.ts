@@ -55,9 +55,11 @@ test.describe("permission-aware navigation and pages", () => {
     await signUpAndCreate(page, "Rena Owner", "Old Name Co");
     await page.getByRole("link", { name: "Settings" }).first().click();
     await page.getByLabel("Workspace name").fill("Renamed Studio");
-    await page.getByLabel("Time zone").selectOption("Europe/Berlin");
+    await page.getByRole("button", { name: "Change", exact: true }).click();
+    await page.getByRole("searchbox", { name: "Search time zones" }).fill("Berlin");
+    await page.getByRole("option", { name: /Berlin/ }).click();
     await page.getByRole("button", { name: "Save changes" }).click();
-    await expect(page.getByText("Workspace settings saved.")).toBeVisible();
+    await expect(page.getByText("Settings saved.")).toBeVisible();
     await page.goto(page.url().replace("/settings", ""));
     await expect(page.getByRole("heading", { name: "Renamed Studio", level: 1 })).toBeVisible();
     await expect(page.getByText(/Europe\/Berlin/)).toBeVisible();

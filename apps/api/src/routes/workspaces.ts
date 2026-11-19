@@ -1,6 +1,6 @@
 import { Hono, type Context } from "hono";
 import { and, count, desc, eq, lt } from "drizzle-orm";
-import { CreateWorkspaceBody, UpdateMemberBody, UpdateWorkspaceBody } from "@crm/contracts";
+import { CreateWorkspaceBody, UpdateMemberBody, UpdateWorkspaceBody, WorkspaceSettings } from "@crm/contracts";
 import { can, memberChangeAllowed, type BlobStore, type Role } from "@crm/core";
 import { schema, user, withContext, type Db, type Tx } from "@crm/db";
 import { writeAudit } from "../audit.ts";
@@ -30,6 +30,12 @@ type Ctx = Context<{ Variables: Vars }>;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const err = (c: Ctx, status: 400 | 403 | 404 | 409, code: string, message?: string) => c.json({ error: { code, message } }, status);
+
+/** The preferences stored in workspaces.settings, with defaults for anything missing or malformed. */
+const readSettings = (raw: unknown): WorkspaceSettings => {
+  const p = WorkspaceSettings.safeParse(raw ?? {});
+  return p.success ? p.data : WorkspaceSettings.parse({});
+};
 
 function slugify(name: string): string {
   const base = name.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "workspace";
@@ -99,7 +105,7 @@ export function workspaceRoutes(db: Db, hooks: { import?: ImportHooks; extraSear
       const [n] = await tx.select({ n: count() }).from(schema.memberships).where(and(eq(schema.memberships.workspaceId, workspaceId), eq(schema.memberships.status, "active")));
       return { w: w!, n: n!.n };
     });
-    return c.json({ id: out.w.id, name: out.w.name, slug: out.w.slug, role, timezone: out.w.timezone, memberCount: out.n, createdAt: out.w.createdAt.toISOString() });
+    return c.json({ id: out.w.id, name: out.w.name, slug: out.w.slug, role, timezone: out.w.timezone, memberCount: out.n, createdAt: out.w.createdAt.toISOString(), ...readSettings(out.w.settings) });
   });
 
   scoped.patch("/", async (c) => {
@@ -107,9 +113,14 @@ export function workspaceRoutes(db: Db, hooks: { import?: ImportHooks; extraSear
     const body = UpdateWorkspaceBody.safeParse(await c.req.json().catch(() => null));
     if (!body.success) return c.json({ error: { code: "invalid_body", message: body.error.issues[0]?.message } }, 400);
     const workspaceId = c.get("workspaceId");
+    const { name, timezone, ...prefs } = body.data;
     await withContext(db, sctx(c), async (tx) => {
-      await tx.update(schema.workspaces).set({ ...body.data, updatedAt: new Date() }).where(eq(schema.workspaces.id, workspaceId));
-      await writeAudit(tx, { ...audit(c as unknown as Ctx), workspaceId, action: "workspace.updated", entityType: "workspace", entityId: workspaceId, summary: body.data });
+      const [cur] = await tx.select({ settings: schema.workspaces.settings }).from(schema.workspaces).where(eq(schema.workspaces.id, workspaceId)).for("update");
+      const now = readSettings(cur?.settings);
+      const next = { ...now, ...(prefs.currency !== undefined ? { currency: prefs.currency } : {}), ...(prefs.timeFormat !== undefined ? { timeFormat: prefs.timeFormat } : {}), ...(prefs.weekStart !== undefined ? { weekStart: prefs.weekStart } : {}), ...(prefs.business !== undefined ? { business: { ...now.business, ...prefs.business } } : {}), ...(prefs.logo !== undefined ? { logo: prefs.logo } : {}) };
+      await tx.update(schema.workspaces).set({ ...(name !== undefined ? { name } : {}), ...(timezone !== undefined ? { timezone } : {}), settings: next, updatedAt: new Date() }).where(eq(schema.workspaces.id, workspaceId));
+      // the audit summary never carries the logo bytes
+      await writeAudit(tx, { ...audit(c as unknown as Ctx), workspaceId, action: "workspace.updated", entityType: "workspace", entityId: workspaceId, summary: { ...body.data, ...(prefs.logo !== undefined ? { logo: prefs.logo === null ? "removed" : "changed" } : {}) } });
     });
     return c.json({ ok: true });
   });

@@ -66,13 +66,46 @@ export const WorkspaceName = z.string().trim().min(2, "Use at least 2 characters
 export const CreateWorkspaceBody = z.object({ name: WorkspaceName });
 export type CreateWorkspaceBody = z.infer<typeof CreateWorkspaceBody>;
 
-export const UpdateWorkspaceBody = z.object({ name: WorkspaceName.optional(), timezone: z.string().min(1).max(64).optional() }).refine((v) => v.name !== undefined || v.timezone !== undefined, "Nothing to update");
+/** Preferences kept in workspaces.settings (jsonb). Every field has a default, so older workspaces need no migration. */
+const emptyOr = <T extends z.ZodTypeAny>(t: T) => z.union([z.literal(""), t]);
+export const BusinessInfo = z.object({
+  phone: z.string().trim().max(40, "Use at most 40 characters").default(""),
+  address: z.string().trim().max(300, "Use at most 300 characters").default(""),
+  website: emptyOr(z.string().trim().max(200, "Use at most 200 characters").regex(/^https?:\/\/\S+$/i, "Start the website with http:// or https://")).default(""),
+  email: emptyOr(z.string().trim().max(200).email("Enter a valid email address")).default(""),
+});
+export type BusinessInfo = z.infer<typeof BusinessInfo>;
+/** A small square logo as a data URL (the browser shrinks it before upload). About 64 KB at most. */
+export const LogoData = z.string().max(90_000, "The logo is too large").regex(/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/, "Use a PNG, JPG or WebP image");
+const CurrencyCode = z.string().regex(/^[A-Z]{3}$/, "Use a 3-letter uppercase currency code");
+const TimeFormat = z.enum(["12h", "24h"]);
+const WeekStart = z.enum(["sat", "sun", "mon"]);
+export const WorkspaceSettings = z.object({
+  currency: CurrencyCode.default("USD"),
+  timeFormat: TimeFormat.default("12h"),
+  weekStart: WeekStart.default("sun"),
+  business: BusinessInfo.default({ phone: "", address: "", website: "", email: "" }),
+  logo: LogoData.nullable().default(null),
+});
+export type WorkspaceSettings = z.infer<typeof WorkspaceSettings>;
+const WorkspaceTimezone = z.string().min(1).max(64);
+export const UpdateWorkspaceBody = z
+  .object({
+    name: WorkspaceName.optional(),
+    timezone: WorkspaceTimezone.optional(),
+    currency: CurrencyCode.optional(),
+    timeFormat: TimeFormat.optional(),
+    weekStart: WeekStart.optional(),
+    business: z.object({ phone: BusinessInfo.shape.phone.unwrap().optional(), address: BusinessInfo.shape.address.unwrap().optional(), website: BusinessInfo.shape.website.unwrap().optional(), email: BusinessInfo.shape.email.unwrap().optional() }).optional(),
+    logo: LogoData.nullable().optional(),
+  })
+  .refine((v) => Object.values(v).some((x) => x !== undefined), "Nothing to update");
 export type UpdateWorkspaceBody = z.infer<typeof UpdateWorkspaceBody>;
 
 export const WorkspaceSummary = z.object({ id: z.string().uuid(), name: z.string(), slug: z.string(), role: Role });
 export type WorkspaceSummary = z.infer<typeof WorkspaceSummary>;
 
-export const WorkspaceDetail = WorkspaceSummary.extend({ timezone: z.string(), memberCount: z.number().int(), createdAt: z.string() });
+export const WorkspaceDetail = WorkspaceSummary.extend({ timezone: z.string(), memberCount: z.number().int(), createdAt: z.string() }).extend(WorkspaceSettings.shape);
 export type WorkspaceDetail = z.infer<typeof WorkspaceDetail>;
 
 export const Member = z.object({ userId: z.string(), name: z.string(), email: z.string(), role: Role, status: z.enum(["active", "deactivated"]), joinedAt: z.string() });
