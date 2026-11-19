@@ -56,7 +56,7 @@ test("shots", async ({ page }) => {
     await page.goto(`/w/${workspaceId}/contacts/${c.id}`);
     await page.getByRole("button", { name: "Won", exact: true }).click();
     await page.getByRole("dialog", { name: "Add a deal value" }).waitFor();
-    await page.getByLabel("Deal value").fill("1500");
+    await page.getByRole("textbox", { name: "Deal value" }).fill("1500");
     await page.waitForTimeout(300);
     await page.screenshot({ path: `${out}/dialog-${w}.png` });
     await page.getByRole("button", { name: "Cancel" }).click();

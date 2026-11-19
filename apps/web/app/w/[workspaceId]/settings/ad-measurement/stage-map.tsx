@@ -228,9 +228,9 @@ function MapRow({ row, first, last, matches, busy, err, onRetry, canManage, curr
       </div>
       <div className="col-span-2 min-w-0 @3xl:col-span-1 @3xl:col-start-4">
         {m ? (
-          <button ref={valRef} type="button" disabled={!canManage} aria-haspopup="dialog" aria-expanded={valOpen} onClick={() => setValOpen(true)} aria-label={`Value for ${m.eventName} on ${label}: ${valueText(m)}. Change`}
+          <button ref={valRef} type="button" disabled={!canManage} aria-haspopup="dialog" aria-expanded={valOpen} onClick={() => setValOpen(true)}
             className={cn("press -mx-2.5 flex min-h-10 items-center gap-2 rounded-control px-2.5 text-left hover:bg-hover pointer-coarse:min-h-11 disabled:cursor-default disabled:hover:bg-transparent", off ? "text-fg-muted" : "text-fg-muted")}>
-            <ValueText m={m} currency0={currency0} />
+            <span className="sr-only">Value for {m.eventName} on {label}: </span><ValueText m={m} currency0={currency0} /><span className="sr-only">. Change</span>
           </button>
         ) : <span className="text-sm text-fg-subtle">Pick an event to set the value.</span>}
       </div>

@@ -31,7 +31,7 @@ test.describe("settings information architecture", () => {
     for (const gone of ["Integrations", "Members", "Audit log"]) await expect(main.getByRole("link", { name: gone })).toHaveCount(0);
     await nav.getByRole("link", { name: "Ad measurement" }).click();
     await expect(page).toHaveURL(/\/settings\/ad-measurement$/);
-    await expect(page.getByRole("heading", { level: 2, name: "Meta Conversions API" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 2, name: "Start with a dataset" })).toBeVisible();
     // Keyboard: the nav links are focusable in order.
     await nav.getByRole("link", { name: "General" }).focus();
     await page.keyboard.press("Tab");
