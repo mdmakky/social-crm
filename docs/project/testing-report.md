@@ -338,3 +338,8 @@ Private DB `inv_f` (fresh via `scripts/db-create.sh inv_f`), migration 0035.
 - `tsc --noEmit` and `eslint`: clean.
 - Playwright: `ai-agents` 5 of 5 (rewritten for the page: template, steps, tool modes, sensitive tool locked, save draft, activate, dry run and live run, rejected answers, layout at 375/768/1440 with axe on all four steps, viewer blocked on the list and on the new-agent URL), `ai-streaming`, `settings-nav`, `knowledge-base`, `automation-approval`: 21 of 21 together.
 - Screenshots reviewed at 1440 and 390. Not run: the full e2e suite, a real AI provider.
+
+## Knowledge add panel (2026-11-19, `feat/knowledge-add`, fresh DBs)
+- `tsc --noEmit` and `eslint`: clean.
+- Playwright: `knowledge-base` 1 of 1 (rewritten for the panel: nothing can be added until the form is complete, a Word file is refused, private and credentialed addresses are refused, text and Q&A sources, filters, search with its source, layout at 375/768/1440 with axe, viewer read-only, another workspace sees nothing, delete with confirmation), `ai-multimodal` 1 of 1 (PDF and audio sources ready, a spoofed PDF leaves a failed source with Retry), `inbox-attachments` and `settings-nav`: 10 of 10 together.
+- Found while testing: choosing files cleared the browser's file list before our code copied it, so nothing was added; fixed by copying first. Screenshots reviewed at 1440 and 390. Not run: the full e2e suite, a real AI provider, files near the size limits.
