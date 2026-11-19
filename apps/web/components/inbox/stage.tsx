@@ -8,6 +8,7 @@ import { Select } from "@/components/ui/input";
 import { Dialog, DialogClose, DialogContent, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger, DialogActions } from "@/components/ui/overlays";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast";
+import { useStageValueGate } from "@/components/contacts/stage-value";
 import { browserApi, errorMessage } from "@/lib/client-api";
 
 type Phase = "loading" | "ready" | "error";
@@ -29,6 +30,7 @@ export function useContactLead(workspaceId: string, contactId: string | null, co
   const [pipelines, setPipelines] = React.useState<PipelineDto[]>([]);
   const [lostReasons, setLostReasons] = React.useState<LostReasonDto[]>([]);
   const [busy, setBusy] = React.useState(false);
+  const { gate, dialog: valueDialog } = useStageValueGate(workspaceId);
   const leadRef = React.useRef<LeadDto | null>(null);
   React.useEffect(() => { leadRef.current = lead; }, [lead]);
 
@@ -58,8 +60,10 @@ export function useContactLead(workspaceId: string, contactId: string | null, co
     const from = pipelines.find((x) => x.id === cur?.pipelineId)?.stages.find((s) => s.id === cur?.stageId);
     if (!cur || !from || to.id === cur.stageId || busy) return;
     setBusy(true);
+    const choice = contactId ? await gate({ id: contactId, name: contactName }, to) : {}; // may ask for a deal value an ad rule needs
+    if (choice.cancel) { setBusy(false); return; }
     setLead({ ...cur, stageId: to.id, outcome: to.kind }); // optimistic
-    const r = await browserApi.call(endpoints.moveLead, { params: { workspaceId, leadId: cur.id }, body: { expectedVersion: cur.version, stageId: to.id, ...(lostReasonId ? { lostReasonId } : {}) } });
+    const r = await browserApi.call(endpoints.moveLead, { params: { workspaceId, leadId: cur.id }, body: { expectedVersion: cur.version, stageId: to.id, ...(lostReasonId ? { lostReasonId } : {}), ...(choice.value ?? {}) } });
     setBusy(false);
     if (!r.ok) {
       setLead(cur);
@@ -83,7 +87,7 @@ export function useContactLead(workspaceId: string, contactId: string | null, co
     toast("Lead created");
   }
 
-  return { phase, lead, pipeline, stage, lostReasons, busy, move, create, canCreate: pipelines.length > 0 };
+  return { phase, lead, pipeline, stage, lostReasons, busy, move, create, canCreate: pipelines.length > 0, valueDialog };
 }
 export type ContactLead = ReturnType<typeof useContactLead>;
 

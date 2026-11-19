@@ -71,7 +71,7 @@ export function CapiMappings({ workspaceId, datasets, canManage }: { workspaceId
   const currency = pipelines.find((p) => p.isDefault)?.defaultCurrency ?? "USD";
   const when = (m: CapiMappingDto) => (m.triggerType === "lead_stage_entered" ? `A lead enters ${stageName(m.stageId)}` : TRIGGERS.find((t) => t.value === m.triggerType)!.label);
   const valueText = (m: CapiMappingDto) => (m.valueMode === "lead_value" ? "Lead value" : m.valueMode === "fixed" ? `${toMajor(m.fixedValueMinor ?? 0, m.currency ?? currency)} ${m.currency}` : "No value");
-  const body = (m: CapiMappingDto, enabled: boolean): CreateCapiMappingBody => ({ triggerType: m.triggerType, stageId: m.stageId, eventName: m.eventName, valueMode: m.valueMode, fixedValueMinor: m.fixedValueMinor, currency: m.currency, enabled });
+  const body = (m: CapiMappingDto, enabled: boolean): CreateCapiMappingBody => ({ triggerType: m.triggerType, stageId: m.stageId, eventName: m.eventName, valueMode: m.valueMode, fixedValueMinor: m.fixedValueMinor, currency: m.currency, enabled, askForValue: m.askForValue });
 
   async function toggle(d: CapiDatasetDto, m: CapiMappingDto) {
     setBusy(m.id); setError(null);
@@ -173,7 +173,7 @@ function RuleDialog({ workspaceId, dataset, rule, pipelines, currency, onClose, 
     setSaving(true); setServerErr(null);
     const b: CreateCapiMappingBody = {
       triggerType: f.triggerType, stageId: f.triggerType === "lead_stage_entered" ? f.stageId : null, eventName, valueMode: f.valueMode,
-      fixedValueMinor: f.valueMode === "fixed" ? toMinor(f.amount, f.currency) : null, currency: f.valueMode === "fixed" ? f.currency : null, enabled: f.enabled,
+      fixedValueMinor: f.valueMode === "fixed" ? toMinor(f.amount, f.currency) : null, currency: f.valueMode === "fixed" ? f.currency : null, enabled: f.enabled, askForValue: rule?.askForValue && f.valueMode === "lead_value" ? true : false,
     };
     const r = rule ? await browserApi.call(endpoints.updateCapiMapping, { params: { workspaceId, datasetId: dataset.id, mappingId: rule.id }, body: b }) : await browserApi.call(endpoints.createCapiMapping, { params: { workspaceId, datasetId: dataset.id }, body: b });
     setSaving(false);
