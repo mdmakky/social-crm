@@ -1,4 +1,5 @@
-import { Camera, Inbox, MessageCircle, MessagesSquare, Phone, PieChart, UserRound } from "lucide-react";
+import Image from "next/image";
+import { Camera, Inbox, MessageCircle, Phone, PieChart, UserRound } from "lucide-react";
 
 /** Sign-in surfaces: the brand colour owns the left half (big type, the three channels, what is inside), the form stays calm on white. Below lg the panel shrinks to a header. */
 const CHANNELS = [
@@ -18,7 +19,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
       <aside aria-label="About Social CRM" className="relative flex flex-col overflow-hidden bg-accent px-6 pb-7 pt-6 text-on-accent lg:px-[clamp(2rem,5vw,4.5rem)] lg:pb-10 lg:pt-9">
         <span aria-hidden className="pointer-events-none absolute -right-36 -top-36 hidden size-[26rem] rounded-full border-[4rem] border-on-accent/10 lg:block" />
         <span className="relative inline-flex items-center gap-2.5 text-md font-bold tracking-title">
-          <span className="inline-flex size-[30px] items-center justify-center rounded-[9px] bg-on-accent text-accent"><MessagesSquare className="size-4" aria-hidden /></span>
+          <span className="inline-flex size-[30px] items-center justify-center rounded-[9px] bg-on-accent"><Image src="/brand/logo-mark.png" alt="" width={20} height={20} className="size-5" priority /></span>
           Social CRM
         </span>
         <div className="relative mt-7 max-w-[38rem] lg:my-auto">
