@@ -41,7 +41,7 @@ test("stage map: empty state, choose events from the page, a move sends, off sta
   await page.reload();
   const map = page.getByTestId("stage-map");
   const history = page.getByRole("region", { name: "Delivery history" });
-  const row = (label: string): Locator => map.getByRole("listitem").filter({ has: page.getByRole("button", { name: new RegExp(`(Event for|Add an event for) ${label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`) }) });
+  const row = (label: string): Locator => map.getByRole("listitem").filter({ has: page.getByRole("button", { name: new RegExp(`(Event for|Add event for) ${label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`) }) });
   await expect(page.getByText("MOCK").first()).toBeVisible();
   await expect(page.getByText("Not tested live")).toBeVisible();
   await expect(page.getByRole("combobox", { name: "Dataset" })).toBeVisible();
@@ -54,7 +54,7 @@ test("stage map: empty state, choose events from the page, a move sends, off sta
   await expect(map.getByLabel("What gets sent")).toContainText("Nothing yet");
 
   // Choose an event on a stage: Lead, no value. The picker validates custom names and refuses PageView.
-  await row(stage.name).getByRole("button", { name: `Add an event for ${stage.name}` }).click();
+  await row(stage.name).getByRole("button", { name: `Add event for ${stage.name}` }).click();
   const pop = page.getByRole("dialog", { name: `Event for ${stage.name}` });
   await pop.getByLabel("Custom event").fill("bad name");
   await pop.getByRole("button", { name: "Use" }).click();
@@ -100,7 +100,7 @@ test("stage map: empty state, choose events from the page, a move sends, off sta
   await expect(history.getByRole("row").filter({ hasText: "Lead" })).toHaveCount(1);
 
   // Test with a lead (nothing queued).
-  await page.getByText("Test with a lead").click();
+  await page.locator("summary", { hasText: "Test with a lead" }).click();
   await page.getByLabel("Lead", { exact: true }).selectOption({ label: "Alpha (Alpha Person)" });
   const result = page.getByRole("list", { name: "Test result" });
   await expect(result.getByText("Would send").first()).toBeVisible();

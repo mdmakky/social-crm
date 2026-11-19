@@ -120,15 +120,13 @@ export function StageMap({ workspaceId, dataset, pipelines, canManage }: { works
 
   return (
     <div className="@container" data-testid="stage-map">
-      <div className="flex min-h-6 items-center justify-end px-5 pt-2 text-sm" role="status" aria-live="polite">
-        <span className={cn("inline-flex items-center gap-1 text-success-fg transition-opacity", saved ? "opacity-100" : "opacity-0")}>{saved && <><Check className="size-4" aria-hidden />Saved</>}</span>
-      </div>
       {loadError ? <div className="p-4"><ErrorState title="Could not load the event map" description={loadError} onRetry={() => void load()} /></div> : rules === null ? (
         <div role="status" aria-label="Loading the event map" className="flex flex-col gap-2 p-5"><Skeleton className="h-12" /><Skeleton className="h-12" /><Skeleton className="h-12" /></div>
       ) : (
         <>
           <div aria-label="What gets sent" role="group" className="flex flex-wrap items-center gap-2 border-y border-line-card px-5 py-3.5">
             <span className="mr-1 text-sm font-semibold text-fg-subtle">What gets sent</span>
+            <span role="status" aria-live="polite" className="order-last ml-auto inline-flex min-w-[4.5rem] items-center justify-end gap-1 text-sm text-success-fg">{saved && <><Check className="size-4" aria-hidden />Saved</>}</span>
             {active.length === 0 ? <span className="text-sm text-fg-subtle">Nothing yet. Add an event to a stage below.</span> : active.map(({ r, m }) => (
               <span key={r.key} className="inline-flex min-h-8 max-w-full items-center gap-2 rounded-full border border-line bg-surface py-0.5 pl-1 pr-2.5 text-sm font-semibold">
                 {r.kind === "created" ? <Badge tone="accent" className="h-6 px-2.5 text-sm">Lead added</Badge> : <StagePill stage={r.kind === "stage" ? r.stage! : r.stages![0]!} />}
@@ -201,7 +199,7 @@ function MapRow({ row, first, last, matches, busy, err, onRetry, canManage, curr
     : <i className="block size-3.5 rounded-full ring-[3px] ring-surface" style={{ background: dotOf(row.stage ?? row.stages![0]!), boxShadow: `0 0 0 3px var(--bg-surface), 0 0 0 4.5px ${dotOf(row.stage ?? row.stages![0]!)}` }} />;
 
   return (
-    <li aria-busy={busy} className={cn("@container/row group/row relative", "grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3.5 gap-y-2.5 px-4 py-3.5 @3xl:grid-cols-[30px_11rem_minmax(11.5rem,1fr)_minmax(15rem,1.1fr)_3.5rem] @3xl:px-5 @3xl:py-0 @3xl:min-h-[4.25rem]", "max-@3xl:border-t max-@3xl:border-line-card max-@3xl:first:border-t-0")}>
+    <li aria-busy={busy} className={cn("relative border-t border-line-card first:border-t-0 @3xl:border-t-0 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3.5 gap-y-2.5 px-4 py-3.5 @3xl:grid-cols-[30px_11rem_minmax(11.5rem,1fr)_minmax(15rem,1.1fr)_3.5rem] @3xl:px-5 @3xl:py-0 @3xl:min-h-[4.25rem]")}>
       <span aria-hidden className="relative hidden self-stretch @3xl:flex @3xl:items-center @3xl:justify-center">
         <span className={cn("absolute left-1/2 -ml-px w-0.5 bg-line", first ? "top-1/2" : "top-0", last ? "bottom-1/2" : "bottom-0")} />
         <span className="relative z-[1]">{rail}</span>
@@ -216,9 +214,9 @@ function MapRow({ row, first, last, matches, busy, err, onRetry, canManage, curr
       <div className="col-span-2 @3xl:col-span-1 @3xl:col-start-3">
         <div className="flex flex-wrap items-center gap-2">
           <button ref={evRef} type="button" disabled={!canManage} aria-haspopup="dialog" aria-expanded={evOpen} onClick={() => setEvOpen(true)}
-            aria-label={m ? `Event for ${label}: ${m.eventName}. Change` : `Add an event for ${label}`}
+            aria-label={m ? `Event for ${label}: ${m.eventName}. Change` : `Add event for ${label}`}
             className={cn("press inline-flex min-h-10 max-w-full items-center gap-2 rounded-xl border px-3 text-base font-bold pointer-coarse:min-h-11 disabled:cursor-default",
-              m ? cn("border-accent/30 bg-accent-subtle text-accent-fg hover:border-accent", !isStandard(m.eventName) && "font-mono text-sm", off && "opacity-50") : "border-dashed border-line-strong text-fg-subtle hover:border-accent hover:text-accent-fg")}>
+              m ? cn(off ? "border-line bg-hover text-fg-muted" : "border-accent/30 bg-accent-subtle text-accent-fg hover:border-accent", !isStandard(m.eventName) && "font-mono text-sm") : "border-dashed border-line-strong text-fg-subtle hover:border-accent hover:text-accent-fg")}>
             {m ? <Zap className="size-4 shrink-0" aria-hidden /> : <Plus className="size-4 shrink-0" aria-hidden />}
             <span className="truncate">{m ? m.eventName : "Add event"}</span>{m && canManage && <ChevronDown className="size-3.5 shrink-0" aria-hidden />}
           </button>
@@ -231,7 +229,7 @@ function MapRow({ row, first, last, matches, busy, err, onRetry, canManage, curr
       <div className="col-span-2 min-w-0 @3xl:col-span-1 @3xl:col-start-4">
         {m ? (
           <button ref={valRef} type="button" disabled={!canManage} aria-haspopup="dialog" aria-expanded={valOpen} onClick={() => setValOpen(true)} aria-label={`Value for ${m.eventName} on ${label}: ${valueText(m)}. Change`}
-            className={cn("press -mx-2.5 flex min-h-10 items-center gap-2 rounded-control px-2.5 text-left text-fg-muted hover:bg-hover pointer-coarse:min-h-11 disabled:cursor-default disabled:hover:bg-transparent", off && "opacity-50")}>
+            className={cn("press -mx-2.5 flex min-h-10 items-center gap-2 rounded-control px-2.5 text-left hover:bg-hover pointer-coarse:min-h-11 disabled:cursor-default disabled:hover:bg-transparent", off ? "text-fg-muted" : "text-fg-muted")}>
             <ValueText m={m} currency0={currency0} />
           </button>
         ) : <span className="text-sm text-fg-subtle">Pick an event to set the value.</span>}
