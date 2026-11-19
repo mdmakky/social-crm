@@ -40,6 +40,7 @@ const taskDto = (r: Joined) => ({
   title: r.t.title,
   description: r.t.description,
   dueAt: r.t.dueAt?.toISOString() ?? null,
+  remindAt: r.t.remindAt?.toISOString() ?? null,
   status: r.t.status,
   priority: r.t.priority,
   assignee: r.t.assigneeUserId ? { id: r.t.assigneeUserId, name: r.asg ?? "" } : null,
@@ -193,14 +194,14 @@ export function taskRoutes(db: Db) {
   });
 
   // ----- create -----
-  async function create(c: SC, input: { title: string; description?: string | null; dueAt?: string | null; assigneeUserId?: string | null; priority?: "low" | "normal" | "high" | "urgent"; contactId?: string | null }, scopedContact: boolean, leadId?: string) {
+  async function create(c: SC, input: { title: string; description?: string | null; dueAt?: string | null; remindAt?: string | null; assigneeUserId?: string | null; priority?: "low" | "normal" | "high" | "urgent"; contactId?: string | null }, scopedContact: boolean, leadId?: string) {
     const { workspaceId, userId } = wctx(c);
     return withContext(db, wctx(c), async (tx) => {
       if (leadId && !(await loadLead(tx, workspaceId, leadId))) return fail(c, 404, "not_found");
       if (input.contactId && !(await loadContact(tx, workspaceId, input.contactId))) return scopedContact ? fail(c, 404, "not_found") : fail(c, 400, "invalid_contact", "That contact could not be found.");
       const assignee = input.assigneeUserId === undefined ? userId : input.assigneeUserId;
       if (assignee && !(await activeMember(tx, workspaceId, assignee))) return fail(c, 400, "invalid_assignee", "The assignee must be a member of this workspace.");
-      const [t] = await tx.insert(schema.tasks).values({ workspaceId, contactId: input.contactId ?? null, title: input.title, description: input.description ?? null, dueAt: input.dueAt ? new Date(input.dueAt) : null, assigneeUserId: assignee, priority: input.priority ?? "normal", createdBy: userId }).returning();
+      const [t] = await tx.insert(schema.tasks).values({ workspaceId, contactId: input.contactId ?? null, title: input.title, description: input.description ?? null, dueAt: input.dueAt ? new Date(input.dueAt) : null, remindAt: input.dueAt && input.remindAt ? new Date(input.remindAt) : null, assigneeUserId: assignee, priority: input.priority ?? "normal", createdBy: userId }).returning();
       if (assignee) await emitEvent(tx, { workspaceId, type: "task.assigned", entityType: "task", entityId: t!.id, actorUserId: userId, payload: { assigneeUserId: assignee, title: t!.title, contactId: t!.contactId ?? null } });
       await addEvent(tx, workspaceId, t!.id, userId, "created", { title: t!.title, priority: t!.priority, dueAt: t!.dueAt?.toISOString() ?? null, assignee: await person(tx, assignee), contact: input.contactId ?? null });
       if (leadId) await linkLead(tx, workspaceId, t!.id, leadId);
@@ -307,6 +308,12 @@ export function taskRoutes(db: Db) {
       if (d.dueAt !== undefined) {
         const next = d.dueAt ? new Date(d.dueAt) : null;
         if (!dayEq(next, t.dueAt)) { patch.dueAt = next; events.push(["due_date_changed", { from: t.dueAt?.toISOString() ?? null, to: next?.toISOString() ?? null }]); }
+      }
+      // A reminder only makes sense with a due time; changing it re-arms it (reminded_at cleared). Clearing the due date clears the reminder.
+      if (d.remindAt !== undefined || (d.dueAt === null && t.remindAt)) {
+        const dueAfter = patch.dueAt !== undefined ? patch.dueAt : t.dueAt;
+        const nextRemind = d.remindAt && dueAfter ? new Date(d.remindAt) : d.remindAt === undefined && dueAfter ? t.remindAt : null;
+        if ((nextRemind?.getTime() ?? null) !== (t.remindAt?.getTime() ?? null)) { patch.remindAt = nextRemind; patch.remindedAt = null; }
       }
       if (d.priority !== undefined && d.priority !== t.priority) { patch.priority = d.priority; events.push(["priority_changed", { from: t.priority, to: d.priority }]); }
       if (d.assigneeUserId !== undefined && (d.assigneeUserId ?? null) !== t.assigneeUserId) {

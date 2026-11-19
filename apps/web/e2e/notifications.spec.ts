@@ -63,7 +63,7 @@ test("bell badge updates through polling in a second browser context, and the co
   const t = await twoUsers(browser, "Poll");
   await t.sam.clock.install(); // lets the test jump past the 30 s poll interval
   await t.sam.goto(`/w/${t.workspaceId}`);
-  await expect(t.sam.getByRole("link", { name: "Notifications", exact: true })).toBeVisible();
+  await expect(t.sam.getByRole("button", { name: "Notifications", exact: true })).toBeVisible();
   await expect(badge(t.sam)).toHaveCount(0);
 
   await emit(t.workspaceId, "task.assigned", "task", "t-1", t.mayaEmail, { assigneeUserId: t.samId, title: "Call Ana back" });
@@ -71,7 +71,7 @@ test("bell badge updates through polling in a second browser context, and the co
   await expect.poll(() => countRows(t.workspaceId, t.samId), { timeout: 15_000 }).toBe(2); // the API's dispatcher did its job
   await t.sam.clock.fastForward(31_000);
   await expect(badge(t.sam)).toHaveText("2");
-  await expect(t.sam.getByRole("link", { name: "Notifications, 2 unread" })).toBeVisible();
+  await expect(t.sam.getByRole("button", { name: "Notifications, 2 unread" })).toBeVisible();
   await expect(t.sam.getByRole("status").filter({ hasText: "2 unread notifications" })).toHaveCount(1);
   expect(await t.sam.getByRole("status").filter({ hasText: "unread" }).getAttribute("aria-live")).toBe("polite");
 
@@ -208,7 +208,7 @@ test.describe("touch", () => {
     const uid = await userId(email);
     await bulkNotifications(workspaceId, uid, 2);
     await page.goto(`/w/${workspaceId}/notifications`);
-    const bell = await page.getByRole("link", { name: /^Notifications/ }).boundingBox();
+    const bell = await page.getByRole("button", { name: /^Notifications/ }).boundingBox();
     expect(bell!.height).toBeGreaterThanOrEqual(44);
     expect(bell!.width).toBeGreaterThanOrEqual(44);
     for (const name of ["Mark all as read", "All", "Unread", /Mark as read: Bulk/]) {

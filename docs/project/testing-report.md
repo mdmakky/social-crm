@@ -349,3 +349,9 @@ Private DB `inv_f` (fresh via `scripts/db-create.sh inv_f`), migration 0035.
 - axe (serious and critical) clean at 1440, 768 and 375 on the page (empty state, map, event picker) and the dialog; no horizontal scroll at 1440, 768, 375, 320. Screenshots viewed at 1440 and 375 against the A2 demo.
 - Lint and typecheck pass in every package except `@crm/mobile` typecheck, which fails in this worktree because `expo/tsconfig.base` is not installed (environment; untouched code).
 - Not verified: real Meta, real devices and screen readers.
+
+## Notification panel and task reminders (2026-11-19, `feat/notification-panel`, fresh DBs)
+- API: `task-reminders.test.ts` (5 tests: remindAt only with a due time, one reminder when due and never twice, none before the time or for a finished task, re-arm on change and clear with the due date, muted preference). Full API suite 935 passed, 14 skipped; db suite 244 passed; lint and typecheck 24 of 24.
+- Web e2e `notification-panel.spec.ts` (4 tests): the bell opens a panel without navigating, Done with Undo, Snooze, View all, Escape returns focus to the bell; a due reminder arrives as an unread update and the Reminders and Leads filters work, mark all read clears the badge; the follow-up picker (hour, minute and AM/PM grid, month calendar, 1 hour before) saves the right due time and reminder; phone bottom sheet with tabs, 44 px targets, axe clean, no sideways scroll.
+- Updated: `notifications.spec.ts` (the bell is a button now). Re-run and passing: notifications, tasks, tasks-responsive, mobile, settings-nav, voice-typing (32 tests).
+- Not run: the full e2e suite; real-device checks.

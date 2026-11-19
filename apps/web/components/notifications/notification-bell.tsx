@@ -1,10 +1,10 @@
 "use client";
 import * as React from "react";
-import Link from "next/link";
 import { Bell } from "lucide-react";
 import { endpoints } from "@crm/contracts";
 import { Button } from "@/components/ui/button";
 import { browserApi } from "@/lib/client-api";
+import { NotificationPanel } from "./notification-panel";
 
 /** Other components dispatch this after changing read state so the bell refreshes without waiting for the poll. */
 export const NOTIFICATIONS_CHANGED = "crm:notifications-changed";
@@ -46,21 +46,23 @@ export function useUnreadCount(workspaceId: string) {
   return { count, announcement };
 }
 
+/** The bell opens a panel (tasks due and updates) in place; "View all notifications" inside it goes to the full page. */
 export function NotificationBell({ workspaceId }: { workspaceId: string }) {
   const { count, announcement } = useUnreadCount(workspaceId);
+  const [open, setOpen] = React.useState(false);
+  const ref = React.useRef<HTMLButtonElement>(null);
   const label = count ? `Notifications, ${count} unread` : "Notifications";
   return (
     <>
-      <Button asChild variant="ghost" icon className="relative">
-        <Link href={`/w/${workspaceId}/notifications`} aria-label={label}>
-          <Bell aria-hidden />
-          {count ? (
-            <span aria-hidden data-testid="unread-badge" className="absolute -right-0.5 -top-0.5 min-w-4 rounded-full bg-accent px-1 text-center text-[10px] font-semibold leading-4 text-on-accent">
-              {count > 99 ? "99+" : count}
-            </span>
-          ) : null}
-        </Link>
+      <Button ref={ref} variant="ghost" icon className="relative" aria-label={label} aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen(true)}>
+        <Bell aria-hidden />
+        {count ? (
+          <span aria-hidden data-testid="unread-badge" className="absolute -right-0.5 -top-0.5 min-w-4 rounded-full bg-accent px-1 text-center text-[10px] font-semibold leading-4 text-on-accent">
+            {count > 99 ? "99+" : count}
+          </span>
+        ) : null}
       </Button>
+      <NotificationPanel workspaceId={workspaceId} open={open} onOpenChange={setOpen} anchor={ref} />
       {/* Polite announcement of unread-count changes after the first load */}
       <span role="status" aria-live="polite" className="sr-only">{announcement}</span>
     </>
