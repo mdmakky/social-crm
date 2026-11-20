@@ -29,6 +29,8 @@ export const AiProviderDto = z.object({
   modelPrices: z.record(z.string(), Price),
   /** When the last REAL call through this provider succeeded (a workspace run that ended ok). Null = never proven. */
   lastOkAt: z.string().nullable(),
+  /** The server itself holds a key for this provider (GEMINI_API_KEY), so a workspace may connect without pasting one. The key is never returned. */
+  serverKey: z.boolean(),
 });
 export type AiProviderDto = z.infer<typeof AiProviderDto>;
 export const AiProviderList = z.object({ items: z.array(AiProviderDto) });

@@ -30,7 +30,8 @@ export function createOpenAiCompatible(o: HttpOptions & { baseUrl?: string; id?:
     const choice = j?.choices?.[0];
     const toolCalls = parseToolCalls(choice?.message?.tool_calls);
     // A tool-call answer has null content: that is valid. Anything else without text is not.
-    const content = typeof choice?.message?.content === "string" ? choice.message.content : toolCalls.length ? "" : null;
+    // A reasoning model can spend the whole token budget thinking and answer with null content and finish_reason "length": that is an empty, truncated answer, not a broken provider.
+    const content = typeof choice?.message?.content === "string" ? choice.message.content : toolCalls.length || choice?.finish_reason === "length" ? "" : null;
     if (!choice || content === null) throw new AiError("provider_error");
     const finishReason = finish(choice.finish_reason);
     const usage: { inputTokens: number; outputTokens: number; reportedCostMicro?: number } = { inputTokens: int(j?.usage?.prompt_tokens), outputTokens: int(j?.usage?.completion_tokens) };

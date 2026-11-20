@@ -78,7 +78,7 @@ describe("logging helpers", () => {
 
 describe("registry and mock", () => {
   it("keys providers by id; unknown is an error", () => {
-    expect(Object.keys(PROVIDERS).sort()).toEqual(["anthropic", "mock", "openai", "openrouter"]);
+    expect(Object.keys(PROVIDERS).sort()).toEqual(["anthropic", "gemini", "mock", "openai", "openrouter"]);
     expect(getProvider("mock").id).toBe("mock");
     expect(() => getProvider("nope")).toThrow(/unknown ai provider/);
     expect(PROVIDERS.mock!.mock).toBe(true);

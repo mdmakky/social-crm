@@ -24,6 +24,7 @@ export function pickMediaCfg<C extends JobCfg>(cfgs: C[], needs: readonly Capabi
 export function pinProblem(cfg: JobCfg | undefined, provider: string, model: string, needs: readonly Capability[]): string | null {
   const label = providerDef(provider)?.label ?? provider;
   if (!cfg || !providerDef(provider)) return `${label} is not set up or is turned off, so the pinned model is not used.`;
+  if (model.endsWith(":batch")) return `${model} is a batch-only model and cannot answer chat requests, so the pinned model is not used. Choose another model.`;
   const m = priceOf(provider, model, cfg.prices);
   if (!m) return `${model} is no longer enabled for ${label}, so the pinned model is not used.`;
   if (!needs.some((n) => m.capabilities.includes(n))) return `${model} cannot do this job any more, so the pinned model is not used.`;

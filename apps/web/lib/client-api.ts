@@ -21,6 +21,9 @@ const MESSAGES: Record<string, string> = {
   not_found: "That item no longer exists.",
   invalid_body: "Some of the values are not valid.",
   unauthenticated: "Your session has ended. Sign in again to continue.",
+  // The AI connection test answers 502 on purpose; without these the plain 5xx message would hide why it failed.
+  ai_key_rejected: "The provider rejected the key. Check it and try again.",
+  ai_unavailable: "The AI provider did not accept the test request. Check the key and the main model (Change model), then try again.",
   contract_mismatch: "The app and the server are out of sync. Reload the page; if this keeps happening, update the app.",
 };
 export const errorMessage = (e: ApiError) => (e.kind === "network" || e.kind === "timeout" ? e.message : MESSAGES[e.code] ?? (e.kind === "http" && e.message && e.status < 500 ? e.message : "Something went wrong. Please try again."));

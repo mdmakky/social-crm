@@ -22,6 +22,9 @@ export const DEFAULT_CATALOG: readonly ModelInfo[] = [
   { provider: "anthropic", id: "claude-haiku-4-5", label: "Claude Haiku 4.5", inputMicroPer1M: 1_000_000, outputMicroPer1M: 5_000_000, capabilities: ["text", "vision", "document"] },
   { provider: "openai", id: "gpt-4o", label: "GPT-4o", inputMicroPer1M: 2_500_000, outputMicroPer1M: 10_000_000, capabilities: ["text", "vision"] },
   { provider: "openai", id: "gpt-4o-mini", label: "GPT-4o mini", inputMicroPer1M: 150_000, outputMicroPer1M: 600_000, capabilities: ["text", "vision"] },
+  // Gemini bills audio by tokens (about 32 per second); this is that figure as a per-minute estimate, UNVERIFIED, in micro-USD.
+  { provider: "gemini", id: "gemini-2.5-flash", label: "Gemini 2.5 Flash (speech to text)", inputMicroPer1M: 0, outputMicroPer1M: 0, capabilities: ["transcription"], transcriptionMicroPerMinute: 2_000 },
+  { provider: "gemini", id: "gemini-2.5-flash-lite", label: "Gemini 2.5 Flash-Lite (speech to text)", inputMicroPer1M: 0, outputMicroPer1M: 0, capabilities: ["transcription"], transcriptionMicroPerMinute: 700 },
   { provider: "openai", id: "whisper-1", label: "Whisper (speech to text)", inputMicroPer1M: 0, outputMicroPer1M: 0, capabilities: ["transcription"], transcriptionMicroPerMinute: 6_000 },
 ];
 

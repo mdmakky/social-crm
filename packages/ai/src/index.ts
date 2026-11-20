@@ -9,6 +9,7 @@ export * from "./registry.ts";
 export * from "./openrouter-models.ts";
 export { createAnthropic } from "./providers/anthropic.ts";
 export { createOpenAiCompatible } from "./providers/openai.ts";
+export { createGemini, GEMINI_BASE_URL, GEMINI_MAX_INLINE_BYTES, TRANSCRIBE_PROMPT } from "./providers/gemini.ts";
 export { createMockProvider } from "./providers/mock.ts";
 export * from "./prompts.ts";
 export * from "./agent.ts";

@@ -49,8 +49,15 @@ export function JobsPanel({ workspaceId, providers, active, jobs, jobsError, usa
   const [busy, setBusy] = React.useState<AiJobKey | null>(null);
   const [rowError, setRowError] = React.useState<{ job: AiJobKey; text: string } | null>(null);
   const per = usageByJob(usage);
+  /** The provider a job's model comes from. Voice and documents need an adapter that can take audio or PDFs: another connected provider (Gemini, Whisper, Anthropic) when the main one cannot. */
+  const providerFor = (job: AiJobKey): AiProviderDto | null => {
+    const needs = AI_JOBS[job].needs;
+    if (needs === "text" || needs === "vision") return active;
+    return providers.find((p) => p.configured && p.enabled && p.id !== "openrouter" && p.models.some((m) => (m.capabilities ?? ["text"]).includes(needs))) ?? active;
+  };
 
   async function assign(job: AiJobKey, row: ModelRow): Promise<string | null> {
+    const active = providerFor(job);
     if (!active) return "Connect a provider first.";
     const enable = active.id === "openrouter" && !active.modelPrices[row.id];
     const setDefault = (job === "reply" || job === "agent") && !active.defaultModel;
@@ -81,7 +88,7 @@ export function JobsPanel({ workspaceId, providers, active, jobs, jobsError, usa
   return (
     <Panel id="ai-jobs" className="scroll-mt-14">
       {head}
-      {!active && <p className="mx-4 mt-3 rounded-control bg-warning-bg px-3 py-2 text-sm text-warning-fg">Connect AI above first. Then each job below can be turned on.</p>}
+      {!active && !JOB_ORDER.some((j) => providerFor(j)) && <p className="mx-4 mt-3 rounded-control bg-warning-bg px-3 py-2 text-sm text-warning-fg">Connect AI above first. Then each job below can be turned on.</p>}
       <ul aria-label="AI jobs" className="flex flex-col divide-y divide-line-card">
         {JOB_ORDER.map((job) => {
           const dto = jobs.find((x) => x.job === job);
@@ -104,15 +111,15 @@ export function JobsPanel({ workspaceId, providers, active, jobs, jobsError, usa
                 {st.kind === "needs" && <Badge tone="warning"><AlertTriangle aria-hidden className="size-3" />Not set up</Badge>}
                 {st.kind === "problem" && <Badge tone="danger"><AlertTriangle aria-hidden className="size-3" />Problem</Badge>}
                 {dto?.pinned && <Button type="button" size="sm" variant="ghost" loading={busy === job} onClick={() => void automatic(job)} aria-label={`Use automatic for ${label}`}>Use automatic</Button>}
-                <Button type="button" size="sm" variant="secondary" disabled={!active} onClick={() => { setRowError(null); setOpenJob(job); }}>{st.kind === "working" ? "Change" : "Set up"}<span className="sr-only"> the model for {label}</span></Button>
+                <Button type="button" size="sm" variant="secondary" disabled={!providerFor(job)} onClick={() => { setRowError(null); setOpenJob(job); }}>{st.kind === "working" ? "Change" : "Set up"}<span className="sr-only"> the model for {label}</span></Button>
               </div>
             </li>
           );
         })}
       </ul>
       <p className="border-t border-line-card px-4 py-3 text-xs text-fg-subtle">Cost is estimated from the provider&apos;s price list, in USD. Automatic picks the main model, or the first enabled one that can do the job.</p>
-      {openJob && active && (
-        <ModelBrowser open onOpenChange={(o) => { if (!o) setOpenJob(null); }} workspaceId={workspaceId} provider={active} title={`Choose a model: ${AI_JOBS[openJob].label}`} needs={AI_JOBS[openJob].needs}
+      {openJob && providerFor(openJob) && (
+        <ModelBrowser open onOpenChange={(o) => { if (!o) setOpenJob(null); }} workspaceId={workspaceId} provider={providerFor(openJob)!} title={`Choose a model: ${AI_JOBS[openJob].label}`} needs={AI_JOBS[openJob].needs}
           current={jobs.find((x) => x.job === openJob)?.effective?.model ?? null} onChoose={(row) => assign(openJob, row)} />
       )}
     </Panel>

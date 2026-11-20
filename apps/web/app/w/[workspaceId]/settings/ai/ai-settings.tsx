@@ -58,7 +58,9 @@ function Inner({ workspaceId, dev }: { workspaceId: string; dev: boolean }) {
   // Mock is a developer tool: outside developer mode it never counts as a working provider.
   const real = data.providers.filter((p) => dev || !p.mock);
   const mockOn = data.providers.find((p) => p.mock && p.configured && p.enabled) ?? null;
-  const active = real.find((p) => p.configured && p.enabled && p.isDefault) ?? real.find((p) => p.configured && p.enabled) ?? null;
+  // Speech-only providers (Gemini) never act as the main provider for replies and notes.
+  const chat = real.filter((p) => p.models.some((m) => (m.capabilities ?? ["text"]).includes("text")) || p.id === "openrouter");
+  const active = chat.find((p) => p.configured && p.enabled && p.isDefault) ?? chat.find((p) => p.configured && p.enabled) ?? null;
   return (
     <div className="flex max-w-4xl flex-col gap-[var(--page-gap)]">
       {mockOn && dev && <Alert tone="warning">MOCK mode. The mock provider is offline and returns canned text, so every cost shows $0.</Alert>}
@@ -74,7 +76,7 @@ function Inner({ workspaceId, dev }: { workspaceId: string; dev: boolean }) {
 
 type P = { params: { workspaceId: string } };
 
-const KEY_LINKS: Record<string, string> = { openrouter: "https://openrouter.ai/keys", openai: "https://platform.openai.com/api-keys", anthropic: "https://console.anthropic.com/settings/keys" };
+const KEY_LINKS: Record<string, string> = { gemini: "https://aistudio.google.com/apikey", openrouter: "https://openrouter.ai/keys", openai: "https://platform.openai.com/api-keys", anthropic: "https://console.anthropic.com/settings/keys" };
 
 /** A sensible first model for OpenRouter so the owner never has to pick one before connecting: cheapest paid model that takes tools and structured output and has room for a conversation. */
 export function pickStarter(items: OpenRouterModelDto[]): OpenRouterModelDto | null {
@@ -97,13 +99,14 @@ function ConnectCard({ params, providers, onSaved }: P & { providers: AiProvider
   const [test, setTest] = React.useState<Test>({ kind: "idle" });
   const [browse, setBrowse] = React.useState(false);
   const gateway = id === "openrouter";
+  const chatCapable = gateway || current.models.some((m) => (m.capabilities ?? ["text"]).includes("text"));
 
   function choose(next: string) { setId(next); setKey(""); setKeyError(null); setTest({ kind: "idle" }); setBaseUrl(providers.find((x) => x.id === next)?.baseUrl ?? ""); }
 
   async function connect() {
     setKeyError(null); setTest({ kind: "idle" });
     const k = key.trim();
-    if (!current.mock && !current.configured && k.length < 8) { setKeyError("Paste the provider's API key."); return; }
+    if (!current.mock && !current.configured && !current.serverKey && k.length < 8) { setKeyError("Paste the provider's API key."); return; }
     if (k && /\s/.test(k)) { setKeyError("Paste the whole key, with no spaces."); return; }
     setBusy(true);
     // First connect on OpenRouter: pick a starting model for the owner (changeable any time).
@@ -116,7 +119,7 @@ function ConnectCard({ params, providers, onSaved }: P & { providers: AiProvider
     const r = await browserApi.call(endpoints.setAiProvider, { params: { ...params, provider: id }, body: {
       ...(starter ? { modelPrices: { [starter.id]: entryOfModel(starter) }, defaultModel: starter.id } : {}),
       ...(k ? { apiKey: k } : {}), ...(current.customBaseUrl ? { baseUrl: baseUrl.trim() || null } : {}),
-      enabled: true, isDefault: true,
+      enabled: true, isDefault: chatCapable,
     } });
     setKey(""); // the key leaves the page as soon as the server answered
     if (!r.ok) { setBusy(false); setTest({ kind: "failed", message: errorMessage(r.error) }); return; }
@@ -159,7 +162,7 @@ function ConnectCard({ params, providers, onSaved }: P & { providers: AiProvider
             </Select>
           )}</Field>
           {!current.mock && (
-            <Field label="API key" error={keyError} hint={current.configured && current.keyLast4 ? `A key ending in ${current.keyLast4} is stored. Leave this empty to keep it. A new key replaces it.` : "Stored encrypted. It is never shown again."}>{(p) => (
+            <Field label="API key" error={keyError} hint={current.configured && current.keyLast4 ? `A key ending in ${current.keyLast4} is stored. Leave this empty to keep it. A new key replaces it.` : current.serverKey ? "This server already has a key for this provider. Leave this empty to use it, or paste your own." : "Stored encrypted. It is never shown again."}>{(p) => (
               <Input {...p} type="password" autoComplete="off" spellCheck={false} value={key} disabled={busy} onChange={(e) => setKey(e.target.value)} />
             )}</Field>
           )}
@@ -176,13 +179,13 @@ function ConnectCard({ params, providers, onSaved }: P & { providers: AiProvider
           {tested && test.kind === "idle" && current.lastOkAt && <p className="text-sm text-fg-muted">A real request last worked on {new Date(current.lastOkAt).toLocaleDateString()}.</p>}
         </div>
         {model && current.configured && (
-          <p className="text-sm text-fg-muted">We use <span className="font-medium text-fg">{model}</span> for replies and notes. <button type="button" className="font-medium text-accent-fg underline-offset-2 hover:underline" onClick={() => setBrowse(true)}>Change model</button></p>
+          <p className="text-sm text-fg-muted">We use <span className="font-medium text-fg">{model}</span> for {chatCapable ? "replies and notes" : "voice messages"}. <button type="button" className="font-medium text-accent-fg underline-offset-2 hover:underline" onClick={() => setBrowse(true)}>Change model</button></p>
         )}
         <div className="flex flex-wrap gap-2">
           <Button type="submit" variant="primary" loading={busy || test.kind === "testing"}><Plug className="size-4" aria-hidden />{current.configured ? (key.trim() ? "Save key and test" : "Test connection") : "Connect and test"}</Button>
         </div>
       </form>
-      {browse && <ModelBrowser open onOpenChange={setBrowse} workspaceId={params.workspaceId} provider={current} title="Choose the main model" needs="text" current={current.defaultModel} onChoose={changeModel} />}
+      {browse && <ModelBrowser open onOpenChange={setBrowse} workspaceId={params.workspaceId} provider={current} title={chatCapable ? "Choose the main model" : "Choose the voice model"} needs={chatCapable ? "text" : "transcription"} current={current.defaultModel} onChoose={changeModel} />}
     </Panel>
   );
 }

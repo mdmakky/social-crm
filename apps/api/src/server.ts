@@ -65,6 +65,9 @@ const env = z
     OPENROUTER_REFERER: z.string().url().optional(),
     OPENROUTER_TITLE: z.string().max(100).optional(),
     OPENROUTER_MOCK: z.enum(["0", "1"]).default("0"),
+    // Google Gemini, speech to text only. GEMINI_API_KEY is an operator-wide key used when a workspace connects Gemini without pasting its own (workspace keys still win). Server-side only, never logged or returned.
+    GEMINI_API_KEY: z.string().min(8).max(500).regex(/^\S+$/).optional(),
+    GEMINI_TRANSCRIPTION_MODEL: z.string().regex(/^[a-z0-9][a-z0-9._-]{0,60}$/i).optional(),
     // Direct Instagram connection (Unified Login, no Facebook Page): the id of a Facebook Login for Business configuration marked "Instagram Login Compatible" (App Dashboard > Facebook Login for Business > Configurations), and its redirect URL.
     META_IG_CONFIG_ID: z.string().regex(/^[0-9]{5,30}$/).optional(),
     META_IG_OAUTH_REDIRECT_URI: z.string().url().optional(),
@@ -124,6 +127,7 @@ if (env.NODE_ENV === "production" && env.OPENROUTER_MOCK === "1") throw new Erro
 const orMock = env.OPENROUTER_MOCK === "1";
 const ai: AiDeps | undefined = workerDb && env.SECRETS_ENCRYPTION_KEY ? {
   workerDb, box: createSecretBox({ [env.SECRETS_KEY_ID]: env.SECRETS_ENCRYPTION_KEY }, env.SECRETS_KEY_ID), referer: env.OPENROUTER_REFERER, title: env.OPENROUTER_TITLE,
+  ...(env.GEMINI_API_KEY ? { envKeys: { gemini: env.GEMINI_API_KEY } } : {}), ...(env.GEMINI_TRANSCRIPTION_MODEL ? { envModels: { gemini: env.GEMINI_TRANSCRIPTION_MODEL } } : {}),
   ...(orMock ? { providerFor: (id, o) => (id === "openrouter" ? mockOpenRouterProvider() : getProvider(id, o)) } : {}),
 } : undefined;
 const store = createBlobStore(env);

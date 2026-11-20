@@ -4,7 +4,7 @@ import { bodyLimit } from "hono/body-limit";
 import type { z } from "zod";
 import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { ActivateAiPromptBody, AI_JOBS, AiJobSchema, AiUsageQuery, SetAiJobModelBody, type AiJobKey, type AiJobModelDto, MediaAskBody, MediaDescribeBody, MediaExtractBody, MediaTranscribeBody, type AiCapabilities, type MediaResult, SetAiBudgetBody, SetAiPromptBody, SetAiProviderBody, type AiBudgetDto, type AiPromptDto, type AiProviderDto, type AiStatusDto, type AiUsageDto, type SuggestReplyResult } from "@crm/contracts";
-import { checkTemplate, modelsFor, priceOf, PROMPTS, PROVIDERS, promptDef, providerDef, renderTemplate, REPLY_SUGGESTION_KEY, TemplateError, type Capability, type PriceOverrides, type StoredModel } from "@crm/ai";
+import { checkTemplate, DEFAULT_CATALOG, modelsFor, priceOf, PROMPTS, PROVIDERS, promptDef, providerDef, renderTemplate, REPLY_SUGGESTION_KEY, TemplateError, type Capability, type PriceOverrides, type StoredModel } from "@crm/ai";
 import { can } from "@crm/core/permissions";
 import { schema, withContext, type Db, type Tx } from "@crm/db";
 import { writeAudit } from "../audit.ts";
@@ -40,17 +40,25 @@ export function safeBaseUrl(raw: string): string | null {
   }
 }
 
-const toProvider = (id: string, cfg?: typeof schema.aiProviderConfigs.$inferSelect, lastOkAt: Date | null = null): AiProviderDto => {
+const toProvider = (id: string, cfg?: typeof schema.aiProviderConfigs.$inferSelect, lastOkAt: Date | null = null, serverKey = false): AiProviderDto => {
   const def = PROVIDERS[id]!;
   const prices = (cfg?.modelPrices ?? {}) as PriceOverrides;
   return {
     id, label: def.label, mock: def.mock, customBaseUrl: def.customBaseUrl,
     models: modelsFor(id, prices).map((m) => ({ id: m.id, label: m.label, inputMicroPer1M: m.inputMicroPer1M, outputMicroPer1M: m.outputMicroPer1M, capabilities: [...m.capabilities], ...(m.contextLength ? { contextLength: m.contextLength } : {}), ...(m.supports ? { supports: m.supports } : {}) })),
-    configured: !!cfg, enabled: cfg?.enabled ?? false, isDefault: cfg?.isDefault ?? false, defaultModel: cfg?.defaultModel ?? null, keyLast4: cfg?.keyLast4 ?? null, baseUrl: cfg?.baseUrl ?? null, modelPrices: prices, lastOkAt: lastOkAt?.toISOString() ?? null,
+    configured: !!cfg, enabled: cfg?.enabled ?? false, isDefault: cfg?.isDefault ?? false, defaultModel: cfg?.defaultModel ?? null, keyLast4: cfg?.keyLast4 ?? null, baseUrl: cfg?.baseUrl ?? null, modelPrices: prices, lastOkAt: lastOkAt?.toISOString() ?? null, serverKey,
   };
 };
 
-const ROUTER_OR_BAD_ID = (id: string) => id.startsWith("openrouter/") || !/^[\w.:~@+-]+(\/[\w.:~@+-]+)+$/.test(id);
+/** 0.5 s of 8 kHz mono 8-bit silence as a WAV file. */
+const silentWav = (): Uint8Array => {
+  const n = 4000, b = Buffer.alloc(44 + n, 0x80);
+  b.write("RIFF", 0); b.writeUInt32LE(36 + n, 4); b.write("WAVEfmt ", 8); b.writeUInt32LE(16, 16); b.writeUInt16LE(1, 20); b.writeUInt16LE(1, 22);
+  b.writeUInt32LE(8000, 24); b.writeUInt32LE(8000, 28); b.writeUInt16LE(1, 32); b.writeUInt16LE(8, 34); b.write("data", 36); b.writeUInt32LE(n, 40);
+  return new Uint8Array(b);
+};
+
+const ROUTER_OR_BAD_ID = (id: string) => id.startsWith("openrouter/") || id.endsWith(":batch") || !/^[\w.:~@+-]+(\/[\w.:~@+-]+)+$/.test(id);
 
 /**
  * What gets stored per enabled model. Prices come from the request. For OpenRouter the extra fields are never trusted from the client: capabilities are the client's choice INTERSECTED with what the
@@ -65,7 +73,7 @@ export function sanitizeModelPrices(provider: string, input: Record<string, Stor
   }
   const prices: PriceOverrides = {};
   for (const [id, p] of entries) {
-    if (ROUTER_OR_BAD_ID(id)) return { ok: false, message: `"${id}" is not a model id that can be enabled (router aliases such as openrouter/auto are not supported).` };
+    if (ROUTER_OR_BAD_ID(id)) return { ok: false, message: `"${id}" is not a model id that can be enabled (router aliases such as openrouter/auto and batch-only ":batch" models are not supported).` };
     const known = cached?.items.find((m) => m.id === id);
     const prev = existing[id];
     const allowed: readonly Capability[] = known ? known.capabilities : prev?.capabilities ?? [];
@@ -88,6 +96,7 @@ export function aiRoutes(db: Db, deps: AiRouteDeps = {}) {
   const browses = new WindowCounter(deps.browsesPerUser ?? 30, 10 * 60_000);
   const browser = deps.browser ?? createModelBrowser();
   const manage = (c: SC) => can(c.get("role"), "ai.configure", {});
+  const hasServerKey = (id: string) => !!(PROVIDERS[id]?.envKey && deps.ai?.envKeys?.[id]);
 
   /** OpenRouter model browser: the public list, no key, no database transaction (the fetch happens here, outside any). Owner and admin only. */
   r.get("/ai/providers/openrouter/models", async (c) => {
@@ -108,7 +117,7 @@ export function aiRoutes(db: Db, deps: AiRouteDeps = {}) {
       rows: await tx.select().from(schema.aiProviderConfigs).where(eq(schema.aiProviderConfigs.workspaceId, c.get("workspaceId"))),
       ok: await tx.select({ provider: schema.aiRuns.provider, at: sql<Date>`max(${schema.aiRuns.createdAt})` }).from(schema.aiRuns).where(and(eq(schema.aiRuns.workspaceId, c.get("workspaceId")), eq(schema.aiRuns.status, "ok"))).groupBy(schema.aiRuns.provider),
     }));
-    return c.json({ items: Object.keys(PROVIDERS).map((id) => toProvider(id, rows.find((x) => x.provider === id), (() => { const a = ok.find((x) => x.provider === id)?.at; return a ? new Date(a) : null; })())) });
+    return c.json({ items: Object.keys(PROVIDERS).map((id) => toProvider(id, rows.find((x) => x.provider === id), (() => { const a = ok.find((x) => x.provider === id)?.at; return a ? new Date(a) : null; })(), hasServerKey(id))) });
   });
 
   /** One tiny real call. Mock answers offline and says so (the result carries mock: true); a real provider that answers proves the key and model work. */
@@ -120,7 +129,10 @@ export function aiRoutes(db: Db, deps: AiRouteDeps = {}) {
     if (!deps.ai) return fail(c, 503, "ai_unavailable", "AI is not available on this server.");
     const { workspaceId, userId } = wctx(c);
     const t0 = Date.now();
-    const res = await runAi(deps.ai, { workspaceId, userId, capability: "connection_test", promptKey: "connection_test", vars: {}, system: "Reply with the single word OK.", input: "Connection test.", maxOutputTokens: 8, provider: id });
+    // A provider with no chat model (Gemini, speech to text only) is tested with half a second of silence: any answer, even an empty transcript, proves the key and model work.
+    const speechOnly = id !== "openrouter" && !DEFAULT_CATALOG.some((m) => m.provider === id && m.capabilities.includes("text"));
+    const base: RunInput = { workspaceId, userId, capability: "connection_test", promptKey: "connection_test", vars: {}, system: "Reply with the single word OK.", input: "Connection test.", maxOutputTokens: 32, provider: id };
+    const res = await runAi(deps.ai, speechOnly ? { ...base, media: { needs: ["transcription"], prompt: "", input: { kind: "audio", mime: "audio/wav", bytes: silentWav() } } } : base);
     if (res.ok) return c.json({ ok: true as const, model: res.model, latencyMs: Date.now() - t0, mock: res.mock });
     switch (res.code) {
       case "not_configured": return fail(c, 409, "not_configured", "Save the provider first, with its key and a model.");
@@ -151,14 +163,15 @@ export function aiRoutes(db: Db, deps: AiRouteDeps = {}) {
 
     return withContext(db, wctx(c), async (tx) => {
       const [existing] = await tx.select().from(schema.aiProviderConfigs).where(and(eq(schema.aiProviderConfigs.workspaceId, workspaceId), eq(schema.aiProviderConfigs.provider, providerId)));
-      if (!existing && !def.mock && d.apiKey === undefined) return fail(c, 400, "key_required", "Add the provider's API key to connect it.");
+      if (!existing && !def.mock && d.apiKey === undefined && !hasServerKey(providerId)) return fail(c, 400, "key_required", "Add the provider's API key to connect it.");
       let prices = (existing?.modelPrices ?? {}) as PriceOverrides;
       if (d.modelPrices) {
         const s = sanitizeModelPrices(providerId, d.modelPrices as Record<string, StoredModel>, prices, browser.peek());
         if (!s.ok) return fail(c, 400, "invalid_body", s.message);
         prices = s.prices;
       }
-      const model = d.defaultModel ?? existing?.defaultModel ?? modelsFor(providerId, prices)[0]?.id ?? null;
+      const envModel = deps.ai?.envModels?.[providerId];
+      const model = d.defaultModel ?? existing?.defaultModel ?? (envModel && priceOf(providerId, envModel, prices) ? envModel : null) ?? modelsFor(providerId, prices)[0]?.id ?? null;
       if (!model || !priceOf(providerId, model, prices)) return fail(c, 400, "unknown_model", providerId === "openrouter" ? "Enable at least one model and choose one of the enabled models as the default." : "Choose a listed model, or add its price so spend can be counted.");
       const enabled = d.enabled ?? existing?.enabled ?? true;
       const others = await tx.select({ id: schema.aiProviderConfigs.id, isDefault: schema.aiProviderConfigs.isDefault, enabled: schema.aiProviderConfigs.enabled }).from(schema.aiProviderConfigs).where(eq(schema.aiProviderConfigs.workspaceId, workspaceId));
@@ -177,7 +190,7 @@ export function aiRoutes(db: Db, deps: AiRouteDeps = {}) {
         await tx.insert(schema.aiProviderSecrets).values({ workspaceId, configId: row.id, ciphertext: sealed.ciphertext, nonce: sealed.nonce, keyId: sealed.keyId });
       }
       await writeAudit(tx, { ...actor(c), workspaceId, action: "ai.provider.configured", entityType: "ai_provider", entityId: row.id, summary: { provider: providerId, model, enabled, isDefault, keyRotated: d.apiKey !== undefined } });
-      return c.json(toProvider(providerId, row));
+      return c.json(toProvider(providerId, row, null, hasServerKey(providerId)));
     });
   });
 

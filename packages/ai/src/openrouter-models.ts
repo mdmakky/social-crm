@@ -44,7 +44,8 @@ export function parseOpenRouterModels(json: unknown): BrowseModel[] {
     const p = Item.safeParse(raw);
     if (!p.success) continue;
     const m = p.data;
-    if (m.id.startsWith("openrouter/") || !/^[\w.:~@+-]+(\/[\w.:~@+-]+)+$/.test(m.id)) continue;
+    // `:batch` variants are answered only by OpenRouter's batch API; chat/completions refuses them with a 404, so they can never work here.
+    if (m.id.startsWith("openrouter/") || m.id.endsWith(":batch") || !/^[\w.:~@+-]+(\/[\w.:~@+-]+)+$/.test(m.id)) continue;
     const input = pricePerTokenToMicroPer1M(m.pricing.prompt);
     const output = pricePerTokenToMicroPer1M(m.pricing.completion);
     if (input === null || output === null) continue;

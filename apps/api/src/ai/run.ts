@@ -19,6 +19,10 @@ export type AiDeps = {
   /** Extra tries after the first, for rate_limit and timeout, and for errors the adapter marks retryable (OpenRouter 502/503). */
   maxRetries?: number;
   backoffMs?: number;
+  /** Operator-wide provider keys from the server environment (GEMINI_API_KEY), by provider id. Used only when the workspace stored no key of its own. Never sent to the browser. */
+  envKeys?: Record<string, string>;
+  /** Operator-chosen default model per provider (GEMINI_TRANSCRIPTION_MODEL): used when a workspace connects with the server key and picks none. */
+  envModels?: Record<string, string>;
 };
 
 export type RunInput = {
@@ -141,8 +145,10 @@ async function begin(deps: AiDeps, r: RunInput): Promise<Begun> {
     if (!def.mock) {
       const s = rowsOf(await tx.execute(sql`SELECT ciphertext, nonce, key_id FROM ai_provider_secrets WHERE workspace_id = ${r.workspaceId} AND config_id = ${cfg.id as string} ORDER BY id DESC LIMIT 1`))[0];
       try {
-        if (!s) throw new Error("no key");
-        key = deps.box.open({ ciphertext: s.ciphertext as Buffer, nonce: s.nonce as Buffer, keyId: s.key_id as string }, cfg.id as string);
+        const shared = def.envKey ? deps.envKeys?.[provider] : undefined;
+        if (s) key = deps.box.open({ ciphertext: s.ciphertext as Buffer, nonce: s.nonce as Buffer, keyId: s.key_id as string }, cfg.id as string);
+        else if (shared) key = shared;
+        else throw new Error("no key");
       } catch {
         const runId = await record(tx, r, { provider, model, status: "error", promptVersion, errorCode: "key_unavailable" });
         return { kind: "stop", result: { ok: false, code: "key_unavailable", runId } };
