@@ -120,3 +120,6 @@ Owner request: configure from the page which stage fires which event, and ask fo
 
 ## Update 2026-11-19: AI model per job
 Workspaces can pin one model per AI job (D343, migration 0045, `ai_job_models`, API `/ai/jobs`). `runAi` uses a valid pin, else the automatic pick. Verified with the mock provider and a scripted fake only (`apps/api/test/ai-job-models.test.ts`); no real provider request. The settings UI is separate work.
+
+## Update 2026-11-20: Lead settings (D347)
+Settings > Lead fields and Lead stages are now one page, Lead settings (`/settings/leads`, tabs Stages, Fields, Tags as links with `?tab=`). Stages renders the existing pipeline settings; Fields and Tags are rewritten (calm lists, overflow menu per row, one "Add a field" or "Add a tag" button, key under Advanced). Lifecycle stages are gone from Settings, the CSV import mapping and the automation filter (data and API unchanged). Old URLs redirect. Checked with Playwright (`lead-settings.spec.ts` and related specs) on an isolated database; no real integration involved.

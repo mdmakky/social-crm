@@ -38,7 +38,7 @@ test("contacts screens hold at 375, 768 and 1440: no page overflow, no axe viola
     { key: "list", path: `/w/${workspaceId}/contacts`, heading: "Leads" },
     { key: "detail", path: `/w/${workspaceId}/contacts/${ids[0]}`, heading: /Ana Costa/ },
     { key: "import", path: `/w/${workspaceId}/contacts/import`, heading: "Import leads" },
-    { key: "settings", path: `/w/${workspaceId}/settings/contacts`, heading: "Lead fields" },
+    { key: "settings", path: `/w/${workspaceId}/settings/contacts`, heading: "Lead settings" },
   ];
   for (const s of SIZES) {
     await page.setViewportSize({ width: s.width, height: s.height });

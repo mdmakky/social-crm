@@ -21,7 +21,7 @@ test("pipeline settings: add, rename, reorder with buttons, archive a stage with
   test.setTimeout(120_000);
   const { workspaceId } = await signUpAndCreate(page, "Olive Owner", "Pipelines Co");
   await page.goto(`/w/${workspaceId}/settings/pipelines`);
-  await expect(page.getByRole("heading", { level: 1, name: "Lead stages" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Lead settings" })).toBeVisible();
   const stages = page.getByRole("list", { name: "Sales stages" });
   await expect(stages.getByRole("listitem")).toHaveCount(7);
 
@@ -38,12 +38,14 @@ test("pipeline settings: add, rename, reorder with buttons, archive a stage with
   await page.reload();
   await expect(page.getByRole("list", { name: "Sales stages" }).getByRole("listitem").nth(4)).toContainText("Demo"); // persisted
 
-  await page.getByRole("button", { name: "Edit Demo" }).click();
+  await page.getByRole("button", { name: "Actions for Demo" }).click();
+  await page.getByRole("menuitem", { name: "Edit Demo" }).click();
   await page.getByLabel("Name of stage Demo").fill("Demo call");
   await page.getByRole("button", { name: "Save stage" }).click();
   await expect(stages.getByRole("listitem").nth(4)).toContainText("Demo call");
 
-  await page.getByRole("button", { name: "Archive Demo call" }).click();
+  await page.getByRole("button", { name: "Actions for Demo call" }).click();
+  await page.getByRole("menuitem", { name: "Archive Demo call" }).click();
   const dlg = page.getByRole("dialog");
   await expect(dlg).toContainText("Its leads move to the stage you choose");
   await dlg.getByRole("button", { name: "Archive stage" }).click();
@@ -55,7 +57,8 @@ test("pipeline settings: add, rename, reorder with buttons, archive a stage with
   await page.getByRole("dialog").getByLabel("Type").selectOption("lead");
   await page.getByRole("dialog").getByRole("button", { name: "Create pipeline" }).click();
   await expect(page.getByRole("heading", { name: "Inbound" })).toBeVisible();
-  await page.getByRole("button", { name: "Archive pipeline Inbound" }).click();
+  await page.getByRole("button", { name: "Actions for pipeline Inbound" }).click();
+  await page.getByRole("menuitem", { name: "Archive pipeline Inbound" }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Archive", exact: true }).click();
   await expect(page.getByRole("button", { name: /Show archived pipelines \(1\)/ })).toBeVisible();
 });

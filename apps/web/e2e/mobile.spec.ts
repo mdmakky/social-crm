@@ -102,10 +102,10 @@ test.describe.serial("mobile experience", () => {
 
   test("dialog actions stay in reach: the Create button is visible without scrolling and after scrolling a short phone", async ({ browser }) => {
     const { ctx, page } = await touch(browser, 390, 600);
-    await page.goto(`/w/${ws}/settings/automations`);
-    await page.getByRole("button", { name: "New rule" }).first().click();
+    await page.goto(`/w/${ws}/contacts`);
+    await page.getByRole("button", { name: "Add lead" }).first().click();
     const dlg = page.getByRole("dialog");
-    const create = dlg.getByRole("button", { name: "Create rule" });
+    const create = dlg.getByRole("button", { name: "Add lead" });
     await expect(create).toBeVisible();
     const inView = async () => { const b = (await create.boundingBox())!; return b.y >= 0 && b.y + b.height <= 600; };
     expect(await inView()).toBe(true);
@@ -162,8 +162,8 @@ test.describe.serial("mobile experience", () => {
 
   test("dialogs become bottom sheets on a phone and scroll instead of clipping", async ({ browser }) => {
     const { ctx, page } = await touch(browser, 390, 844);
-    await page.goto(`/w/${ws}/settings/automations`);
-    await page.getByRole("button", { name: "New rule" }).first().click();
+    await page.goto(`/w/${ws}/contacts`);
+    await page.getByRole("button", { name: "Add lead" }).first().click();
     const dlg = page.getByRole("dialog");
     await expect(dlg).toBeVisible();
     const m = await dlg.evaluate((el) => ({ bottom: el.getBoundingClientRect().bottom, top: el.getBoundingClientRect().top, vh: innerHeight, oy: getComputedStyle(el).overflowY }));

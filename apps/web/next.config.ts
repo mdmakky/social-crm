@@ -18,6 +18,8 @@ const config: NextConfig = {
       { source: "/w/:workspaceId/settings/ai-agents", destination: "/w/:workspaceId/settings/ai/agents", permanent: false },
       { source: "/w/:workspaceId/settings/knowledge", destination: "/w/:workspaceId/settings/ai/knowledge", permanent: false },
       { source: "/w/:workspaceId/settings/automations", destination: "/w/:workspaceId/settings/ai/automations", permanent: false },
+      { source: "/w/:workspaceId/settings/contacts", destination: "/w/:workspaceId/settings/leads?tab=fields", permanent: false },
+      { source: "/w/:workspaceId/settings/pipelines", destination: "/w/:workspaceId/settings/leads?tab=stages", permanent: false },
     ];
   },
   async headers() {

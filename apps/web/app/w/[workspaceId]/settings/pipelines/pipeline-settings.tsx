@@ -1,12 +1,12 @@
 "use client";
 import * as React from "react";
-import { Archive, ArrowDown, ArrowUp, Check, Kanban, Pencil, Plus, Star, X } from "lucide-react";
+import { Archive, ArrowDown, ArrowUp, Check, Kanban, MoreHorizontal, Pencil, Plus, Star, X } from "lucide-react";
 import { endpoints, type LostReasonDto, type PipelineDto, type PipelineList, type StageDto } from "@crm/contracts";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { Input, Select } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogActions } from "@/components/ui/overlays";
+import { Dialog, DialogContent, DialogActions, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/overlays";
 import { Panel, PanelHeader } from "@/components/ui/panel";
 import { Alert, EmptyState, ErrorState } from "@/components/ui/states";
 import { ToastProvider, useToast } from "@/components/ui/toast";
@@ -52,8 +52,8 @@ function Inner({ workspaceId, canManage, initial }: Props) {
     <div className="flex flex-col gap-4">
       <p className="sr-only" role="status" aria-live="polite">{announce}</p>
       {!canManage && <Alert tone="info">Only owners and admins can change pipelines. You can see how they are set up.</Alert>}
-      <div className="flex items-center justify-between">
-        <h2 className="text-base font-semibold">Pipelines</h2>
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <p className="text-sm text-fg-muted">Where a lead is in your sales process. The order here is the order on the board.</p>
         {canManage && <Button variant="primary" onClick={() => setNewOpen(true)}><Plus className="size-4" aria-hidden />New pipeline</Button>}
       </div>
       {live.length === 0 && <Panel><EmptyState icon={Kanban} title="No pipelines yet" description="Create a pipeline to start tracking leads." action={canManage ? <Button variant="primary" onClick={() => setNewOpen(true)}>New pipeline</Button> : undefined} /></Panel>}
@@ -67,6 +67,16 @@ function Inner({ workspaceId, canManage, initial }: Props) {
       <LostReasons reasons={data.lostReasons} canManage={canManage} w={w} run={run} />
       <NewPipeline open={newOpen} onOpenChange={setNewOpen} w={w} run={run} />
     </div>
+  );
+}
+
+/** Quiet overflow menu: an always-visible small icon button (so it is reachable by keyboard and touch). */
+function Menu({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild><Button variant="ghost" icon size="sm" aria-label={label}><MoreHorizontal className="size-4" aria-hidden /></Button></DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="min-w-40">{children}</DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
@@ -99,7 +109,7 @@ function PipelineCard({ pl, canManage, w, run, setData }: { pl: PipelineDto; can
 
   return (
     <Panel>
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-4 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line-card px-4 py-3">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           {name === null ? <h3 className="truncate text-base font-semibold">{pl.name}</h3> : (
             <form className="flex items-center gap-1" onSubmit={async (e) => { e.preventDefault(); if (name.trim() && name.trim() !== pl.name && await run(() => browserApi.call(endpoints.updatePipeline, { params: pp, body: { name: name.trim(), expectedVersion: pl.version } }), "Pipeline renamed.")) setName(null); else if (name.trim() === pl.name) setName(null); }}>
@@ -114,13 +124,15 @@ function PipelineCard({ pl, canManage, w, run, setData }: { pl: PipelineDto; can
         </div>
         {canManage && name === null && (
           <div className="flex items-center gap-1">
-            <Button variant="ghost" size="sm" aria-label={`Rename pipeline ${pl.name}`} onClick={() => setName(pl.name)}><Pencil className="size-3.5" aria-hidden />Rename</Button>
-            {!pl.isDefault && <Button variant="ghost" size="sm" onClick={() => void run(() => browserApi.call(endpoints.updatePipeline, { params: pp, body: { isDefault: true, expectedVersion: pl.version } }), `${pl.name} is now the default.`)}>Make default</Button>}
-            {!pl.isDefault && <Button variant="ghost" size="sm" aria-label={`Archive pipeline ${pl.name}`} onClick={() => setArchiveOpen(true)}><Archive className="size-3.5" aria-hidden />Archive</Button>}
+            <Menu label={`Actions for pipeline ${pl.name}`}>
+              <DropdownMenuItem aria-label={`Rename pipeline ${pl.name}`} onSelect={() => setName(pl.name)}><Pencil aria-hidden />Rename</DropdownMenuItem>
+              {!pl.isDefault && <DropdownMenuItem onSelect={() => void run(() => browserApi.call(endpoints.updatePipeline, { params: pp, body: { isDefault: true, expectedVersion: pl.version } }), `${pl.name} is now the default.`)}><Star aria-hidden />Make default</DropdownMenuItem>}
+              {!pl.isDefault && <DropdownMenuItem danger aria-label={`Archive pipeline ${pl.name}`} onSelect={() => setArchiveOpen(true)}><Archive aria-hidden />Archive</DropdownMenuItem>}
+            </Menu>
           </div>
         )}
       </div>
-      <ol aria-label={`${pl.name} stages`} className="divide-y divide-line">
+      <ol aria-label={`${pl.name} stages`} className="divide-y divide-line-card">
         {open.map((s, i) => (
           <StageRow key={s.id} s={s} canManage={canManage} first={i === 0} last={i === open.length - 1} onUp={() => void reorder(i, -1)} onDown={() => void reorder(i, 1)}
             onSave={(patch) => run(() => browserApi.call(endpoints.updatePipelineStage, { params: { ...w, stageId: s.id }, body: patch }), "Stage updated.")} onArchive={() => setArchiveStage(s)} canArchive={open.length > 1} />
@@ -128,12 +140,13 @@ function PipelineCard({ pl, canManage, w, run, setData }: { pl: PipelineDto; can
         {terminal.map((s) => (
           <StageRow key={s.id} s={s} canManage={canManage} first last fixed onUp={() => {}} onDown={() => {}} onSave={(patch) => run(() => browserApi.call(endpoints.updatePipelineStage, { params: { ...w, stageId: s.id }, body: patch }), "Stage updated.")} onArchive={() => {}} canArchive={false} />
         ))}
-        {archivedStages.map((s) => <li key={s.id} className="flex items-center justify-between gap-2 bg-subtle px-4 py-2 text-sm text-fg-subtle"><span className="line-through">{s.name}</span><Badge>Archived</Badge></li>)}
+        {archivedStages.map((s) => <li key={s.id} className="flex items-center justify-between gap-2 px-4 py-2.5 text-base text-fg-muted opacity-70"><span className="min-w-0 truncate">{s.name}</span><Badge>Archived</Badge></li>)}
       </ol>
+      <p className="border-t border-line-card px-4 py-2 text-sm text-fg-subtle">Won and Lost always stay at the end. You can rename them, but not move or archive them.</p>
       {canManage && (
-        <div className="border-t border-line p-3">
+        <div className="border-t border-line-card p-3">
           {adding ? <AddStage onCancel={() => setAdding(false)} onAdd={async (n, pr) => { const ok = await run(() => browserApi.call(endpoints.createPipelineStage, { params: pp, body: { name: n, defaultProbability: pr } }), "Stage added."); if (ok) setAdding(false); return ok; }} />
-            : <Button variant="ghost" onClick={() => setAdding(true)}><Plus className="size-4" aria-hidden />Add stage</Button>}
+            : <Button variant="primary" onClick={() => setAdding(true)}><Plus className="size-4" aria-hidden />Add stage</Button>}
         </div>
       )}
       <Dialog open={archiveStage !== null} onOpenChange={(o) => !o && setArchiveStage(null)}>
@@ -154,7 +167,6 @@ function StageRow({ s, canManage, first, last, fixed, onUp, onDown, onSave, onAr
   const [edit, setEdit] = React.useState(false);
   const [name, setName] = React.useState(s.name);
   const [prob, setProb] = React.useState(String(s.defaultProbability));
-  const tone = s.kind === "won" ? "success" : s.kind === "lost" ? "neutral" : "accent";
   async function save() {
     const patch: { name?: string; defaultProbability?: number } = {};
     if (name.trim() && name.trim() !== s.name) patch.name = name.trim();
@@ -162,7 +174,7 @@ function StageRow({ s, canManage, first, last, fixed, onUp, onDown, onSave, onAr
     if (!Object.keys(patch).length || (await onSave(patch))) setEdit(false);
   }
   return (
-    <li className={cn("flex items-center gap-2 px-4 py-2.5", fixed && "bg-subtle/60")}>
+    <li className="flex items-center gap-2 px-4 py-2.5">
       {edit ? (
         <form className="flex flex-1 flex-wrap items-center gap-2" onSubmit={(e) => { e.preventDefault(); void save(); }}>
           <Input aria-label={`Name of stage ${s.name}`} value={name} onChange={(e) => setName(e.target.value)} maxLength={60} autoFocus className="min-w-0 flex-1 basis-40" onKeyDown={(e) => e.key === "Escape" && setEdit(false)} />
@@ -172,14 +184,16 @@ function StageRow({ s, canManage, first, last, fixed, onUp, onDown, onSave, onAr
         </form>
       ) : (
         <>
-          <span className="min-w-0 flex-1 truncate text-base font-medium">{s.name}</span>
-          <Badge tone={tone}>{s.kind === "open" ? `${s.defaultProbability}%` : s.kind === "won" ? "Won · 100%" : "Lost · 0%"}</Badge>
+          <span className="min-w-0 flex-1 truncate text-base font-medium">{s.name}{fixed && <span className="ml-2 text-sm font-normal text-fg-subtle">{s.kind === "won" ? "Won" : "Lost"}</span>}</span>
+          <span className="text-sm tabular-nums text-fg-muted">{s.kind === "open" ? `${s.defaultProbability}%` : s.kind === "won" ? "100%" : "0%"}</span>
           {canManage && (
             <span className="flex items-center">
               {!fixed && <><Button variant="ghost" icon size="sm" aria-label={`Move ${s.name} up`} disabled={first} onClick={onUp}><ArrowUp className="size-4" aria-hidden /></Button>
                 <Button variant="ghost" icon size="sm" aria-label={`Move ${s.name} down`} disabled={last} onClick={onDown}><ArrowDown className="size-4" aria-hidden /></Button></>}
-              <Button variant="ghost" icon size="sm" aria-label={`Edit ${s.name}`} onClick={() => setEdit(true)}><Pencil className="size-3.5" aria-hidden /></Button>
-              {!fixed && <Button variant="ghost" icon size="sm" aria-label={`Archive ${s.name}`} disabled={!canArchive} onClick={onArchive}><Archive className="size-3.5" aria-hidden /></Button>}
+              <Menu label={`Actions for ${s.name}`}>
+                <DropdownMenuItem aria-label={`Edit ${s.name}`} onSelect={() => setEdit(true)}><Pencil aria-hidden />{fixed ? "Rename" : "Rename or edit"}</DropdownMenuItem>
+                {!fixed && <DropdownMenuItem danger aria-label={`Archive ${s.name}`} disabled={!canArchive} onSelect={onArchive}><Archive aria-hidden />Archive</DropdownMenuItem>}
+              </Menu>
             </span>
           )}
         </>
@@ -233,23 +247,32 @@ function NewPipeline({ open, onOpenChange, w, run }: { open: boolean; onOpenChan
 
 function LostReasons({ reasons, canManage, w, run }: { reasons: LostReasonDto[]; canManage: boolean; w: { workspaceId: string }; run: Run }) {
   const [name, setName] = React.useState("");
+  const [adding, setAdding] = React.useState(false);
   return (
     <Panel>
       <PanelHeader title="Lost reasons" description="Asked when a lead is marked lost." />
-      <ul className="divide-y divide-line">
+      <ul aria-label="Lost reasons" className="divide-y divide-line-card">
         {reasons.map((r) => (
-          <li key={r.id} className="flex items-center justify-between gap-2 px-4 py-2.5">
-            <span className={cn("min-w-0 truncate", r.archived && "text-fg-subtle line-through")}>{r.name}</span>
-            {r.archived && <Badge>Archived</Badge>}
-            {canManage && <Button variant="ghost" size="sm" onClick={() => void run(() => browserApi.call(endpoints.updateLostReason, { params: { ...w, lostReasonId: r.id }, body: { archived: !r.archived } }), r.archived ? "Reason restored." : "Reason archived.")}>{r.archived ? "Restore" : "Archive"}</Button>}
+          <li key={r.id} className={cn("flex items-center justify-between gap-2 px-4 py-2.5", r.archived && "opacity-70")}>
+            <span className={cn("min-w-0 truncate", r.archived && "text-fg-muted")}>{r.name}</span>
+            <span className="flex items-center gap-2">
+              {r.archived && <Badge>Archived</Badge>}
+              {canManage && <Menu label={`Actions for ${r.name}`}>
+                <DropdownMenuItem onSelect={() => void run(() => browserApi.call(endpoints.updateLostReason, { params: { ...w, lostReasonId: r.id }, body: { archived: !r.archived } }), r.archived ? "Reason restored." : "Reason archived.")}>{r.archived ? "Restore" : "Archive"}</DropdownMenuItem>
+              </Menu>}
+            </span>
           </li>
         ))}
       </ul>
       {canManage && (
-        <form className="flex items-end gap-2 border-t border-line p-3" onSubmit={async (e) => { e.preventDefault(); if (name.trim() && await run(() => browserApi.call(endpoints.createLostReason, { params: w, body: { name: name.trim() } }), "Reason added.")) setName(""); }}>
-          <Field label="New reason" className="min-w-0 flex-1">{(p) => <Input {...p} value={name} onChange={(e) => setName(e.target.value)} maxLength={80} />}</Field>
-          <Button type="submit" disabled={!name.trim()}>Add</Button>
-        </form>
+        <div className="border-t border-line-card p-3">
+          {adding ? (
+            <form className="flex flex-wrap items-end gap-2" onSubmit={async (e) => { e.preventDefault(); if (name.trim() && await run(() => browserApi.call(endpoints.createLostReason, { params: w, body: { name: name.trim() } }), "Reason added.")) { setName(""); setAdding(false); } }}>
+              <Field label="New reason" className="min-w-0 flex-1 basis-48">{(p) => <Input {...p} value={name} onChange={(e) => setName(e.target.value)} maxLength={80} autoFocus onKeyDown={(e) => e.key === "Escape" && setAdding(false)} />}</Field>
+              <Button type="submit" variant="primary" disabled={!name.trim()}>Add</Button><Button type="button" variant="ghost" onClick={() => { setAdding(false); setName(""); }}>Cancel</Button>
+            </form>
+          ) : <Button variant="primary" onClick={() => setAdding(true)}><Plus className="size-4" aria-hidden />Add a reason</Button>}
+        </div>
       )}
     </Panel>
   );

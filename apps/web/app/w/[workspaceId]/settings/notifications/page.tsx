@@ -4,14 +4,14 @@ import { PreferencesForm } from "@/components/notifications/preferences-form";
 import { SettingsPage } from "@/components/settings/settings-page";
 import { must, serverApi } from "@/lib/api";
 
-export const metadata: Metadata = { title: "Notification preferences" };
+export const metadata: Metadata = { title: "Notifications" };
 
 export default async function NotificationPreferencesPage({ params }: { params: Promise<{ workspaceId: string }> }) {
   const { workspaceId } = await params;
   const api = await serverApi();
   const prefs = must(await api.call(endpoints.getNotificationPreferences, { params: { workspaceId } }));
   return (
-    <SettingsPage title="Notification preferences" description="Choose which alerts you receive. Personal to you.">
+    <SettingsPage title="Notifications" description="Choose which alerts reach you in the bell. These settings are personal to you.">
       <PreferencesForm workspaceId={workspaceId} initial={prefs} />
     </SettingsPage>
   );

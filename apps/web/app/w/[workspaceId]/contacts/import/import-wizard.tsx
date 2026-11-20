@@ -15,7 +15,7 @@ import type { ApiError } from "@crm/api-client";
 type Step = 1 | 2 | 3 | 4;
 type Dup = "skip" | "update" | "create";
 const STEPS = ["Upload file", "Match columns", "Review", "Done"];
-const TEMPLATE = "Name,Email,Phone,Company,Lifecycle stage,Owner email,Tags\nAna Costa,ana@example.com,+1 555 010 0000,Acme,New,,vip; lead\n";
+const TEMPLATE = "Name,Email,Phone,Company,Owner email,Tags\nAna Costa,ana@example.com,+1 555 010 0000,Acme,,vip; lead\n";
 const DUP_LABEL: Record<Dup, string> = { skip: "Skip them", update: "Update the existing lead", create: "Import them anyway" };
 
 const IMPORT_MESSAGES: Record<string, string> = {
@@ -65,7 +65,7 @@ export function ImportWizard({ workspaceId }: { workspaceId: string }) {
     const r = await browserApi.call(endpoints.uploadImport, { params: p, body: { filename: file.name, csv } });
     setBusy(false);
     if (!r.ok) return setError(importError(r.error));
-    setUpload(r.data); setMapping(r.data.suggestedMapping); setStep(2);
+    setUpload(r.data); setMapping(r.data.suggestedMapping.map((m) => (m === "lifecycle_stage" ? null : m))); setStep(2);
   }
 
   async function runPreview(body: ImportPlanBody) {
@@ -148,7 +148,7 @@ export function ImportWizard({ workspaceId }: { workspaceId: string }) {
                   <TD>
                     <Select aria-label={`Import column ${h || i + 1} as`} value={mapping[i] ?? ""} onChange={(e) => setMapping(mapping.map((m, j) => (j === i ? e.target.value || null : m)))}>
                       <option value="">Don’t import</option>
-                      {upload.fields.map((f) => <option key={f.id} value={f.id} disabled={mappedFields.has(f.id) && mapping[i] !== f.id}>{f.label}</option>)}
+                      {upload.fields.filter((f) => f.id !== "lifecycle_stage").map((f) => <option key={f.id} value={f.id} disabled={mappedFields.has(f.id) && mapping[i] !== f.id}>{f.label}</option>)}
                     </Select>
                   </TD>
                 </TR>

@@ -218,6 +218,6 @@ test.describe("permissions in the UI", () => {
     await expect(r.agent.getByRole("heading", { name: "Only owners and admins can import leads" })).toBeVisible();
     await r.agent.goto(`/w/${workspaceId}/settings/contacts`);
     await expect(r.agent.getByText("Only owners and admins can change these settings.")).toBeVisible();
-    await expect(r.agent.getByRole("button", { name: "Add stage" })).toHaveCount(0);
+    await expect(r.agent.getByRole("button", { name: "Add a field" })).toHaveCount(0);
   });
 });

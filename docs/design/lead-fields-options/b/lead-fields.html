@@ -1,0 +1,350 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Lead fields - Settings - RenoDevs Team</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body data-state="normal">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></symbol>
+  <symbol id="i-inbox" viewBox="0 0 24 24"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.5 5h13L22 12v6a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-6z"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.9"/><path d="M16 3.1a4 4 0 0 1 0 7.8"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m4 12 5 5L20 6"/></symbol>
+  <symbol id="i-chart" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-up" viewBox="0 0 24 24"><path d="m18 15-6-6-6 6"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+  <symbol id="i-right" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16.5v.01"/></symbol>
+  <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></symbol>
+</svg>
+
+<div class="app">
+  <aside class="sidebar" aria-label="Main">
+    <div class="ws"><div class="tile">RT</div><b>RenoDevs Team</b></div>
+    <nav class="nav">
+      <a href="#"><svg class="i"><use href="#i-home"/></svg><span>Home</span></a>
+      <a href="#"><svg class="i"><use href="#i-inbox"/></svg><span>Inbox</span></a>
+      <a href="#"><svg class="i"><use href="#i-users"/></svg><span>Leads</span></a>
+      <a href="#"><svg class="i"><use href="#i-check"/></svg><span>Tasks</span></a>
+      <a href="#"><svg class="i"><use href="#i-chart"/></svg><span>Reports</span></a>
+      <a href="#" aria-current="page"><svg class="i"><use href="#i-gear"/></svg><span>Settings</span></a>
+    </nav>
+    <div class="user"><div class="av">TA</div><div><b>Tanvir Ahmed</b><span>Owner</span></div></div>
+  </aside>
+
+  <div class="col">
+    <header class="topbar">
+      <div class="search"><svg class="i"><use href="#i-search"/></svg>Search or jump to</div>
+      <button class="bell press" aria-label="Notifications"><svg class="i"><use href="#i-bell"/></svg></button>
+    </header>
+
+    <main class="page">
+      <nav class="smenu" aria-label="Settings">
+        <h2>Workspace</h2><a href="#">General</a><a href="#">Notifications</a>
+        <h2>CRM data</h2><a href="#" aria-current="page">Lead fields</a><a href="#">Lead stages</a>
+        <h2>AI and automation</h2><a href="#">AI and automation</a>
+        <h2>Channels</h2><a href="#">Integrations</a><a href="#">Web chat</a><a href="#">Ad measurement</a>
+        <h2>Team and security</h2><a href="#">Members</a><a href="#">Audit log</a>
+      </nav>
+
+      <div class="content">
+        <div>
+          <h1>Lead fields</h1>
+          <p class="lede">Set up the stages, details and tags your team uses on every lead.</p>
+        </div>
+        <div class="ro-note" role="note"><svg class="i"><use href="#i-lock"/></svg>Only owners and admins can change these settings.</div>
+
+        <section class="ms" aria-label="Lead fields">
+          <div class="master" role="tablist" aria-label="What to edit" aria-orientation="vertical" id="master"></div>
+          <div class="detail" role="tabpanel" id="detail" aria-live="off">
+            <div class="dhead">
+              <p id="expl"></p>
+              <div class="tools">
+                <span class="status" id="status" role="status"></span>
+                <button class="btn primary press needs-admin" id="add"><svg class="i"><use href="#i-plus"/></svg><span id="addl"></span></button>
+              </div>
+            </div>
+            <div class="dbody" id="body"></div>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-labelledby="dt" aria-hidden="true">
+  <header><h3 id="dt"></h3><button class="ib press" id="dx" aria-label="Close"><svg class="i"><use href="#i-x"/></svg></button></header>
+  <form class="dform" id="dform" novalidate></form>
+  <div class="dfoot" id="dfoot"></div>
+</aside>
+<div class="modal" id="modal"><div class="box" role="alertdialog" aria-modal="true" aria-labelledby="mt" aria-describedby="mp">
+  <h3 id="mt"></h3><p id="mp"></p>
+  <div class="acts"><button class="btn press" id="mno">Cancel</button><button class="btn primary press" id="myes"></button></div>
+</div></div>
+
+<div class="demo-state"><label for="ds">Demo state</label>
+  <select id="ds"><option value="normal">Normal</option><option value="loading">Loading</option><option value="empty">Empty</option><option value="readonly">Read-only</option><option value="error">Save error</option></select>
+</div>
+<div class="opt-switch" aria-label="Design option">
+  <a href="../a/lead-fields.html">A</a><a href="../b/lead-fields.html" aria-current="page">B</a><a href="../c/lead-fields.html">C</a>
+</div>
+
+<script>
+const $=s=>document.querySelector(s);
+const ic=(n,c='')=>`<svg class="i ${c}" aria-hidden="true"><use href="#i-${n}"/></svg>`;
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const TONES=[['neutral','Neutral'],['violet','Violet'],['green','Green'],['amber','Amber'],['red','Red']];
+const TYPES=['Text','Number','Date','Choose one','Choose several','Yes or no','Web link'];
+const isChoice=t=>t==='Choose one'||t==='Choose several';
+const seed=()=>({
+  stages:[['New',31],['Contacted',18],['Qualified',12],['Opportunity',9],['Customer',14],['Churned',3],['Dormant',0,1]].map(([name,leads,a],i)=>({id:'s'+i,name,leads,archived:!!a})),
+  fields:[
+    ['What do you need?','Choose one',['Full home renovation','Kitchen','Bathroom','Interior design','Other'],1,'what_do_you_need'],
+    ['Budget','Choose one',['Under ৳3 lakh','৳3 to 8 lakh','৳8 to 12 lakh','Above ৳12 lakh'],0,'budget'],
+    ['When do you want to start?','Date',[],0,'start_date'],
+    ['Area','Text',[],0,'area'],
+    ['Has a site plan','Yes or no',[],0,'has_site_plan'],
+    ['Facebook page','Web link',[],0,'facebook_page',1]
+  ].map(([label,type,options,required,key,a],i)=>({id:'f'+i,label,type,options,required:!!required,key,archived:!!a})),
+  tags:[['Hot','violet',18],['VIP','amber',6],['Wholesale','green',9],['Brand','neutral',11],['Photo','neutral',4],['Unreachable','red',7]].map(([name,color,leads],i)=>({id:'t'+i,name,color,leads}))
+});
+let D=seed(),tab='stages',mode='normal',nid=100,opener=null,dr=null,statusT;
+const META={
+  stages:{t:'Lifecycle stages',sub:'Where a lead is in your relationship',expl:'<b>Lifecycle stages:</b> <span>where a lead is in your relationship with you, in the order you work them.</span>',add:'Add a stage',one:'stage'},
+  fields:{t:'Custom fields',sub:'Extra information on every lead',expl:'<b>Custom fields:</b> <span>extra details you ask for on every lead, like budget or area.</span>',add:'Add a field',one:'field'},
+  tags:{t:'Tags',sub:'Anyone who edits leads can add tags',expl:'<b>Tags:</b> <span>quick labels anyone who edits leads can add, like Hot or VIP. Change a name or color right in the list.</span>',add:'Add a tag',one:'tag'}
+};
+const ro=()=>mode==='readonly';
+const dis=()=>ro()?'disabled':'';
+
+function say(msg,bad){
+  const s=$('#status');clearTimeout(statusT);
+  s.className='status on '+(bad?'bad':'ok');
+  s.innerHTML=(bad?ic('alert'):ic('check'))+`<span>${bad?esc(msg):'Saved. '+esc(msg)}</span>`;
+  statusT=setTimeout(()=>s.classList.remove('on'),bad?6000:2800);
+}
+// every edit goes through here: error mode refuses and reverts
+function save(fn,msg,flashId){
+  if(mode==='error'){say('Could not save. Nothing was changed. Try again.',true);render();return false}
+  fn();say(msg);render(flashId);return true;
+}
+
+/* ---------- master ---------- */
+function renderMaster(){
+  $('#master').innerHTML=Object.keys(META).map(k=>`<button role="tab" class="mi press" data-tab="${k}" aria-selected="${k===tab}" id="tab-${k}" tabindex="${k===tab?0:-1}"><b>${META[k].t}</b><span class="n">${D[k].length}</span><small>${META[k].sub}</small></button>`).join('');
+}
+$('#master').addEventListener('click',e=>{const b=e.target.closest('[data-tab]');if(b){tab=b.dataset.tab;closeDrawer();render()}});
+$('#master').addEventListener('keydown',e=>{
+  const ks=Object.keys(META),i=ks.indexOf(tab);let n=i;
+  if(['ArrowDown','ArrowRight'].includes(e.key))n=(i+1)%3;else if(['ArrowUp','ArrowLeft'].includes(e.key))n=(i+2)%3;else return;
+  e.preventDefault();tab=ks[n];render();$('#tab-'+tab).focus();
+});
+
+/* ---------- rows ---------- */
+const detBtn=(label)=>`<button class="ib press" data-act="open" aria-label="Details for ${esc(label)}">${ic('right')}</button>`;
+function stageRows(){
+  const act=D.stages.filter(s=>!s.archived).length;
+  return D.stages.map((s,i)=>`<tr data-id="${s.id}" class="${s.archived?'arch':''}">
+   <td data-l="Order"><div class="ord"><span class="o">${s.archived?'-':i+1}</span>${s.archived?'':`<button class="ib press needs-admin" data-act="up" aria-label="Move ${esc(s.name)} up" ${i===0||ro()?'disabled':''}>${ic('up')}</button><button class="ib press needs-admin" data-act="down" aria-label="Move ${esc(s.name)} down" ${i===act-1||ro()?'disabled':''}>${ic('down')}</button>`}</div></td>
+   <td class="nm"><div class="cell-name"><input class="ie" data-f="name" maxlength="40" value="${esc(s.name)}" aria-label="Stage name" ${dis()}>${s.archived?'<span class="badge">Archived</span>':''}</div></td>
+   <td data-l="Leads" class="num">${s.leads} lead${s.leads===1?'':'s'}</td>
+   <td class="act">${detBtn(s.name)}</td></tr>`).join('');
+}
+function fieldRows(){
+  return D.fields.map(f=>`<tr data-id="${f.id}" class="${f.archived?'arch':''}">
+   <td class="nm"><div class="cell-name"><input class="ie" data-f="label" maxlength="60" value="${esc(f.label)}" aria-label="Field label" ${dis()}>${f.archived?'<span class="badge">Archived</span>':''}</div></td>
+   <td data-l="Type">${f.type}</td>
+   <td data-l="Required"><button class="sw press" role="switch" aria-checked="${f.required}" data-act="req" aria-label="Required: ${esc(f.label)}" ${ro()?'aria-disabled="true"':''}></button></td>
+   <td data-l="Options"><span class="opts" title="${esc(f.options.join(', '))}">${isChoice(f.type)?esc(f.options.slice(0,2).join(', '))+(f.options.length>2?` +${f.options.length-2} more`:''):'None'}</span></td>
+   <td class="act">${detBtn(f.label)}</td></tr>`).join('');
+}
+function tagRows(){
+  return D.tags.map(t=>`<tr data-id="${t.id}">
+   <td class="nm"><div class="cell-name"><input class="ie" data-f="name" maxlength="30" value="${esc(t.name)}" aria-label="Tag name" ${dis()}></div></td>
+   <td data-l="Color"><div class="cwrap"><button class="colorbtn press" data-act="color" aria-haspopup="true" aria-expanded="false" aria-label="Color of ${esc(t.name)}: ${cname(t.color)}" ${dis()}><span class="dot c-${t.color}"></span>${cname(t.color)}</button>
+     <div class="pop" role="menu">${TONES.map(([k,n])=>`<button role="menuitemradio" aria-checked="${k===t.color}" data-act="pick" data-c="${k}"><span class="dot c-${k}"></span>${n}${k===t.color?ic('check'):''}</button>`).join('')}</div></div></td>
+   <td data-l="Leads" class="num">${t.leads} lead${t.leads===1?'':'s'}</td>
+   <td class="act">${detBtn(t.name)}</td></tr>`).join('');
+}
+const cname=c=>TONES.find(t=>t[0]===c)[1];
+const HEAD={stages:['Order','Name','Leads'],fields:['Label','Type','Required','Options'],tags:['Tag','Color','Leads']};
+const EMPTY={fields:'No custom fields yet. Add one to keep the details you always ask for, like budget or area.',tags:'No tags yet. Add one from any lead or here.',stages:'No stages yet. Add the first step in your relationship with a lead.'};
+
+function render(flash){
+  const m=META[tab];
+  document.body.dataset.state=mode;
+  renderMaster();
+  $('#master').toggleAttribute('inert',false);
+  $('#expl').innerHTML=m.expl;$('#addl').textContent=m.add;
+  const b=$('#body');
+  if(mode==='loading'){b.innerHTML='<div class="sk" aria-busy="true" aria-label="Loading">'+'<i></i>'.repeat(7)+'</div>';$('#add').disabled=true;return}
+  $('#add').disabled=false;
+  if(!D[tab].length){b.innerHTML=`<div class="empty"><p>${EMPTY[tab]}</p>${ro()?'':`<button class="btn primary press" data-act="add">${ic('plus')}${m.add}</button>`}</div>`;return}
+  const rows={stages:stageRows,fields:fieldRows,tags:tagRows}[tab]();
+  b.innerHTML=`<table><thead><tr>${HEAD[tab].map(h=>`<th scope="col">${h}</th>`).join('')}<th scope="col"><span class="sr">Details</span></th></tr></thead><tbody>${rows}</tbody></table>`;
+  if(flash){const r=b.querySelector(`tr[data-id="${flash}"]`);if(r){r.classList.add('flash');r.scrollIntoView({block:'nearest'})}}
+}
+
+/* ---------- inline editing ---------- */
+const find=id=>D[tab].find(x=>x.id===id);
+$('#body').addEventListener('change',e=>{
+  const inp=e.target.closest('input.ie');if(!inp)return;
+  const it=find(inp.closest('tr').dataset.id),f=inp.dataset.f,v=inp.value.trim();
+  if(!v||v===it[f]){inp.value=it[f];return}
+  const msg={stages:'Stage renamed.',fields:'Field renamed.',tags:'Tag renamed.'}[tab];
+  save(()=>{it[f]=v},msg,it.id);
+});
+$('#body').addEventListener('keydown',e=>{
+  if(e.target.matches('input.ie')){if(e.key==='Enter')e.target.blur();if(e.key==='Escape'){render();}}
+});
+function move(id,d){
+  const act=D.stages.filter(s=>!s.archived),i=act.findIndex(s=>s.id===id),j=i+d;
+  if(j<0||j>=act.length)return;
+  save(()=>{const a=D.stages,x=a.indexOf(act[i]),y=a.indexOf(act[j]);[a[x],a[y]]=[a[y],a[x]]},'Stage moved.',id);
+  const r=document.querySelector(`tr[data-id="${id}"] [data-act="${d<0?'up':'down'}"]`);if(r&&!r.disabled)r.focus();
+}
+document.addEventListener('click',e=>{
+  if(!e.target.closest('.cwrap'))document.querySelectorAll('.pop.open').forEach(p=>{p.classList.remove('open');p.previousElementSibling.setAttribute('aria-expanded','false')});
+});
+$('#body').addEventListener('click',e=>{
+  const a=e.target.closest('[data-act]');if(!a)return;
+  const tr=a.closest('tr'),id=tr&&tr.dataset.id,act=a.dataset.act;
+  if(act==='add')return openDrawer(null,a);
+  if(act==='open')return openDrawer(id,a);
+  if(act==='up')return move(id,-1);
+  if(act==='down')return move(id,1);
+  if(act==='req'){if(ro())return;const f=find(id);return save(()=>{f.required=!f.required},f.required?'Field is now optional.':'Field is now required.',id)}
+  if(act==='color'){if(ro())return;const p=a.nextElementSibling,o=!p.classList.contains('open');
+    document.querySelectorAll('.pop.open').forEach(x=>x.classList.remove('open'));p.classList.toggle('open',o);a.setAttribute('aria-expanded',o);e.stopPropagation();
+    if(o)p.querySelector('[aria-checked=true]').focus();return}
+  if(act==='pick'){const t=find(id);const c=a.dataset.c;if(c===t.color){render();return}save(()=>{t.color=c},'Tag color changed.',id)}
+});
+$('#body').addEventListener('keydown',e=>{if(e.key==='Escape'&&e.target.closest('.pop')){const b=e.target.closest('.cwrap').querySelector('.colorbtn');e.target.closest('.pop').classList.remove('open');b.focus()}});
+$('#add').addEventListener('click',e=>openDrawer(null,e.currentTarget));
+
+/* ---------- drawer ---------- */
+function openDrawer(id,from){
+  opener=from;dr={kind:tab,id,keyTouched:false};
+  const it=id?find(id):null,k=tab,r=ro();
+  $('#dt').textContent=id?({stages:'Stage',fields:'Field',tags:'Tag'}[k]+': '+(it.name||it.label)):META[k].add;
+  let h='';
+  if(k==='stages'){
+    h=`<div class="fld"><label for="d-name">Name</label><input class="inp" id="d-name" maxlength="40" value="${esc(it?it.name:'')}" placeholder="Onboarding" ${dis()}><span class="help">Up to 40 characters.</span><span class="err" id="e-name" role="alert"></span></div>`;
+    if(it)h+=`<div class="fld"><span class="lbl">Leads in this stage</span><span>${it.leads} lead${it.leads===1?'':'s'}</span></div>
+    <div class="zone needs-admin">${it.archived?`<p>Restoring puts it back at the end of your stages so you can choose it for new leads again.</p><button type="button" class="btn press" data-d="restore">Restore stage</button>`:`<p>Archiving keeps the stage on leads that already have it. You cannot choose it for new leads.</p><button type="button" class="btn danger press" data-d="archive">Archive stage</button>`}</div>`;
+  }
+  if(k==='fields'){
+    const t=it?it.type:'Text',o=it?it.options.join('\n'):'';
+    h=`<div class="fld"><label for="d-name">Label</label><input class="inp" id="d-name" maxlength="60" value="${esc(it?it.label:'')}" placeholder="Budget" ${dis()}><span class="err" id="e-name" role="alert"></span></div>
+    <div class="fld"><label for="d-type">Type</label><select class="inp" id="d-type" ${dis()}>${TYPES.map(x=>`<option ${x===t?'selected':''}>${x}</option>`).join('')}</select></div>
+    <div class="fld" id="d-optw" ${isChoice(t)?'':'hidden'}><label for="d-opts">Options</label><textarea class="inp" id="d-opts" placeholder="One per line, or separated by commas" ${dis()}>${esc(o)}</textarea><span class="help">One per line, or separated by commas.</span><span class="err" id="e-opts" role="alert"></span></div>
+    <div class="row"><label for="d-req" class="lbl" style="font-weight:600">Required when adding a lead</label><button type="button" class="sw press" role="switch" id="d-req" aria-checked="${it?it.required:false}" ${r?'aria-disabled="true"':''}></button></div>
+    <details class="adv"><summary>${ic('right')}Advanced</summary>
+      <div class="fld"><label for="d-key">Key</label><input class="inp keybox" id="d-key" value="${esc(it?it.key:'')}" ${it||r?'readonly':''} placeholder="budget_range"><span class="help">${it?'The machine name used by imports and integrations. It is set when the field is created.':'Filled in from the label. Change it only if an import or integration needs a specific name.'}</span></div>
+    </details>`;
+    if(it)h+=`<div class="zone needs-admin">${it.archived?`<p>Restoring shows it on lead forms again, with the data it already holds.</p><button type="button" class="btn press" data-d="restore">Restore field</button>`:`<p>Fields cannot be deleted, only archived. Archiving hides it from forms and keeps the data.</p><button type="button" class="btn danger press" data-d="archive">Archive field</button>`}</div>`;
+  }
+  if(k==='tags'){
+    const c=it?it.color:'neutral';
+    h=`<div class="fld"><label for="d-name">Name</label><input class="inp" id="d-name" maxlength="30" value="${esc(it?it.name:'')}" placeholder="Hot" ${dis()}><span class="err" id="e-name" role="alert"></span></div>
+    <div class="fld"><span class="lbl" id="d-cl">Color</span><div class="swatches" role="radiogroup" aria-labelledby="d-cl">${TONES.map(([x,n])=>`<button type="button" role="radio" aria-checked="${x===c}" data-c="${x}" ${dis()}><span class="dot c-${x}"></span>${n}</button>`).join('')}</div></div>`;
+    if(it)h+=`<div class="fld"><span class="lbl">Used on</span><span>${it.leads} lead${it.leads===1?'':'s'}</span></div>
+    <div class="zone needs-admin"><p>Deleting removes the tag from every lead that uses it.</p><button type="button" class="btn danger press" data-d="delete">Delete tag</button></div>`;
+  }
+  if(r)h+=`<p class="help">Only owners and admins can change these settings.</p>`;
+  $('#dform').innerHTML=h;
+  $('#dfoot').innerHTML=`<button type="button" class="btn press" id="dcancel">${r?'Close':'Cancel'}</button>${r?'':`<button type="submit" form="dform" class="btn primary press">${id?'Save changes':META[k].add}</button>`}`;
+  $('#drawer').classList.add('on');$('#drawer').setAttribute('aria-hidden','false');$('#scrim').classList.add('on');
+  setTimeout(()=>$('#d-name').focus(),50);
+}
+function closeDrawer(){
+  if(!dr)return;dr=null;
+  $('#drawer').classList.remove('on');$('#drawer').setAttribute('aria-hidden','true');$('#scrim').classList.remove('on');
+  if(opener&&document.contains(opener))opener.focus();
+}
+$('#dx').onclick=closeDrawer;$('#scrim').onclick=closeDrawer;
+$('#dfoot').addEventListener('click',e=>{if(e.target.id==='dcancel')closeDrawer()});
+const slug=s=>s.toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'');
+$('#dform').addEventListener('input',e=>{
+  if(dr&&dr.kind==='fields'&&!dr.id){
+    if(e.target.id==='d-name'&&!dr.keyTouched)$('#d-key').value=slug(e.target.value);
+    if(e.target.id==='d-key')dr.keyTouched=true;
+  }
+});
+$('#dform').addEventListener('change',e=>{if(e.target.id==='d-type')$('#d-optw').hidden=!isChoice(e.target.value)});
+$('#dform').addEventListener('click',e=>{
+  const sw=e.target.closest('#d-req');if(sw&&!ro())return sw.setAttribute('aria-checked',sw.getAttribute('aria-checked')!=='true');
+  const c=e.target.closest('[data-c]');if(c){c.parentNode.querySelectorAll('button').forEach(b=>b.setAttribute('aria-checked',b===c));return}
+  const d=e.target.closest('[data-d]');if(!d)return;
+  const it=find(dr.id),k=dr.kind,x=d.dataset.d;
+  if(x==='archive'&&k==='stages'&&it.leads>0)return confirmBox(`Archive ${it.name}?`,`${it.leads} leads are in this stage. They keep it, but you cannot choose it for new leads.`,'Archive',false,()=>archive(it,'stages'));
+  if(x==='archive')return archive(it,k);
+  if(x==='restore')return restore(it,k);
+  if(x==='delete')return confirmBox(`Delete ${it.name}?`,`It will be removed from ${it.leads} leads.`,'Delete',true,()=>{
+    if(save(()=>{D.tags=D.tags.filter(t=>t!==it)},'Tag deleted.'))closeDrawer()});
+});
+function archive(it,k){
+  const msg=k==='stages'?'Stage archived.':'Field archived.';
+  if(save(()=>{it.archived=true;D[k]=D[k].filter(x=>x!==it).concat(it)},msg,it.id))closeDrawer();
+}
+function restore(it,k){
+  const msg=k==='stages'?'Stage restored.':'Field restored.';
+  if(save(()=>{it.archived=false;const a=D[k].filter(x=>x!==it),i=a.findIndex(x=>x.archived);a.splice(i<0?a.length:i,0,it);D[k]=a},msg,it.id))closeDrawer();
+}
+$('#dform').addEventListener('submit',e=>{
+  e.preventDefault();if(ro()||!dr)return;
+  const k=dr.kind,it=dr.id?find(dr.id):null,name=$('#d-name').value.trim();
+  document.querySelectorAll('.err').forEach(x=>x.textContent='');
+  const bad=(id,t)=>{$('#'+id).textContent=t;return true};
+  if(!name)return bad('e-name',{stages:'Give the stage a name.',fields:'Give the field a label.',tags:'Give the tag a name.'}[k]),$('#d-name').focus();
+  if(k==='stages'){
+    if(save(()=>{it?it.name=name:D.stages.splice(D.stages.filter(s=>!s.archived).length,0,{id:'s'+nid++,name,leads:0,archived:false})},it?'Stage renamed.':'Stage added.'))closeDrawer();
+  }
+  if(k==='fields'){
+    const type=$('#d-type').value,opts=isChoice(type)?$('#d-opts').value.split(/[\n,]/).map(s=>s.trim()).filter(Boolean):[];
+    if(isChoice(type)&&!opts.length)return bad('e-opts','Add at least one option.'),$('#d-opts').focus();
+    const req=$('#d-req').getAttribute('aria-checked')==='true';
+    if(save(()=>{if(it)Object.assign(it,{label:name,type,options:opts,required:req});else D.fields.splice(D.fields.filter(f=>!f.archived).length,0,{id:'f'+nid++,label:name,type,options:opts,required:req,key:$('#d-key').value.trim()||slug(name),archived:false})},it?'Field updated.':'Field added.'))closeDrawer();
+  }
+  if(k==='tags'){
+    const color=$('#dform [role=radio][aria-checked=true]').dataset.c;
+    if(save(()=>{it?Object.assign(it,{name,color}):D.tags.push({id:'t'+nid++,name,color,leads:0})},it?'Tag updated.':'Tag added.'))closeDrawer();
+  }
+});
+
+/* ---------- confirm ---------- */
+let yes=null;
+function confirmBox(t,p,ok,danger,fn){
+  $('#mt').textContent=t;$('#mp').textContent=p;const y=$('#myes');y.textContent=ok;y.className='btn press '+(danger?'danger':'primary');yes=fn;
+  $('#modal').classList.add('on');$('#mno').focus();
+}
+const closeModal=()=>{$('#modal').classList.remove('on');yes=null};
+$('#mno').onclick=closeModal;
+$('#myes').onclick=()=>{const f=yes;closeModal();f&&f()};
+$('#modal').addEventListener('click',e=>{if(e.target.id==='modal')closeModal()});
+document.addEventListener('keydown',e=>{if(e.key!=='Escape')return;if($('#modal').classList.contains('on'))closeModal();else closeDrawer()});
+
+/* ---------- demo state ---------- */
+$('#ds').addEventListener('change',e=>{
+  mode=e.target.value;closeDrawer();closeModal();D=seed();
+  if(mode==='empty'){D.fields=[];D.tags=[]}
+  render();
+});
+(()=>{const m=location.hash.match(/state=(\w+)/),t=location.hash.match(/tab=(\w+)/);
+  if(t&&META[t[1]])tab=t[1];
+  if(m){$('#ds').value=m[1];$('#ds').dispatchEvent(new Event('change'))}else render()})();
+</script>
+</body>
+</html>

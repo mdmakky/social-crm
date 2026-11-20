@@ -1,4 +1,4 @@
-import { Bell, Contact, Kanban, LineChart, MessageSquareText, Plug, ScrollText, SlidersHorizontal, Sparkles, Users } from "lucide-react";
+import { Bell, Kanban, LineChart, MessageSquareText, Plug, ScrollText, SlidersHorizontal, Sparkles, Users } from "lucide-react";
 import type { ComponentType } from "react";
 import { can, type Action, type Role } from "@crm/core/permissions";
 
@@ -19,8 +19,7 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
     { label: "Notifications", description: "Alerts you receive. Personal to you.", path: "settings/notifications", icon: Bell },
   ] },
   { label: "CRM data", items: [
-    { label: "Lead fields", description: "Lifecycle stages, custom fields and tags.", path: "settings/contacts", icon: Contact },
-    { label: "Lead stages", description: "Pipelines, stages and lost reasons.", path: "settings/pipelines", icon: Kanban },
+    { label: "Lead settings", description: "Stages, fields and tags.", path: "settings/leads", icon: Kanban },
   ] },
   { label: "AI and automation", items: [
     { label: "AI and automation", description: "Assistant, agents, knowledge and rules.", path: "settings/ai", icon: Sparkles },

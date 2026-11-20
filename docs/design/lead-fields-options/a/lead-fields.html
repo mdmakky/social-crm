@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Lead fields - Settings - RenoDevs Team</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body data-state="normal">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+ <symbol id="home" viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></symbol>
+ <symbol id="inbox" viewBox="0 0 24 24"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.5 5.1 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.5-6.9A2 2 0 0 0 16.7 4H7.3a2 2 0 0 0-1.8 1.1z"/></symbol>
+ <symbol id="users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"/></symbol>
+ <symbol id="check" viewBox="0 0 24 24"><path d="m9 11 3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></symbol>
+ <symbol id="chart" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M18 17V9M13 17V5M8 17v-3"/></symbol>
+ <symbol id="gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></symbol>
+ <symbol id="search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></symbol>
+ <symbol id="bell" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></symbol>
+ <symbol id="grip" viewBox="0 0 24 24"><circle cx="9" cy="6" r="1"/><circle cx="15" cy="6" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="9" cy="18" r="1"/><circle cx="15" cy="18" r="1"/></symbol>
+ <symbol id="up" viewBox="0 0 24 24"><path d="m18 15-6-6-6 6"/></symbol>
+ <symbol id="down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+ <symbol id="more" viewBox="0 0 24 24"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></symbol>
+ <symbol id="plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+ <symbol id="chev" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+ <symbol id="lock" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></symbol>
+ <symbol id="alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></symbol>
+ <symbol id="ok" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+</svg>
+
+<div class="shell">
+ <aside class="side">
+  <div class="ws"><b>RT</b><span>RenoDevs Team</span></div>
+  <nav class="nav" aria-label="Main">
+   <a href="#"><svg class="i"><use href="#home"/></svg><span>Home</span></a>
+   <a href="#"><svg class="i"><use href="#inbox"/></svg><span>Inbox</span></a>
+   <a href="#"><svg class="i"><use href="#users"/></svg><span>Leads</span></a>
+   <a href="#"><svg class="i"><use href="#check"/></svg><span>Tasks</span></a>
+   <a href="#"><svg class="i"><use href="#chart"/></svg><span>Reports</span></a>
+   <a href="#" aria-current="page"><svg class="i"><use href="#gear"/></svg><span>Settings</span></a>
+  </nav>
+  <div class="me"><i>TA</i><div><b>Tanvir Ahmed</b><small>Owner</small></div></div>
+ </aside>
+
+ <div class="main">
+  <header class="top">
+   <label class="search"><svg class="i"><use href="#search"/></svg><span class="sr">Search</span><input placeholder="Search or jump to"></label>
+   <button class="icon-btn" aria-label="Notifications"><svg class="i"><use href="#bell"/></svg></button>
+  </header>
+
+  <div class="settings">
+   <nav class="smenu" aria-label="Settings">
+    <h3>Workspace</h3><a href="#">General</a><a href="#">Notifications</a>
+    <h3>CRM data</h3><a href="#" aria-current="page">Lead fields</a><a href="#">Lead stages</a>
+    <h3>AI and automation</h3><a href="#">AI and automation</a>
+    <h3>Channels</h3><a href="#">Integrations</a><a href="#">Web chat</a><a href="#">Ad measurement</a>
+    <h3>Team and security</h3><a href="#">Members</a><a href="#">Audit log</a>
+   </nav>
+
+   <main class="content">
+    <h1>Lead fields</h1>
+    <p class="lede">Choose the stages, details and tags your team uses to organize leads.</p>
+
+    <div class="note" id="ro" hidden><svg class="i"><use href="#lock"/></svg>Only owners and admins can change these settings.</div>
+    <div class="note err" id="er" role="alert" hidden><svg class="i"><use href="#alert"/></svg>Could not save. Nothing was changed. Try again.<button class="btn" id="er-x">Dismiss</button></div>
+
+    <div class="tabs" role="tablist" aria-label="Lead fields">
+     <button class="tab" role="tab" id="t-stages" aria-selected="true" aria-controls="panel" data-tab="stages">Stages <span class="n"></span></button>
+     <button class="tab" role="tab" id="t-fields" aria-selected="false" aria-controls="panel" data-tab="fields" tabindex="-1">Fields <span class="n"></span></button>
+     <button class="tab" role="tab" id="t-tags" aria-selected="false" aria-controls="panel" data-tab="tags" tabindex="-1">Tags <span class="n"></span></button>
+    </div>
+
+    <section class="panel" id="panel" role="tabpanel" aria-live="polite"></section>
+   </main>
+  </div>
+ </div>
+</div>
+
+<div class="scrim" id="scrim" hidden>
+ <div class="dlg" role="alertdialog" aria-modal="true" aria-labelledby="dt" aria-describedby="dd">
+  <h2 id="dt"></h2><p id="dd"></p>
+  <div class="acts"><button class="btn" id="d-no">Cancel</button><button class="btn danger" id="d-yes"></button></div>
+ </div>
+</div>
+<div class="toast" id="toast" role="status" hidden><svg class="i"><use href="#ok"/></svg><span></span></div>
+
+<label class="demo-state"><span>Demo state</span>
+ <select id="state" aria-label="Demo state">
+  <option value="normal">Normal</option><option value="loading">Loading</option><option value="empty">Empty</option><option value="readonly">Read-only</option><option value="error">Save error</option>
+ </select>
+</label>
+<nav class="opt-switch" aria-label="Design options">
+ <a href="../a/lead-fields.html" aria-current="page">A</a><a href="../b/lead-fields.html">B</a><a href="../c/lead-fields.html">C</a>
+</nav>
+
+<script>
+const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
+const ic=n=>`<svg class="i" aria-hidden="true"><use href="#${n}"/></svg>`;
+const TONES=['Neutral','Violet','Green','Amber','Red'];
+const TYPES=['Text','Number','Date','Choose one','Choose several','Yes or no','Web link'];
+const seed=()=>({
+ stages:[['New',31],['Contacted',18],['Qualified',12],['Opportunity',9],['Customer',14],['Churned',3],['Dormant',0,1]].map(([n,c,a])=>({n,c,a:!!a})),
+ fields:[
+  {n:'What do you need?',t:'Choose one',o:['Full home renovation','Kitchen','Bathroom','Interior design','Other'],r:1,k:'what_do_you_need'},
+  {n:'Budget',t:'Choose one',o:['Under ৳3 lakh','৳3 to 8 lakh','৳8 to 12 lakh','Above ৳12 lakh'],k:'budget'},
+  {n:'When do you want to start?',t:'Date',k:'start_date'},
+  {n:'Area',t:'Text',k:'area'},
+  {n:'Has a site plan',t:'Yes or no',k:'has_site_plan'},
+  {n:'Facebook page',t:'Web link',k:'facebook_page',a:1}],
+ tags:[['Hot','Violet',18],['VIP','Amber',6],['Wholesale','Green',9],['Brand','Neutral',11],['Photo','Neutral',4],['Unreachable','Red',7]].map(([n,c,l])=>({n,c,l}))});
+let D=seed(), tab='stages', state='normal', edit=null, openMenu=null, openPop=false;
+const ro=()=>state==='readonly', esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const live=a=>a.filter(x=>!x.a), arch=a=>a.filter(x=>x.a);
+const ord=a=>[...live(a),...arch(a)];
+
+function toast(m){const t=$('#toast');$('span',t).textContent=m;t.hidden=false;clearTimeout(toast.h);toast.h=setTimeout(()=>t.hidden=true,2600)}
+// every change goes through save(); the "save error" demo state fails it
+function save(msg,fn){
+ if(state==='error'){$('#er').hidden=false;return false}
+ $('#er').hidden=true;fn();toast(msg);render();return true}
+function leadsTxt(n){return n+(n===1?' lead':' leads')}
+function keyOf(s){return s.toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'')}
+
+const kebab=(items)=>`<span class="kebab-w"><button class="icon-btn kebab" aria-haspopup="menu" aria-expanded="false" aria-label="More actions">${ic('more')}</button><div class="menu" role="menu" hidden>${items.map(([a,l,h,c])=>`<button role="menuitem" data-act="${a}" class="${c||''}">${l}${h?`<small>${h}</small>`:''}</button>`).join('')}</div></span>`;
+
+function stageRow(s,i,list){
+ const first=i===0,last=i===live(list).length-1;
+ if(edit===`s${i}`) return `<li class="row stage editing"><form class="inline" data-form="rename"><label class="sr" for="rn">Stage name</label><input id="rn" class="in" maxlength="40" value="${esc(s.n)}" required><button class="btn primary">Save</button><button type="button" class="btn" data-act="cancel">Cancel</button></form></li>`;
+ return `<li class="row stage${s.a?' archived':''}" data-i="${i}">
+  <span class="grip">${s.a?'':ic('grip')}</span>
+  <span class="moves">${s.a?'':`<button class="icon-btn" data-act="up" aria-label="Move ${esc(s.n)} up" ${first?'disabled':''}>${ic('up')}</button><button class="icon-btn" data-act="down" aria-label="Move ${esc(s.n)} down" ${last?'disabled':''}>${ic('down')}</button>`}</span>
+  <span class="nm">${esc(s.n)}</span><span class="meta cnt">${leadsTxt(s.c)}</span>${s.a?'<span class="pill arch">Archived</span>':'<span></span>'}
+  ${kebab(s.a?[['restore','Restore','You can choose it for new leads again.']]:[['rename','Rename'],['archive','Archive',s.c?'Leads in it keep it.':'']])}</li>`}
+
+function fieldRow(f,i){
+ const o=f.o?f.o.join(', '):'';
+ return `<li class="row field${f.a?' archived':''}" data-i="${i}"><span class="nm">${esc(f.n)}</span>
+  <span class="pills"><span class="pill">${f.t}</span>${f.r?'<span class="pill req">Required</span>':'<span></span>'}</span>
+  <span class="opts" title="${esc(o)}">${o?esc(o):''}${f.a?(o?' · ':'')+'Archived':''}</span>
+  ${kebab(f.a?[['restore','Restore','Shows on forms again.']]:[['edit','Edit'],['archive','Archive','Hides it from forms and keeps the data.']])}</li>`}
+
+function tagRow(t,i){
+ if(edit===`t${i}`) return `<li class="row tag editing"><form class="inline" data-form="tagedit"><label class="sr" for="rn">Tag name</label><input id="rn" class="in" maxlength="30" value="${esc(t.n)}" required><div class="sw" role="radiogroup" aria-label="Color">${TONES.map(c=>`<label><input type="radio" name="tc" value="${c}" ${c===t.c?'checked':''}><span class="t-${c.toLowerCase()}">${c}</span></label>`).join('')}</div><button class="btn primary">Save</button><button type="button" class="btn" data-act="cancel">Cancel</button></form></li>`;
+ return `<li class="row tag" data-i="${i}"><span class="nm"><span class="pill t-${t.c.toLowerCase()}"><span class="d"></span>${esc(t.n)}</span></span><span class="meta">${leadsTxt(t.l)}</span>${kebab([['rename','Rename and change color'],['delete','Delete','Removes it from every lead.','dng']])}</li>`}
+
+const HEAD={
+ stages:['Lifecycle stages','Where a lead is in your relationship.','Add a stage'],
+ fields:['Custom fields','Extra information on every lead.','Add a field'],
+ tags:['Tags','Anyone who edits leads can add tags.','Add a tag']};
+
+function popForm(){
+ if(tab==='stages') return `<form data-form="add"><div><label class="lb" for="p1">Stage name</label><input id="p1" class="in" maxlength="40" placeholder="Onboarding" required><div class="hint">Up to 40 characters.</div></div><div class="acts"><button type="button" class="btn" data-act="closepop">Cancel</button><button class="btn primary">Add stage</button></div></form>`;
+ if(tab==='tags') return `<form data-form="add"><div><label class="lb" for="p1">Tag name</label><input id="p1" class="in" maxlength="30" placeholder="Referral" required></div><div><span class="lb">Color</span><div class="sw" role="radiogroup" aria-label="Color">${TONES.map((c,i)=>`<label><input type="radio" name="tc" value="${c}" ${i?'':'checked'}><span class="t-${c.toLowerCase()}">${c}</span></label>`).join('')}</div></div><div class="acts"><button type="button" class="btn" data-act="closepop">Cancel</button><button class="btn primary">Add tag</button></div></form>`;
+ const f=edit!==null&&edit[0]==='f'?D.fields[+edit.slice(1)]:null;
+ return `<form data-form="add"><div><label class="lb" for="p1">Label</label><input id="p1" class="in" placeholder="Preferred contact time" required value="${f?esc(f.n):''}"></div>
+ <div><label class="lb" for="p2">Type</label><select id="p2" class="in">${TYPES.map(t=>`<option ${f&&f.t===t?'selected':''}>${t}</option>`).join('')}</select></div>
+ <div id="optw" hidden><label class="lb" for="p3">Options</label><textarea id="p3" class="in" rows="4" placeholder="One per line, or separated by commas">${f&&f.o?esc(f.o.join('\n')):''}</textarea></div>
+ <label class="chk"><input type="checkbox" id="p4" ${f&&f.r?'checked':''}>Required when adding a lead</label>
+ <details><summary>${ic('chev')}Advanced</summary><label class="lb" for="p5" style="margin-top:8px">Key</label><input id="p5" class="in" value="${f?esc(f.k):''}" ${f?'readonly':''}><div class="hint">${f?'The key cannot change after a field is created.':'Filled in from the label. Used by imports and integrations.'}</div></details>
+ <div class="acts"><button type="button" class="btn" data-act="closepop">Cancel</button><button class="btn primary">${f?'Save field':'Add field'}</button></div></form>`}
+
+function render(){
+ $$('.tab').forEach(b=>{const on=b.dataset.tab===tab;b.setAttribute('aria-selected',on);b.tabIndex=on?0:-1;
+  const c=state==='loading'?'…':state==='empty'&&b.dataset.tab!=='stages'?0:D[b.dataset.tab].length;$('.n',b).textContent=c});
+ $('#ro').hidden=!ro();
+ const [h,p,add]=HEAD[tab], P=$('#panel');
+ P.setAttribute('aria-labelledby','t-'+tab);
+ let body='',foot='';
+ if(state==='loading') body=Array(tab==='stages'?7:6).fill('<div class="skel" aria-hidden="true"><i style="width:22%"></i><i style="width:12%"></i><i style="width:30%;margin-left:auto"></i></div>').join('')+'<p class="sr">Loading</p>';
+ else if(state==='empty'&&tab!=='stages') body=`<div class="empty"><p>${tab==='fields'?'No custom fields yet. Add one to keep the details you always ask for, like budget or area.':'No tags yet. Add one from any lead or here.'}</p>${ro()?'':`<button class="btn primary" data-act="openpop">${ic('plus')}${add}</button>`}</div>`;
+ else{
+  const A=ord(D[tab]), L=live(D[tab]);
+  const idx=x=>D[tab].indexOf(x);
+  body=`<ul class="list">${tab==='stages'?A.map(s=>stageRow(s,idx(s),D.stages)).join(''):tab==='fields'?A.map(f=>fieldRow(f,idx(f))).join(''):A.map(t=>tagRow(t,idx(t))).join('')}</ul>`;
+  if(tab==='stages') foot='Archived stages stay on the leads that have them. You cannot choose them for new leads.';
+  if(tab==='fields') foot='Fields cannot be deleted, only archived. Archiving hides it from forms and keeps the data.';
+ }
+ P.innerHTML=`<div class="phead"><div><strong>${h}</strong><p>${p}</p></div>${ro()||state==='loading'?'':`<div class="addwrap"><button class="btn primary" data-act="openpop" aria-haspopup="dialog" aria-expanded="${openPop}">${ic('plus')}${add}</button><div class="pop" role="dialog" aria-label="${add}" ${openPop?'':'hidden'}>${openPop?popForm():''}</div></div>`}</div>${body}${foot?`<div class="foot">${foot}</div>`:''}`;
+ // list item indices in stage rows use idx of D.stages: fix up/down to operate on live order
+ if(openPop){const t=$('#p2');if(t){const sync=()=>$('#optw').hidden=!/^Choose/.test(t.value);t.onchange=sync;sync();
+   const l=$('#p1'),k=$('#p5');if(!k.readOnly)l.oninput=()=>k.value=keyOf(l.value)}
+  (edit&&edit[0]==='f'?$('#p1'):$('#p1'))?.focus()}
+ else if(edit&&$('#rn'))$('#rn').focus();
+ document.body.dataset.state=state;
+}
+
+function confirmDlg(t,d,y,go){const s=$('#scrim');$('#dt').textContent=t;$('#dd').textContent=d;$('#d-yes').textContent=y;s.hidden=false;$('#d-no').focus();
+ const close=()=>{s.hidden=true;$('#d-yes').onclick=null;document.removeEventListener('keydown',k)};
+ const k=e=>{if(e.key==='Escape')close()};document.addEventListener('keydown',k);
+ $('#d-no').onclick=close;$('#d-yes').onclick=()=>{close();go()}}
+
+function closeMenus(){$$('.menu').forEach(m=>{m.hidden=true});$$('.kebab').forEach(b=>b.setAttribute('aria-expanded','false'));$$('.row.open').forEach(r=>r.classList.remove('open'))}
+
+document.addEventListener('click',e=>{
+ const kb=e.target.closest('.kebab');
+ if(kb){const m=kb.nextElementSibling,was=!m.hidden;closeMenus();if(!was){m.hidden=false;kb.setAttribute('aria-expanded','true');kb.closest('.row').classList.add('open');$('button',m).focus()}return}
+ if(!e.target.closest('.menu'))closeMenus();
+ if(openPop&&!e.target.closest('.addwrap')){openPop=false;edit=null;render()}
+ const t=e.target.closest('.tab');if(t){tab=t.dataset.tab;edit=null;openPop=false;render();return}
+ const b=e.target.closest('[data-act]');if(!b||b.disabled)return;
+ const row=b.closest('.row'),i=row?+row.dataset.i:-1,a=b.dataset.act;
+ closeMenus();
+ if(a==='openpop'){openPop=!openPop;edit=null;render();return}
+ if(a==='closepop'){openPop=false;edit=null;render();return}
+ if(a==='cancel'){edit=null;render();return}
+ if(tab==='stages'){const s=D.stages[i];
+  if(a==='rename'){edit='s'+i;render()}
+  if(a==='restore')save('Stage restored.',()=>s.a=false);
+  if(a==='archive'){const go=()=>save('Stage archived.',()=>{s.a=true;D.stages.push(D.stages.splice(i,1)[0])});
+   s.c?confirmDlg(`Archive ${s.n}?`,`${s.c} leads are in this stage. They keep it, but you cannot choose it for new leads.`,'Archive',go):go()}
+  if(a==='up'||a==='down'){const d=a==='up'?-1:1,L=live(D.stages),j=L.indexOf(s)+d;
+   if(j>=0&&j<L.length)save('Stage moved.',()=>{const o=L[j],x=D.stages.indexOf(o);D.stages.splice(i,1);D.stages.splice(x,0,s)})}
+ }
+ if(tab==='fields'){const f=D.fields[i];
+  if(a==='edit'){edit='f'+i;openPop=true;render()}
+  if(a==='archive')save('Field archived.',()=>f.a=1);
+  if(a==='restore')save('Field restored.',()=>f.a=0)}
+ if(tab==='tags'){const g=D.tags[i];
+  if(a==='rename'){edit='t'+i;render()}
+  if(a==='delete')confirmDlg(`Delete ${g.n}?`,`${g.n} will be removed from ${g.l} leads.`,'Delete',()=>save('Tag deleted.',()=>D.tags.splice(i,1)))}
+});
+document.addEventListener('keydown',e=>{
+ if(e.key==='Escape'){closeMenus();if(openPop){openPop=false;edit=null;render()}else if(edit){edit=null;render()}}
+ const tb=e.target.closest&&e.target.closest('.tab');
+ if(tb&&(e.key==='ArrowRight'||e.key==='ArrowLeft')){const T=$$('.tab'),n=T[(T.indexOf(tb)+(e.key==='ArrowRight'?1:-1)+3)%3];n.click();n.focus()}
+});
+document.addEventListener('submit',e=>{
+ e.preventDefault();const k=e.target.dataset.form;
+ if(tab==='stages'){const v=$('input',e.target).value.trim();if(!v)return;
+  if(k==='rename'){const i=+e.target.closest('.row')?.dataset.i;const j=+edit.slice(1);if(save('Stage renamed.',()=>D.stages[j].n=v))edit=null,render()}
+  else if(save('Stage added.',()=>{const L=live(D.stages).length;D.stages.splice(L,0,{n:v,c:0,a:false})}))openPop=false,render()}
+ if(tab==='tags'){const v=$('input[type=text],input:not([type])',e.target).value.trim(),c=$('input[name=tc]:checked',e.target).value;if(!v)return;
+  if(k==='tagedit'){const j=+edit.slice(1);if(save('Tag updated.',()=>{D.tags[j].n=v;D.tags[j].c=c}))edit=null,render()}
+  else if(save('Tag added.',()=>D.tags.push({n:v,c,l:0})))openPop=false,render()}
+ if(tab==='fields'){const n=$('#p1').value.trim(),t=$('#p2').value,o=/^Choose/.test(t)?$('#p3').value.split(/[\n,]+/).map(x=>x.trim()).filter(Boolean):null,r=$('#p4').checked,key=$('#p5').value||keyOf(n);if(!n)return;
+  if(o&&!o.length){$('#p3').focus();return}
+  const done=()=>{openPop=false;edit=null;render()};
+  if(edit)save('Field updated.',()=>Object.assign(D.fields[+edit.slice(1)],{n,t,o,r:r?1:0}))&&done();
+  else save('Field added.',()=>D.fields.splice(live(D.fields).length,0,{n,t,o,r:r?1:0,k:key}))&&done()}
+});
+$('#state').onchange=e=>{state=e.target.value;D=seed();edit=null;openPop=false;$('#er').hidden=true;closeMenus();render()};
+$('#er-x').onclick=()=>$('#er').hidden=true;
+render();
+</script>
+</body>
+</html>

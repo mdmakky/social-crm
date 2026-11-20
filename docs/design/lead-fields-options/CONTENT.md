@@ -1,0 +1,18 @@
+# Shared content: Settings > Lead fields redesign (use exactly this)
+
+Page: "Lead fields" (route /settings/contacts). Today: three stacked boxed panels "Lifecycle stages", "Custom fields", "Tags", each with a list and an add form below. Dense, repetitive, add forms always open, a "key" field shown to normal users, and nothing explaining what each thing does. Redesign it to be friendly and clear, keeping every capability.
+
+## Capabilities (all must stay reachable)
+- Lifecycle stages ("Where a lead is in your relationship"): ordered list. Each stage: name, number of leads in it ("12 leads"), Archived badge. Actions: move up / move down (keyboard friendly reordering), Rename, Archive (a stage that has leads asks first: "Archive Customer? 12 leads are in this stage. They keep it, but you cannot choose it for new leads." with Archive / Cancel) and Restore for archived ones, Add a stage (name up to 40 chars, e.g. "Onboarding"). Archived stages show dimmed at the end.
+- Custom fields ("Extra information on every lead"): each field: label, type (Text, Number, Date, Choose one, Choose several, Yes or no, Web link), options for the two choice types, Required flag, archived state, internal key (machine name, e.g. budget_range: advanced detail, shown only in an "Advanced" detail, auto-filled from the label). Actions: Add field (label, type, options one per line or comma-separated, "Required when adding a lead"), Archive / Restore. Fields cannot be deleted, only archived (say so in plain words: "Archiving hides it from forms and keeps the data").
+- Tags ("Anyone who edits leads can add tags"): each tag: name, color (five tones: Neutral, Violet, Green, Amber, Red), number of leads using it. Actions: Rename and change color (inline), Delete (asks: "Delete Hot? It will be removed from 18 leads.") and Add a tag.
+- Permissions: only owners and admins can change; everyone else sees the same page read-only with the note "Only owners and admins can change these settings." (all add/rename/archive controls hidden or disabled with that reason).
+- States: loading skeleton; empty states (no custom fields yet: "No custom fields yet. Add one to keep the details you always ask for, like budget or area."; no tags yet: "No tags yet. Add one from any lead or here."); save error with plain recovery ("Could not save. Nothing was changed. Try again."); success confirmation for each action ("Stage renamed.", "Field archived.").
+
+## Sample data (RenoDevs Team, home renovation company, Dhaka; today Fri 20 Nov 2026; user Tanvir Ahmed, Owner)
+Stages (order): New (31 leads), Contacted (18), Qualified (12), Opportunity (9), Customer (14), Churned (3), Dormant (0, archived).
+Custom fields: "What do you need?" (Choose one: Full home renovation, Kitchen, Bathroom, Interior design, Other; Required; key what_do_you_need), "Budget" (Choose one: Under ৳3 lakh, ৳3 to 8 lakh, ৳8 to 12 lakh, Above ৳12 lakh; key budget), "When do you want to start?" (Date; key start_date), "Area" (Text; key area), "Has a site plan" (Yes or no; key has_site_plan), "Facebook page" (Web link; key facebook_page; archived).
+Tags: Hot (violet, 18 leads), VIP (amber, 6), Wholesale (green, 9), Brand (neutral, 11), Photo (neutral, 4), Unreachable (red, 7).
+
+## Frame (fixed)
+Settings of workspace "RenoDevs Team". Settings left menu: Workspace: General, Notifications; CRM data: Lead fields (active), Lead stages; AI and automation: AI and automation; Channels: Integrations, Web chat, Ad measurement; Team and security: Members, Audit log. Page title "Lead fields" with one plain sentence under it. Demo-state control: normal / loading / empty (no custom fields, no tags) / read-only (non-admin) / save error.

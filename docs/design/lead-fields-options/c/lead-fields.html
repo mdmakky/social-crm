@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Lead fields - Settings - RenoDevs Team</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="shell">
+  <aside class="side">
+    <div class="ws"><div class="ws-mark">RD</div><div><b>RenoDevs Team</b><span>Workspace</span></div></div>
+    <nav class="nav" aria-label="Main">
+      <a href="#"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></svg><span>Home</span></a>
+      <a href="#"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg><span>Inbox</span></a>
+      <a href="#"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span>Leads</span></a>
+      <a href="#"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 11 3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span>Tasks</span></a>
+      <a href="#"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg><span>Reports</span></a>
+      <a href="#" aria-current="page"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg><span>Settings</span></a>
+    </nav>
+    <div class="user"><div class="avatar">TA</div><div><b>Tanvir Ahmed</b><span>Owner</span></div></div>
+  </aside>
+
+  <div>
+    <header class="top">
+      <label class="search"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg><input type="search" placeholder="Search or jump to" aria-label="Search or jump to"></label>
+      <button class="icon-btn" aria-label="Notifications"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg></button>
+    </header>
+
+    <div class="settings">
+      <nav class="smenu" aria-label="Settings">
+        <div><h3>Workspace</h3><a href="#">General</a><a href="#">Notifications</a></div>
+        <div><h3>CRM data</h3><a href="#" aria-current="page">Lead fields</a><a href="#">Lead stages</a></div>
+        <div><h3>AI and automation</h3><a href="#">AI and automation</a></div>
+        <div><h3>Channels</h3><a href="#">Integrations</a><a href="#">Web chat</a><a href="#">Ad measurement</a></div>
+        <div><h3>Team and security</h3><a href="#">Members</a><a href="#">Audit log</a></div>
+      </nav>
+
+      <main>
+        <div class="head">
+          <h1>Lead fields</h1>
+          <p>Choose what you track on every lead. The preview on the right shows what your team will see as you edit.</p>
+        </div>
+        <div id="ro-note"></div>
+        <div class="split">
+          <div class="panel lists" id="lists" aria-busy="false"></div>
+          <aside class="panel preview" id="preview" aria-label="Preview"></aside>
+        </div>
+      </main>
+    </div>
+  </div>
+</div>
+
+<div id="toast-host" role="status" aria-live="polite"></div>
+<div class="demo-state" role="group" aria-label="Demo state"><span>Demo</span>
+  <button data-demo="normal" aria-pressed="true">Normal</button>
+  <button data-demo="loading" aria-pressed="false">Loading</button>
+  <button data-demo="empty" aria-pressed="false">Empty</button>
+  <button data-demo="readonly" aria-pressed="false">Read-only</button>
+  <button data-demo="error" aria-pressed="false">Save error</button>
+</div>
+<div class="opt-switch" aria-label="Design option"><a href="../a/lead-fields.html">A</a><a href="../b/lead-fields.html">B</a><a href="lead-fields.html" aria-current="true">C</a></div>
+
+<script>
+const P={
+up:'<path d="m18 15-6-6-6 6"/>',down:'<path d="m6 9 6 6 6-6"/>',
+pencil:'<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>',
+archive:'<rect x="2" y="3" width="20" height="5" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/>',
+undo:'<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/>',
+trash:'<path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>',
+plus:'<path d="M5 12h14"/><path d="M12 5v14"/>',check:'<path d="M20 6 9 17l-5-5"/>',
+alert:'<circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/>',
+lock:'<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+chev:'<path d="m9 18 6-6-6-6"/>'};
+const ic=n=>`<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[n]}</svg>`;
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const TYPES=['Text','Number','Date','Choose one','Choose several','Yes or no','Web link'];
+const TONES=['Neutral','Violet','Green','Amber','Red'];
+const isChoice=t=>t==='Choose one'||t==='Choose several';
+const parseOpts=t=>t.split(/[\n,]/).map(s=>s.trim()).filter(Boolean);
+const slug=s=>s.toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'');
+const seed=()=>({
+ stages:[['New',31],['Contacted',18],['Qualified',12],['Opportunity',9],['Customer',14],['Churned',3],['Dormant',0,1]].map((s,i)=>({id:'s'+i,name:s[0],n:s[1],arch:!!s[2]})),
+ fields:[
+  ['What do you need?','Choose one',['Full home renovation','Kitchen','Bathroom','Interior design','Other'],1,'what_do_you_need'],
+  ['Budget','Choose one',['Under ৳3 lakh','৳3 to 8 lakh','৳8 to 12 lakh','Above ৳12 lakh'],0,'budget'],
+  ['When do you want to start?','Date',[],0,'start_date'],['Area','Text',[],0,'area'],
+  ['Has a site plan','Yes or no',[],0,'has_site_plan'],['Facebook page','Web link',[],0,'facebook_page',1]
+ ].map((f,i)=>({id:'f'+i,label:f[0],type:f[1],opts:f[2],req:!!f[3],key:f[4],arch:!!f[5]})),
+ tags:[['Hot','violet',18],['VIP','amber',6],['Wholesale','green',9],['Brand','neutral',11],['Photo','neutral',4],['Unreachable','red',7]].map((t,i)=>({id:'t'+i,name:t[0],tone:t[1],n:t[2]}))
+});
+let D=seed(),uid=100;
+const S={demo:'normal',tab:'form',edit:null,confirm:null,add:null,toast:null,chosen:{}};
+const $=s=>document.querySelector(s);
+const ro=()=>S.demo==='readonly';
+const lead=n=>`${n} lead${n===1?'':'s'}`;
+
+/* data helpers */
+const activeFirst=a=>[...a.filter(x=>!x.arch),...a.filter(x=>x.arch)];
+function move(list,id,dir){const act=list.filter(x=>!x.arch),arch=list.filter(x=>x.arch),i=act.findIndex(x=>x.id===id),j=i+dir;
+ if(i<0||j<0||j>=act.length)return list;[act[i],act[j]]=[act[j],act[i]];return[...act,...arch];}
+function commit(fn,msg){
+ if(S.demo==='error'){toast('Could not save. Nothing was changed. Try again.',true);return false}
+ fn();toast(msg);return true}
+function toast(msg,err){clearTimeout(S.tt);S.toast={msg,err};drawToast();S.tt=setTimeout(()=>{S.toast=null;drawToast()},err?9000:3500)}
+function drawToast(){const t=S.toast;$('#toast-host').innerHTML=t?`<div class="toast ${t.err?'err':''}">${ic(t.err?'alert':'check')}<span>${esc(t.msg)}</span>${t.err?'<button data-act="toast-x">Dismiss</button>':''}</div>`:''}
+
+/* effective data (live draft overlay for the preview) */
+function eff(){
+ const e=S.edit,d=e&&e.draft;
+ return{
+  stages:D.stages.map(s=>e&&e.kind==='stage'&&e.id===s.id?{...s,name:d.name.trim()||s.name}:s),
+  fields:D.fields.map(f=>e&&e.kind==='field'&&e.id===f.id?{...f,label:d.label.trim()||f.label,type:d.type,opts:parseOpts(d.opts),req:d.req}:f),
+  tags:D.tags.map(t=>e&&e.kind==='tag'&&e.id===t.id?{...t,name:d.name.trim()||t.name,tone:d.tone}:t)
+ }}
+
+/* lists */
+const actBtn=(act,id,icon,label,dis)=>`<button class="icon-btn" data-act="${act}" data-id="${id}" aria-label="${esc(label)}" title="${esc(label)}" ${dis?'disabled':''}>${ic(icon)}</button>`;
+const swc=(checked,attr,label)=>`<span class="swrow"><button type="button" class="sw" role="switch" aria-checked="${checked}" ${attr} aria-label="${esc(label)}"></button><span>${esc(label)}</span></span>`;
+const tonePick=cur=>`<div class="tones" role="group" aria-label="Color">${TONES.map(t=>`<button type="button" class="tone d-${t.toLowerCase()}" data-act="tone" data-tone="${t.toLowerCase()}" aria-pressed="${cur===t.toLowerCase()}" aria-label="${t}" title="${t}"></button>`).join('')}</div>`;
+
+function confirmBox(text,yes,id,kind){return `<div class="confirm" role="alertdialog" aria-label="Confirm"><p>${esc(text)}</p><div><button class="btn sm danger" data-act="confirm-yes" data-id="${id}" data-kind="${kind}" data-focus>${yes}</button><button class="btn sm" data-act="confirm-no">Cancel</button></div></div>`}
+const saveBar=()=>`<div class="edit-line end"><button class="btn sm" data-act="edit-cancel">Cancel</button><button class="btn sm primary" data-act="edit-save">Save</button></div>`;
+
+function stageRow(s,i,act){
+ const ed=S.edit&&S.edit.kind==='stage'&&S.edit.id===s.id,cf=S.confirm&&S.confirm.kind==='stage'&&S.confirm.id===s.id;
+ if(ed)return `<li class="row"><div class="edit"><div class="edit-line"><input class="in grow" data-f="name" maxlength="40" value="${esc(S.edit.draft.name)}" aria-label="Stage name" data-focus><button class="btn sm" data-act="edit-cancel">Cancel</button><button class="btn sm primary" data-act="edit-save">Save</button></div></div></li>`;
+ const a=!s.arch,ai=act.findIndex(x=>x.id===s.id);
+ return `<li class="row ${s.arch?'arch':''}"><div class="row-main"><div class="row-name"><span class="n">${esc(s.name)}</span>${s.arch?'<span class="badge">Archived</span>':''}</div><span class="row-meta">${lead(s.n)}</span>
+ ${ro()?'':`<div class="acts">${a?actBtn('up',s.id,'up','Move up',ai===0)+actBtn('down',s.id,'down','Move down',ai===act.length-1)+actBtn('rename',s.id,'pencil','Rename')+actBtn('archive',s.id,'archive','Archive'):actBtn('restore',s.id,'undo','Restore')}</div>`}</div>
+ ${cf?confirmBox(`Archive ${s.name}? ${lead(s.n)} ${s.n===1?'is':'are'} in this stage. They keep it, but you cannot choose it for new leads.`,'Archive',s.id,'stage'):''}</li>`}
+
+function fieldRow(f,i,act){
+ const ed=S.edit&&S.edit.kind==='field'&&S.edit.id===f.id,cf=S.confirm&&S.confirm.kind==='field'&&S.confirm.id===f.id;
+ if(ed){const d=S.edit.draft;return `<li class="row"><div class="edit">
+  <div class="edit-line"><label class="lbl grow">Label<input class="in" data-f="label" value="${esc(d.label)}" data-focus></label><label class="lbl">Type<select class="sel" data-f="type">${TYPES.map(t=>`<option ${t===d.type?'selected':''}>${t}</option>`).join('')}</select></label></div>
+  ${isChoice(d.type)?`<label class="lbl">Options<small>One per line or comma-separated.</small><textarea class="ta" data-f="opts">${esc(d.opts)}</textarea></label>`:''}
+  ${swc(d.req,'data-act="edit-req"','Required when adding a lead')}
+  <details class="adv"><summary>${ic('chev')}Advanced</summary><div class="adv-body"><span class="type">Internal key</span><code class="key">${esc(f.key)}</code><span class="type">Used by imports and integrations. It is set when the field is created.</span></div></details>
+  ${saveBar()}</div></li>`}
+ const a=!f.arch,ai=act.findIndex(x=>x.id===f.id);
+ return `<li class="row ${f.arch?'arch':''}"><div class="row-main"><div class="row-name"><span class="n">${esc(f.label)}</span>${f.req?'<span class="badge req">Required</span>':''}${f.arch?'<span class="badge">Archived</span>':''}</div><span class="row-meta">${f.type}${isChoice(f.type)?`, ${f.opts.length} options`:''}</span>
+ ${ro()?'':`<div class="acts">${a?actBtn('up',f.id,'up','Move up',ai===0)+actBtn('down',f.id,'down','Move down',ai===act.length-1)+actBtn('edit',f.id,'pencil','Edit field')+actBtn('archive',f.id,'archive','Archive'):actBtn('restore',f.id,'undo','Restore')}</div>`}</div>
+ ${cf?confirmBox(`Archive ${f.label}? Archiving hides it from forms and keeps the data.`,'Archive',f.id,'field'):''}</li>`}
+
+function tagRow(t){
+ const ed=S.edit&&S.edit.kind==='tag'&&S.edit.id===t.id,cf=S.confirm&&S.confirm.kind==='tag'&&S.confirm.id===t.id;
+ if(ed){const d=S.edit.draft;return `<li class="row"><div class="edit"><div class="edit-line"><input class="in grow" data-f="name" maxlength="30" value="${esc(d.name)}" aria-label="Tag name" data-focus>${tonePick(d.tone)}</div>
+  <div class="edit-line end"><button class="btn sm danger" data-act="delete" data-id="${t.id}" style="margin-right:auto">Delete</button><button class="btn sm" data-act="edit-cancel">Cancel</button><button class="btn sm primary" data-act="edit-save">Save</button></div></div>
+  ${cf?confirmBox(`Delete ${t.name}? It will be removed from ${t.n} leads.`,'Delete',t.id,'tag'):''}</li>`}
+ return `<li class="row"><div class="row-main"><div class="row-name"><span class="tag t-${t.tone}">${esc(t.name)}</span></div><span class="row-meta">${lead(t.n)}</span>
+ ${ro()?'':`<div class="acts">${actBtn('tag-edit',t.id,'pencil','Rename or change color')+actBtn('delete',t.id,'trash','Delete')}</div>`}</div>
+ ${cf?confirmBox(`Delete ${t.name}? It will be removed from ${t.n} leads.`,'Delete',t.id,'tag'):''}</li>`}
+
+function addForm(k){
+ const d=S.add.draft;
+ if(k==='stage')return `<div class="edit"><div class="edit-line"><label class="lbl grow">Stage name<input class="in" data-f="name" maxlength="40" placeholder="Onboarding" value="${esc(d.name)}" data-focus></label></div>${addBar('Add stage')}</div>`;
+ if(k==='tag')return `<div class="edit"><div class="edit-line"><label class="lbl grow">Tag name<input class="in" data-f="name" maxlength="30" value="${esc(d.name)}" data-focus></label>${tonePick(d.tone)}</div>${addBar('Add tag')}</div>`;
+ return `<div class="edit"><div class="edit-line"><label class="lbl grow">Label<input class="in" data-f="label" value="${esc(d.label)}" data-focus></label><label class="lbl">Type<select class="sel" data-f="type">${TYPES.map(t=>`<option ${t===d.type?'selected':''}>${t}</option>`).join('')}</select></label></div>
+ ${isChoice(d.type)?`<label class="lbl">Options<small>One per line or comma-separated.</small><textarea class="ta" data-f="opts">${esc(d.opts)}</textarea></label>`:''}
+ ${swc(d.req,'data-act="add-req"','Required when adding a lead')}
+ <details class="adv"><summary>${ic('chev')}Advanced</summary><div class="adv-body"><label class="lbl">Internal key<small>Filled in from the label. You rarely need to change it.</small><input class="in" data-f="key" value="${esc(d.key)}"></label></div></details>${addBar('Add field')}</div>`}
+const addBar=l=>`<div class="edit-line end"><button class="btn sm" data-act="add-cancel">Cancel</button><button class="btn sm primary" data-act="add-save">${l}</button></div>`;
+
+function sec(k,title,sub,body,addLabel){
+ return `<section class="sec" aria-labelledby="h-${k}"><div class="sec-head"><div><h2 id="h-${k}">${title}</h2><p>${sub}</p></div>${ro()?'':`<button class="btn quiet" data-act="add" data-kind="${k}" ${S.add?'disabled':''}>${ic('plus')}${addLabel}</button>`}</div>${S.add&&S.add.kind===k?addForm(k):''}${body}</section>`}
+const skel=n=>Array.from({length:n},(_,i)=>`<div class="sk-row"><span class="sk" style="width:${40+(i*13)%30}%"></span><span class="sk" style="width:15%;margin-left:auto"></span></div>`).join('');
+
+function drawLists(){
+ const el=$('#lists');el.setAttribute('aria-busy',S.demo==='loading');
+ if(S.demo==='loading'){el.innerHTML=[['Lifecycle stages',5],['Custom fields',5],['Tags',4]].map(x=>`<section class="sec"><div class="sec-head"><div><h2>${x[0]}</h2></div></div>${skel(x[1])}</section>`).join('');return}
+ const sa=D.stages.filter(x=>!x.arch),fa=D.fields.filter(x=>!x.arch);
+ el.innerHTML=
+  sec('stage','Lifecycle stages','Where a lead is in your relationship. These are the steps on your pipeline, in the order your team sees them.',`<ul class="rows">${D.stages.map((s,i)=>stageRow(s,i,sa)).join('')}</ul>`,'Add a stage')+
+  sec('field','Custom fields','Extra information on every lead. Each field shows on the lead form in this order. Archiving hides it from forms and keeps the data.',D.fields.length?`<ul class="rows">${D.fields.map((f,i)=>fieldRow(f,i,fa)).join('')}</ul>`:`<p class="empty">No custom fields yet. Add one to keep the details you always ask for, like budget or area.</p>`,'Add field')+
+  sec('tag','Tags','Anyone who edits leads can add tags. Tags show on every lead row, so you can spot a lead at a glance.',D.tags.length?`<ul class="rows">${D.tags.map(tagRow).join('')}</ul>`:`<p class="empty">No tags yet. Add one from any lead or here.</p>`,'Add a tag');
+ const f=el.querySelector('[data-focus]');if(f&&S.focusNext){f.focus();if(f.select)f.select();S.focusNext=false}
+}
+
+/* preview */
+function fieldInput(f){
+ const id='pv-'+f.id,l=`<label class="l" for="${id}">${esc(f.label)}${f.req?'<span class="r">Required</span>':''}</label>`;
+ let c;
+ switch(f.type){
+  case'Choose one':c=`<select class="sel" id="${id}"><option value="">Choose one</option>${f.opts.map(o=>`<option>${esc(o)}</option>`).join('')}</select>`;break;
+  case'Choose several':{const on=S.chosen[f.id]||[];return `<div class="fld" role="group" aria-labelledby="${id}-l"><span class="l" id="${id}-l">${esc(f.label)}${f.req?'<span class="r">Required</span>':''}</span><div class="chips">${f.opts.map(o=>`<button type="button" class="chip" data-act="chip" data-fid="${f.id}" data-o="${esc(o)}" aria-pressed="${on.includes(o)}">${esc(o)}</button>`).join('')||'<span class="pv-empty">Add options to see them here.</span>'}</div></div>`}
+  case'Date':c=`<input class="in" type="date" id="${id}">`;break;
+  case'Number':c=`<input class="in" type="number" id="${id}" inputmode="numeric">`;break;
+  case'Yes or no':return `<div class="fld"><span class="swrow"><button type="button" class="sw" role="switch" aria-checked="${!!S.chosen[f.id]}" data-act="pv-sw" data-fid="${f.id}" aria-labelledby="${id}-l"></button><span class="l" id="${id}-l">${esc(f.label)}${f.req?'<span class="r">Required</span>':''}</span></span></div>`;
+  case'Web link':c=`<input class="in" type="url" id="${id}" placeholder="https://">`;break;
+  default:c=`<input class="in" type="text" id="${id}">`}
+ return `<div class="fld">${l}${c}</div>`}
+function drawPreview(){
+ const el=$('#preview');
+ if(S.demo==='loading'){el.innerHTML=`<div class="pv-head"><h2>Preview</h2></div><div class="pv-body">${skel(6)}</div>`;return}
+ const e=eff(),fs=e.fields.filter(f=>!f.arch),ss=e.stages.filter(s=>!s.arch);
+ const form=`<div class="mini-form"><h3>New lead</h3>${fs.length?fs.map(fieldInput).join(''):'<p class="pv-empty">No custom fields yet. The lead form shows only the standard details.</p>'}</div>`;
+ const track=`<div class="track" role="list">${ss.map(s=>`<div class="step" role="listitem"><div class="bar"></div><b>${esc(s.name)}</b><span>${s.n}</span></div>`).join('')}</div>`;
+ el.innerHTML=`<div class="pv-head"><h2>Preview</h2><div class="tabs" role="tablist"><button role="tab" data-tab="form" aria-selected="${S.tab==='form'}">Lead form</button><button role="tab" data-tab="stages" aria-selected="${S.tab==='stages'}">Pipeline stages</button></div></div>
+ <div class="pv-body" role="tabpanel">${S.tab==='form'?form:track+'<p class="pv-note">Archived stages are left out. Leads already in them keep them.</p>'}</div>
+ <h3 class="pv-sub">Tags on a lead row</h3>
+ <div class="leadrow"><div class="avatar">RK</div><div><b>Rahima Khatun</b><div class="tags">${e.tags.length?e.tags.map(t=>`<span class="tag t-${t.tone}">${esc(t.name)}</span>`).join(''):'<span class="pv-empty">No tags yet.</span>'}</div></div></div>`}
+
+function draw(){
+ $('#ro-note').innerHTML=ro()?`<div class="note">${ic('lock')}<span>Only owners and admins can change these settings.</span></div>`:'';
+ drawLists();drawPreview();drawToast();
+ document.querySelectorAll('[data-demo]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.demo===S.demo))}
+
+/* events */
+const find=(l,id)=>l.find(x=>x.id===id);
+const L=k=>k==='stage'?D.stages:k==='field'?D.fields:D.tags;
+document.addEventListener('click',ev=>{
+ const dm=ev.target.closest('[data-demo]');
+ if(dm){S.demo=dm.dataset.demo;D=seed();if(S.demo==='empty'){D.fields=[];D.tags=[]}S.edit=S.confirm=S.add=S.toast=null;S.chosen={};draw();return}
+ const tb=ev.target.closest('[data-tab]');if(tb){S.tab=tb.dataset.tab;drawPreview();return}
+ const b=ev.target.closest('[data-act]');if(!b)return;
+ const a=b.dataset.act,id=b.dataset.id,rd=()=>{S.focusNext=true;draw()};
+ const kindOf=x=>x[0]==='s'?'stage':x[0]==='f'?'field':'tag';
+ switch(a){
+  case'toast-x':S.toast=null;drawToast();break;
+  case'chip':{const l=S.chosen[b.dataset.fid]||[],o=b.dataset.o;S.chosen[b.dataset.fid]=l.includes(o)?l.filter(x=>x!==o):[...l,o];drawPreview();break}
+  case'pv-sw':S.chosen[b.dataset.fid]=!S.chosen[b.dataset.fid];drawPreview();break;
+  case'up':case'down':{const k=kindOf(id),dir=a==='up'?-1:1,item=find(L(k),id);
+   const key=k==='stage'?'stages':'fields';
+   commit(()=>{D[key]=move(D[key],id,dir)},(k==='stage'?'Stage':'Field')+' moved.');
+   draw();const nb=document.querySelector(`[data-act="${a}"][data-id="${id}"]`);if(nb&&!nb.disabled)nb.focus();else{const o=document.querySelector(`[data-act="${a==='up'?'down':'up'}"][data-id="${id}"]`);o&&o.focus()}break}
+  case'rename':{const s=find(D.stages,id);S.edit={kind:'stage',id,draft:{name:s.name}};S.confirm=null;rd();break}
+  case'edit':{const f=find(D.fields,id);S.edit={kind:'field',id,draft:{label:f.label,type:f.type,opts:f.opts.join('\n'),req:f.req}};S.confirm=null;rd();break}
+  case'tag-edit':{const t=find(D.tags,id);S.edit={kind:'tag',id,draft:{name:t.name,tone:t.tone}};S.confirm=null;rd();break}
+  case'edit-req':S.edit.draft.req=!S.edit.draft.req;b.setAttribute('aria-checked',S.edit.draft.req);drawPreview();break;
+  case'tone':if(S.add&&!S.edit)S.add.draft.tone=b.dataset.tone;else S.edit.draft.tone=b.dataset.tone;
+   b.parentNode.querySelectorAll('.tone').forEach(x=>x.setAttribute('aria-pressed',x===b));drawPreview();break;
+  case'edit-cancel':S.edit=null;S.confirm=null;draw();break;
+  case'edit-save':{const e=S.edit,d=e.draft;
+   if(e.kind!=='field'&&!d.name.trim()){toast('Enter a name first.',true);break}
+   if(e.kind==='field'&&!d.label.trim()){toast('Enter a label first.',true);break}
+   const ok=commit(()=>{const it=find(L(e.kind),e.id);
+    if(e.kind==='stage')it.name=d.name.trim();
+    if(e.kind==='tag'){it.name=d.name.trim();it.tone=d.tone}
+    if(e.kind==='field'){it.label=d.label.trim();it.type=d.type;it.opts=parseOpts(d.opts);it.req=d.req}},
+    e.kind==='stage'?'Stage renamed.':e.kind==='tag'?'Tag updated.':'Field updated.');
+   if(ok){S.edit=null;draw()}break}
+  case'archive':S.edit=null;{const k=kindOf(id),it=find(L(k),id);
+   if(k==='stage'&&it.n===0){commit(()=>{it.arch=true},'Stage archived.');draw()}else{S.confirm={kind:k,id};rd()}}break;
+  case'delete':S.confirm={kind:'tag',id};rd();break;
+  case'confirm-no':{const c=S.confirm;S.confirm=null;draw();const r=c&&document.querySelector(`[data-id="${c.id}"]`);r&&r.focus();break}
+  case'confirm-yes':{const k=b.dataset.kind,it=find(L(k),id);
+   if(k==='tag'){if(commit(()=>{D.tags=D.tags.filter(x=>x.id!==id)},'Tag deleted.')){S.confirm=null;S.edit=null}}
+   else if(commit(()=>{it.arch=true},k==='stage'?'Stage archived.':'Field archived.'))S.confirm=null;
+   draw();break}
+  case'restore':{const k=kindOf(id),it=find(L(k),id);commit(()=>{it.arch=false;const key=k==='stage'?'stages':'fields';D[key]=activeFirst(D[key])},k==='stage'?'Stage restored.':'Field restored.');draw();break}
+  case'add':S.edit=S.confirm=null;S.add={kind:b.dataset.kind,draft:b.dataset.kind==='field'?{label:'',type:'Text',opts:'',req:false,key:'',touched:false}:{name:'',tone:'neutral'}};rd();break;
+  case'add-req':S.add.draft.req=!S.add.draft.req;b.setAttribute('aria-checked',S.add.draft.req);break;
+  case'add-cancel':S.add=null;draw();break;
+  case'add-save':{const k=S.add.kind,d=S.add.draft;
+   if(k==='field'?!d.label.trim():!d.name.trim()){toast(k==='field'?'Enter a label first.':'Enter a name first.',true);break}
+   if(k==='field'&&isChoice(d.type)&&!parseOpts(d.opts).length){toast('Add at least one option.',true);break}
+   const ok=commit(()=>{const n='n'+(++uid);
+    if(k==='stage'){D.stages=activeFirst([...D.stages.filter(x=>!x.arch),{id:'s'+n,name:d.name.trim(),n:0,arch:false},...D.stages.filter(x=>x.arch)])}
+    if(k==='tag')D.tags.push({id:'t'+n,name:d.name.trim(),tone:d.tone,n:0});
+    if(k==='field'){const nf={id:'f'+n,label:d.label.trim(),type:d.type,opts:parseOpts(d.opts),req:d.req,key:d.key||slug(d.label),arch:false};D.fields=activeFirst([...D.fields.filter(x=>!x.arch),nf,...D.fields.filter(x=>x.arch)])}},
+    k==='stage'?'Stage added.':k==='tag'?'Tag added.':'Field added.');
+   if(ok){S.add=null;draw()}break}
+ }});
+document.addEventListener('input',ev=>{
+ const f=ev.target.dataset&&ev.target.dataset.f;if(!f)return;
+ const tgt=S.edit||S.add;if(!tgt)return;
+ const d=tgt.draft;d[f]=ev.target.value;
+ if(S.add&&!S.edit&&S.add.kind==='field'){
+  if(f==='label'&&!d.touched){d.key=slug(d.label);const k=document.querySelector('[data-f="key"]');if(k)k.value=d.key}
+  if(f==='key')d.touched=true;
+  if(f==='type'){S.focusNext=false;drawLists();return}}
+ if(S.edit&&f==='type'){drawLists();const t=document.querySelector('[data-f="type"]');t&&t.focus()}
+ drawPreview()});
+document.addEventListener('keydown',ev=>{
+ if(ev.key==='Escape'&&(S.edit||S.add||S.confirm)){S.edit=S.add=S.confirm=null;draw()}
+ if(ev.key==='Enter'&&ev.target.matches('input.in[data-f]')){const b=document.querySelector('[data-act="edit-save"],[data-act="add-save"]');b&&(ev.preventDefault(),b.click())}});
+draw();
+</script>
+</body>
+</html>

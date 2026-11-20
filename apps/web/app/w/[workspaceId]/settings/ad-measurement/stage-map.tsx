@@ -40,7 +40,7 @@ const valueBody = (kind: ValueKind, fixed?: { minor: number; currency: string })
   kind === "fixed" ? { valueMode: "fixed", fixedValueMinor: fixed!.minor, currency: fixed!.currency, askForValue: false } : kind === "none" ? { valueMode: "none", fixedValueMinor: null, currency: null, askForValue: false } : { valueMode: "lead_value", fixedValueMinor: null, currency: null, askForValue: kind === "ask" };
 
 /**
- * The stage map (D330): one row per moment in the pipeline, each with the event it sends. Stages come from Settings > Lead stages, so a renamed, added or removed stage changes the map by itself.
+ * The stage map (D330): one row per moment in the pipeline, each with the event it sends. Stages come from Settings > Lead settings, so a renamed, added or removed stage changes the map by itself.
  * One event per row here; if the data holds more rules on the same moment the first shows and "+N more" lists all of them, so nothing is hidden. Rules that sit on no row are listed under "Other rules".
  * Every change goes through the normal rules API (create, update, delete) and shows at once; if the server says no, the row goes back and says why, with a Retry.
  */
@@ -136,7 +136,7 @@ export function StageMap({ workspaceId, dataset, pipelines, canManage }: { works
               </span>
             ))}
           </div>
-          {openStages.length === 0 && <p className="px-5 pt-3 text-sm text-fg-subtle">Your pipeline has no open stages yet. Add some under Settings, Lead stages.</p>}
+          {openStages.length === 0 && <p className="px-5 pt-3 text-sm text-fg-subtle">Your pipeline has no open stages yet. Add some under Settings, Lead settings.</p>}
           <ol className="py-2.5">
             {rows.map((r, i) => (
               <React.Fragment key={r.key}>
@@ -173,7 +173,7 @@ export function StageMap({ workspaceId, dataset, pipelines, canManage }: { works
             </section>
           )}
           <div className="flex flex-wrap justify-between gap-x-6 gap-y-1 border-t border-line-card px-5 py-3.5 text-sm text-fg-subtle">
-            <span>Stages come from Lead stages, so a new stage appears here by itself.</span>
+            <span>Stages come from Lead settings, so a new stage appears here by itself.</span>
             <span>Only leads who agreed to ad measurement are sent.</span>
           </div>
         </>

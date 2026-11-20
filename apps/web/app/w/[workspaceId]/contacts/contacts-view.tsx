@@ -262,7 +262,7 @@ function Inner({ workspaceId, timeZone, myUserId, initial, initialQuery, pipelin
                 {perms.removeLeads && <DropdownMenuItem className="md:hidden" onSelect={() => setRemovedOpen(true)}><RotateCcw aria-hidden />Recently removed</DropdownMenuItem>}
                 {perms.import && <DropdownMenuItem className="md:hidden" asChild><Link href={`/w/${workspaceId}/contacts/import`}><Upload aria-hidden />Import</Link></DropdownMenuItem>}
                 {perms.export && <DropdownMenuItem className="md:hidden" disabled={exporting} onSelect={() => void doExport()}><Download aria-hidden />Export CSV</DropdownMenuItem>}
-                {perms.schema && <DropdownMenuItem asChild><Link href={`/w/${workspaceId}/settings/contacts`}><SlidersHorizontal aria-hidden />Lead fields</Link></DropdownMenuItem>}
+                {perms.schema && <DropdownMenuItem asChild><Link href={`/w/${workspaceId}/settings/leads`}><SlidersHorizontal aria-hidden />Lead settings</Link></DropdownMenuItem>}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>

@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Notifications - Settings - RenoDevs Team</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css"></head>
+<body>
+<div class="app">
+<aside class="side"><div class="ws"><div class="tile">RD</div><b>RenoDevs Team</b></div>
+<nav class="nav" aria-label="Main"><a href="#"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg><span>Home</span></a><a href="#"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.5 5h13L22 12v6a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-6z"/></svg><span>Inbox</span></a><a href="#"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"/></svg><span>Leads</span></a><a href="#"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="m8 12 3 3 5-6"/></svg><span>Tasks</span></a><a href="#"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3v18h18"/><path d="M8 17v-5M13 17V8M18 17v-9"/></svg><span>Reports</span></a><a href="#" aria-current="page"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg><span>Settings</span></a></nav>
+<div class="user"><div class="av">TA</div><div><b>Tanvir Ahmed</b><small>Owner</small></div></div></aside>
+<div class="main">
+<header class="top"><div class="search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>Search or jump to</div><button class="bell" aria-label="Notifications"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg></button></header>
+<div class="set">
+<nav class="smenu" aria-label="Settings"><h2>Workspace</h2><a href="#">General</a><a href="#" aria-current="page">Notifications</a><h2>CRM data</h2><a href="#">Lead fields</a><a href="#">Lead stages</a><h2>AI and automation</h2><a href="#">AI and automation</a><h2>Channels</h2><a href="#">Integrations</a><a href="#">Web chat</a><a href="#">Ad measurement</a><h2>Team and security</h2><a href="#">Members</a><a href="#">Audit log</a></nav>
+<main class="content">
+<h1>Notifications</h1>
+<p class="lede">Choose which alerts you receive. These are personal to you and apply only to your account.</p>
+<div class="panel quick"><h2 id="qs">Quick setup</h2>
+<div class="seg" role="group" aria-labelledby="qs"><button data-p="all" aria-pressed="false">Everything</button><button data-p="need" aria-pressed="false">Only what needs me</button></div>
+<span class="match" id="match" aria-live="polite"></span></div>
+<div class="status" id="status" role="status" aria-live="polite"></div>
+<div class="warn" id="warn" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg><span>Task reminders are off. You will not be told when a follow-up is due.</span><button class="link" id="remon">Turn on</button></div>
+<div class="panel tbl">
+<div class="skel" aria-hidden="true"><div class="bar" style="width:46%"></div><div class="bar" style="width:70%"></div><div class="bar" style="width:38%"></div><div class="bar" style="width:62%"></div><div class="bar" style="width:54%"></div></div>
+<div class="live"><table>
+<thead><tr><th scope="col">Notification</th><th class="ch" scope="col"><span class="ch-name">In app</span></th><th class="ch na" scope="col"><div class="na-head"><span class="ch-name">Email</span><span class="pill">Not available yet</span></div></th><th class="ch na" scope="col"><div class="na-head"><span class="ch-name">Push</span><span class="pill">Not available yet</span></div></th></tr></thead>
+<tbody><tr class="sub"><th colspan="4" scope="colgroup">Reminders</th></tr><tr class="row"><td><span class="name" id="n-rem">Task reminders</span><span class="desc">A task or follow-up you own is about to be due.</span></td>
+<td class="ch in"><button class="sw" role="switch" aria-checked="true" aria-labelledby="n-rem" data-k="rem"></button></td>
+<td class="ch na"><span class="lock" role="img" aria-label="Email for Task reminders: not available yet"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span></td>
+<td class="ch na"><span class="lock" role="img" aria-label="Push for Task reminders: not available yet"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span></td>
+<td class="only-m"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Email and push: not available yet</td></tr><tr class="sub"><th colspan="4" scope="colgroup">Updates</th></tr><tr class="row"><td><span class="name" id="n-lead">Lead assigned to you</span><span class="desc">Someone makes you the owner of a lead.</span></td>
+<td class="ch in"><button class="sw" role="switch" aria-checked="true" aria-labelledby="n-lead" data-k="lead"></button></td>
+<td class="ch na"><span class="lock" role="img" aria-label="Email for Lead assigned to you: not available yet"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span></td>
+<td class="ch na"><span class="lock" role="img" aria-label="Push for Lead assigned to you: not available yet"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span></td>
+<td class="only-m"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Email and push: not available yet</td></tr><tr class="row"><td><span class="name" id="n-record">Lead record assigned to you</span><span class="desc">Someone makes you the owner of a lead record.</span></td>
+<td class="ch in"><button class="sw" role="switch" aria-checked="true" aria-labelledby="n-record" data-k="record"></button></td>
+<td class="ch na"><span class="lock" role="img" aria-label="Email for Lead record assigned to you: not available yet"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span></td>
+<td class="ch na"><span class="lock" role="img" aria-label="Push for Lead record assigned to you: not available yet"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span></td>
+<td class="only-m"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Email and push: not available yet</td></tr><tr class="row"><td><span class="name" id="n-task">Task assigned to you</span><span class="desc">Someone assigns a task to you.</span></td>
+<td class="ch in"><button class="sw" role="switch" aria-checked="true" aria-labelledby="n-task" data-k="task"></button></td>
+<td class="ch na"><span class="lock" role="img" aria-label="Email for Task assigned to you: not available yet"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span></td>
+<td class="ch na"><span class="lock" role="img" aria-label="Push for Task assigned to you: not available yet"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span></td>
+<td class="only-m"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Email and push: not available yet</td></tr><tr class="row"><td><span class="name" id="n-imp">Import finished</span><span class="desc">A lead import you started has completed.</span></td>
+<td class="ch in"><button class="sw" role="switch" aria-checked="true" aria-labelledby="n-imp" data-k="imp"></button></td>
+<td class="ch na"><span class="lock" role="img" aria-label="Email for Import finished: not available yet"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span></td>
+<td class="ch na"><span class="lock" role="img" aria-label="Push for Import finished: not available yet"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span></td>
+<td class="only-m"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Email and push: not available yet</td></tr></tbody></table>
+<p class="reason"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/></svg>Email and push are not built yet. Today every alert appears only in the bell panel.</p></div>
+</div>
+</main></div></div></div>
+<dialog id="dlg" aria-labelledby="dt"><h2 id="dt">Turn off task reminders?</h2><p>You will not be told when a follow-up is due.</p>
+<div class="acts"><button class="btn" id="keep">Keep on</button><button class="btn pri" id="off">Turn off</button></div></dialog>
+<div class="demo-state" role="group" aria-label="Demo state"><span>Demo</span>
+<button data-m="normal" aria-pressed="true">Normal</button><button data-m="loading" aria-pressed="false">Loading</button><button data-m="error" aria-pressed="false">Save error</button><button data-m="remoff" aria-pressed="false">Reminders off</button></div>
+<div class="opt-switch" role="navigation" aria-label="Design options"><a href="../a/notifications.html" aria-label="Option A">A</a><a href="../b/notifications.html" aria-current="page" aria-label="Option B">B</a><a href="../c/notifications.html" aria-label="Option C">C</a></div>
+<script>
+const S={rem:true,lead:true,record:true,task:true,imp:false};
+const P={all:{rem:1,lead:1,record:1,task:1,imp:1},need:{rem:1,lead:1,record:0,task:1,imp:0}};
+let mode='normal',t,pending=null;
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
+const st=$('#status');
+function render(){
+  $$('.sw').forEach(b=>b.setAttribute('aria-checked',!!S[b.dataset.k]));
+  const m=Object.keys(P).find(p=>Object.keys(S).every(k=>!!S[k]==!!P[p][k]));
+  $$('.seg button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.p===m));
+  $('#match').innerHTML=m?'Matches <b>'+(m==='all'?'Everything':'Only what needs me')+'</b>':'<b>Custom</b>: your own mix';
+  $('#warn').hidden=S.rem;
+}
+function say(kind,msg,retry){
+  clearTimeout(t);st.className='status show '+kind;
+  st.innerHTML='<span class="pill '+kind+'">'+msg+'</span>';
+  if(retry){const b=document.createElement('button');b.className='link';b.textContent='Try again';b.onclick=retry;st.appendChild(b);}
+  else if(kind==='ok')t=setTimeout(()=>st.className='status',2200);
+}
+function save(next){ // optimistic; rolls back on failure
+  const prev={...S};Object.assign(S,next);render();say('busy','Saving');
+  $$('.sw').forEach(b=>b.disabled=true);
+  setTimeout(()=>{
+    $$('.sw').forEach(b=>b.disabled=false);
+    if(mode==='error'){Object.assign(S,prev);render();say('err','Could not save. Try again.',()=>save(next));}
+    else say('ok','Saved');
+  },500);
+}
+function request(next){if(S.rem&&next.rem===false){pending=next;$('#dlg').showModal();$('#keep').focus();}else save(next);}
+$$('.sw').forEach(b=>b.onclick=()=>request({[b.dataset.k]:!S[b.dataset.k]}));
+$$('.seg button').forEach(b=>b.onclick=()=>{const p=P[b.dataset.p],n={};for(const k in p)n[k]=!!p[k];save(n);});
+$('#keep').onclick=()=>{pending=null;$('#dlg').close();};
+$('#off').onclick=()=>{$('#dlg').close();save(pending);pending=null;};
+$('#remon').onclick=()=>save({rem:true});
+$$('.demo-state button').forEach(b=>b.onclick=()=>{
+  mode=b.dataset.m;
+  $$('.demo-state button').forEach(x=>x.setAttribute('aria-pressed',x===b));
+  document.body.classList.toggle('loading',mode==='loading');
+  if(mode==='remoff')S.rem=false;else if(mode==='normal'||mode==='error')S.rem=true;
+  st.className='status';render();
+});
+render();
+</script>
+</body></html>

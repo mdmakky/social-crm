@@ -11,7 +11,7 @@ export type FieldKind = "text" | "source" | "stage" | "pipelineStage" | "pipelin
 export type FieldDef = { field: string; label: string; kind: FieldKind };
 /** Plain names for the facts a trigger carries. The stored field names (and so the API) are unchanged. */
 export const FIELDS: Record<AutomationTrigger, FieldDef[]> = {
-  "contact.created": [{ field: "source", label: "Source", kind: "source" }, { field: "contactName", label: "Lead name", kind: "text" }, { field: "lifecycleStageId", label: "Lifecycle stage", kind: "stage" }, { field: "ownerUserId", label: "Owner", kind: "member" }],
+  "contact.created": [{ field: "source", label: "Source", kind: "source" }, { field: "contactName", label: "Lead name", kind: "text" }, { field: "ownerUserId", label: "Owner", kind: "member" }],
   "lead.stage_changed": [{ field: "toStageId", label: "Moved to stage", kind: "pipelineStage" }, { field: "fromStageId", label: "Moved from stage", kind: "pipelineStage" }, { field: "outcome", label: "Outcome", kind: "outcome" }, { field: "pipelineId", label: "Pipeline", kind: "pipeline" }, { field: "leadTitle", label: "Lead title", kind: "text" }],
   "contact.owner_assigned": [{ field: "ownerUserId", label: "New owner", kind: "member" }, { field: "previousOwnerUserId", label: "Previous owner", kind: "member" }, { field: "contactName", label: "Lead name", kind: "text" }],
   "lead.owner_assigned": [{ field: "ownerUserId", label: "New owner", kind: "member" }, { field: "previousOwnerUserId", label: "Previous owner", kind: "member" }, { field: "leadTitle", label: "Lead title", kind: "text" }],

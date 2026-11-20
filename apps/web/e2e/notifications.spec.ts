@@ -143,22 +143,62 @@ test("inbox: unread styling, mark read on click with navigation, mark unread, ma
   await t.close();
 });
 
-test("preferences: a muted kind creates no notification, toggles persist and are keyboard operable", async ({ browser }) => {
+test("preferences: groups, switches save with Saved, reminder confirm, bulk Updates, axe, keyboard", async ({ browser }) => {
   test.setTimeout(120_000);
   const t = await twoUsers(browser, "Prefs");
-  await t.sam.goto(`/w/${t.workspaceId}/settings/notifications`);
-  await expect(t.sam.getByRole("heading", { level: 1, name: "Notification preferences" })).toBeVisible();
-  const taskToggle = t.sam.getByRole("checkbox", { name: "Task assigned to you" });
+  const p = t.sam;
+  await p.goto(`/w/${t.workspaceId}/settings/notifications`);
+  await expect(p.getByRole("heading", { level: 1, name: "Notifications" })).toBeVisible();
+  await expect(p.getByRole("heading", { level: 2, name: "Reminders" })).toBeVisible();
+  await expect(p.getByRole("heading", { level: 2, name: "Updates" })).toBeVisible();
+  await expect(p.getByText("In-app only for now. Email and push are not available yet.")).toBeVisible();
+  await axe(p, "prefs-page");
+
+  const taskToggle = p.getByRole("switch", { name: "Task assigned to you" });
   await expect(taskToggle).toBeChecked();
   await taskToggle.focus();
-  await t.sam.keyboard.press("Space");
+  await p.keyboard.press("Space");
   await expect(taskToggle).not.toBeChecked();
-  await expect(t.sam.getByText("Task assigned to you: off. Saved.")).toBeVisible();
-  await t.sam.screenshot({ path: `${SHOTS}preferences-1440.png` });
-  await t.sam.reload();
-  await expect(t.sam.getByRole("checkbox", { name: "Task assigned to you" })).not.toBeChecked(); // persisted
-  await expect(t.sam.getByRole("checkbox", { name: "Import finished" })).toBeChecked();
+  await expect(p.getByText("Saved", { exact: true }).first()).toBeVisible();
+  await expect(p.getByRole("status").filter({ hasText: "Task assigned to you: off. Saved." })).toHaveCount(1);
+  await p.screenshot({ path: `${SHOTS}preferences-1440.png` });
+  await p.reload();
+  await expect(p.getByRole("switch", { name: "Task assigned to you" })).not.toBeChecked(); // persisted
+  await expect(p.getByRole("switch", { name: "Import finished" })).toBeChecked();
 
+  // bulk: Updates group only, one label flip each way
+  await p.getByRole("button", { name: "Turn on all" }).click();
+  await expect(p.getByRole("button", { name: "Turn off all" })).toBeVisible();
+  await p.getByRole("button", { name: "Turn off all" }).click();
+  await expect(p.getByRole("button", { name: "Turn on all" })).toBeVisible();
+  for (const n of ["Lead assigned to you", "Lead record assigned to you", "Task assigned to you", "Import finished"]) await expect(p.getByRole("switch", { name: n })).not.toBeChecked();
+  await expect(p.getByRole("switch", { name: "Task reminders" })).toBeChecked(); // reminders untouched
+  await p.getByRole("button", { name: "Turn on all" }).click();
+  await expect(p.getByRole("switch", { name: "Import finished" })).toBeChecked();
+
+  // reminder: confirm first; Keep on changes nothing, Turn off shows the warning with Turn on
+  await p.getByRole("switch", { name: "Task reminders" }).click();
+  const dlg = p.getByRole("dialog", { name: "Turn off task reminders?" });
+  await expect(dlg).toBeVisible();
+  await expect(dlg.getByText("You will not be told when a follow-up is due.")).toBeVisible();
+  await expect(p.locator("span.opacity-100.text-success-fg")).toHaveCount(0, { timeout: 8_000 }); // let the Saved flash fade; axe would measure it mid-fade under the scrim
+  await axe(p, "prefs-dialog");
+  await dlg.getByRole("button", { name: "Keep on" }).click();
+  await expect(dlg).toHaveCount(0);
+  await expect(p.getByRole("switch", { name: "Task reminders" })).toBeChecked();
+  await p.getByRole("switch", { name: "Task reminders" }).click();
+  await p.getByRole("dialog").getByRole("button", { name: "Turn off" }).click();
+  await expect(p.getByRole("switch", { name: "Task reminders" })).not.toBeChecked();
+  const warn = p.getByText("Task reminders are off. You will not be told when a follow-up is due.");
+  await expect(warn).toBeVisible();
+  await p.getByRole("button", { name: "Turn on", exact: true }).click();
+  await expect(p.getByRole("switch", { name: "Task reminders" })).toBeChecked();
+  await expect(warn).toHaveCount(0);
+
+  // a muted kind creates no notification
+  await p.getByRole("switch", { name: "Task assigned to you" }).click();
+  await expect(p.getByRole("switch", { name: "Task assigned to you" })).not.toBeChecked();
+  await expect(p.getByRole("status").filter({ hasText: "Task assigned to you: off. Saved." })).toHaveCount(1);
   await emit(t.workspaceId, "task.assigned", "task", "t-muted", t.mayaEmail, { assigneeUserId: t.samId, title: "Muted task" });
   await emit(t.workspaceId, "import.completed", "import", "i-2", null, { importedByUserId: t.samId, created: 1, updated: 0, skipped: 0 }); // sentinel processed after the muted event
   await expect.poll(() => countRows(t.workspaceId, t.samId), { timeout: 15_000 }).toBe(1);
@@ -187,7 +227,7 @@ test("notification screens hold at 375, 768 and 1440: no overflow, axe clean", a
   await t.sam.getByRole("button", { name: /Mark as read: Your lead import finished/ }).click(); // a mix of read and unread
   for (const s of SIZES) {
     await t.sam.setViewportSize({ width: s.width, height: s.height });
-    for (const [key, path, heading] of [["inbox", `/w/${t.workspaceId}/notifications`, "Notifications"], ["preferences", `/w/${t.workspaceId}/settings/notifications`, "Notification preferences"]] as const) {
+    for (const [key, path, heading] of [["inbox", `/w/${t.workspaceId}/notifications`, "Notifications"], ["preferences", `/w/${t.workspaceId}/settings/notifications`, "Notifications"]] as const) {
       await t.sam.goto(path);
       await expect(t.sam.getByRole("heading", { level: 1, name: heading })).toBeVisible();
       const w = await t.sam.evaluate(() => ({ scroll: document.documentElement.scrollWidth, client: document.documentElement.clientWidth }));
