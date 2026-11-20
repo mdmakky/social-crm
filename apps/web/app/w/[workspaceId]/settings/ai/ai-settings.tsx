@@ -1,8 +1,9 @@
 "use client";
 import * as React from "react";
 import Link from "next/link";
-import { BarChart3, Plug, Wallet } from "lucide-react";
-import { AI_JOBS, endpoints, type AiBudgetDto, type AiJobModelDto, type AiProviderDto, type AiUsageDto } from "@crm/contracts";
+import { useRouter } from "next/navigation";
+import { BarChart3, CheckCircle2, ExternalLink, Plug, Wallet } from "lucide-react";
+import { AI_JOBS, endpoints, type AiBudgetDto, type AiJobModelDto, type AiProviderDto, type AiUsageDto, type OpenRouterModelDto } from "@crm/contracts";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
@@ -10,14 +11,12 @@ import { Checkbox } from "@/components/ui/form-controls";
 import { Input, Select } from "@/components/ui/input";
 import { Panel, PanelHeader } from "@/components/ui/panel";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Switch } from "@/components/ui/switch";
 import { Alert, EmptyState, ErrorState } from "@/components/ui/states";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import { ToastProvider, useToast } from "@/components/ui/toast";
-import { cn } from "@/lib/cn";
 import { browserApi, errorMessage } from "@/lib/client-api";
 import { formatMicro, parseMicro } from "@/lib/ai-money";
-import { JobsPanel, JOB_ORDER, SetupSummary } from "./jobs-matrix";
+import { JobsPanel, JOB_ORDER } from "./jobs-matrix";
 import { CapabilitiesPanel, MediaPlayground } from "./media-panels";
 import { MAX_ENABLED, ModelBrowser, type ModelRow } from "./model-browser";
 
@@ -28,16 +27,17 @@ type Data = { providers: AiProviderDto[]; budget: AiBudgetDto; usage: AiUsageDto
  * Real providers are UNVERIFIED (no recorded request to a live service); the mock provider is offline and says so wherever it is used.
  * The reply wording moved to the Agents tab (Settings, AI, Agents, "Reply suggestion wording").
  */
-export function AiSettings({ workspaceId }: { workspaceId: string }) {
-  return <ToastProvider><Inner workspaceId={workspaceId} /></ToastProvider>;
+export function AiSettings({ workspaceId, dev = false }: { workspaceId: string; dev?: boolean }) {
+  return <ToastProvider><Inner workspaceId={workspaceId} dev={dev} /></ToastProvider>;
 }
 
-function Inner({ workspaceId }: { workspaceId: string }) {
+function Inner({ workspaceId, dev }: { workspaceId: string; dev: boolean }) {
   const params = { workspaceId };
   const [data, setData] = React.useState<Data | null>(null);
   const [jobs, setJobs] = React.useState<AiJobModelDto[] | null>(null);
   const [jobsError, setJobsError] = React.useState<string | null>(null);
   const [loadError, setLoadError] = React.useState<string | null>(null);
+  const router = useRouter();
 
   const load = React.useCallback(async () => {
     const [p, b, u, j] = await Promise.all([
@@ -49,113 +49,163 @@ function Inner({ workspaceId }: { workspaceId: string }) {
     const bad = [p, b, u].find((r) => !r.ok);
     if (bad && !bad.ok) { setLoadError(errorMessage(bad.error)); return; }
     if (p.ok && b.ok && u.ok) { setLoadError(null); setData({ providers: p.data.items, budget: b.data, usage: u.data }); }
-  }, [workspaceId]);
+    router.refresh(); // the header card above the tabs (provider, spend) is rendered by the server
+  }, [workspaceId, router]);
   React.useEffect(() => { void load(); }, [load]); // eslint-disable-line react-hooks/set-state-in-effect
 
   if (loadError) return <ErrorState title="Could not load AI settings" description={loadError} onRetry={() => { setLoadError(null); void load(); }} />;
   if (!data) return <div className="flex flex-col gap-4" role="status" aria-label="Loading AI settings"><Skeleton className="h-48" /><Skeleton className="h-40" /><Skeleton className="h-32" /></div>;
-  const active = data.providers.find((p) => p.configured && p.enabled && p.isDefault) ?? data.providers.find((p) => p.configured && p.enabled) ?? null;
-  const connected = data.providers.some((p) => p.configured);
+  // Mock is a developer tool: outside developer mode it never counts as a working provider.
+  const real = data.providers.filter((p) => dev || !p.mock);
+  const mockOn = data.providers.find((p) => p.mock && p.configured && p.enabled) ?? null;
+  const active = real.find((p) => p.configured && p.enabled && p.isDefault) ?? real.find((p) => p.configured && p.enabled) ?? null;
   return (
-    <div className="flex flex-col gap-[var(--page-gap)]">
-      {active?.mock && <Alert tone="warning">MOCK mode. The connected provider is offline and returns canned text, so every cost shows $0.</Alert>}
-      <div className="grid items-start gap-[var(--page-gap)] 2xl:grid-cols-[minmax(0,1fr)_20rem]">
-        <div className="flex min-w-0 flex-col gap-[var(--page-gap)] 2xl:order-1">
-          {!connected && <ConnectionPanel params={params} providers={data.providers} highlight onSaved={load} />}
-          <JobsPanel workspaceId={workspaceId} providers={data.providers} active={active} jobs={jobs} jobsError={jobsError} usage={data.usage} onChanged={load} onRetry={() => { setJobsError(null); void load(); }} />
-          {connected && <ConnectionPanel params={params} providers={data.providers} highlight={false} onSaved={load} />}
-          <BudgetPanel params={params} budget={data.budget} usage={data.usage} onSaved={load} />
-          <UsagePanel usage={data.usage} />
-          <WordingPointer workspaceId={workspaceId} />
-          <Advanced workspaceId={workspaceId} providers={data.providers} active={active} onSaved={load} />
-        </div>
-        <div className="order-last 2xl:order-2"><SetupSummary providers={data.providers} active={active} jobs={jobs} usage={data.usage} /></div>
-      </div>
+    <div className="flex max-w-4xl flex-col gap-[var(--page-gap)]">
+      {mockOn && dev && <Alert tone="warning">MOCK mode. The mock provider is offline and returns canned text, so every cost shows $0.</Alert>}
+      {mockOn && !dev && <MockNotice params={params} onChanged={load} />}
+      <ConnectCard params={params} providers={real} onSaved={load} />
+      <JobsPanel workspaceId={workspaceId} providers={real} active={active} jobs={jobs} jobsError={jobsError} usage={data.usage} dev={dev} onChanged={load} onRetry={() => { setJobsError(null); void load(); }} />
+      <BudgetPanel params={params} budget={data.budget} usage={data.usage} onSaved={load} />
+      <WordingPointer workspaceId={workspaceId} />
+      <Advanced workspaceId={workspaceId} providers={real} active={active} usage={data.usage} onSaved={load} />
     </div>
   );
 }
 
 type P = { params: { workspaceId: string } };
 
-function ConnectionPanel({ params, providers, highlight, onSaved }: P & { providers: AiProviderDto[]; highlight: boolean; onSaved: () => Promise<void> }) {
+const KEY_LINKS: Record<string, string> = { openrouter: "https://openrouter.ai/keys", openai: "https://platform.openai.com/api-keys", anthropic: "https://console.anthropic.com/settings/keys" };
+
+/** A sensible first model for OpenRouter so the owner never has to pick one before connecting: cheapest paid model that takes tools and structured output and has room for a conversation. */
+export function pickStarter(items: OpenRouterModelDto[]): OpenRouterModelDto | null {
+  const ok = items.filter((m) => m.supports.tools && m.supports.structuredOutput && (m.contextLength ?? 0) >= 32000 && m.inputMicroPer1M + m.outputMicroPer1M > 0 && !m.id.endsWith(":free") && !m.id.includes(":"));
+  return ok.sort((a, b) => a.inputMicroPer1M + a.outputMicroPer1M - (b.inputMicroPer1M + b.outputMicroPer1M) || a.id.localeCompare(b.id))[0] ?? null;
+}
+const entryOfModel = (m: OpenRouterModelDto) => ({ inputMicroPer1M: m.inputMicroPer1M, outputMicroPer1M: m.outputMicroPer1M, capabilities: m.capabilities.filter((c) => c !== "text"), ...(m.contextLength ? { contextLength: m.contextLength } : {}), supports: m.supports });
+
+type Test = { kind: "idle" } | { kind: "testing" } | { kind: "ok"; ms: number; model: string; mock: boolean } | { kind: "failed"; message: string };
+
+function ConnectCard({ params, providers, onSaved }: P & { providers: AiProviderDto[]; onSaved: () => Promise<void> }) {
   const toast = useToast();
-  const initial = providers.find((x) => x.isDefault) ?? providers.find((x) => x.configured) ?? providers[0]!;
+  const initial = providers.find((x) => x.isDefault && x.configured) ?? providers.find((x) => x.configured) ?? providers[0]!;
   const [id, setId] = React.useState(initial.id);
-  const current = providers.find((x) => x.id === id)!;
-  const fill = (x: AiProviderDto) => ({ baseUrl: x.baseUrl ?? "", enabled: x.configured ? x.enabled : true, isDefault: x.configured ? x.isDefault : !providers.some((o) => o.isDefault), key: "", start: null as ModelRow | null });
-  const [form, setForm] = React.useState(() => fill(initial));
-  const [busy, setBusy] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
+  const current = providers.find((x) => x.id === id) ?? initial;
+  const [key, setKey] = React.useState("");
+  const [baseUrl, setBaseUrl] = React.useState(current.baseUrl ?? "");
   const [keyError, setKeyError] = React.useState<string | null>(null);
+  const [busy, setBusy] = React.useState(false);
+  const [test, setTest] = React.useState<Test>({ kind: "idle" });
   const [browse, setBrowse] = React.useState(false);
   const gateway = id === "openrouter";
-  const needsStart = gateway && Object.keys(current.modelPrices).length === 0;
 
-  function choose(next: string) {
-    setId(next); setError(null); setKeyError(null);
-    setForm(fill(providers.find((x) => x.id === next)!));
-  }
-  async function save() {
-    setError(null); setKeyError(null);
-    if (!current.mock && !current.configured && form.key.trim().length < 8) { setKeyError("Paste the provider's API key."); return; }
-    if (form.key && /\s/.test(form.key.trim())) { setKeyError("Paste the whole key, with no spaces."); return; }
-    if (needsStart && !form.start) { setError("Choose a starting model for OpenRouter first. You can change it for each job afterwards."); return; }
+  function choose(next: string) { setId(next); setKey(""); setKeyError(null); setTest({ kind: "idle" }); setBaseUrl(providers.find((x) => x.id === next)?.baseUrl ?? ""); }
+
+  async function connect() {
+    setKeyError(null); setTest({ kind: "idle" });
+    const k = key.trim();
+    if (!current.mock && !current.configured && k.length < 8) { setKeyError("Paste the provider's API key."); return; }
+    if (k && /\s/.test(k)) { setKeyError("Paste the whole key, with no spaces."); return; }
     setBusy(true);
+    // First connect on OpenRouter: pick a starting model for the owner (changeable any time).
+    let starter: OpenRouterModelDto | null = null;
+    if (gateway && Object.keys(current.modelPrices).length === 0) {
+      const l = await browserApi.call(endpoints.listOpenRouterModels, { params });
+      starter = l.ok ? pickStarter(l.data.items) : null;
+      if (!starter) { setBusy(false); setTest({ kind: "failed", message: l.ok ? "No suitable starting model was found. Choose one with Change model." : errorMessage(l.error) }); return; }
+    }
     const r = await browserApi.call(endpoints.setAiProvider, { params: { ...params, provider: id }, body: {
-      ...(needsStart && form.start ? { modelPrices: { [form.start.id]: form.start.entry }, defaultModel: form.start.id } : {}),
-      ...(form.key.trim() ? { apiKey: form.key.trim() } : {}), ...(current.customBaseUrl ? { baseUrl: form.baseUrl.trim() || null } : {}),
-      enabled: form.enabled, isDefault: form.isDefault && form.enabled,
+      ...(starter ? { modelPrices: { [starter.id]: entryOfModel(starter) }, defaultModel: starter.id } : {}),
+      ...(k ? { apiKey: k } : {}), ...(current.customBaseUrl ? { baseUrl: baseUrl.trim() || null } : {}),
+      enabled: true, isDefault: true,
     } });
+    setKey(""); // the key leaves the page as soon as the server answered
+    if (!r.ok) { setBusy(false); setTest({ kind: "failed", message: errorMessage(r.error) }); return; }
+    await onSaved();
+    await runTest();
     setBusy(false);
-    setForm((f) => ({ ...f, key: "" })); // the key is gone from the page as soon as the server answered
-    if (!r.ok) { setError(errorMessage(r.error)); return; }
-    toast("AI provider saved", "success");
+  }
+  async function runTest() {
+    setTest({ kind: "testing" });
+    const t = await browserApi.call(endpoints.testAiProvider, { params: { ...params, provider: id } });
+    if (!t.ok) { setTest({ kind: "failed", message: errorMessage(t.error) }); return; }
+    setTest({ kind: "ok", ms: t.data.latencyMs, model: t.data.model, mock: t.data.mock });
     await onSaved();
   }
+  async function changeModel(row: ModelRow): Promise<string | null> {
+    const r = await browserApi.call(endpoints.setAiProvider, { params: { ...params, provider: id }, body: { modelPrices: { ...current.modelPrices, [row.id]: row.entry }, defaultModel: row.id } });
+    if (!r.ok) return errorMessage(r.error);
+    toast("Model changed. Test the connection again.", "success");
+    setTest({ kind: "idle" });
+    await onSaved();
+    return null;
+  }
+
+  const tested = current.configured && !!current.lastOkAt;
+  const badge = test.kind === "testing" ? <Badge tone="neutral">Testing...</Badge>
+    : test.kind === "failed" ? <Badge tone="danger">Test failed</Badge>
+    : tested || test.kind === "ok" ? <Badge tone="success"><CheckCircle2 aria-hidden className="size-3" />Connected and tested</Badge>
+    : current.configured ? <Badge tone="warning">Key saved, not tested yet</Badge> : <Badge tone="neutral">Not connected</Badge>;
+  const link = KEY_LINKS[id];
+  const model = current.defaultModel ? (current.models.find((m) => m.id === current.defaultModel)?.label ?? current.defaultModel) : null;
 
   return (
-    <Panel id="ai-provider" className={cn("scroll-mt-14", highlight && "ring-2 ring-accent/40")}>
-      <PanelHeader title="Connection" description="Where your AI requests are sent." actions={current.mock
-        ? <Badge tone="warning">MOCK</Badge>
-        : <Badge tone="warning">Not yet tested with a real request</Badge>} />
-      <form onSubmit={(e) => { e.preventDefault(); void save(); }} className="flex flex-col gap-4 p-4" noValidate>
-        {highlight && <p className="text-sm font-medium text-accent-fg">Start here: choose a provider{providers.some((p) => !p.mock) ? ", add its key" : ""}, then pick a model for each job above.</p>}
+    <Panel id="ai-provider" className="scroll-mt-14">
+      <PanelHeader title="Connect AI" description="Paste your provider's key and test it. Replies are always drafts: a person reviews and sends them." actions={badge} />
+      <form onSubmit={(e) => { e.preventDefault(); void connect(); }} className="flex flex-col gap-4 p-4" noValidate>
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Provider">{(p) => (
             <Select {...p} value={id} disabled={busy} onChange={(e) => choose(e.target.value)}>
-              {providers.map((x) => <option key={x.id} value={x.id}>{x.label}{x.isDefault ? " (default)" : x.configured ? " (connected)" : ""}</option>)}
+              {providers.map((x) => <option key={x.id} value={x.id}>{x.label}{x.mock ? " (developer)" : ""}</option>)}
             </Select>
           )}</Field>
           {!current.mock && (
-            <Field label="API key" error={keyError} hint={current.configured && current.keyLast4 ? `A key ending in ${current.keyLast4} is stored. Leave this empty to keep it. A new key replaces it.` : "Stored encrypted. It is never shown again; only its last four characters are."}>{(p) => (
-              <Input {...p} type="password" autoComplete="off" spellCheck={false} value={form.key} disabled={busy} onChange={(e) => setForm({ ...form, key: e.target.value })} />
+            <Field label="API key" error={keyError} hint={current.configured && current.keyLast4 ? `A key ending in ${current.keyLast4} is stored. Leave this empty to keep it. A new key replaces it.` : "Stored encrypted. It is never shown again."}>{(p) => (
+              <Input {...p} type="password" autoComplete="off" spellCheck={false} value={key} disabled={busy} onChange={(e) => setKey(e.target.value)} />
             )}</Field>
           )}
           {current.customBaseUrl && (
             <Field label="Base URL (optional)" hint="OpenAI-compatible servers only. Public https." className="sm:col-span-2">{(p) => (
-              <Input {...p} inputMode="url" autoComplete="off" placeholder="https://api.openai.com/v1" value={form.baseUrl} disabled={busy} onChange={(e) => setForm({ ...form, baseUrl: e.target.value })} />
+              <Input {...p} inputMode="url" autoComplete="off" placeholder="https://api.openai.com/v1" value={baseUrl} disabled={busy} onChange={(e) => setBaseUrl(e.target.value)} />
             )}</Field>
           )}
-          {needsStart && (
-            <div className="flex flex-col gap-1.5 sm:col-span-2">
-              <span className="text-sm font-medium text-fg">Starting model</span>
-              <div className="flex flex-wrap items-center gap-2">
-                <Button type="button" variant="secondary" disabled={busy} onClick={() => setBrowse(true)}>{form.start ? "Change starting model" : "Choose a starting model"}</Button>
-                <span className="min-w-0 break-all text-sm text-fg-muted">{form.start ? form.start.name : "None yet"}</span>
-              </div>
-              <p className="text-xs text-fg-subtle">OpenRouter needs one model to start. Afterwards each job gets its own.</p>
-            </div>
-          )}
         </div>
-        <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
-          <span className="inline-flex items-center gap-2 text-sm text-fg"><Switch label="Enabled" checked={form.enabled} disabled={busy} onCheckedChange={(v) => setForm({ ...form, enabled: v, isDefault: v && form.isDefault })} />Enabled</span>
-          <Checkbox label="Use as the default provider" checked={form.isDefault && form.enabled} disabled={busy || !form.enabled} onChange={(e) => setForm({ ...form, isDefault: e.target.checked })} />
+        {link && <p className="text-sm text-fg-muted">No key yet? <a className="inline-flex items-center gap-1 font-medium text-accent-fg underline-offset-2 hover:underline" href={link} target="_blank" rel="noreferrer">Get a key<ExternalLink aria-hidden className="size-3.5" /></a></p>}
+        <div role="status" aria-live="polite" className="flex flex-col gap-2">
+          {test.kind === "ok" && <Alert tone="success">{test.mock ? "Mock answered offline. This does not prove a real provider works." : `Connected. A real request worked (${(test.ms / 1000).toFixed(1)} s).`}</Alert>}
+          {test.kind === "failed" && <Alert tone="error">{test.message}</Alert>}
+          {tested && test.kind === "idle" && current.lastOkAt && <p className="text-sm text-fg-muted">A real request last worked on {new Date(current.lastOkAt).toLocaleDateString()}.</p>}
         </div>
-        {error && <Alert tone="error">{error}</Alert>}
-        <div><Button type="submit" variant="primary" loading={busy}><Plug className="size-4" aria-hidden />{current.configured ? "Save provider" : "Connect provider"}</Button></div>
+        {model && current.configured && (
+          <p className="text-sm text-fg-muted">We use <span className="font-medium text-fg">{model}</span> for replies and notes. <button type="button" className="font-medium text-accent-fg underline-offset-2 hover:underline" onClick={() => setBrowse(true)}>Change model</button></p>
+        )}
+        <div className="flex flex-wrap gap-2">
+          <Button type="submit" variant="primary" loading={busy || test.kind === "testing"}><Plug className="size-4" aria-hidden />{current.configured ? (key.trim() ? "Save key and test" : "Test connection") : "Connect and test"}</Button>
+        </div>
       </form>
-      {browse && <ModelBrowser open onOpenChange={setBrowse} workspaceId={params.workspaceId} provider={current} title="Choose a starting model" needs="text" current={form.start?.id ?? null} onChoose={async (row) => { setForm((f) => ({ ...f, start: row })); return null; }} />}
+      {browse && <ModelBrowser open onOpenChange={setBrowse} workspaceId={params.workspaceId} provider={current} title="Choose the main model" needs="text" current={current.defaultModel} onChoose={changeModel} />}
     </Panel>
+  );
+}
+
+/** Outside developer mode: the offline mock provider is still switched on in this workspace. It returns canned text, so offer to turn it off. */
+function MockNotice({ params, onChanged }: P & { onChanged: () => Promise<void> }) {
+  const [busy, setBusy] = React.useState(false);
+  const [err, setErr] = React.useState<string | null>(null);
+  async function off() {
+    setBusy(true); setErr(null);
+    const r = await browserApi.call(endpoints.setAiProvider, { params: { ...params, provider: "mock" }, body: { enabled: false, isDefault: false } });
+    setBusy(false);
+    if (!r.ok) { setErr(errorMessage(r.error)); return; }
+    await onChanged();
+  }
+  return (
+    <Alert tone="warning">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <span>The offline test provider (Mock) is switched on. It returns made-up text, so jobs that fall back to it give fake results. Turn it off for real work.</span>
+        <Button type="button" size="sm" loading={busy} onClick={() => void off()}>Turn off Mock</Button>
+      </div>
+      {err && <p role="alert" className="mt-2 text-sm">{err}</p>}
+    </Alert>
   );
 }
 
@@ -168,7 +218,7 @@ function WordingPointer({ workspaceId }: { workspaceId: string }) {
   );
 }
 
-function Advanced({ workspaceId, providers, active, onSaved }: { workspaceId: string; providers: AiProviderDto[]; active: AiProviderDto | null; onSaved: () => Promise<void> }) {
+function Advanced({ workspaceId, providers, active, usage, onSaved }: { workspaceId: string; providers: AiProviderDto[]; active: AiProviderDto | null; usage: AiUsageDto; onSaved: () => Promise<void> }) {
   const toast = useToast();
   const [error, setError] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState<string | null>(null);
@@ -208,6 +258,7 @@ function Advanced({ workspaceId, providers, active, onSaved }: { workspaceId: st
       )}
       <CapabilitiesPanel workspaceId={workspaceId} providers={providers} />
       <MediaPlayground workspaceId={workspaceId} />
+      <UsagePanel usage={usage} />
     </section>
   );
 }

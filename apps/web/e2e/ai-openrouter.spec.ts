@@ -18,24 +18,30 @@ test.beforeAll(async ({ browser }) => {
   seed(workspaceId);
 });
 
-test("connect OpenRouter with a starting model, then pick models per job in the browser", async () => {
+test("connect OpenRouter (starting model picked for you), then pick models per job in the browser", async () => {
   await owner.setViewportSize({ width: 1440, height: 900 });
   await owner.goto(SETTINGS());
   await owner.getByLabel("Provider", { exact: true }).selectOption("openrouter");
   const key = owner.getByLabel("API key");
   await expect(key).toHaveAttribute("type", "password");
-  await expect(owner.getByText("Not yet tested with a real request", { exact: true }).first()).toBeVisible();
+  await expect(owner.locator("#ai-provider").getByText("Not connected", { exact: true })).toBeVisible();
+  await expect(owner.getByRole("link", { name: /Get a key/ })).toHaveAttribute("href", "https://openrouter.ai/keys");
 
-  // No starting model yet: saving is refused with a clear message.
+  // One step: the key is saved, a starting model is picked, and a test request is sent.
   await key.fill("sk-or-v1-E2E-SECRET-0123456789abcdef");
-  await owner.getByRole("button", { name: "Connect provider" }).click();
-  await expect(owner.getByText(/Choose a starting model for OpenRouter first/)).toBeVisible();
+  await owner.getByRole("button", { name: "Connect and test" }).click();
+  await expect(owner.getByText(/Connected\. A real request worked/)).toBeVisible();
+  await expect(owner.locator("#ai-provider").getByText("Connected and tested", { exact: true })).toBeVisible();
+  await expect(key).toHaveValue("");
+  await expect(owner.getByText(/A key ending in cdef is stored/)).toBeVisible();
+  await expect(owner.getByText(/We use mockvendor\/alpha-chat/)).toBeVisible();
 
-  await owner.getByRole("button", { name: "Choose a starting model" }).click();
-  const dlg = owner.getByRole("dialog", { name: "Choose a starting model" });
+  // Change the main model: the full list, search and the ability filter all work.
+  await owner.getByRole("button", { name: "Change model" }).click();
+  const dlg = owner.getByRole("dialog", { name: "Choose the main model" });
   await expect(dlg.getByText(/MOCK list/)).toBeVisible();
   // Router aliases and bad prices never reach the list.
-  await expect(dlg.getByRole("button", { name: /Mock Alpha Chat/ })).toBeVisible();
+  await expect(dlg.getByRole("button", { name: /Mock Beta Mini/ })).toBeVisible();
   await expect(dlg.getByText("openrouter/auto")).toHaveCount(0);
   await expect(dlg.getByText("mockvendor/broken-price")).toHaveCount(0);
   await expect(dlg.getByText("$3.00 in / $15.00 out per 1M")).toBeVisible();
@@ -45,15 +51,10 @@ test("connect OpenRouter with a starting model, then pick models per job in the 
   await dlg.getByLabel("Search models").fill("zzz-nothing");
   await expect(dlg.getByText("No models match")).toBeVisible();
   await dlg.getByLabel("Search models").fill("");
-  await dlg.getByRole("button", { name: /Mock Alpha Chat/ }).click();
-  await expect(dlg).toHaveCount(0);
-  await owner.getByRole("button", { name: "Connect provider" }).click();
-  await expect(owner.getByText("AI provider saved")).toBeVisible();
-  await expect(key).toHaveValue("");
-  await expect(owner.getByText(/A key ending in cdef is stored/)).toBeVisible();
+  await dlg.getByRole("button", { name: "Close" }).click();
 
   // The vision job offers only models that can read images; the others are listed but cannot be picked.
-  await owner.getByRole("button", { name: "Change the model for Read images customers send" }).click();
+  await owner.getByRole("button", { name: /^(Change|Set up) the model for Read images customers send$/ }).click();
   const jb = owner.getByRole("dialog", { name: /Read images customers send/ });
   await expect(jb.getByRole("button", { name: /Mock Gamma Text/ })).toHaveCount(0);
   await expect(jb.getByText(/hidden\./)).toBeVisible();
@@ -62,11 +63,11 @@ test("connect OpenRouter with a starting model, then pick models per job in the 
   await jb.getByRole("button", { name: "Close" }).click();
 
   // A text job: choose a second model, which is turned on for the workspace and pinned.
-  await owner.getByRole("button", { name: "Change the model for Reply suggestions in the inbox" }).click();
+  await owner.getByRole("button", { name: /^(Change|Set up) the model for Reply suggestions in the inbox$/ }).click();
   const rb = owner.getByRole("dialog", { name: /Reply suggestions in the inbox/ });
   await rb.getByRole("button", { name: /Mock Beta Mini/ }).click();
   await expect(owner.getByText("Reply suggestions in the inbox: model saved")).toBeVisible();
-  await expect(owner.getByRole("button", { name: "Change the model for Reply suggestions in the inbox" })).toContainText("mockvendor/beta-mini");
+  await expect(owner.getByRole("list", { name: "AI jobs" }).getByRole("listitem").filter({ hasText: "Reply suggestions in the inbox" })).toContainText("mockvendor/beta-mini");
   await expect(owner.getByLabel("Models in use").getByRole("listitem")).toHaveCount(2);
   await expect(owner.locator("body")).not.toContainText("E2E-SECRET");
 
@@ -99,6 +100,6 @@ test("a viewer cannot configure or browse (UI and API)", async ({ browser }) => 
   await addMemberByEmail(workspaceId, email, "viewer");
   await vp.goto(SETTINGS());
   await expect(vp.getByText("Only owners and admins can manage AI")).toBeVisible();
-  await expect(vp.getByRole("button", { name: /Change the model for/ })).toHaveCount(0);
+  await expect(vp.getByRole("button", { name: /(Change|Set up) the model for/ })).toHaveCount(0);
   expect((await api(vp).get(`/v1/workspaces/${workspaceId}/ai/providers/openrouter/models`)).status()).toBe(403);
 });

@@ -13,7 +13,8 @@ let owner: Page, workspaceId = "";
 const SETUP = () => `/w/${workspaceId}/settings/ai/setup`;
 const noOverflow = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
 const JOBS = ["Reply suggestions in the inbox", "Agent notes and proposed actions", "Read images customers send", "Read PDFs and documents for Knowledge", "Turn voice messages into text"];
-const change = (job: string) => owner.getByRole("button", { name: `Change the model for ${job}` });
+const change = (job: string) => owner.getByRole("button", { name: new RegExp(`^(Change|Set up) the model for ${job}$`) });
+const row = (job: string) => owner.getByRole("list", { name: "AI jobs" }).getByRole("listitem").filter({ hasText: job });
 const price = (inP: number, outP: number) => ({ inputMicroPer1M: inP, outputMicroPer1M: outP });
 
 test.beforeAll(async ({ browser }) => {
@@ -28,9 +29,8 @@ test("not connected: jobs are disabled and the connection is the way in", async 
   const list = owner.getByRole("list", { name: "AI jobs" });
   await expect(list.getByRole("listitem")).toHaveCount(5);
   for (const j of JOBS) await expect(change(j)).toBeDisabled();
-  await expect(owner.getByText("Connect a provider first").first()).toBeVisible();
-  await expect(owner.getByText(/Start here: choose a provider/)).toBeVisible();
-  await expect(owner.getByRole("heading", { name: "What this setup does" })).toBeVisible();
+  await expect(owner.getByText("Connect AI above first").first()).toBeVisible();
+  await expect(owner.getByRole("heading", { name: "Connect AI" })).toBeVisible();
 });
 
 test("five jobs, pick a model in the browser, use automatic", async () => {
@@ -45,9 +45,9 @@ test("five jobs, pick a model in the browser, use automatic", async () => {
   await expect(list.getByRole("listitem")).toHaveCount(5);
   for (const j of JOBS) await expect(list.getByRole("listitem").filter({ hasText: j })).toBeVisible();
   const reply = list.getByRole("listitem").filter({ hasText: JOBS[0]! });
-  await expect(reply).toContainText("Automatic");
-  await expect(reply).toContainText("Working");
-  await expect(list.getByRole("listitem").filter({ hasText: JOBS[2]! })).toContainText("Needs a model");
+  await expect(reply).toContainText("picked for you");
+  await expect(reply).toContainText("On");
+  await expect(list.getByRole("listitem").filter({ hasText: JOBS[2]! })).toContainText("Not set up");
 
   // The vision job: models that cannot read images are hidden by default, shown but disabled when the box is off.
   await change(JOBS[2]!).click();
@@ -61,6 +61,9 @@ test("five jobs, pick a model in the browser, use automatic", async () => {
   // Search and sort.
   await dlg.getByLabel("Search models").fill("zzz-nothing");
   await expect(dlg.getByText("No models match")).toBeVisible();
+  // Searching shows every match, even ones that cannot do the job (disabled, not hidden).
+  await dlg.getByLabel("Search models").fill("gamma");
+  await expect(dlg.getByRole("button", { name: /Mock Gamma Text/ })).toBeDisabled();
   await dlg.getByLabel("Search models").fill("alpha");
   await expect(dlg.getByRole("button", { name: /Mock Beta Mini/ })).toHaveCount(0);
   await dlg.getByLabel("Search models").fill("");
@@ -70,14 +73,14 @@ test("five jobs, pick a model in the browser, use automatic", async () => {
   // Pick it: it is turned on for the workspace and pinned to the job.
   await dlg.getByRole("button", { name: /Mock Alpha Chat/ }).click();
   await expect(owner.getByText(`${JOBS[2]!}: model saved`)).toBeVisible();
-  await expect(change(JOBS[2]!)).toContainText("mockvendor/alpha-chat");
-  await expect(list.getByRole("listitem").filter({ hasText: JOBS[2]! })).toContainText("Working");
-  await expect(list.getByRole("listitem").filter({ hasText: JOBS[2]! })).not.toContainText("Automatic");
+  await expect(row(JOBS[2]!)).toContainText("mockvendor/alpha-chat");
+  await expect(row(JOBS[2]!)).toContainText("On");
+  await expect(row(JOBS[2]!)).not.toContainText("picked for you");
   await expect(owner.getByLabel("Models in use").getByRole("listitem")).toHaveCount(2);
 
   // Persisted: a reload still shows the pin, and the API says so.
   await owner.reload();
-  await expect(change(JOBS[2]!)).toContainText("mockvendor/alpha-chat");
+  await expect(row(JOBS[2]!)).toContainText("mockvendor/alpha-chat");
   const jobs = await (await owner.request.get(`/v1/workspaces/${workspaceId}/ai/jobs`)).json();
   expect(jobs.items.find((j: { job: string }) => j.job === "vision").pinned.model).toBe("mockvendor/alpha-chat");
 

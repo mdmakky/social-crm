@@ -27,6 +27,8 @@ export const AiProviderDto = z.object({
   id: z.string(), label: z.string(), mock: z.boolean(), customBaseUrl: z.boolean(), models: z.array(AiModelDto),
   configured: z.boolean(), enabled: z.boolean(), isDefault: z.boolean(), defaultModel: z.string().nullable(), keyLast4: z.string().nullable(), baseUrl: z.string().nullable(),
   modelPrices: z.record(z.string(), Price),
+  /** When the last REAL call through this provider succeeded (a workspace run that ended ok). Null = never proven. */
+  lastOkAt: z.string().nullable(),
 });
 export type AiProviderDto = z.infer<typeof AiProviderDto>;
 export const AiProviderList = z.object({ items: z.array(AiProviderDto) });
@@ -42,6 +44,9 @@ export const SetAiProviderBody = z.object({
   modelPrices: z.record(z.string().trim().min(1).max(100), Price).refine((o) => Object.keys(o).length <= 50, "At most 50 models").optional(),
 });
 export type SetAiProviderBody = z.infer<typeof SetAiProviderBody>;
+
+export const AiProviderTestResult = z.object({ ok: z.literal(true), model: z.string(), latencyMs: z.number().int(), mock: z.boolean() });
+export type AiProviderTestResult = z.infer<typeof AiProviderTestResult>;
 
 /** OpenRouter model browser (read only). `syncedAt` = when the server fetched the list; `unverified` is always true: the list shape is documented, never recorded against the live service. */
 export const OpenRouterModelDto = z.object({
@@ -111,6 +116,8 @@ export type SetAiJobModelBody = z.infer<typeof SetAiJobModelBody>;
 export const aiEndpoints = {
   listAiProviders: endpoint({ method: "GET", path: `${W}/ai/providers`, response: AiProviderList }),
   setAiProvider: endpoint({ method: "PUT", path: `${W}/ai/providers/:provider`, body: SetAiProviderBody, response: AiProviderDto }),
+  /** Sends ONE tiny real request through the provider (and its default model) and reports whether it worked. Recorded as a run, so it counts against the budget. */
+  testAiProvider: endpoint({ method: "POST", path: `${W}/ai/providers/:provider/test`, response: AiProviderTestResult }),
   listOpenRouterModels: endpoint({ method: "GET", path: `${W}/ai/providers/openrouter/models`, response: OpenRouterModelList }),
   listAiPrompts: endpoint({ method: "GET", path: `${W}/ai/prompts`, response: AiPromptList }),
   setAiPrompt: endpoint({ method: "PUT", path: `${W}/ai/prompts/:key`, body: SetAiPromptBody, response: AiPromptDto }),

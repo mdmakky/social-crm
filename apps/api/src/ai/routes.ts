@@ -40,13 +40,13 @@ export function safeBaseUrl(raw: string): string | null {
   }
 }
 
-const toProvider = (id: string, cfg?: typeof schema.aiProviderConfigs.$inferSelect): AiProviderDto => {
+const toProvider = (id: string, cfg?: typeof schema.aiProviderConfigs.$inferSelect, lastOkAt: Date | null = null): AiProviderDto => {
   const def = PROVIDERS[id]!;
   const prices = (cfg?.modelPrices ?? {}) as PriceOverrides;
   return {
     id, label: def.label, mock: def.mock, customBaseUrl: def.customBaseUrl,
     models: modelsFor(id, prices).map((m) => ({ id: m.id, label: m.label, inputMicroPer1M: m.inputMicroPer1M, outputMicroPer1M: m.outputMicroPer1M, capabilities: [...m.capabilities], ...(m.contextLength ? { contextLength: m.contextLength } : {}), ...(m.supports ? { supports: m.supports } : {}) })),
-    configured: !!cfg, enabled: cfg?.enabled ?? false, isDefault: cfg?.isDefault ?? false, defaultModel: cfg?.defaultModel ?? null, keyLast4: cfg?.keyLast4 ?? null, baseUrl: cfg?.baseUrl ?? null, modelPrices: prices,
+    configured: !!cfg, enabled: cfg?.enabled ?? false, isDefault: cfg?.isDefault ?? false, defaultModel: cfg?.defaultModel ?? null, keyLast4: cfg?.keyLast4 ?? null, baseUrl: cfg?.baseUrl ?? null, modelPrices: prices, lastOkAt: lastOkAt?.toISOString() ?? null,
   };
 };
 
@@ -104,8 +104,33 @@ export function aiRoutes(db: Db, deps: AiRouteDeps = {}) {
 
   r.get("/ai/providers", async (c) => {
     if (!manage(c)) return forbidden(c);
-    const rows = await withContext(db, wctx(c), (tx) => tx.select().from(schema.aiProviderConfigs).where(eq(schema.aiProviderConfigs.workspaceId, c.get("workspaceId"))));
-    return c.json({ items: Object.keys(PROVIDERS).map((id) => toProvider(id, rows.find((x) => x.provider === id))) });
+    const { rows, ok } = await withContext(db, wctx(c), async (tx) => ({
+      rows: await tx.select().from(schema.aiProviderConfigs).where(eq(schema.aiProviderConfigs.workspaceId, c.get("workspaceId"))),
+      ok: await tx.select({ provider: schema.aiRuns.provider, at: sql<Date>`max(${schema.aiRuns.createdAt})` }).from(schema.aiRuns).where(and(eq(schema.aiRuns.workspaceId, c.get("workspaceId")), eq(schema.aiRuns.status, "ok"))).groupBy(schema.aiRuns.provider),
+    }));
+    return c.json({ items: Object.keys(PROVIDERS).map((id) => toProvider(id, rows.find((x) => x.provider === id), (() => { const a = ok.find((x) => x.provider === id)?.at; return a ? new Date(a) : null; })())) });
+  });
+
+  /** One tiny real call. Mock answers offline and says so (the result carries mock: true); a real provider that answers proves the key and model work. */
+  r.post("/ai/providers/:provider/test", async (c) => {
+    if (!manage(c)) return forbidden(c);
+    const id = c.req.param("provider");
+    if (!providerDef(id)) return fail(c, 404, "not_found");
+    if (!configs.allow(`${c.get("workspaceId")}:${c.get("userId")}`)) { c.header("Retry-After", "600"); return fail(c, 429, "rate_limited", "Too many tests. Try again in a few minutes."); }
+    if (!deps.ai) return fail(c, 503, "ai_unavailable", "AI is not available on this server.");
+    const { workspaceId, userId } = wctx(c);
+    const t0 = Date.now();
+    const res = await runAi(deps.ai, { workspaceId, userId, capability: "connection_test", promptKey: "connection_test", vars: {}, system: "Reply with the single word OK.", input: "Connection test.", maxOutputTokens: 8, provider: id });
+    if (res.ok) return c.json({ ok: true as const, model: res.model, latencyMs: Date.now() - t0, mock: res.mock });
+    switch (res.code) {
+      case "not_configured": return fail(c, 409, "not_configured", "Save the provider first, with its key and a model.");
+      case "budget_exceeded": return fail(c, 409, "budget_exceeded", "The monthly AI budget is used up, so the test was not sent.");
+      case "auth": case "key_unavailable": return fail(c, 502, "ai_key_rejected", "The key was rejected. Check it and try again.");
+      case "payment_required": return fail(c, 402, "payment_required", MEDIA_FAILURES.payment_required.message);
+      case "rate_limit": return fail(c, 429, "ai_busy", "The provider is busy. Try again in a moment.");
+      case "timeout": return fail(c, 502, "ai_unavailable", "The provider did not answer in time. Try again.");
+      default: return fail(c, 502, "ai_unavailable", "The provider did not accept the request. Check the key and the model, then try again.");
+    }
   });
 
   r.put("/ai/providers/:provider", async (c) => {

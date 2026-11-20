@@ -9,6 +9,7 @@ import { axe, seed } from "./channel-helpers";
 test.describe.configure({ mode: "serial" });
 
 let owner: Page, workspaceId = "";
+const ORIGIN = `http://localhost:${process.env.E2E_WEB_PORT ?? "3217"}`;
 const SETTINGS = () => `/w/${workspaceId}/settings/ai/setup`;
 const noOverflow = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
 
@@ -20,29 +21,25 @@ test.beforeAll(async ({ browser }) => {
 
 test("configure the mock provider and a budget", async () => {
   await owner.goto(SETTINGS());
-  await expect(owner.getByRole("heading", { name: "Connection", exact: true })).toBeVisible();
-  await expect(owner.getByText("MOCK", { exact: true }).first()).toBeVisible();
+  await expect(owner.getByRole("heading", { name: "Connect AI", exact: true })).toBeVisible();
+  await expect(owner.getByLabel("Provider", { exact: true })).toContainText("Mock (offline) (developer)");
   await expect(owner.getByLabel("API key")).toHaveCount(0); // the mock takes no key
-  await owner.getByRole("button", { name: "Connect provider" }).click();
-  await expect(owner.getByText("AI provider saved")).toBeVisible();
-  await expect(owner.getByRole("button", { name: "Save provider" })).toBeVisible();
-  await expect(owner.getByLabel("Provider", { exact: true })).toContainText("Mock (offline) (default)");
+  await owner.getByRole("button", { name: "Connect and test" }).click();
+  await expect(owner.getByText(/Mock answered offline/)).toBeVisible();
+  await expect(owner.getByRole("button", { name: "Test connection" })).toBeVisible();
 
-  // A real provider shows a password field that is cleared after saving and never comes back.
+  // A real provider shows a password field that is cleared after saving and never comes back. (Saved through the API: the UI would also send a test request to the real service.)
   await owner.getByLabel("Provider", { exact: true }).selectOption("anthropic");
-  const key = owner.getByLabel("API key");
-  await expect(key).toHaveAttribute("type", "password");
-  await expect(owner.getByText("Not yet tested with a real request", { exact: true })).toBeVisible();
-  await key.fill("sk-ant-E2E-SECRET-0123456789abcdef");
-  await owner.getByLabel("Use as the default provider").uncheck();
-  await owner.getByRole("button", { name: "Connect provider" }).click();
-  await expect(owner.getByText("AI provider saved")).toBeVisible();
-  await expect(key).toHaveValue("");
-  await expect(owner.getByText(/A key ending in cdef is stored/)).toBeVisible();
+  await expect(owner.getByLabel("API key")).toHaveAttribute("type", "password");
+  await expect(owner.locator("#ai-provider").getByText("Not connected", { exact: true })).toBeVisible();
+  const saved = await owner.request.put(`/v1/workspaces/${workspaceId}/ai/providers/anthropic`, { headers: { origin: ORIGIN }, data: { apiKey: "sk-ant-E2E-SECRET-0123456789abcdef", enabled: true, isDefault: false } });
+  expect(saved.status()).toBe(200);
   await owner.reload();
   await expect(owner.locator("body")).not.toContainText("E2E-SECRET");
   await owner.getByLabel("Provider", { exact: true }).selectOption("anthropic");
   await expect(owner.getByLabel("API key")).toHaveValue("");
+  await expect(owner.getByText(/A key ending in cdef is stored/)).toBeVisible();
+  await expect(owner.locator("#ai-provider").getByText("Key saved, not tested yet", { exact: true })).toBeVisible();
 
   // The mock stays the default; budget saves and survives a reload.
   await owner.getByLabel("Monthly limit (USD)").fill("5");
@@ -152,7 +149,7 @@ test("a viewer cannot configure or use AI (UI and API)", async ({ browser }) => 
   await addMemberByEmail(workspaceId, email, "viewer");
   await vp.goto(SETTINGS());
   await expect(vp.getByText("Only owners and admins can manage AI")).toBeVisible();
-  await expect(vp.getByRole("button", { name: "Connect provider" })).toHaveCount(0);
+  await expect(vp.getByRole("button", { name: /Connect and test|Test connection/ })).toHaveCount(0);
   const W = `/v1/workspaces/${workspaceId}`;
   expect((await api(vp).get(`${W}/ai/providers`)).status()).toBe(403);
   expect((await api(vp).get(`${W}/ai/usage`)).status()).toBe(403);

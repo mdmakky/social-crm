@@ -40,7 +40,7 @@ export default defineConfig({
       url: `${WEB}/login`,
       reuseExistingServer: false,
       timeout: 240_000,
-      env: { API_URL: API },
+      env: { API_URL: API, AI_DEV_MODE: "1" },
     },
   ],
 });

@@ -14,7 +14,7 @@ import { browserApi, errorMessage } from "@/lib/client-api";
 import { formatMicro } from "@/lib/ai-money";
 
 export const MAX_ENABLED = 50;
-const SHOWN = 150;
+const SHOWN = 1000;
 /** What a provider keeps per enabled model (the shape PUT /ai/providers/:provider takes in modelPrices). */
 export type Picked = Record<string, { inputMicroPer1M: number; outputMicroPer1M: number; capabilities?: AiCapability[]; contextLength?: number; supports?: { tools: boolean; structuredOutput: boolean } }>;
 
@@ -77,8 +77,10 @@ function Body({ workspaceId, provider, title, needs, current, onChoose, onClose 
   const q = text.trim().toLowerCase();
   const matched = rows.filter((r) => (!q || `${r.id} ${r.name} ${r.maker}`.toLowerCase().includes(q)) && filters.every((f) => r_has(r, f)));
   const able = matched.filter((r) => r_has(r, needs));
-  const hidden = hide ? matched.length - able.length : 0;
-  const shownAll = (hide ? able : matched).slice().sort(sort === "price" ? (a, b) => a.inMicro + a.outMicro - (b.inMicro + b.outMicro) || a.name.localeCompare(b.name) : sort === "name" ? (a, b) => a.name.localeCompare(b.name) : (a, b) => a.maker.localeCompare(b.maker) || a.name.localeCompare(b.name));
+  // Typing a search shows every match, so nothing is hidden from someone looking for a model by name; models that cannot do the job stay disabled.
+  const hiding = hide && !q;
+  const hidden = hiding ? matched.length - able.length : 0;
+  const shownAll = (hiding ? able : matched).slice().sort(sort === "price" ? (a, b) => a.inMicro + a.outMicro - (b.inMicro + b.outMicro) || a.name.localeCompare(b.name) : sort === "name" ? (a, b) => a.name.localeCompare(b.name) : (a, b) => a.maker.localeCompare(b.maker) || a.name.localeCompare(b.name));
   const shown = shownAll.slice(0, SHOWN);
   const groups = sort === "maker" ? [...new Set(shown.map((r) => r.maker))].map((m) => [m, shown.filter((r) => r.maker === m)] as const) : [["", shown] as const];
 
@@ -89,7 +91,7 @@ function Body({ workspaceId, provider, title, needs, current, onChoose, onClose 
     if (msg) setError(msg); else onClose();
   }
   const toggle = (c: AiCapability) => setFilters((f) => (f.includes(c) ? f.filter((x) => x !== c) : [...f, c]));
-  const line = `Showing ${hide ? able.length : matched.length} of ${matched.length}${hidden > 0 ? `, ${hidden} hidden` : ""}.`;
+  const line = `Showing ${hiding ? able.length : matched.length} of ${matched.length}${hidden > 0 ? `, ${hidden} hidden` : ""}.`;
 
   return (
     <DialogContent title={title} description="Choosing a model turns it on for this workspace and uses it for this job. Prices are indicative, in USD." className="md:max-w-2xl max-md:h-dvh max-md:max-h-none max-md:rounded-none">
@@ -117,7 +119,7 @@ function Body({ workspaceId, provider, title, needs, current, onChoose, onClose 
             <p className="text-sm text-fg-muted" role="status" aria-live="polite">{line}{shownAll.length > SHOWN ? ` Only the first ${SHOWN} are listed: refine the search.` : ""}</p>
             {error && <Alert tone="error">{error}</Alert>}
             {shown.length === 0
-              ? <EmptyState icon={Search} title="No models match" description="Change the search, or turn a filter off." />
+              ? <EmptyState icon={Search} title="No models match" description={hidden > 0 ? "No listed model can do this job. Turn off \"Hide models that cannot do this job\" to see them all." : "Change the search, or turn a filter off."} />
               : (
                 <div className="flex flex-col gap-1 md:max-h-[42dvh] md:overflow-y-auto" role="group" aria-label="Models">
                   {groups.map(([maker, list]) => (
